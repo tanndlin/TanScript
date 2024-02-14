@@ -6,9 +6,10 @@ import {
     EOFASTNode,
     MultiplyASTNode,
     NumberASTNode,
+    RootASTNode,
     SubtractASTNode,
-} from './src/AST';
-import { LexerToken, Token } from './src/types';
+} from './AST';
+import { LexerToken, Token } from './types';
 
 export default class Parser {
     private pos = 0;
@@ -17,7 +18,10 @@ export default class Parser {
 
     parse(): AST {
         // parse the tokens
-        const root = this.parseNext();
+        const root = new RootASTNode();
+        while (this.pos < this.tokens.length) {
+            root.addChild(this.parseNext());
+        }
 
         return new AST(root);
     }
@@ -25,6 +29,7 @@ export default class Parser {
     private parseNext(): ASTNode {
         const curToken = this.tokens[this.pos];
         if (curToken.getType() === Token.EOF) {
+            this.pos++;
             return new EOFASTNode();
         }
 
@@ -32,6 +37,7 @@ export default class Parser {
         if (curToken.getType() === Token.NUMBER) {
             const numberAST = new NumberASTNode(curToken.getValue());
             if (this.pos + 1 >= this.tokens.length) {
+                this.pos++;
                 return numberAST;
             }
 
@@ -54,7 +60,7 @@ export default class Parser {
                     return numberAST;
                 default:
                     throw new Error(
-                        'Unexpected token: ' + nextToken.getValue()
+                        `Unexpected token: ${nextToken.getValue()}`
                     );
             }
         }

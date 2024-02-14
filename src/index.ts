@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import util from 'util';
-import Parser from '../Parser';
+import Parser from './Parser';
 import Lexer from './lexer';
 
 const script = fs.readFileSync('script.tan', 'utf8');

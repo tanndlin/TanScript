@@ -40,6 +40,8 @@ class Lexer {
 
             this.pos++;
         }
+
+        this.tokens.push(new LexerToken(Token.EOF, ''));
     }
 
     // Reads a whole number and leaves pos at the next char

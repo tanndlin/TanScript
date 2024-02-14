@@ -7,6 +7,7 @@ export enum Token {
     LPAREN = 'LPAREN',
     RPAREN = 'RPAREN',
     EOF = 'EOF',
+    ROOT = 'ROOT',
 }
 
 export class LexerToken {

@@ -1,22 +1,33 @@
 import { Token } from './types';
 
-export class ASTNode {
-    protected type: Token;
-    protected value: string;
-    protected children: ASTNode[];
-
-    constructor(type: Token, value: string, children: ASTNode[]) {
-        this.type = type;
-        this.value = value;
-        this.children = children;
-    }
-}
-
 export class AST {
-    constructor(private root: ASTNode) {}
+    constructor(private root: RootASTNode) {}
 
     getRoot() {
         return this.root;
+    }
+}
+
+export class RootASTNode {
+    protected children: ASTNode[];
+
+    constructor(children?: ASTNode[]) {
+        this.children = children ?? [];
+    }
+
+    addChild(node: ASTNode) {
+        this.children.push(node);
+    }
+}
+
+export class ASTNode extends RootASTNode {
+    protected type: Token;
+    protected value: string;
+
+    constructor(type: Token, value: string, children: ASTNode[]) {
+        super(children);
+        this.type = type;
+        this.value = value;
     }
 }
 
