@@ -10,6 +10,13 @@ export enum Token {
     ROOT = 'ROOT',
 }
 
+export const OPERATORS = new Set([
+    Token.PLUS,
+    Token.MINUS,
+    Token.MULTIPLY,
+    Token.DIVIDE,
+]);
+
 export class LexerToken {
     private type: Token;
     private value: string;

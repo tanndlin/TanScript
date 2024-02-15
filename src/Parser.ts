@@ -11,7 +11,7 @@ import {
     RootASTNode,
     SubtractASTNode,
 } from './AST';
-import { LexerToken, Token } from './types';
+import { LexerToken, OPERATORS, Token } from './types';
 
 export default class Parser {
     private pos = 0;
@@ -35,16 +35,19 @@ export default class Parser {
             return new EOFASTNode();
         }
 
-        if (curToken.getType() === Token.LPAREN) {
-            return this.parseLParen();
-        }
-
-        if (curToken.getType() === Token.NUMBER) {
+        if (
+            curToken.getType() === Token.NUMBER ||
+            curToken.getType() === Token.LPAREN
+        ) {
             return this.parseExpressionOrNumber();
         }
 
-        this.pos++;
-        return new EOFASTNode();
+        if (OPERATORS.has(curToken.getType())) {
+            // The last token was the left side of an expression
+            return this.parseExpressionOrNumber();
+        }
+
+        throw new Error(`Unexpected token: ${curToken.getValue()}`);
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
@@ -59,48 +62,48 @@ export default class Parser {
             );
         }
 
-        if (curToken.getType() === Token.LPAREN) {
-            return this.parseLParen();
+        let leftAST;
+        if (curToken.getType() === Token.LPAREN) leftAST = this.parseLParen();
+        if (curToken.getType() === Token.NUMBER) {
+            leftAST = new NumberASTNode(curToken.getValue());
+            this.pos++;
         }
 
-        const numberAST = new NumberASTNode(curToken.getValue());
+        if (!leftAST) throw new Error('leftAST is undefined');
+
         if (this.pos + 1 >= this.tokens.length) {
             this.pos++;
-            return numberAST;
+            return leftAST;
         }
 
-        const nextToken = this.tokens[this.pos + 1];
+        const nextToken = this.tokens[this.pos];
         switch (nextToken.getType()) {
             case Token.PLUS:
-                this.pos += 2;
-                return new AddASTNode(
-                    numberAST,
-                    this.parseExpressionOrNumber()
-                );
+                this.pos++;
+                return new AddASTNode(leftAST, this.parseExpressionOrNumber());
             case Token.MINUS:
-                this.pos += 2;
+                this.pos++;
                 return new SubtractASTNode(
-                    numberAST,
+                    leftAST,
                     this.parseExpressionOrNumber()
                 );
             case Token.MULTIPLY:
-                this.pos += 2;
+                this.pos++;
                 return new MultiplyASTNode(
-                    numberAST,
+                    leftAST,
                     this.parseExpressionOrNumber()
                 );
             case Token.DIVIDE:
-                this.pos += 2;
+                this.pos++;
                 return new DivideASTNode(
-                    numberAST,
+                    leftAST,
                     this.parseExpressionOrNumber()
                 );
             case Token.EOF:
                 this.pos++;
-                return numberAST;
+                return leftAST;
             case Token.RPAREN:
-                this.pos++;
-                return numberAST;
+                return leftAST;
             default:
                 throw new Error(
                     `Unexpected token: ${nextToken.getValue()}. Expected an operator or EOF`
