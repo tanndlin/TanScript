@@ -4,8 +4,10 @@ import {
     AddASTNode,
     DivideASTNode,
     EOFASTNode,
+    LParenASTNode,
     MultiplyASTNode,
     NumberASTNode,
+    RParenASTNode,
     RootASTNode,
     SubtractASTNode,
 } from './AST';
@@ -33,6 +35,10 @@ export default class Parser {
             return new EOFASTNode();
         }
 
+        if (curToken.getType() === Token.LPAREN) {
+            return this.parseLParen();
+        }
+
         if (curToken.getType() === Token.NUMBER) {
             return this.parseExpressionOrNumber();
         }
@@ -44,8 +50,17 @@ export default class Parser {
     // If the current token is a number, make sure next token is either an operator or EOF
     parseExpressionOrNumber(): ASTNode {
         const curToken = this.tokens[this.pos];
-        if (curToken.getType() !== Token.NUMBER) {
-            throw new Error(`Unexpected token: ${curToken.getValue()}`);
+        if (
+            curToken.getType() !== Token.NUMBER &&
+            curToken.getType() !== Token.LPAREN
+        ) {
+            throw new Error(
+                `Unexpected token: ${curToken.getValue()}. Expected an expression or number`
+            );
+        }
+
+        if (curToken.getType() === Token.LPAREN) {
+            return this.parseLParen();
         }
 
         const numberAST = new NumberASTNode(curToken.getValue());
@@ -83,8 +98,32 @@ export default class Parser {
             case Token.EOF:
                 this.pos++;
                 return numberAST;
+            case Token.RPAREN:
+                this.pos++;
+                return numberAST;
             default:
-                throw new Error(`Unexpected token: ${nextToken.getValue()}`);
+                throw new Error(
+                    `Unexpected token: ${nextToken.getValue()}. Expected an operator or EOF`
+                );
         }
+    }
+
+    parseLParen(): ASTNode {
+        this.pos++;
+        const lParenNode = new LParenASTNode();
+        const expression = this.parseExpressionOrNumber();
+        const nextToken = this.tokens[this.pos];
+        if (nextToken.getType() !== Token.RPAREN) {
+            throw new Error(
+                `Unexpected token: ${nextToken.getValue()}. Expected RPAREN`
+            );
+        }
+
+        lParenNode.addChild(expression);
+        lParenNode.addChild(new RParenASTNode());
+
+        // Consume the RParen
+        this.pos++;
+        return lParenNode;
     }
 }

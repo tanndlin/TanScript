@@ -66,3 +66,15 @@ export class EOFASTNode extends ASTNode {
         super(Token.EOF, '', []);
     }
 }
+
+export class LParenASTNode extends ASTNode {
+    constructor() {
+        super(Token.LPAREN, '(', []);
+    }
+}
+
+export class RParenASTNode extends ASTNode {
+    constructor() {
+        super(Token.RPAREN, ')', []);
+    }
+}
