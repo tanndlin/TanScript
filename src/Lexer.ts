@@ -51,7 +51,8 @@ class Lexer {
             this.pos++;
         }
 
-        return parseInt(this.script.substring(start, this.pos));
+        this.pos--;
+        return parseInt(this.script.substring(start, this.pos + 1));
     }
 
     getTokens(): LexerToken[] {
