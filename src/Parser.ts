@@ -100,6 +100,7 @@ export default class Parser {
                     this.parseExpressionOrNumber()
                 );
             case Token.EOF:
+            case Token.SEMI:
                 this.pos++;
                 return leftAST;
             case Token.RPAREN:

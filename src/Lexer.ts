@@ -21,21 +21,14 @@ class Lexer {
 
             const tokenType = valueToToken(char);
             switch (tokenType) {
-                case Token.PLUS:
-                case Token.MINUS:
-                case Token.MULTIPLY:
-                case Token.DIVIDE:
-                case Token.LPAREN:
-                case Token.RPAREN:
-                    this.tokens.push(new LexerToken(tokenType, char));
-                    break;
-
                 case Token.NUMBER:
                     const number = this.readNumber();
                     this.tokens.push(
                         new LexerToken(tokenType, number.toString())
                     );
                     break;
+                default:
+                    this.tokens.push(new LexerToken(tokenType, char));
             }
 
             this.pos++;

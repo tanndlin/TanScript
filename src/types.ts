@@ -8,6 +8,7 @@ export enum Token {
     RPAREN = 'RPAREN',
     EOF = 'EOF',
     ROOT = 'ROOT',
+    SEMI = 'SEMI',
 }
 
 export const OPERATORS = new Set([

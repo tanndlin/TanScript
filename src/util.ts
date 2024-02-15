@@ -14,6 +14,8 @@ export const valueToToken = (value: string): Token => {
             return Token.LPAREN;
         case ')':
             return Token.RPAREN;
+        case ';':
+            return Token.SEMI;
         default:
             return Token.NUMBER;
     }
