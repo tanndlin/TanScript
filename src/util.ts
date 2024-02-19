@@ -16,7 +16,11 @@ export const valueToToken = (value: string): Token => {
             return Token.RPAREN;
         case ';':
             return Token.SEMI;
+        case '=':
+            return Token.ASSIGN;
         default:
-            return Token.NUMBER;
+            // Check for numbers and identifiers
+            if (!isNaN(Number(value))) return Token.NUMBER;
+            return Token.IDENTIFIER;
     }
 };

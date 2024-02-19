@@ -18,6 +18,8 @@ export default class Environment {
     }
 
     private evaluateNode(node: ASTNode, scope: Scope): any {
+        if (!node) return null;
+
         switch (node.getType()) {
             case Token.NUMBER:
                 return parseInt(node.getValue());
@@ -52,6 +54,17 @@ export default class Environment {
             }
             case Token.LPAREN:
                 return this.evaluateNode(node.getChildren()[0], scope);
+            case Token.DECLERATION: {
+                const [assignment] = node.getChildren();
+                const [identifier, value] = assignment.getChildren();
+
+                const evaluatedValue = this.evaluateNode(value, scope);
+                scope.addVariable(identifier.getValue(), evaluatedValue);
+                return evaluatedValue;
+            }
+            case Token.IDENTIFIER: {
+                return scope.getVariable(node.getValue());
+            }
             case Token.SEMI:
             case Token.EOF:
                 return;
@@ -88,5 +101,9 @@ class Scope {
     addScope(name: string, scope: Scope) {
         this.scopes.set(name, scope);
         scope.parent = this;
+    }
+
+    addVariable(name: string, value: any) {
+        this.variables.set(name, value);
     }
 }

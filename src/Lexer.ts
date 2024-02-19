@@ -14,7 +14,7 @@ class Lexer {
         while (this.pos < this.script.length) {
             const char = this.script[this.pos];
             // If char is whitespace, skip
-            if (char === ' ' || char === '\n' || char === '\t') {
+            if (/\s/.test(char)) {
                 this.pos++;
                 continue;
             }
@@ -26,6 +26,17 @@ class Lexer {
                     this.tokens.push(
                         new LexerToken(tokenType, number.toString())
                     );
+                    break;
+                case Token.IDENTIFIER:
+                    const identifier = this.readIdentifier();
+                    if (identifier === 'let')
+                        this.tokens.push(
+                            new LexerToken(Token.DECLERATION, identifier)
+                        );
+                    else
+                        this.tokens.push(
+                            new LexerToken(Token.IDENTIFIER, identifier)
+                        );
                     break;
                 default:
                     this.tokens.push(new LexerToken(tokenType, char));
@@ -46,6 +57,31 @@ class Lexer {
 
         this.pos--;
         return parseInt(this.script.substring(start, this.pos + 1));
+    }
+
+    readIdentifier() {
+        const validChars = new Set([
+            '_',
+            ...Array.from({ length: 26 }, (_, i) =>
+                String.fromCharCode(i + 97)
+            ),
+            ...Array.from({ length: 26 }, (_, i) =>
+                String.fromCharCode(i + 65)
+            ),
+            ...Array.from({ length: 10 }, (_, i) =>
+                String.fromCharCode(i + 48)
+            ),
+        ]);
+
+        const start = this.pos;
+        while (
+            validChars.has(this.script[this.pos]) &&
+            this.pos < this.script.length
+        ) {
+            this.pos++;
+        }
+
+        return this.script.substring(start, this.pos);
     }
 
     getTokens(): LexerToken[] {

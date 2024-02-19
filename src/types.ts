@@ -9,6 +9,9 @@ export enum Token {
     EOF = 'EOF',
     ROOT = 'ROOT',
     SEMI = 'SEMI',
+    DECLERATION = 'DECLERATION',
+    IDENTIFIER = 'IDENTIFIER',
+    ASSIGN = 'ASSIGN',
 }
 
 export const OPERATORS = new Set([

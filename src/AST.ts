@@ -90,3 +90,27 @@ export class RParenASTNode extends ASTNode {
         super(Token.RPAREN, ')', []);
     }
 }
+
+export class SemiASTNode extends ASTNode {
+    constructor() {
+        super(Token.SEMI, ';', []);
+    }
+}
+
+export class DeclarationASTNode extends ASTNode {
+    constructor() {
+        super(Token.DECLERATION, 'let', []);
+    }
+}
+
+export class IdentifierASTNode extends ASTNode {
+    constructor(value: string) {
+        super(Token.IDENTIFIER, value, []);
+    }
+}
+
+export class AssignASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.ASSIGN, '=', [left, right]);
+    }
+}

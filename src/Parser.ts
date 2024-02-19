@@ -2,8 +2,11 @@ import {
     AST,
     ASTNode,
     AddASTNode,
+    AssignASTNode,
+    DeclarationASTNode,
     DivideASTNode,
     EOFASTNode,
+    IdentifierASTNode,
     LParenASTNode,
     MultiplyASTNode,
     NumberASTNode,
@@ -42,6 +45,10 @@ export default class Parser {
             return this.parseExpressionOrNumber();
         }
 
+        if (curToken.getType() === Token.DECLERATION) {
+            return this.parseDecleration();
+        }
+
         if (OPERATORS.has(curToken.getType())) {
             // The last token was the left side of an expression
             return this.parseExpressionOrNumber();
@@ -55,16 +62,21 @@ export default class Parser {
         const curToken = this.tokens[this.pos];
         if (
             curToken.getType() !== Token.NUMBER &&
-            curToken.getType() !== Token.LPAREN
+            curToken.getType() !== Token.LPAREN &&
+            curToken.getType() !== Token.IDENTIFIER
         ) {
             throw new Error(
                 `Unexpected token: ${curToken.getValue()}. Expected an expression or number`
             );
         }
 
-        let leftAST;
-        if (curToken.getType() === Token.LPAREN) leftAST = this.parseLParen();
-        if (curToken.getType() === Token.NUMBER) {
+        let leftAST: ASTNode;
+        if (curToken.getType() === Token.LPAREN) {
+            leftAST = this.parseLParen();
+        } else if (curToken.getType() === Token.IDENTIFIER) {
+            leftAST = new IdentifierASTNode(curToken.getValue());
+            this.pos++;
+        } else {
             leftAST = new NumberASTNode(curToken.getValue());
             this.pos++;
         }
@@ -129,5 +141,41 @@ export default class Parser {
         // Consume the RParen
         this.pos++;
         return lParenNode;
+    }
+
+    parseDecleration(): DeclarationASTNode {
+        const curToken = this.tokens[this.pos];
+        if (curToken.getType() !== Token.DECLERATION) {
+            throw new Error(
+                `Unexpected token: ${curToken.getValue()}. Expected DECLERATION`
+            );
+        }
+
+        this.pos++;
+        const identToken = this.tokens[this.pos];
+        if (identToken.getType() !== Token.IDENTIFIER) {
+            throw new Error(
+                `Unexpected token: ${identToken.getValue()}. Expected IDENTIFIER`
+            );
+        }
+
+        this.pos++;
+        const assignToken = this.tokens[this.pos];
+        if (assignToken.getType() !== Token.ASSIGN) {
+            const declAST = new DeclarationASTNode();
+            const identAST = new IdentifierASTNode(identToken.getValue());
+            declAST.addChild(identAST);
+            return declAST;
+        }
+
+        this.pos++;
+        const expressionAST = this.parseExpressionOrNumber();
+
+        const declAST = new DeclarationASTNode();
+        const identAST = new IdentifierASTNode(identToken.getValue());
+        const assignAST = new AssignASTNode(identAST, expressionAST);
+        declAST.addChild(assignAST);
+
+        return declAST;
     }
 }
