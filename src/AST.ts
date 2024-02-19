@@ -18,6 +18,10 @@ export class RootASTNode {
     addChild(node: ASTNode) {
         this.children.push(node);
     }
+
+    public getChildren(): ASTNode[] {
+        return this.children;
+    }
 }
 
 export class ASTNode extends RootASTNode {
@@ -28,6 +32,14 @@ export class ASTNode extends RootASTNode {
         super(children);
         this.type = type;
         this.value = value;
+    }
+
+    public getType(): Token {
+        return this.type;
+    }
+
+    public getValue(): string {
+        return this.value;
     }
 }
 
