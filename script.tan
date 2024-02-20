@@ -1,4 +1,4 @@
 let x = 2;
-let y = x * 13;
+let y = x*13;
 let z = x + y;
-
+z = z + 1;

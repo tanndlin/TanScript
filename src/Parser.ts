@@ -49,6 +49,12 @@ export default class Parser {
             return this.parseDecleration();
         }
 
+        if (curToken.getType() === Token.IDENTIFIER) {
+            console.log('parsing assignment');
+
+            return this.parseAssignment();
+        }
+
         if (OPERATORS.has(curToken.getType())) {
             // The last token was the left side of an expression
             return this.parseExpressionOrNumber();
@@ -152,6 +158,13 @@ export default class Parser {
         }
 
         this.pos++;
+        const assignASTNode = this.parseAssignment();
+        const declAST = new DeclarationASTNode();
+        declAST.addChild(assignASTNode);
+        return declAST;
+    }
+
+    parseAssignment(): AssignASTNode {
         const identToken = this.tokens[this.pos];
         if (identToken.getType() !== Token.IDENTIFIER) {
             throw new Error(
@@ -171,11 +184,7 @@ export default class Parser {
         this.pos++;
         const expressionAST = this.parseExpressionOrNumber();
 
-        const declAST = new DeclarationASTNode();
         const identAST = new IdentifierASTNode(identToken.getValue());
-        const assignAST = new AssignASTNode(identAST, expressionAST);
-        declAST.addChild(assignAST);
-
-        return declAST;
+        return new AssignASTNode(identAST, expressionAST);
     }
 }
