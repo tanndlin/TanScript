@@ -62,6 +62,12 @@ export default class Environment {
                 scope.addVariable(identifier.getValue(), evaluatedValue);
                 return evaluatedValue;
             }
+            case Token.ASSIGN: {
+                const [identifier, value] = node.getChildren();
+                const evaluatedValue = this.evaluateNode(value, scope);
+                scope.addVariable(identifier.getValue(), evaluatedValue);
+                return evaluatedValue;
+            }
             case Token.IDENTIFIER: {
                 return scope.getVariable(node.getValue());
             }
