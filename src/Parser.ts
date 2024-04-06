@@ -66,17 +66,11 @@ export default class Parser {
     }
 
     parseBlock(): ASTNode {
-        if (this.tokens[this.pos].getType() !== Token.LCURLY)
-            throw new ParserError(
-                'Unexpected token in parseBlock. Expected LCURLY'
-            );
+        this.consumeToken(Token.LCURLY);
 
-        this.pos++;
         const children: ASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RCURLY) {
             children.push(this.parseNext());
-            console.log(children[children.length - 1].getValue());
-            console.log('Next:', this.tokens[this.pos].getType());
         }
 
         // Consume the RCURLY
@@ -86,30 +80,24 @@ export default class Parser {
 
     // If the current token is a number, make sure next token is either an operator or EOF
     parseExpressionOrNumber(): ASTNode {
-        const curToken = this.tokens[this.pos];
-        if (
-            curToken.getType() !== Token.NUMBER &&
-            curToken.getType() !== Token.LPAREN &&
-            curToken.getType() !== Token.IDENTIFIER
-        ) {
-            throw new ParserError(
-                `Unexpected token: ${curToken.getValue()}. Expected an expression or number`
-            );
-        }
+        const curToken = this.consumeOneOf([
+            Token.NUMBER,
+            Token.LPAREN,
+            Token.IDENTIFIER,
+        ]);
 
         let leftAST: ASTNode;
         if (curToken.getType() === Token.LPAREN) {
             leftAST = this.parseLParen();
         } else if (curToken.getType() === Token.IDENTIFIER) {
             leftAST = new IdentifierASTNode(curToken.getValue());
-            this.pos++;
         } else {
             leftAST = new NumberASTNode(curToken.getValue());
-            this.pos++;
         }
 
         if (!leftAST) throw new ParserError('leftAST is undefined');
 
+        // TODO CHECK THIS
         if (this.pos + 1 >= this.tokens.length) {
             this.pos++;
             return leftAST;
@@ -153,37 +141,19 @@ export default class Parser {
     }
 
     parseLParen(): ASTNode {
-        this.pos++;
         const lParenNode = new LParenASTNode();
         const expression = this.parseExpressionOrNumber();
-
-        if (this.pos >= this.tokens.length)
-            throw new ParserError('Unexpected EOF');
-
-        const nextToken = this.tokens[this.pos];
-        if (nextToken.getType() !== Token.RPAREN) {
-            throw new ParserError(
-                `Unexpected token: ${nextToken.getValue()}. Expected RPAREN`
-            );
-        }
+        this.consumeToken(Token.RPAREN);
 
         lParenNode.addChild(expression);
         lParenNode.addChild(new RParenASTNode());
 
-        // Consume the RParen
-        this.pos++;
         return lParenNode;
     }
 
     parseDecleration(): DeclarationASTNode {
-        const curToken = this.tokens[this.pos];
-        if (curToken.getType() !== Token.DECLERATION) {
-            throw new ParserError(
-                `Unexpected token: ${curToken.getValue()}. Expected DECLERATION`
-            );
-        }
+        this.consumeToken(Token.DECLERATION);
 
-        this.pos++;
         const assignASTNode = this.parseAssignment();
         const declAST = new DeclarationASTNode();
         declAST.addChild(assignASTNode);
@@ -191,32 +161,19 @@ export default class Parser {
     }
 
     parseAssignment(): AssignASTNode {
-        const identToken = this.tokens[this.pos];
-        if (identToken.getType() !== Token.IDENTIFIER) {
-            throw new ParserError(
-                `Unexpected token: ${identToken.getValue()}. Expected IDENTIFIER`
-            );
-        }
-
-        this.pos++;
-        const assignToken = this.tokens[this.pos];
-        if (
-            assignToken.getType() !== Token.ASSIGN &&
-            !OPERATORS.has(assignToken.getType())
-        ) {
-            throw new ParserError(
-                `Unexpected token: ${assignToken.getValue()}. Expected ASSIGN or OPERATOR`
-            );
-        }
+        const identToken = this.consumeToken(Token.IDENTIFIER);
+        const assignToken = this.consumeOneOf([
+            Token.ASSIGN,
+            ...OPERATORS.values(),
+        ]);
 
         // +=, -=, *=, /=
         if (OPERATORS.has(assignToken.getType())) {
-            this.pos++;
+            // The token we consumed is an operator
             return this.parseShortHandAssign(identToken, assignToken);
         }
 
-        // Last token was an =
-        this.pos++;
+        // Already comsumed the assign token
         const expressionAST = this.parseExpressionOrNumber();
 
         const identAST = new IdentifierASTNode(identToken.getValue());
@@ -227,14 +184,7 @@ export default class Parser {
         identToken: LexerToken,
         assignToken: LexerToken
     ): AssignASTNode {
-        const equalsToken = this.tokens[this.pos];
-        if (equalsToken.getType() !== Token.ASSIGN) {
-            throw new ParserError(
-                `Unexpected token: ${equalsToken.getValue()}. Expected EQUALS`
-            );
-        }
-
-        this.pos++;
+        this.consumeToken(Token.ASSIGN);
         const expressionAST = this.parseExpressionOrNumber();
         const identAST = new IdentifierASTNode(identToken.getValue());
 
@@ -265,5 +215,33 @@ export default class Parser {
         // /=
         const resultExpression = new DivideASTNode(identAST, expressionAST);
         return new AssignASTNode(identAST, resultExpression);
+    }
+
+    consumeToken(token: Token): LexerToken {
+        if (this.pos >= this.tokens.length)
+            throw new ParserError('Unexpected EOF');
+
+        if (this.tokens[this.pos].getType() !== token)
+            throw new ParserError(
+                `Unexpected token: ${this.tokens[
+                    this.pos
+                ].getValue()}. Expected ${token}`
+            );
+
+        return this.tokens[this.pos++];
+    }
+
+    consumeOneOf(tokens: Token[]): LexerToken {
+        if (this.pos >= this.tokens.length)
+            throw new ParserError('Unexpected EOF');
+
+        if (!tokens.includes(this.tokens[this.pos].getType()))
+            throw new ParserError(
+                `Unexpected token: ${this.tokens[
+                    this.pos
+                ].getValue()}. Expected one of ${tokens.join(', ')}`
+            );
+
+        return this.tokens[this.pos++];
     }
 }
