@@ -174,7 +174,15 @@ export default class Parser {
 
         this.pos++;
         const assignToken = this.tokens[this.pos];
+
+        // Delcaring the variable without assigning a value
         if (assignToken.getType() !== Token.ASSIGN) {
+            // +=, -=, *=, /=
+            if (OPERATORS.has(assignToken.getType())) {
+                this.pos++;
+                return this.parseShortHandAssign(identToken, assignToken);
+            }
+
             const declAST = new DeclarationASTNode();
             const identAST = new IdentifierASTNode(identToken.getValue());
             declAST.addChild(identAST);
@@ -186,5 +194,49 @@ export default class Parser {
 
         const identAST = new IdentifierASTNode(identToken.getValue());
         return new AssignASTNode(identAST, expressionAST);
+    }
+
+    parseShortHandAssign(
+        identToken: LexerToken,
+        assignToken: LexerToken
+    ): AssignASTNode {
+        const equalsToken = this.tokens[this.pos];
+        if (equalsToken.getType() !== Token.ASSIGN) {
+            throw new Error(
+                `Unexpected token: ${equalsToken.getValue()}. Expected EQUALS`
+            );
+        }
+
+        this.pos++;
+        const expressionAST = this.parseExpressionOrNumber();
+        const identAST = new IdentifierASTNode(identToken.getValue());
+
+        // +=
+        if (assignToken.getType() === Token.PLUS) {
+            const resultExpression = new AddASTNode(identAST, expressionAST);
+            return new AssignASTNode(identAST, resultExpression);
+        }
+
+        // -=
+        if (assignToken.getType() === Token.MINUS) {
+            const resultExpression = new SubtractASTNode(
+                identAST,
+                expressionAST
+            );
+            return new AssignASTNode(identAST, resultExpression);
+        }
+
+        // *=
+        if (assignToken.getType() === Token.MULTIPLY) {
+            const resultExpression = new MultiplyASTNode(
+                identAST,
+                expressionAST
+            );
+            return new AssignASTNode(identAST, resultExpression);
+        }
+
+        // /=
+        const resultExpression = new DivideASTNode(identAST, expressionAST);
+        return new AssignASTNode(identAST, resultExpression);
     }
 }
