@@ -122,7 +122,6 @@ describe('Parser Assignment', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
         const root = ast.getRoot();
-        console.log(root);
 
         const children = root.getChildren();
         expect(children).toHaveLength(1);

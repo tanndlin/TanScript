@@ -9,13 +9,12 @@
                     ]
                 },
                 {
-                    "name": "Git",
+                    "name": "Test",
                     "commands": [
-                        "git pull",
-                        "git branch",
+                        "npm test",
                     ]
                 }
             ]
-        }
+        },
     ],
 }
