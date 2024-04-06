@@ -14,6 +14,7 @@ import {
     RootASTNode,
     SubtractASTNode,
 } from './AST';
+import { ParserError } from './errors';
 import { LexerToken, OPERATORS, Token } from './types';
 
 export default class Parser {
@@ -50,8 +51,6 @@ export default class Parser {
         }
 
         if (curToken.getType() === Token.IDENTIFIER) {
-            console.log('parsing assignment');
-
             return this.parseAssignment();
         }
 
@@ -60,7 +59,7 @@ export default class Parser {
             return this.parseExpressionOrNumber();
         }
 
-        throw new Error(`Unexpected token: ${curToken.getValue()}`);
+        throw new ParserError(`Unexpected token: ${curToken.getValue()}`);
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
@@ -71,7 +70,7 @@ export default class Parser {
             curToken.getType() !== Token.LPAREN &&
             curToken.getType() !== Token.IDENTIFIER
         ) {
-            throw new Error(
+            throw new ParserError(
                 `Unexpected token: ${curToken.getValue()}. Expected an expression or number`
             );
         }
@@ -87,7 +86,7 @@ export default class Parser {
             this.pos++;
         }
 
-        if (!leftAST) throw new Error('leftAST is undefined');
+        if (!leftAST) throw new ParserError('leftAST is undefined');
 
         if (this.pos + 1 >= this.tokens.length) {
             this.pos++;
@@ -124,7 +123,7 @@ export default class Parser {
             case Token.RPAREN:
                 return leftAST;
             default:
-                throw new Error(
+                throw new ParserError(
                     `Unexpected token: ${nextToken.getValue()}. Expected an operator or EOF`
                 );
         }
@@ -134,9 +133,13 @@ export default class Parser {
         this.pos++;
         const lParenNode = new LParenASTNode();
         const expression = this.parseExpressionOrNumber();
+
+        if (this.pos >= this.tokens.length)
+            throw new ParserError('Unexpected EOF');
+
         const nextToken = this.tokens[this.pos];
         if (nextToken.getType() !== Token.RPAREN) {
-            throw new Error(
+            throw new ParserError(
                 `Unexpected token: ${nextToken.getValue()}. Expected RPAREN`
             );
         }
@@ -152,7 +155,7 @@ export default class Parser {
     parseDecleration(): DeclarationASTNode {
         const curToken = this.tokens[this.pos];
         if (curToken.getType() !== Token.DECLERATION) {
-            throw new Error(
+            throw new ParserError(
                 `Unexpected token: ${curToken.getValue()}. Expected DECLERATION`
             );
         }
@@ -167,7 +170,7 @@ export default class Parser {
     parseAssignment(): AssignASTNode {
         const identToken = this.tokens[this.pos];
         if (identToken.getType() !== Token.IDENTIFIER) {
-            throw new Error(
+            throw new ParserError(
                 `Unexpected token: ${identToken.getValue()}. Expected IDENTIFIER`
             );
         }
@@ -203,7 +206,7 @@ export default class Parser {
     ): AssignASTNode {
         const equalsToken = this.tokens[this.pos];
         if (equalsToken.getType() !== Token.ASSIGN) {
-            throw new Error(
+            throw new ParserError(
                 `Unexpected token: ${equalsToken.getValue()}. Expected EQUALS`
             );
         }

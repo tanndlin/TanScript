@@ -11,6 +11,7 @@ import {
     SubtractASTNode,
 } from '../AST';
 import Parser from '../Parser';
+import { ParserError } from '../errors';
 import { LexerToken, Token } from '../types';
 
 describe('Parser Math Operators', () => {
@@ -258,5 +259,47 @@ describe('Parser Assignment', () => {
 
         const [_, expression] = assignAST.getChildren();
         expect(expression).toBeInstanceOf(DivideASTNode);
+    });
+});
+
+describe('Parser Error Cases', () => {
+    it('should throw error for unexpected token', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.PLUS, '+'),
+        ];
+
+        const parser = new Parser(tokens);
+        expect(() => parser.parse()).toThrow(ParserError);
+    });
+
+    it('should throw error for unexpected token in parseExpressionOrNumber', () => {
+        const tokens = [new LexerToken(Token.PLUS, '+')];
+
+        const parser = new Parser(tokens);
+        expect(() => parser.parse()).toThrow(ParserError);
+    });
+
+    it('should throw error for missing right paren', () => {
+        const tokens = [
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.EOF, ''),
+        ];
+
+        const parser = new Parser(tokens);
+        expect(() => parser.parse()).toThrow(ParserError);
+    });
+
+    it('should throw error for unexpected EOF in parseAssignment', () => {
+        const tokens = [
+            new LexerToken(Token.NUMBER, 'x'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.EOF, ''),
+        ];
+
+        const parser = new Parser(tokens);
+        expect(() => parser.parse()).toThrow(ParserError);
     });
 });
