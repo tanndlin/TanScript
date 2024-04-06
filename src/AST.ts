@@ -114,3 +114,9 @@ export class AssignASTNode extends ASTNode {
         super(Token.ASSIGN, '=', [left, right]);
     }
 }
+
+export class BlockASTNode extends ASTNode {
+    constructor(children: ASTNode[]) {
+        super(Token.LCURLY, '{', children);
+    }
+}

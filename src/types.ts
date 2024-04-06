@@ -12,6 +12,8 @@ export enum Token {
     DECLERATION = 'DECLERATION',
     IDENTIFIER = 'IDENTIFIER',
     ASSIGN = 'ASSIGN',
+    LCURLY = 'LCURLY',
+    RCURLY = 'RCURLY',
 }
 
 export const OPERATORS = new Set([

@@ -18,6 +18,10 @@ export const valueToToken = (value: string): Token => {
             return Token.SEMI;
         case '=':
             return Token.ASSIGN;
+        case '{':
+            return Token.LCURLY;
+        case '}':
+            return Token.RCURLY;
         default:
             // Check for numbers and identifiers
             if (!isNaN(Number(value))) return Token.NUMBER;

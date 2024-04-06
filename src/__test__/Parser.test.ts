@@ -2,6 +2,7 @@ import {
     AST,
     AddASTNode,
     AssignASTNode,
+    BlockASTNode,
     DeclarationASTNode,
     DivideASTNode,
     LParenASTNode,
@@ -303,3 +304,29 @@ describe('Parser Error Cases', () => {
         expect(() => parser.parse()).toThrow(ParserError);
     });
 });
+
+describe('Parser Curly Braces', () => {
+    it('should parse a simple block', () => {
+        const tokens = [
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [blockAST] = root.getChildren();
+        expect(blockAST).toBeInstanceOf(BlockASTNode);
+
+        const blockChildren = blockAST.getChildren();
+        expect(blockChildren).toHaveLength(1);
+
+        const [numberAST] = blockChildren;
+        expect(numberAST).toBeInstanceOf(NumberASTNode);
+    });
+});
+
+// describe('While Loop', () => {

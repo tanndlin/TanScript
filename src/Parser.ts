@@ -3,6 +3,7 @@ import {
     ASTNode,
     AddASTNode,
     AssignASTNode,
+    BlockASTNode,
     DeclarationASTNode,
     DivideASTNode,
     EOFASTNode,
@@ -34,24 +35,26 @@ export default class Parser {
 
     private parseNext(): ASTNode {
         const curToken = this.tokens[this.pos];
-        if (curToken.getType() === Token.EOF) {
-            this.pos++;
-            return new EOFASTNode();
-        }
 
-        if (
-            curToken.getType() === Token.NUMBER ||
-            curToken.getType() === Token.LPAREN
-        ) {
-            return this.parseExpressionOrNumber();
-        }
+        switch (curToken.getType()) {
+            case Token.EOF:
+                this.pos++;
+                return new EOFASTNode();
 
-        if (curToken.getType() === Token.DECLERATION) {
-            return this.parseDecleration();
-        }
+            case Token.NUMBER:
+            case Token.LPAREN:
+                curToken.getType() === Token.NUMBER ||
+                    curToken.getType() === Token.LPAREN;
+                return this.parseExpressionOrNumber();
 
-        if (curToken.getType() === Token.IDENTIFIER) {
-            return this.parseAssignment();
+            case Token.DECLERATION:
+                return this.parseDecleration();
+
+            case Token.IDENTIFIER:
+                return this.parseAssignment();
+
+            case Token.LCURLY:
+                return this.parseBlock();
         }
 
         if (OPERATORS.has(curToken.getType())) {
@@ -60,6 +63,25 @@ export default class Parser {
         }
 
         throw new ParserError(`Unexpected token: ${curToken.getValue()}`);
+    }
+
+    parseBlock(): ASTNode {
+        if (this.tokens[this.pos].getType() !== Token.LCURLY)
+            throw new ParserError(
+                'Unexpected token in parseBlock. Expected LCURLY'
+            );
+
+        this.pos++;
+        const children: ASTNode[] = [];
+        while (this.tokens[this.pos].getType() !== Token.RCURLY) {
+            children.push(this.parseNext());
+            console.log(children[children.length - 1].getValue());
+            console.log('Next:', this.tokens[this.pos].getType());
+        }
+
+        // Consume the RCURLY
+        this.pos++;
+        return new BlockASTNode(children);
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
@@ -121,6 +143,7 @@ export default class Parser {
                 this.pos++;
                 return leftAST;
             case Token.RPAREN:
+            case Token.RCURLY:
                 return leftAST;
             default:
                 throw new ParserError(
