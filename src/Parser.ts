@@ -174,21 +174,22 @@ export default class Parser {
 
         this.pos++;
         const assignToken = this.tokens[this.pos];
-
-        // Delcaring the variable without assigning a value
-        if (assignToken.getType() !== Token.ASSIGN) {
-            // +=, -=, *=, /=
-            if (OPERATORS.has(assignToken.getType())) {
-                this.pos++;
-                return this.parseShortHandAssign(identToken, assignToken);
-            }
-
-            const declAST = new DeclarationASTNode();
-            const identAST = new IdentifierASTNode(identToken.getValue());
-            declAST.addChild(identAST);
-            return declAST;
+        if (
+            assignToken.getType() !== Token.ASSIGN &&
+            !OPERATORS.has(assignToken.getType())
+        ) {
+            throw new ParserError(
+                `Unexpected token: ${assignToken.getValue()}. Expected ASSIGN or OPERATOR`
+            );
         }
 
+        // +=, -=, *=, /=
+        if (OPERATORS.has(assignToken.getType())) {
+            this.pos++;
+            return this.parseShortHandAssign(identToken, assignToken);
+        }
+
+        // Last token was an =
         this.pos++;
         const expressionAST = this.parseExpressionOrNumber();
 
