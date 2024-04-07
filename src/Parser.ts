@@ -50,7 +50,7 @@ export default class Parser {
                 return this.parseDecleration();
 
             case Token.IDENTIFIER:
-                return this.parseAssignment();
+                return this.parseAssignmentOrExpression();
 
             case Token.LCURLY:
                 return this.parseBlock();
@@ -62,6 +62,25 @@ export default class Parser {
         }
 
         throw new ParserError(`Unexpected token: ${curToken.getValue()}`);
+    }
+
+    parseAssignmentOrExpression(): ASTNode {
+        const identToken = this.consumeToken(Token.IDENTIFIER);
+
+        // Check if the next token is a shorhand assign
+        if (OPERATORS.has(this.tokens[this.pos].getType())) {
+            if (this.tokens[this.pos + 1].getType() === Token.ASSIGN) {
+                return this.parseAssignment(identToken);
+            }
+        }
+
+        // Check if the next token is an assignment
+        if (this.tokens[this.pos].getType() === Token.ASSIGN) {
+            return this.parseAssignment(identToken);
+        }
+
+        // The token is not an assignment, so it must be an expression
+        return this.parseExpressionOrNumber(identToken);
     }
 
     parseBlock(): ASTNode {
@@ -78,12 +97,14 @@ export default class Parser {
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
-    parseExpressionOrNumber(): ASTNode {
-        const curToken = this.consumeOneOf([
-            Token.NUMBER,
-            Token.LPAREN,
-            Token.IDENTIFIER,
-        ]);
+    parseExpressionOrNumber(curToken?: LexerToken): ASTNode {
+        if (!curToken) {
+            curToken = this.consumeOneOf([
+                Token.NUMBER,
+                Token.LPAREN,
+                Token.IDENTIFIER,
+            ]);
+        }
 
         let leftAST: ASTNode;
         if (curToken.getType() === Token.LPAREN) {
@@ -159,8 +180,11 @@ export default class Parser {
         return declAST;
     }
 
-    parseAssignment(): AssignASTNode {
-        const identToken = this.consumeToken(Token.IDENTIFIER);
+    parseAssignment(identToken?: LexerToken): AssignASTNode {
+        if (!identToken) {
+            identToken = this.consumeToken(Token.IDENTIFIER);
+        }
+
         const assignToken = this.consumeOneOf([
             Token.ASSIGN,
             ...OPERATORS.values(),

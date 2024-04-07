@@ -260,6 +260,24 @@ describe('Parser Assignment', () => {
         const [_, expression] = assignAST.getChildren();
         expect(expression).toBeInstanceOf(DivideASTNode);
     });
+
+    it('should allow using var without assignment', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.NUMBER, '1'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const children = root.getChildren();
+        expect(children).toHaveLength(1);
+
+        const [assignAST] = children;
+        expect(assignAST).toBeInstanceOf(AddASTNode);
+    });
 });
 
 describe('Parser Error Cases', () => {
