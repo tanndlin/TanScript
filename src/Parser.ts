@@ -7,12 +7,15 @@ import {
     DeclarationASTNode,
     DivideASTNode,
     EOFASTNode,
+    GreaterThanASTNode,
     IdentifierASTNode,
     LParenASTNode,
+    LessThanASTNode,
     MultiplyASTNode,
     NumberASTNode,
     RParenASTNode,
     SubtractASTNode,
+    WhileASTNode,
 } from './AST';
 import { ParserError } from './errors';
 import { LexerToken, OPERATORS, Token } from './types';
@@ -34,7 +37,6 @@ export default class Parser {
 
     private parseNext(): ASTNode {
         const curToken = this.tokens[this.pos];
-
         switch (curToken.getType()) {
             case Token.EOF:
                 this.pos++;
@@ -49,6 +51,9 @@ export default class Parser {
             case Token.DECLERATION:
                 return this.parseDecleration();
 
+            case Token.WHILE:
+                return this.parseWhile();
+
             case Token.IDENTIFIER:
                 return this.parseAssignmentOrExpression();
 
@@ -62,6 +67,18 @@ export default class Parser {
         }
 
         throw new ParserError(`Unexpected token: ${curToken.getValue()}`);
+    }
+
+    parseWhile(): ASTNode {
+        this.consumeToken(Token.WHILE);
+        this.consumeToken(Token.LPAREN);
+
+        const condition = this.parseExpressionOrNumber();
+        this.consumeToken(Token.RPAREN);
+
+        const block = this.parseBlock();
+
+        return new WhileASTNode(condition, block);
     }
 
     parseAssignmentOrExpression(): ASTNode {
@@ -91,8 +108,7 @@ export default class Parser {
             children.push(this.parseNext());
         }
 
-        // Consume the RCURLY
-        this.pos++;
+        this.consumeToken(Token.RCURLY);
         return new BlockASTNode(children);
     }
 
@@ -146,6 +162,18 @@ export default class Parser {
                     leftAST,
                     this.parseExpressionOrNumber()
                 );
+            case Token.LESS:
+                this.pos++;
+                return new LessThanASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                );
+            case Token.GREATER:
+                this.pos++;
+                return new GreaterThanASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                );
             case Token.EOF:
             case Token.SEMI:
                 this.pos++;
@@ -180,11 +208,9 @@ export default class Parser {
         return declAST;
     }
 
-    parseAssignment(identToken?: LexerToken): AssignASTNode {
-        if (!identToken) {
-            identToken = this.consumeToken(Token.IDENTIFIER);
-        }
-
+    parseAssignment(
+        identToken: LexerToken = this.consumeToken(Token.IDENTIFIER)
+    ): AssignASTNode {
         const assignToken = this.consumeOneOf([
             Token.ASSIGN,
             ...OPERATORS.values(),

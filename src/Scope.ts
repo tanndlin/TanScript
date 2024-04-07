@@ -44,12 +44,18 @@ export default class Scope {
     }
 
     setVariable(name: string, value: RuntimeValue) {
-        if (!this.variables.has(name)) {
-            throw new UseBeforeDeclarationError(
-                `Cannot set value for variable ${name} before declaration`
-            );
+        // Check this scope and all parents for the variable
+        let curScope: Scope | null = this;
+        while (curScope) {
+            if (curScope.variables.has(name)) {
+                curScope.variables.set(name, value);
+                return;
+            }
+            curScope = curScope.parent;
         }
 
-        this.variables.set(name, value);
+        throw new UseBeforeDeclarationError(
+            `Cannot set value for variable ${name} before declaration`
+        );
     }
 }

@@ -25,41 +25,57 @@ export default class Environment {
         return retValue;
     }
 
+    private evalExpression<T>(
+        node: ASTNode,
+        scope: Scope,
+        cb: (a: T, b: T) => RuntimeValue
+    ): RuntimeValue {
+        const [left, right] = node.getChildren();
+        return cb(
+            this.evaluateNode(left, scope) as T,
+            this.evaluateNode(right, scope) as T
+        );
+    }
+
     private evaluateNode(node: ASTNode, scope: Scope): RuntimeValue {
         if (!node) return null;
 
         switch (node.getType()) {
             case Token.NUMBER:
                 return parseInt(node.getValue());
-            case Token.PLUS: {
-                const [left, right] = node.getChildren();
-                return (
-                    (this.evaluateNode(left, scope) as number) +
-                    (this.evaluateNode(right, scope) as number)
+            case Token.PLUS:
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a + b
                 );
-            }
+            case Token.MINUS:
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a - b
+                );
+            case Token.MULTIPLY:
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a * b
+                );
+            case Token.DIVIDE:
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a / b
+                );
+            case Token.LESS:
+                return this.evalExpression<number>(node, scope, (a, b) =>
+                    a < b ? 1 : 0
+                );
+            case Token.GREATER:
+                return this.evalExpression<number>(node, scope, (a, b) =>
+                    a > b ? 1 : 0
+                );
 
-            case Token.MINUS: {
-                const [left, right] = node.getChildren();
-                return (
-                    (this.evaluateNode(left, scope) as number) -
-                    (this.evaluateNode(right, scope) as number)
-                );
-            }
-            case Token.MULTIPLY: {
-                const [left, right] = node.getChildren();
-                return (
-                    (this.evaluateNode(left, scope) as number) *
-                    (this.evaluateNode(right, scope) as number)
-                );
-            }
-            case Token.DIVIDE: {
-                const [left, right] = node.getChildren();
-                return (
-                    (this.evaluateNode(left, scope) as number) /
-                    (this.evaluateNode(right, scope) as number)
-                );
-            }
             case Token.LPAREN:
                 return this.evaluateNode(node.getChildren()[0], scope);
             case Token.DECLERATION: {
@@ -88,6 +104,16 @@ export default class Environment {
                     (statement) =>
                         (retValue = this.evaluateNode(statement, newScope))
                 );
+
+                return retValue;
+            }
+            case Token.WHILE: {
+                const [condition, body] = node.getChildren();
+                let retValue: RuntimeValue = null;
+
+                while (this.evaluateNode(condition, scope)) {
+                    retValue = this.evaluateNode(body, scope);
+                }
 
                 return retValue;
             }

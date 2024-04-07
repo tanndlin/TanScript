@@ -120,3 +120,21 @@ export class BlockASTNode extends ASTNode {
         super(Token.LCURLY, '{', children);
     }
 }
+
+export class WhileASTNode extends ASTNode {
+    constructor(condition: ASTNode, block: ASTNode) {
+        super(Token.WHILE, 'while', [condition, block]);
+    }
+}
+
+export class LessThanASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.LESS, '<', [left, right]);
+    }
+}
+
+export class GreaterThanASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.GREATER, '>', [left, right]);
+    }
+}

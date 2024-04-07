@@ -6,10 +6,12 @@ import {
     DeclarationASTNode,
     DivideASTNode,
     LParenASTNode,
+    LessThanASTNode,
     MultiplyASTNode,
     NumberASTNode,
     RParenASTNode,
     SubtractASTNode,
+    WhileASTNode,
 } from '../AST';
 import Parser from '../Parser';
 import { ParserError } from '../errors';
@@ -107,6 +109,31 @@ describe('Parser Math Operators', () => {
         // Right should be a number (3)
         expect(right.getType()).toBe(Token.NUMBER);
         expect(right.getValue()).toBe('3');
+    });
+
+    it('should parse a basic conditional', () => {
+        const tokens = [
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '2'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+
+        expect(ast).toBeInstanceOf(AST);
+
+        const root = ast.getRoot();
+        const children = root.getChildren();
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBeInstanceOf(LessThanASTNode);
+
+        // Left then right
+        const [left, right] = children[0].getChildren();
+        expect(left.getType()).toBe(Token.NUMBER);
+        expect(left.getValue()).toBe('1');
+        expect(right.getType()).toBe(Token.NUMBER);
+        expect(right.getValue()).toBe('2');
     });
 });
 
@@ -344,6 +371,61 @@ describe('Parser Curly Braces', () => {
         const [numberAST] = blockChildren;
         expect(numberAST).toBeInstanceOf(NumberASTNode);
     });
+
+    it('should parse a block with multiple children', () => {
+        const tokens = [
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.NUMBER, '2'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [blockAST] = root.getChildren();
+        expect(blockAST).toBeInstanceOf(BlockASTNode);
+
+        const blockChildren = blockAST.getChildren();
+        expect(blockChildren).toHaveLength(2);
+
+        const [numberAST1, numberAST2] = blockChildren;
+        expect(numberAST1).toBeInstanceOf(NumberASTNode);
+        expect(numberAST2).toBeInstanceOf(NumberASTNode);
+    });
 });
 
-// describe('While Loop', () => {
+describe('Control Structures', () => {
+    it('should parse a while loop', () => {
+        const tokens = [
+            new LexerToken(Token.WHILE, 'while'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '10'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [whileAST] = root.getChildren();
+        expect(whileAST).toBeInstanceOf(WhileASTNode);
+
+        const [condition, body] = whileAST.getChildren();
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(body).toBeInstanceOf(BlockASTNode);
+    });
+});

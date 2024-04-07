@@ -14,6 +14,9 @@ export enum Token {
     ASSIGN = 'ASSIGN',
     LCURLY = 'LCURLY',
     RCURLY = 'RCURLY',
+    WHILE = 'WHILE',
+    LESS = 'LESS',
+    GREATER = 'GREATER',
 }
 
 export const OPERATORS = new Set([

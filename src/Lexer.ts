@@ -33,6 +33,10 @@ class Lexer {
                         this.tokens.push(
                             new LexerToken(Token.DECLERATION, identifier)
                         );
+                    else if (identifier === 'while')
+                        this.tokens.push(
+                            new LexerToken(Token.WHILE, identifier)
+                        );
                     else
                         this.tokens.push(
                             new LexerToken(Token.IDENTIFIER, identifier)
