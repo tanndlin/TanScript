@@ -12,7 +12,6 @@ import {
     MultiplyASTNode,
     NumberASTNode,
     RParenASTNode,
-    RootASTNode,
     SubtractASTNode,
 } from './AST';
 import { ParserError } from './errors';
@@ -25,7 +24,7 @@ export default class Parser {
 
     parse(): AST {
         // parse the tokens
-        const root = new RootASTNode();
+        const root = new BlockASTNode([]);
         while (this.pos < this.tokens.length) {
             root.addChild(this.parseNext());
         }

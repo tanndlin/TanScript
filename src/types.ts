@@ -40,3 +40,6 @@ export class LexerToken {
         return this.value;
     }
 }
+
+export type Maybe<T> = T | null | undefined;
+export type RuntimeValue = Maybe<number | string>;

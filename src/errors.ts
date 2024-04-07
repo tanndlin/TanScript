@@ -18,3 +18,24 @@ export class RuntimeError extends Error {
         this.name = 'RuntimeError';
     }
 }
+
+export class UseBeforeDeclarationError extends RuntimeError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UseBeforeDeclarationError';
+    }
+}
+
+export class UndeclaredVariableError extends RuntimeError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UndeclaredVariableError';
+    }
+}
+
+export class TannerError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'TannerError';
+    }
+}

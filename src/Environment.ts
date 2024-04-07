@@ -1,5 +1,6 @@
 import { AST, ASTNode } from './AST';
-import { Token } from './types';
+import Scope from './Scope';
+import { RuntimeValue, Token } from './types';
 
 export default class Environment {
     private globalScope: Scope;
@@ -8,16 +9,23 @@ export default class Environment {
         this.globalScope = new Scope(null);
     }
 
-    public evaluate() {
+    public evaluate(): RuntimeValue {
+        let retValue: RuntimeValue = null;
+
         const root = this.ast.getRoot();
         const statements = root.getChildren();
         statements.forEach((statement, i) => {
+            if (statement.getType() === Token.EOF) return;
+
             console.log(`Statement ${i + 1}:`);
-            console.log(this.evaluateNode(statement, this.globalScope));
+            retValue = this.evaluateNode(statement, this.globalScope);
+            console.log(retValue);
         });
+
+        return retValue;
     }
 
-    private evaluateNode(node: ASTNode, scope: Scope): any {
+    private evaluateNode(node: ASTNode, scope: Scope): RuntimeValue {
         if (!node) return null;
 
         switch (node.getType()) {
@@ -26,30 +34,30 @@ export default class Environment {
             case Token.PLUS: {
                 const [left, right] = node.getChildren();
                 return (
-                    this.evaluateNode(left, scope) +
-                    this.evaluateNode(right, scope)
+                    (this.evaluateNode(left, scope) as number) +
+                    (this.evaluateNode(right, scope) as number)
                 );
             }
 
             case Token.MINUS: {
                 const [left, right] = node.getChildren();
                 return (
-                    this.evaluateNode(left, scope) -
-                    this.evaluateNode(right, scope)
+                    (this.evaluateNode(left, scope) as number) -
+                    (this.evaluateNode(right, scope) as number)
                 );
             }
             case Token.MULTIPLY: {
                 const [left, right] = node.getChildren();
                 return (
-                    this.evaluateNode(left, scope) *
-                    this.evaluateNode(right, scope)
+                    (this.evaluateNode(left, scope) as number) *
+                    (this.evaluateNode(right, scope) as number)
                 );
             }
             case Token.DIVIDE: {
                 const [left, right] = node.getChildren();
                 return (
-                    this.evaluateNode(left, scope) /
-                    this.evaluateNode(right, scope)
+                    (this.evaluateNode(left, scope) as number) /
+                    (this.evaluateNode(right, scope) as number)
                 );
             }
             case Token.LPAREN:
@@ -65,11 +73,23 @@ export default class Environment {
             case Token.ASSIGN: {
                 const [identifier, value] = node.getChildren();
                 const evaluatedValue = this.evaluateNode(value, scope);
-                scope.addVariable(identifier.getValue(), evaluatedValue);
+                scope.setVariable(identifier.getValue(), evaluatedValue);
                 return evaluatedValue;
             }
             case Token.IDENTIFIER: {
                 return scope.getVariable(node.getValue());
+            }
+            case Token.LCURLY: {
+                const newScope = new Scope(scope);
+                const statements = node.getChildren();
+
+                let retValue: RuntimeValue = null;
+                statements.forEach(
+                    (statement) =>
+                        (retValue = this.evaluateNode(statement, newScope))
+                );
+
+                return retValue;
             }
             case Token.SEMI:
             case Token.EOF:
@@ -79,37 +99,8 @@ export default class Environment {
                 throw new Error(`Unexpected token: ${node.getValue()}`);
         }
     }
-}
 
-class Scope {
-    private parent: Scope | null;
-    private variables: Map<string, any>;
-    private scopes: Map<string, Scope>;
-
-    constructor(parent: Scope | null) {
-        this.parent = parent;
-        this.variables = new Map();
-        this.scopes = new Map();
-    }
-
-    getVariable<T>(name: string): T {
-        if (this.variables.has(name)) return this.variables.get(name) as T;
-        let scope: Scope | null = this.parent;
-        while (scope) {
-            if (scope.variables.has(name))
-                return scope.variables.get(name) as T;
-            scope = scope.parent;
-        }
-
-        throw new Error(`Variable ${name} not found`);
-    }
-
-    addScope(name: string, scope: Scope) {
-        this.scopes.set(name, scope);
-        scope.parent = this;
-    }
-
-    addVariable(name: string, value: any) {
-        this.variables.set(name, value);
+    public getGlobalScope(): Scope {
+        return this.globalScope;
     }
 }

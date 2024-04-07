@@ -20,7 +20,6 @@ class Lexer {
             }
 
             const tokenType = valueToToken(char);
-            console.log(this.script[this.pos], tokenType);
             switch (tokenType) {
                 case Token.NUMBER:
                     const number = this.readNumber();
