@@ -54,4 +54,4 @@ export class LexerToken {
 }
 
 export type Maybe<T> = T | null | undefined;
-export type RuntimeValue = Maybe<number | string>;
+export type RuntimeValue = Maybe<number | string | boolean>;

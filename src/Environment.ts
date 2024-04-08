@@ -68,12 +68,16 @@ export default class Environment {
                     (a, b) => a / b
                 );
             case Token.LESS:
-                return this.evalExpression<number>(node, scope, (a, b) =>
-                    a < b ? 1 : 0
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a < b
                 );
             case Token.GREATER:
-                return this.evalExpression<number>(node, scope, (a, b) =>
-                    a > b ? 1 : 0
+                return this.evalExpression<number>(
+                    node,
+                    scope,
+                    (a, b) => a > b
                 );
 
             case Token.LPAREN:
