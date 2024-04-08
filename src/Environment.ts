@@ -117,6 +117,23 @@ export default class Environment {
 
                 return retValue;
             }
+
+            case Token.FOR: {
+                const [init, condition, update, body] = node.getChildren();
+                let retValue: RuntimeValue = null;
+
+                // The declared iter var should be in the for loop scope
+                const newScope = new Scope(scope);
+
+                this.evaluateNode(init, newScope);
+                while (this.evaluateNode(condition, newScope)) {
+                    retValue = this.evaluateNode(body, newScope);
+                    this.evaluateNode(update, newScope);
+                }
+
+                return retValue;
+            }
+
             case Token.SEMI:
             case Token.EOF:
                 return;

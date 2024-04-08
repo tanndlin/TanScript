@@ -7,6 +7,7 @@ import {
     DeclarationASTNode,
     DivideASTNode,
     EOFASTNode,
+    ForASTNode,
     GreaterThanASTNode,
     IdentifierASTNode,
     LParenASTNode,
@@ -54,6 +55,9 @@ export default class Parser {
             case Token.WHILE:
                 return this.parseWhile();
 
+            case Token.FOR:
+                return this.parseFor();
+
             case Token.IDENTIFIER:
                 return this.parseAssignmentOrExpression();
 
@@ -79,6 +83,20 @@ export default class Parser {
         const block = this.parseBlock();
 
         return new WhileASTNode(condition, block);
+    }
+
+    parseFor(): ASTNode {
+        this.consumeToken(Token.FOR);
+        this.consumeToken(Token.LPAREN);
+
+        const init = this.parseNext();
+        const condition = this.parseNext();
+        const update = this.parseNext();
+        this.consumeToken(Token.RPAREN);
+
+        const block = this.parseBlock();
+
+        return new ForASTNode(init, condition, update, block);
     }
 
     parseAssignmentOrExpression(): ASTNode {

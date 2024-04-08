@@ -17,6 +17,7 @@ export enum Token {
     WHILE = 'WHILE',
     LESS = 'LESS',
     GREATER = 'GREATER',
+    FOR = 'FOR',
 }
 
 export const OPERATORS = new Set([
@@ -25,6 +26,14 @@ export const OPERATORS = new Set([
     Token.MULTIPLY,
     Token.DIVIDE,
 ]);
+
+export const RESERVED_WORDS = {
+    let: Token.DECLERATION,
+    while: Token.WHILE,
+    for: Token.FOR,
+};
+
+export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
 
 export class LexerToken {
     private type: Token;

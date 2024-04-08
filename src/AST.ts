@@ -127,6 +127,17 @@ export class WhileASTNode extends ASTNode {
     }
 }
 
+export class ForASTNode extends ASTNode {
+    constructor(
+        init: ASTNode,
+        condition: ASTNode,
+        update: ASTNode,
+        block: ASTNode
+    ) {
+        super(Token.FOR, 'for', [init, condition, update, block]);
+    }
+}
+
 export class LessThanASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
         super(Token.LESS, '<', [left, right]);

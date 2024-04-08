@@ -5,6 +5,7 @@ import {
     BlockASTNode,
     DeclarationASTNode,
     DivideASTNode,
+    ForASTNode,
     LParenASTNode,
     LessThanASTNode,
     MultiplyASTNode,
@@ -426,6 +427,89 @@ describe('Control Structures', () => {
 
         const [condition, body] = whileAST.getChildren();
         expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(body).toBeInstanceOf(BlockASTNode);
+    });
+
+    it('should parse a for loop', () => {
+        const tokens = [
+            new LexerToken(Token.FOR, 'for'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '0'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '10'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [forAST] = root.getChildren();
+        expect(forAST).toBeInstanceOf(ForASTNode);
+
+        const [init, condition, update, body] = forAST.getChildren();
+        expect(init).toBeInstanceOf(AssignASTNode);
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(update).toBeInstanceOf(AssignASTNode);
+        expect(body).toBeInstanceOf(BlockASTNode);
+    });
+
+    it('should parser a for loop with a declaration', () => {
+        const tokens = [
+            new LexerToken(Token.FOR, 'for'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '0'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '10'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [forAST] = root.getChildren();
+        expect(forAST).toBeInstanceOf(ForASTNode);
+
+        const [init, condition, update, body] = forAST.getChildren();
+        expect(init).toBeInstanceOf(DeclarationASTNode);
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(update).toBeInstanceOf(AssignASTNode);
         expect(body).toBeInstanceOf(BlockASTNode);
     });
 });

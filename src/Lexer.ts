@@ -1,4 +1,4 @@
-import { LexerToken, Token } from './types';
+import { LexerToken, RESERVED_WORDS, ReservedWordsKey, Token } from './types';
 import { valueToToken } from './util';
 
 class Lexer {
@@ -29,13 +29,13 @@ class Lexer {
                     break;
                 case Token.IDENTIFIER:
                     const identifier = this.readIdentifier();
-                    if (identifier === 'let')
+                    // if is a reserved word
+                    if (Object.keys(RESERVED_WORDS).includes(identifier))
                         this.tokens.push(
-                            new LexerToken(Token.DECLERATION, identifier)
-                        );
-                    else if (identifier === 'while')
-                        this.tokens.push(
-                            new LexerToken(Token.WHILE, identifier)
+                            new LexerToken(
+                                RESERVED_WORDS[identifier as ReservedWordsKey],
+                                identifier
+                            )
                         );
                     else
                         this.tokens.push(
