@@ -766,4 +766,34 @@ describe('Control Structures', () => {
         expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
         expect(functionCall.getChildren()).toHaveLength(0);
     });
+
+    it('should be able to add function calls', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.COMMA, ','),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.COMMA, ','),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [addAST] = root.getChildren();
+        expect(addAST).toBeInstanceOf(AddASTNode);
+
+        const [functionCall1, functionCall2] = addAST.getChildren();
+        expect(functionCall1).toBeInstanceOf(FunctionCallASTNode);
+        expect(functionCall2).toBeInstanceOf(FunctionCallASTNode);
+    });
 });

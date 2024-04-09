@@ -25,7 +25,7 @@ import {
     NumberASTNode,
     SubtractASTNode,
 } from './AST/NumberAST';
-import { ParserError, TannerError } from './errors';
+import { ParserError } from './errors';
 import { LexerToken, OPERATORS, Token } from './types';
 
 export default class Parser {
@@ -151,7 +151,7 @@ export default class Parser {
         return new FunctionDefASTNode(identToken.getValue(), args, block);
     }
 
-    parseFunctionCall(identToken: LexerToken): ASTNode {
+    parseFunctionCall(identToken: LexerToken): FunctionCallASTNode {
         this.consumeToken(Token.LPAREN);
 
         const args: ASTNode[] = [];
@@ -180,11 +180,6 @@ export default class Parser {
         // Check if the next token is an assignment
         if (this.tokens[this.pos].getType() === Token.ASSIGN) {
             return this.parseAssignment(identToken);
-        }
-
-        // Check if the next token is a parenthesis
-        if (this.tokens[this.pos].getType() === Token.LPAREN) {
-            return this.parseFunctionCall(identToken);
         }
 
         // The token is not an assignment, so it must be an expression
@@ -218,6 +213,14 @@ export default class Parser {
         let leftAST: INumberableAST | BooleanOpASTNode;
         if (curToken.getType() === Token.LPAREN) {
             leftAST = this.parseLParen() as INumberableAST;
+        } else if (
+            curToken.getType() === Token.IDENTIFIER &&
+            this.tokens[this.pos].getType() === Token.LPAREN
+        ) {
+            // This is a function call
+            leftAST = this.parseFunctionCall(curToken) as
+                | INumberableAST
+                | BooleanOpASTNode;
         } else if (curToken.getType() === Token.IDENTIFIER) {
             leftAST = new IdentifierASTNode(
                 curToken.getValue()
@@ -226,9 +229,7 @@ export default class Parser {
             leftAST = new NumberASTNode(curToken.getValue());
         }
 
-        if (!leftAST) throw new TannerError('leftAST is undefined');
-
-        // TODO CHECK THIS
+        // There needs to be at least 2 more tokens to form an expression
         if (this.pos + 1 >= this.tokens.length) {
             this.pos++;
             return leftAST;
@@ -239,49 +240,49 @@ export default class Parser {
             case Token.PLUS:
                 this.pos++;
                 return new AddASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.MINUS:
                 this.pos++;
                 return new SubtractASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.MULTIPLY:
                 this.pos++;
                 return new MultiplyASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.DIVIDE:
                 this.pos++;
                 return new DivideASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.LESS:
                 this.pos++;
                 return new LessThanASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.GREATER:
                 this.pos++;
                 return new GreaterThanASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.LEQ:
                 this.pos++;
                 return new LessEqASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.GEQ:
                 this.pos++;
                 return new GreaterEqASTNode(
-                    leftAST,
+                    leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.EOF:
