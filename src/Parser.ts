@@ -1,27 +1,31 @@
 import {
     AST,
     ASTNode,
-    AddASTNode,
     AssignASTNode,
     BlockASTNode,
     DeclarationASTNode,
-    DivideASTNode,
     EOFASTNode,
-    ForASTNode,
+    IdentifierASTNode,
+    LParenASTNode,
+    RParenASTNode,
+} from './AST/AST';
+import {
+    BooleanOpASTNode,
     GreaterEqASTNode,
     GreaterThanASTNode,
-    IdentifierASTNode,
-    IfASTNode,
-    LParenASTNode,
     LessEqASTNode,
     LessThanASTNode,
+} from './AST/BoolAST';
+import { ForASTNode, IfASTNode, WhileASTNode } from './AST/ControlAST';
+import {
+    AddASTNode,
+    DivideASTNode,
+    INumberableAST,
     MultiplyASTNode,
     NumberASTNode,
-    RParenASTNode,
     SubtractASTNode,
-    WhileASTNode,
-} from './AST';
-import { ParserError } from './errors';
+} from './AST/NumberAST';
+import { ParserError, TannerError } from './errors';
 import { LexerToken, OPERATORS, Token } from './types';
 
 export default class Parser {
@@ -153,7 +157,9 @@ export default class Parser {
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
-    parseExpressionOrNumber(curToken?: LexerToken): ASTNode {
+    parseExpressionOrNumber(
+        curToken?: LexerToken
+    ): INumberableAST | BooleanOpASTNode {
         if (!curToken) {
             curToken = this.consumeOneOf([
                 Token.NUMBER,
@@ -162,16 +168,18 @@ export default class Parser {
             ]);
         }
 
-        let leftAST: ASTNode;
+        let leftAST: INumberableAST | BooleanOpASTNode;
         if (curToken.getType() === Token.LPAREN) {
-            leftAST = this.parseLParen();
+            leftAST = this.parseLParen() as INumberableAST;
         } else if (curToken.getType() === Token.IDENTIFIER) {
-            leftAST = new IdentifierASTNode(curToken.getValue());
+            leftAST = new IdentifierASTNode(
+                curToken.getValue()
+            ) as INumberableAST;
         } else {
             leftAST = new NumberASTNode(curToken.getValue());
         }
 
-        if (!leftAST) throw new ParserError('leftAST is undefined');
+        if (!leftAST) throw new TannerError('leftAST is undefined');
 
         // TODO CHECK THIS
         if (this.pos + 1 >= this.tokens.length) {
@@ -183,48 +191,51 @@ export default class Parser {
         switch (nextToken.getType()) {
             case Token.PLUS:
                 this.pos++;
-                return new AddASTNode(leftAST, this.parseExpressionOrNumber());
+                return new AddASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber() as INumberableAST
+                );
             case Token.MINUS:
                 this.pos++;
                 return new SubtractASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.MULTIPLY:
                 this.pos++;
                 return new MultiplyASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.DIVIDE:
                 this.pos++;
                 return new DivideASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.LESS:
                 this.pos++;
                 return new LessThanASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.GREATER:
                 this.pos++;
                 return new GreaterThanASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.LEQ:
                 this.pos++;
                 return new LessEqASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.GEQ:
                 this.pos++;
                 return new GreaterEqASTNode(
                     leftAST,
-                    this.parseExpressionOrNumber()
+                    this.parseExpressionOrNumber() as INumberableAST
                 );
             case Token.EOF:
             case Token.SEMI:
@@ -240,7 +251,7 @@ export default class Parser {
         }
     }
 
-    parseLParen(): ASTNode {
+    parseLParen(): LParenASTNode {
         const lParenNode = new LParenASTNode();
         const expression = this.parseExpressionOrNumber();
         this.consumeToken(Token.RPAREN);
@@ -291,15 +302,18 @@ export default class Parser {
 
         // +=
         if (assignToken.getType() === Token.PLUS) {
-            const resultExpression = new AddASTNode(identAST, expressionAST);
+            const resultExpression = new AddASTNode(
+                identAST as INumberableAST,
+                expressionAST as INumberableAST
+            );
             return new AssignASTNode(identAST, resultExpression);
         }
 
         // -=
         if (assignToken.getType() === Token.MINUS) {
             const resultExpression = new SubtractASTNode(
-                identAST,
-                expressionAST
+                identAST as INumberableAST,
+                expressionAST as INumberableAST
             );
             return new AssignASTNode(identAST, resultExpression);
         }
@@ -307,14 +321,17 @@ export default class Parser {
         // *=
         if (assignToken.getType() === Token.MULTIPLY) {
             const resultExpression = new MultiplyASTNode(
-                identAST,
-                expressionAST
+                identAST as INumberableAST,
+                expressionAST as INumberableAST
             );
             return new AssignASTNode(identAST, resultExpression);
         }
 
         // /=
-        const resultExpression = new DivideASTNode(identAST, expressionAST);
+        const resultExpression = new DivideASTNode(
+            identAST as INumberableAST,
+            expressionAST as INumberableAST
+        );
         return new AssignASTNode(identAST, resultExpression);
     }
 

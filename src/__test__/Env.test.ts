@@ -1,16 +1,17 @@
-import { AST, AddASTNode, BlockASTNode } from '../AST';
+import {
+    AST,
+    AssignASTNode,
+    BlockASTNode,
+    DeclarationASTNode,
+    IdentifierASTNode,
+} from '../AST/AST';
+import { AddASTNode, INumberableAST, NumberASTNode } from '../AST/NumberAST';
 import Engine from '../Engine';
 import Environment from '../Environment';
 import {
     UseBeforeDeclarationError as AssignBeforeDeclarationError,
     UndeclaredVariableError,
 } from '../errors';
-import {
-    AssignASTNode,
-    DeclarationASTNode,
-    IdentifierASTNode,
-    NumberASTNode,
-} from './../AST';
 
 describe('Enviornment Basic Tests', () => {
     it('should run basic script', () => {
@@ -22,7 +23,7 @@ describe('Enviornment Basic Tests', () => {
         );
 
         const add = new AddASTNode(
-            new IdentifierASTNode('x'),
+            new IdentifierASTNode('x') as INumberableAST,
             new NumberASTNode('5')
         );
 

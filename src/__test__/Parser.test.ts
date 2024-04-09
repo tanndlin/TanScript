@@ -1,23 +1,25 @@
 import {
     AST,
-    AddASTNode,
     AssignASTNode,
     BlockASTNode,
     DeclarationASTNode,
-    DivideASTNode,
-    ForASTNode,
+    LParenASTNode,
+    RParenASTNode,
+} from '../AST/AST';
+import {
     GreaterEqASTNode,
     GreaterThanASTNode,
-    IfASTNode,
-    LParenASTNode,
     LessEqASTNode,
     LessThanASTNode,
+} from '../AST/BoolAST';
+import { ForASTNode, IfASTNode, WhileASTNode } from '../AST/ControlAST';
+import {
+    AddASTNode,
+    DivideASTNode,
     MultiplyASTNode,
     NumberASTNode,
-    RParenASTNode,
     SubtractASTNode,
-    WhileASTNode,
-} from '../AST';
+} from '../AST/NumberAST';
 import Parser from '../Parser';
 import { ParserError } from '../errors';
 import { LexerToken, Token } from '../types';
