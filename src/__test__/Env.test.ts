@@ -57,6 +57,22 @@ describe('Enviornment Basic Tests', () => {
     });
 });
 
+describe.each([
+    ['1 <= 2', true],
+    ['1 >= 2', false],
+    ['1 < 2', true],
+    ['1 > 2', false],
+])(
+    'Environment Integration Tests for boolean operator %s',
+    (script, expected) => {
+        it('should evaluate correctly', () => {
+            const engine = new Engine(script);
+            const result = engine.run();
+            expect(result).toBe(expected);
+        });
+    }
+);
+
 describe('Enviornment Integration Tests', () => {
     it('should not allow assignment before declaration', () => {
         const script = 'x = 10;';

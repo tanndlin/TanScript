@@ -144,8 +144,20 @@ export class LessThanASTNode extends ASTNode {
     }
 }
 
+export class LessEqASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.LEQ, '<=', [left, right]);
+    }
+}
+
 export class GreaterThanASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
         super(Token.GREATER, '>', [left, right]);
+    }
+}
+
+export class GreaterEqASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.GEQ, '>=', [left, right]);
     }
 }

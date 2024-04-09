@@ -40,45 +40,29 @@ export default class Environment {
     private evaluateNode(node: ASTNode, scope: Scope): RuntimeValue {
         if (!node) return null;
 
+        const evalWrapper = <T>(cb: (a: T, b: T) => RuntimeValue) => {
+            return this.evalExpression<T>(node, scope, cb);
+        };
+
         switch (node.getType()) {
             case Token.NUMBER:
                 return parseInt(node.getValue());
             case Token.PLUS:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a + b
-                );
+                return evalWrapper<number>((a, b) => a + b);
             case Token.MINUS:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a - b
-                );
+                return evalWrapper<number>((a, b) => a - b);
             case Token.MULTIPLY:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a * b
-                );
+                return evalWrapper<number>((a, b) => a * b);
             case Token.DIVIDE:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a / b
-                );
+                return evalWrapper<number>((a, b) => a / b);
             case Token.LESS:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a < b
-                );
+                return evalWrapper<number>((a, b) => a < b);
             case Token.GREATER:
-                return this.evalExpression<number>(
-                    node,
-                    scope,
-                    (a, b) => a > b
-                );
+                return evalWrapper<number>((a, b) => a > b);
+            case Token.LEQ:
+                return evalWrapper<number>((a, b) => a <= b);
+            case Token.GEQ:
+                return evalWrapper<number>((a, b) => a >= b);
 
             case Token.LPAREN:
                 return this.evaluateNode(node.getChildren()[0], scope);

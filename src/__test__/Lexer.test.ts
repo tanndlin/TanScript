@@ -59,4 +59,22 @@ describe('Lexer Tests', () => {
             new LexerToken(Token.EOF, ''),
         ]);
     });
+
+    it('should tokenize leq', () => {
+        const lexer = new Lexer('<=');
+        const tokens = lexer.getTokens();
+        expect(tokens).toEqual([
+            new LexerToken(Token.LEQ, '<='),
+            new LexerToken(Token.EOF, ''),
+        ]);
+    });
+
+    it('should tokenize geq', () => {
+        const lexer = new Lexer('>=');
+        const tokens = lexer.getTokens();
+        expect(tokens).toEqual([
+            new LexerToken(Token.GEQ, '>='),
+            new LexerToken(Token.EOF, ''),
+        ]);
+    });
 });

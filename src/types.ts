@@ -16,7 +16,9 @@ export enum Token {
     RCURLY = 'RCURLY',
     WHILE = 'WHILE',
     LESS = 'LESS',
+    LEQ = 'LEQ',
     GREATER = 'GREATER',
+    GEQ = 'GEQ',
     FOR = 'FOR',
 }
 
@@ -25,6 +27,10 @@ export const OPERATORS = new Set([
     Token.MINUS,
     Token.MULTIPLY,
     Token.DIVIDE,
+    Token.LESS,
+    Token.LEQ,
+    Token.GREATER,
+    Token.GEQ,
 ]);
 
 export const RESERVED_WORDS = {

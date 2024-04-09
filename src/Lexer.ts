@@ -42,6 +42,26 @@ class Lexer {
                             new LexerToken(Token.IDENTIFIER, identifier)
                         );
                     break;
+
+                // Check for LEQ and GEQ
+                case Token.LESS:
+                    if (this.script[this.pos + 1] === '=') {
+                        this.tokens.push(new LexerToken(Token.LEQ, '<='));
+                        this.pos++;
+                    } else {
+                        this.tokens.push(new LexerToken(tokenType, char));
+                    }
+                    break;
+
+                case Token.GREATER:
+                    if (this.script[this.pos + 1] === '=') {
+                        this.tokens.push(new LexerToken(Token.GEQ, '>='));
+                        this.pos++;
+                    } else {
+                        this.tokens.push(new LexerToken(tokenType, char));
+                    }
+                    break;
+
                 default:
                     this.tokens.push(new LexerToken(tokenType, char));
             }

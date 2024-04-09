@@ -8,9 +8,11 @@ import {
     DivideASTNode,
     EOFASTNode,
     ForASTNode,
+    GreaterEqASTNode,
     GreaterThanASTNode,
     IdentifierASTNode,
     LParenASTNode,
+    LessEqASTNode,
     LessThanASTNode,
     MultiplyASTNode,
     NumberASTNode,
@@ -45,8 +47,6 @@ export default class Parser {
 
             case Token.NUMBER:
             case Token.LPAREN:
-                curToken.getType() === Token.NUMBER ||
-                    curToken.getType() === Token.LPAREN;
                 return this.parseExpressionOrNumber();
 
             case Token.DECLERATION:
@@ -189,6 +189,18 @@ export default class Parser {
             case Token.GREATER:
                 this.pos++;
                 return new GreaterThanASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                );
+            case Token.LEQ:
+                this.pos++;
+                return new LessEqASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                );
+            case Token.GEQ:
+                this.pos++;
+                return new GreaterEqASTNode(
                     leftAST,
                     this.parseExpressionOrNumber()
                 );

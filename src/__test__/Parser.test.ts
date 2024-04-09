@@ -6,7 +6,10 @@ import {
     DeclarationASTNode,
     DivideASTNode,
     ForASTNode,
+    GreaterEqASTNode,
+    GreaterThanASTNode,
     LParenASTNode,
+    LessEqASTNode,
     LessThanASTNode,
     MultiplyASTNode,
     NumberASTNode,
@@ -128,6 +131,38 @@ describe('Parser Math Operators', () => {
         const children = root.getChildren();
         expect(children).toHaveLength(1);
         expect(children[0]).toBeInstanceOf(LessThanASTNode);
+
+        // Left then right
+        const [left, right] = children[0].getChildren();
+        expect(left.getType()).toBe(Token.NUMBER);
+        expect(left.getValue()).toBe('1');
+        expect(right.getType()).toBe(Token.NUMBER);
+        expect(right.getValue()).toBe('2');
+    });
+});
+
+describe.each([
+    [Token.LEQ, LessEqASTNode],
+    [Token.GEQ, GreaterEqASTNode],
+    [Token.LESS, LessThanASTNode],
+    [Token.GREATER, GreaterThanASTNode],
+])('should parse boolean operator %s', (tokenType, expectedNode) => {
+    it('should parse correctly', () => {
+        const tokens = [
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(tokenType, '<='),
+            new LexerToken(Token.NUMBER, '2'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+
+        expect(ast).toBeInstanceOf(AST);
+
+        const root = ast.getRoot();
+        const children = root.getChildren();
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBeInstanceOf(expectedNode);
 
         // Left then right
         const [left, right] = children[0].getChildren();
