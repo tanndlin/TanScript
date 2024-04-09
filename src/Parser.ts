@@ -49,6 +49,9 @@ export default class Parser {
             case Token.EOF:
                 this.pos++;
                 return new EOFASTNode();
+            case Token.SEMI:
+                this.pos++;
+                return new EOFASTNode();
 
             case Token.NUMBER:
             case Token.LPAREN:
@@ -71,6 +74,9 @@ export default class Parser {
 
             case Token.LCURLY:
                 return this.parseBlock();
+
+            case Token.FUNCTION:
+                return this.parseFunctionDef();
         }
 
         if (OPERATORS.has(curToken.getType())) {
@@ -125,6 +131,42 @@ export default class Parser {
         return new IfASTNode(condition, block);
     }
 
+    parseFunctionDef(): FunctionDefASTNode {
+        this.consumeToken(Token.FUNCTION);
+        const identToken = this.consumeToken(Token.IDENTIFIER);
+
+        this.consumeToken(Token.LPAREN);
+        const args: IdentifierASTNode[] = [];
+        while (this.tokens[this.pos].getType() !== Token.RPAREN) {
+            const argToken = this.consumeToken(Token.IDENTIFIER);
+            args.push(new IdentifierASTNode(argToken.getValue()));
+
+            if (this.tokens[this.pos].getType() === Token.COMMA) {
+                this.consumeToken(Token.COMMA);
+            }
+        }
+
+        this.consumeToken(Token.RPAREN);
+        const block = this.parseBlock();
+        return new FunctionDefASTNode(identToken.getValue(), args, block);
+    }
+
+    parseFunctionCall(identToken: LexerToken): ASTNode {
+        this.consumeToken(Token.LPAREN);
+
+        const args: ASTNode[] = [];
+        while (this.tokens[this.pos].getType() !== Token.RPAREN) {
+            args.push(this.parseNext());
+
+            if (this.tokens[this.pos].getType() === Token.COMMA) {
+                this.consumeToken(Token.COMMA);
+            }
+        }
+
+        this.consumeToken(Token.RPAREN);
+        return new FunctionCallASTNode(identToken.getValue(), args);
+    }
+
     parseAssignmentOrExpression(): ASTNode {
         const identToken = this.consumeToken(Token.IDENTIFIER);
 
@@ -138,6 +180,11 @@ export default class Parser {
         // Check if the next token is an assignment
         if (this.tokens[this.pos].getType() === Token.ASSIGN) {
             return this.parseAssignment(identToken);
+        }
+
+        // Check if the next token is a parenthesis
+        if (this.tokens[this.pos].getType() === Token.LPAREN) {
+            return this.parseFunctionCall(identToken);
         }
 
         // The token is not an assignment, so it must be an expression
@@ -239,6 +286,7 @@ export default class Parser {
                 );
             case Token.EOF:
             case Token.SEMI:
+            case Token.COMMA:
                 this.pos++;
                 return leftAST;
             case Token.RPAREN:

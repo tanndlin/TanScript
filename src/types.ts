@@ -23,6 +23,8 @@ export enum Token {
     LEQ = 'LEQ',
     GREATER = 'GREATER',
     GEQ = 'GEQ',
+    FUNCTION = 'FUNCTION',
+    COMMA = 'COMMA',
 }
 
 export const OPERATORS = new Set([
@@ -42,6 +44,7 @@ export const RESERVED_WORDS = {
     for: Token.FOR,
     if: Token.IF,
     else: Token.ELSE,
+    def: Token.FUNCTION,
 };
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;

@@ -1,5 +1,7 @@
+import { FunctionDefASTNode } from './AST/AST';
 import {
     TannerError,
+    UndeclaredFunctionError,
     UndeclaredVariableError,
     UseBeforeDeclarationError,
 } from './errors';
@@ -57,5 +59,22 @@ export default class Scope {
         throw new UseBeforeDeclarationError(
             `Cannot set value for variable ${name} before declaration`
         );
+    }
+
+    addFunction(name: string, f: FunctionDefASTNode) {
+        this.variables.set(name, f);
+    }
+
+    getFunction(name: string): FunctionDefASTNode {
+        if (this.variables.has(name))
+            return this.variables.get(name) as FunctionDefASTNode;
+        let scope: Scope | null = this.parent;
+        while (scope) {
+            if (scope.variables.has(name))
+                return scope.variables.get(name) as FunctionDefASTNode;
+            scope = scope.parent;
+        }
+
+        throw new UndeclaredFunctionError(`Function ${name} not found`);
     }
 }

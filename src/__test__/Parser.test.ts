@@ -3,6 +3,9 @@ import {
     AssignASTNode,
     BlockASTNode,
     DeclarationASTNode,
+    FunctionCallASTNode,
+    FunctionDefASTNode,
+    IdentifierASTNode,
     LParenASTNode,
     RParenASTNode,
 } from '../AST/AST';
@@ -619,5 +622,148 @@ describe('Control Structures', () => {
         expect(condition).toBeInstanceOf(LessThanASTNode);
         expect(body).toBeInstanceOf(BlockASTNode);
         expect(elseBlock).toBeInstanceOf(BlockASTNode);
+    });
+
+    it('should parse a function with no params', () => {
+        const tokens = [
+            new LexerToken(Token.FUNCTION, 'def'),
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionAST] = root.getChildren();
+        expect(functionAST).toBeInstanceOf(FunctionDefASTNode);
+
+        const [block] = functionAST.getChildren();
+        expect(block).toBeInstanceOf(BlockASTNode);
+    });
+
+    it('should parse a function with params', () => {
+        const tokens = [
+            new LexerToken(Token.FUNCTION, 'def'),
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.COMMA, ','),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionDef] = root.getChildren();
+        expect(functionDef).toBeInstanceOf(FunctionDefASTNode);
+
+        const [block] = functionDef.getChildren();
+        expect(block).toBeInstanceOf(BlockASTNode);
+
+        const params = (functionDef as FunctionDefASTNode).getParamList();
+        expect(params).toHaveLength(2);
+
+        const [param] = params;
+        expect(param).toBeInstanceOf(IdentifierASTNode);
+    });
+
+    it('should parse function calls', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.COMMA, ','),
+            new LexerToken(Token.NUMBER, '2'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionCall] = root.getChildren();
+        expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
+        expect(functionCall.getChildren()).toHaveLength(2);
+
+        const [arg1, arg2] = functionCall.getChildren();
+        expect(arg1).toBeInstanceOf(NumberASTNode);
+        expect(arg2).toBeInstanceOf(NumberASTNode);
+    });
+
+    it('should parse function calls with expressions', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.NUMBER, '2'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionCall] = root.getChildren();
+        expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
+        expect(functionCall.getChildren()).toHaveLength(1);
+
+        const [expression] = functionCall.getChildren();
+        expect(expression).toBeInstanceOf(AddASTNode);
+    });
+
+    it('should parse function calls with identifiers', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionCall] = root.getChildren();
+        expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
+        expect(functionCall.getChildren()).toHaveLength(1);
+
+        const [identifier] = functionCall.getChildren();
+        expect(identifier).toBeInstanceOf(IdentifierASTNode);
+    });
+
+    it('should parse function calls with no args', () => {
+        const tokens = [
+            new LexerToken(Token.IDENTIFIER, 'foo'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [functionCall] = root.getChildren();
+        expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
+        expect(functionCall.getChildren()).toHaveLength(0);
     });
 });

@@ -33,6 +33,13 @@ export class UndeclaredVariableError extends RuntimeError {
     }
 }
 
+export class UndeclaredFunctionError extends RuntimeError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'UndeclaredFunctionError';
+    }
+}
+
 export class TannerError extends Error {
     constructor(message: string) {
         super(message);

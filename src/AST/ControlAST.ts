@@ -1,7 +1,8 @@
 import Scope from '../Scope';
+import { RuntimeError } from '../errors';
 import { RuntimeValue, Token } from '../types';
 import { tokenToValue } from '../util';
-import { ASTNode } from './AST';
+import { ASTNode, BlockASTNode, IdentifierASTNode } from './AST';
 import { BooleanOpASTNode } from './BoolAST';
 
 export abstract class ControlStructureASTNode extends ASTNode {
@@ -70,5 +71,58 @@ export class IfASTNode extends ControlStructureASTNode {
         } else if (elseBlock) {
             return elseBlock.evaluate(scope);
         }
+    }
+}
+
+export class FunctionDefASTNode extends ASTNode {
+    constructor(
+        name: string,
+        private paramList: IdentifierASTNode[],
+        block: BlockASTNode
+    ) {
+        super(Token.FUNCTION, name, [block]);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        scope.addFunction(this.value, this);
+        return null;
+    }
+
+    callFunction(callersScope: Scope, params: ASTNode[]): RuntimeValue {
+        // Make sure the number of params line up
+        if (params.length !== this.paramList.length) {
+            throw new RuntimeError(
+                `Function ${this.getValue()} expected ${
+                    this.paramList.length
+                } params, got ${params.length}`
+            );
+        }
+
+        const newScope = new Scope(null);
+        const [block] = this.getChildren();
+
+        params.forEach((param, i) => {
+            const expectedParam = this.paramList[i];
+            const name = expectedParam.getValue();
+
+            newScope.addVariable(name, param.evaluate(callersScope));
+        });
+
+        return block.evaluate(newScope);
+    }
+
+    getParamList() {
+        return this.paramList;
+    }
+}
+
+export class FunctionCallASTNode extends ASTNode {
+    constructor(name: string, args: ASTNode[]) {
+        super(Token.IDENTIFIER, name, args);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        const funcDef = scope.getFunction(this.value);
+        return funcDef.callFunction(scope, this.getChildren());
     }
 }

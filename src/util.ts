@@ -26,6 +26,8 @@ export const valueToToken = (value: string): Token => {
             return Token.LCURLY;
         case '}':
             return Token.RCURLY;
+        case ',':
+            return Token.COMMA;
         default:
             // Check for numbers and identifiers
             if (!isNaN(Number(value))) return Token.NUMBER;
