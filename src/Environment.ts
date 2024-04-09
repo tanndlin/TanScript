@@ -1,4 +1,13 @@
-import { AST, ASTNode } from './AST';
+import {
+    AST,
+    ASTNode,
+    AssignASTNode,
+    BlockASTNode,
+    DeclarationASTNode,
+    ForASTNode,
+    IfASTNode,
+    WhileASTNode,
+} from './AST';
 import Scope from './Scope';
 import { RuntimeValue, Token } from './types';
 
@@ -66,70 +75,20 @@ export default class Environment {
 
             case Token.LPAREN:
                 return this.evaluateNode(node.getChildren()[0], scope);
-            case Token.DECLERATION: {
-                const [assignment] = node.getChildren();
-                const [identifier, value] = assignment.getChildren();
-
-                const evaluatedValue = this.evaluateNode(value, scope);
-                scope.addVariable(identifier.getValue(), evaluatedValue);
-                return evaluatedValue;
-            }
-            case Token.ASSIGN: {
-                const [identifier, value] = node.getChildren();
-                const evaluatedValue = this.evaluateNode(value, scope);
-                scope.setVariable(identifier.getValue(), evaluatedValue);
-                return evaluatedValue;
-            }
-            case Token.IDENTIFIER: {
+            case Token.DECLERATION:
+                return this.runDecleration(node, scope);
+            case Token.ASSIGN:
+                return this.runAssign(node, scope);
+            case Token.IDENTIFIER:
                 return scope.getVariable(node.getValue());
-            }
-            case Token.LCURLY: {
-                const newScope = new Scope(scope);
-                const statements = node.getChildren();
-
-                let retValue: RuntimeValue = null;
-                statements.forEach(
-                    (statement) =>
-                        (retValue = this.evaluateNode(statement, newScope))
-                );
-
-                return retValue;
-            }
-            case Token.WHILE: {
-                const [condition, body] = node.getChildren();
-                let retValue: RuntimeValue = null;
-
-                while (this.evaluateNode(condition, scope)) {
-                    retValue = this.evaluateNode(body, scope);
-                }
-
-                return retValue;
-            }
-
-            case Token.FOR: {
-                const [init, condition, update, body] = node.getChildren();
-                let retValue: RuntimeValue = null;
-
-                // The declared iter var should be in the for loop scope
-                const newScope = new Scope(scope);
-
-                this.evaluateNode(init, newScope);
-                while (this.evaluateNode(condition, newScope)) {
-                    retValue = this.evaluateNode(body, newScope);
-                    this.evaluateNode(update, newScope);
-                }
-
-                return retValue;
-            }
-
-            case Token.IF: {
-                const [condition, body, elseBody] = node.getChildren();
-                const retValue = this.evaluateNode(condition, scope)
-                    ? this.evaluateNode(body, scope)
-                    : this.evaluateNode(elseBody, scope);
-
-                return retValue;
-            }
+            case Token.LCURLY:
+                return this.runBlock(node, scope);
+            case Token.WHILE:
+                return this.runWhile(node, scope);
+            case Token.FOR:
+                return this.runFor(node, scope);
+            case Token.IF:
+                return this.runIf(node, scope);
 
             case Token.SEMI:
             case Token.EOF:
@@ -138,6 +97,70 @@ export default class Environment {
             default:
                 throw new Error(`Unexpected token: ${node.getValue()}`);
         }
+    }
+
+    private runDecleration(node: DeclarationASTNode, scope: Scope) {
+        const [assignment] = node.getChildren();
+        const [identifier, value] = assignment.getChildren();
+
+        const evaluatedValue = this.evaluateNode(value, scope);
+        scope.addVariable(identifier.getValue(), evaluatedValue);
+        return evaluatedValue;
+    }
+
+    private runAssign(node: AssignASTNode, scope: Scope) {
+        const [identifier, value] = node.getChildren();
+        const evaluatedValue = this.evaluateNode(value, scope);
+        scope.setVariable(identifier.getValue(), evaluatedValue);
+        return evaluatedValue;
+    }
+
+    private runBlock(node: BlockASTNode, scope: Scope) {
+        const newScope = new Scope(scope);
+        const statements = node.getChildren();
+
+        let retValue: RuntimeValue = null;
+        statements.forEach(
+            (statement) => (retValue = this.evaluateNode(statement, newScope))
+        );
+
+        return retValue;
+    }
+
+    private runWhile(node: WhileASTNode, scope: Scope) {
+        const [condition, body] = node.getChildren();
+        let retValue: RuntimeValue = null;
+
+        while (this.evaluateNode(condition, scope)) {
+            retValue = this.evaluateNode(body, scope);
+        }
+
+        return retValue;
+    }
+
+    private runFor(node: ForASTNode, scope: Scope) {
+        const [init, condition, update, body] = node.getChildren();
+        let retValue: RuntimeValue = null;
+
+        // The declared iter var should be in the for loop scope
+        const newScope = new Scope(scope);
+
+        this.evaluateNode(init, newScope);
+        while (this.evaluateNode(condition, newScope)) {
+            retValue = this.evaluateNode(body, newScope);
+            this.evaluateNode(update, newScope);
+        }
+
+        return retValue;
+    }
+
+    private runIf(node: IfASTNode, scope: Scope) {
+        const [condition, body, elseBody] = node.getChildren();
+        const retValue = this.evaluateNode(condition, scope)
+            ? this.evaluateNode(body, scope)
+            : this.evaluateNode(elseBody, scope);
+
+        return retValue;
     }
 
     public getGlobalScope(): Scope {
