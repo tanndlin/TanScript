@@ -75,3 +75,15 @@ export const tokenToValue = (token: Token): string => {
             return token;
     }
 };
+
+export const LOWERCASE_LETTERS = Array.from({ length: 26 }, (_, i) =>
+    String.fromCharCode(i + 97)
+);
+
+export const UPPERCASE_LETTERS = Array.from({ length: 26 }, (_, i) =>
+    String.fromCharCode(i + 65)
+);
+
+export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
+    String.fromCharCode(i + 48)
+);

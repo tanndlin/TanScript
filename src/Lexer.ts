@@ -1,5 +1,10 @@
 import { LexerToken, RESERVED_WORDS, ReservedWordsKey, Token } from './types';
-import { valueToToken } from './util';
+import {
+    LOWERCASE_LETTERS,
+    NUMBERS,
+    UPPERCASE_LETTERS,
+    valueToToken,
+} from './util';
 
 class Lexer {
     private tokens: LexerToken[];
@@ -86,15 +91,9 @@ class Lexer {
     readIdentifier() {
         const validChars = new Set([
             '_',
-            ...Array.from({ length: 26 }, (_, i) =>
-                String.fromCharCode(i + 97)
-            ),
-            ...Array.from({ length: 26 }, (_, i) =>
-                String.fromCharCode(i + 65)
-            ),
-            ...Array.from({ length: 10 }, (_, i) =>
-                String.fromCharCode(i + 48)
-            ),
+            ...LOWERCASE_LETTERS,
+            ...UPPERCASE_LETTERS,
+            ...NUMBERS,
         ]);
 
         const start = this.pos;
