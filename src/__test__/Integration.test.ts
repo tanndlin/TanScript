@@ -104,3 +104,45 @@ describe('Function Tests', () => {
         expect(scope.getVariable<number>('a')).toBe(0);
     });
 });
+
+describe.each([
+    ['0 && 1', false],
+    ['1 && 1', true],
+    ['0 || 1', true],
+    ['0 || 0', false],
+    ['1 || 0', true],
+    ['1 || 1', true],
+    ['1 && 0', false],
+    ['0 && 0', false],
+    ['1 && 1 && 1', true],
+    ['1 && 1 && 0', false],
+    ['1 || 1 || 1', true],
+    ['1 || 1 || 0', true],
+    ['0 || 0 || 0', false],
+    ['0 || 0 || 1', true],
+    ['0 && 0 && 0', false],
+    ['0 && 0 && 1', false],
+    ['1 || 0 || 0', true],
+    ['1 || 0 || 1', true],
+    ['2 + 3', 5],
+    ['6 / 2', 3],
+    ['10-3', 7],
+    ['6 * 2', 12],
+    ['1 < 2', true],
+    ['1 > 2', false],
+    ['1 <= 2', true],
+    ['1 >= 2', false],
+    ['1 == 1', true],
+    ['1 != 1', false],
+    ['1 != 2', true],
+    ['1 == 2', false],
+    ['!0', true],
+    ['!1', false],
+])('Expression Tests', (script, expected) => {
+    it(`should evaluate ${script} to ${expected}`, () => {
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(expected);
+    });
+});

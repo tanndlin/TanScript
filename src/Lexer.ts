@@ -3,6 +3,7 @@ import {
     LOWERCASE_LETTERS,
     NUMBERS,
     UPPERCASE_LETTERS,
+    tokenToValue,
     valueToToken,
 } from './util';
 
@@ -48,23 +49,35 @@ class Lexer {
                         );
                     break;
 
-                // Check for LEQ and GEQ
                 case Token.LESS:
-                    if (this.script[this.pos + 1] === '=') {
-                        this.tokens.push(new LexerToken(Token.LEQ, '<='));
-                        this.pos++;
-                    } else {
-                        this.tokens.push(new LexerToken(tokenType, char));
-                    }
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '=', Token.LEQ)
+                    );
+                    break;
+                case Token.GREATER:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '=', Token.GEQ)
+                    );
+                    break;
+                case Token.ASSIGN:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '=', Token.EQUAL)
+                    );
+                    break;
+                case Token.NOT:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '=', Token.NEQ)
+                    );
                     break;
 
-                case Token.GREATER:
-                    if (this.script[this.pos + 1] === '=') {
-                        this.tokens.push(new LexerToken(Token.GEQ, '>='));
-                        this.pos++;
-                    } else {
-                        this.tokens.push(new LexerToken(tokenType, char));
-                    }
+                // Grab the second one for now, since bitwise is not implemented
+                case Token.AND:
+                    this.pos++;
+                    this.tokens.push(new LexerToken(Token.AND, '&&'));
+                    break;
+                case Token.OR:
+                    this.pos++;
+                    this.tokens.push(new LexerToken(Token.OR, '||'));
                     break;
 
                 default:
@@ -75,6 +88,19 @@ class Lexer {
         }
 
         this.tokens.push(new LexerToken(Token.EOF, ''));
+    }
+
+    tryParsePair(
+        curToken: Token,
+        secondChar: string,
+        secondToken: Token
+    ): LexerToken {
+        if (this.script[this.pos + 1] === secondChar) {
+            this.pos++;
+            return new LexerToken(secondToken, tokenToValue(secondToken));
+        } else {
+            return new LexerToken(curToken, tokenToValue(curToken));
+        }
     }
 
     // Reads a whole number and leaves pos at the next char

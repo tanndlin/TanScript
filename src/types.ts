@@ -23,6 +23,12 @@ export enum Token {
     LEQ = 'LEQ',
     GREATER = 'GREATER',
     GEQ = 'GEQ',
+    EQUAL = 'EQUAL',
+    NOT = 'NOT',
+    NEQ = 'NEQ',
+    AND = 'AND',
+    OR = 'OR',
+
     FUNCTION = 'FUNCTION',
     COMMA = 'COMMA',
 }
@@ -36,6 +42,10 @@ export const OPERATORS = new Set([
     Token.LEQ,
     Token.GREATER,
     Token.GEQ,
+    Token.EQUAL,
+    Token.NEQ,
+    Token.AND,
+    Token.OR,
 ]);
 
 export const RESERVED_WORDS = {

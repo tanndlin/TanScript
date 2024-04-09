@@ -3,8 +3,6 @@ import {
     AssignASTNode,
     BlockASTNode,
     DeclarationASTNode,
-    FunctionCallASTNode,
-    FunctionDefASTNode,
     IdentifierASTNode,
     LParenASTNode,
     RParenASTNode,
@@ -15,7 +13,13 @@ import {
     LessEqASTNode,
     LessThanASTNode,
 } from '../AST/BoolAST';
-import { ForASTNode, IfASTNode, WhileASTNode } from '../AST/ControlAST';
+import {
+    ForASTNode,
+    FunctionCallASTNode,
+    FunctionDefASTNode,
+    IfASTNode,
+    WhileASTNode,
+} from '../AST/ControlAST';
 import {
     AddASTNode,
     DivideASTNode,

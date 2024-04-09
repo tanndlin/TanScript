@@ -10,13 +10,24 @@ import {
     RParenASTNode,
 } from './AST/AST';
 import {
+    AndASTNode,
     BooleanOpASTNode,
+    EqualASTNode,
     GreaterEqASTNode,
     GreaterThanASTNode,
     LessEqASTNode,
     LessThanASTNode,
+    NotASTNode,
+    NotEqualASTNode,
+    OrASTNode,
 } from './AST/BoolAST';
-import { ForASTNode, IfASTNode, WhileASTNode } from './AST/ControlAST';
+import {
+    ForASTNode,
+    FunctionCallASTNode,
+    FunctionDefASTNode,
+    IfASTNode,
+    WhileASTNode,
+} from './AST/ControlAST';
 import {
     AddASTNode,
     DivideASTNode,
@@ -77,6 +88,9 @@ export default class Parser {
 
             case Token.FUNCTION:
                 return this.parseFunctionDef();
+
+            case Token.NOT:
+                return this.parseNot();
         }
 
         if (OPERATORS.has(curToken.getType())) {
@@ -199,9 +213,7 @@ export default class Parser {
     }
 
     // If the current token is a number, make sure next token is either an operator or EOF
-    parseExpressionOrNumber(
-        curToken?: LexerToken
-    ): INumberableAST | BooleanOpASTNode {
+    parseExpressionOrNumber(curToken?: LexerToken): ASTNode {
         if (!curToken) {
             curToken = this.consumeOneOf([
                 Token.NUMBER,
@@ -285,6 +297,25 @@ export default class Parser {
                     leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );
+
+            case Token.EQUAL:
+                this.pos++;
+                return new EqualASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                ) as INumberableAST;
+            case Token.NEQ:
+                this.pos++;
+                return new NotEqualASTNode(
+                    leftAST,
+                    this.parseExpressionOrNumber()
+                ) as INumberableAST;
+            case Token.AND:
+                this.pos++;
+                return new AndASTNode(leftAST, this.parseExpressionOrNumber());
+            case Token.OR:
+                this.pos++;
+                return new OrASTNode(leftAST, this.parseExpressionOrNumber());
             case Token.EOF:
             case Token.SEMI:
             case Token.COMMA:
@@ -382,6 +413,12 @@ export default class Parser {
             expressionAST as INumberableAST
         );
         return new AssignASTNode(identAST, resultExpression);
+    }
+
+    parseNot(): NotASTNode {
+        const notToken = this.consumeToken(Token.NOT);
+        const expression = this.parseExpressionOrNumber();
+        return new NotASTNode(expression);
     }
 
     consumeToken(token: Token): LexerToken {

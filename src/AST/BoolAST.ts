@@ -1,6 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { Token } from '../types';
+import { RuntimeValue, Token } from '../types';
 import { tokenToValue } from '../util';
 import { ASTNode } from './AST';
 import { INumberableAST } from './NumberAST';
@@ -23,6 +23,8 @@ export class BooleanOpASTNode extends ASTNode {
                 return left > right;
             case Token.GEQ:
                 return left >= right;
+            case Token.EQUAL:
+                return left === right;
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }
@@ -50,5 +52,67 @@ export class GreaterThanASTNode extends BooleanOpASTNode {
 export class GreaterEqASTNode extends BooleanOpASTNode {
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.GEQ, left, right);
+    }
+}
+
+export class NotEqualASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.NEQ, '!=', [left, right]);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        const left = this.getChildren()[0].evaluate(scope);
+        const right = this.getChildren()[1].evaluate(scope);
+
+        return left !== right;
+    }
+}
+
+export class EqualASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.EQUAL, '==', [left, right]);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        const left = this.getChildren()[0].evaluate(scope);
+        const right = this.getChildren()[1].evaluate(scope);
+
+        return left === right;
+    }
+}
+
+export class AndASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.AND, '&&', [left, right]);
+    }
+
+    evaluate(scope: Scope): boolean {
+        const left = this.getChildren()[0].evaluate(scope);
+        const right = this.getChildren()[1].evaluate(scope);
+
+        return !!left && !!right;
+    }
+}
+
+export class OrASTNode extends ASTNode {
+    constructor(left: ASTNode, right: ASTNode) {
+        super(Token.OR, '||', [left, right]);
+    }
+
+    evaluate(scope: Scope): boolean {
+        const left = this.getChildren()[0].evaluate(scope);
+        const right = this.getChildren()[1].evaluate(scope);
+
+        return !!left || !!right;
+    }
+}
+
+export class NotASTNode extends ASTNode {
+    constructor(value: ASTNode) {
+        super(Token.NOT, '!', [value]);
+    }
+
+    evaluate(scope: Scope): boolean {
+        return !this.getChildren()[0].evaluate(scope);
     }
 }

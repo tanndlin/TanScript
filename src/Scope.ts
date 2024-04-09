@@ -1,4 +1,4 @@
-import { FunctionDefASTNode } from './AST/AST';
+import { FunctionDefASTNode } from './AST/ControlAST';
 import {
     TannerError,
     UndeclaredFunctionError,

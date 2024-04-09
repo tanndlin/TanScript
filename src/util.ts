@@ -28,6 +28,13 @@ export const valueToToken = (value: string): Token => {
             return Token.RCURLY;
         case ',':
             return Token.COMMA;
+        case '&':
+            return Token.AND;
+        case '|':
+            return Token.OR;
+        case '!':
+            return Token.NOT;
+
         default:
             // Check for numbers and identifiers
             if (!isNaN(Number(value))) return Token.NUMBER;
@@ -61,6 +68,12 @@ export const tokenToValue = (token: Token): string => {
             return ';';
         case Token.ASSIGN:
             return '=';
+        case Token.EQUAL:
+            return '==';
+        case Token.NEQ:
+            return '!=';
+        case Token.COMMA:
+            return ',';
         case Token.LCURLY:
             return '{';
         case Token.RCURLY:
