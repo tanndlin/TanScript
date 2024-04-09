@@ -11,6 +11,7 @@ import {
     GreaterEqASTNode,
     GreaterThanASTNode,
     IdentifierASTNode,
+    IfASTNode,
     LParenASTNode,
     LessEqASTNode,
     LessThanASTNode,
@@ -58,6 +59,9 @@ export default class Parser {
             case Token.FOR:
                 return this.parseFor();
 
+            case Token.IF:
+                return this.parseIf();
+
             case Token.IDENTIFIER:
                 return this.parseAssignmentOrExpression();
 
@@ -97,6 +101,24 @@ export default class Parser {
         const block = this.parseBlock();
 
         return new ForASTNode(init, condition, update, block);
+    }
+
+    parseIf(): ASTNode {
+        this.consumeToken(Token.IF);
+        this.consumeToken(Token.LPAREN);
+
+        const condition = this.parseExpressionOrNumber();
+        this.consumeToken(Token.RPAREN);
+
+        const block = this.parseBlock();
+
+        // Check if there is an else block
+        if (this.tokens[this.pos].getType() === Token.ELSE) {
+            this.consumeToken(Token.ELSE);
+            return new IfASTNode(condition, block, this.parseBlock());
+        }
+
+        return new IfASTNode(condition, block);
     }
 
     parseAssignmentOrExpression(): ASTNode {

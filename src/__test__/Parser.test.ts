@@ -8,6 +8,7 @@ import {
     ForASTNode,
     GreaterEqASTNode,
     GreaterThanASTNode,
+    IfASTNode,
     LParenASTNode,
     LessEqASTNode,
     LessThanASTNode,
@@ -546,5 +547,75 @@ describe('Control Structures', () => {
         expect(condition).toBeInstanceOf(LessThanASTNode);
         expect(update).toBeInstanceOf(AssignASTNode);
         expect(body).toBeInstanceOf(BlockASTNode);
+    });
+
+    it('should parse a simple if statement', () => {
+        const tokens = [
+            new LexerToken(Token.IF, 'if'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '10'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [ifAST] = root.getChildren();
+        expect(ifAST).toBeInstanceOf(IfASTNode);
+
+        const [condition, body, elseBlock] = ifAST.getChildren();
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(elseBlock).toBeUndefined();
+    });
+
+    it('should parse an if statement with an else block', () => {
+        const tokens = [
+            new LexerToken(Token.IF, 'if'),
+            new LexerToken(Token.LPAREN, '('),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.LESS, '<'),
+            new LexerToken(Token.NUMBER, '10'),
+            new LexerToken(Token.RPAREN, ')'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.ELSE, 'else'),
+            new LexerToken(Token.LCURLY, '{'),
+            new LexerToken(Token.IDENTIFIER, 'y'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '2'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.RCURLY, '}'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [ifAST] = root.getChildren();
+        expect(ifAST).toBeInstanceOf(IfASTNode);
+
+        const [condition, body, elseBlock] = ifAST.getChildren();
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(elseBlock).toBeInstanceOf(BlockASTNode);
     });
 });

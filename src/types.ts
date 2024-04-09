@@ -1,4 +1,9 @@
 export enum Token {
+    FOR = 'FOR',
+    WHILE = 'WHILE',
+    IF = 'IF',
+    ELSE = 'ELSE',
+
     NUMBER = 'NUMBER',
     PLUS = 'PLUS',
     MINUS = 'MINUS',
@@ -14,12 +19,10 @@ export enum Token {
     ASSIGN = 'ASSIGN',
     LCURLY = 'LCURLY',
     RCURLY = 'RCURLY',
-    WHILE = 'WHILE',
     LESS = 'LESS',
     LEQ = 'LEQ',
     GREATER = 'GREATER',
     GEQ = 'GEQ',
-    FOR = 'FOR',
 }
 
 export const OPERATORS = new Set([
@@ -37,6 +40,8 @@ export const RESERVED_WORDS = {
     let: Token.DECLERATION,
     while: Token.WHILE,
     for: Token.FOR,
+    if: Token.IF,
+    else: Token.ELSE,
 };
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;

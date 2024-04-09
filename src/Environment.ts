@@ -122,6 +122,15 @@ export default class Environment {
                 return retValue;
             }
 
+            case Token.IF: {
+                const [condition, body, elseBody] = node.getChildren();
+                const retValue = this.evaluateNode(condition, scope)
+                    ? this.evaluateNode(body, scope)
+                    : this.evaluateNode(elseBody, scope);
+
+                return retValue;
+            }
+
             case Token.SEMI:
             case Token.EOF:
                 return;

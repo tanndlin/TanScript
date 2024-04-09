@@ -1,5 +1,5 @@
 import Lexer from '../Lexer';
-import { LexerToken, Token } from '../types';
+import { LexerToken, RESERVED_WORDS, Token } from '../types';
 
 describe('Lexer Tests', () => {
     it('should tokenize a number', () => {
@@ -11,15 +11,26 @@ describe('Lexer Tests', () => {
         ]);
     });
 
-    it('should tokenize reserved key words', () => {
-        const lexer = new Lexer('let while');
-        const tokens = lexer.getTokens();
-        expect(tokens).toEqual([
-            new LexerToken(Token.DECLERATION, 'let'),
-            new LexerToken(Token.WHILE, 'while'),
-            new LexerToken(Token.EOF, ''),
-        ]);
-    });
+    const objectFlip = (obj) => {
+        const ret = {};
+        Object.keys(obj).forEach((key) => {
+            ret[obj[key]] = key;
+        });
+
+        return Object.entries(ret) as string[][];
+    };
+
+    it.each(objectFlip(RESERVED_WORDS))(
+        'should tokenize reserved word %s',
+        (tokenType, word) => {
+            const lexer = new Lexer(word);
+            const tokens = lexer.getTokens();
+            expect(tokens).toEqual([
+                new LexerToken(tokenType as Token, word),
+                new LexerToken(Token.EOF, ''),
+            ]);
+        }
+    );
 
     it('should tokenize an identifier', () => {
         const lexer = new Lexer('x');

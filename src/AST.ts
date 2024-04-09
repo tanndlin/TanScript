@@ -138,6 +138,16 @@ export class ForASTNode extends ASTNode {
     }
 }
 
+export class IfASTNode extends ASTNode {
+    constructor(condition: ASTNode, block: ASTNode, elseBlock?: ASTNode) {
+        super(
+            Token.IF,
+            'if',
+            [condition, block, elseBlock].filter(Boolean) as ASTNode[]
+        );
+    }
+}
+
 export class LessThanASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
         super(Token.LESS, '<', [left, right]);

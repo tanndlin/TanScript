@@ -85,4 +85,20 @@ describe('Enviornment Integration Tests', () => {
         const engine = new Engine(script);
         expect(() => engine.run()).toThrow(UndeclaredVariableError);
     });
+
+    it.each([
+        ['let x = 0; if (1 < 2) { x=10; } else { x=20; }', 10],
+        ['let x = 0; if (2 > 1) { x=10; } else { x=20; }', 10],
+        ['let x = 0; if (1 > 2) { x=10; } else { x=20; }', 20],
+        ['let x = 0; if (2 < 1) { x=10; } else { x=20; }', 20],
+    ])('should evaluate correctly for script %s', (script, expected) => {
+        const engine = new Engine(script);
+        const result = engine.run();
+        expect(result).toBe(expected);
+
+        const env = engine.getEnvironment();
+        const scope = env.getGlobalScope();
+        const x = scope.getVariable<number>('x');
+        expect(x).toBe(expected);
+    });
 });
