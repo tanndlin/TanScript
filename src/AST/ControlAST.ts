@@ -98,11 +98,7 @@ export class FunctionDefASTNode extends ASTNode {
             );
         }
 
-        const newScope = new Scope(null);
-
-        // Add itself to the scope to allow for recursion
-        newScope.addFunction(this.value, this);
-
+        const newScope = new Scope(callersScope);
         const [block] = this.getChildren();
 
         params.forEach((param, i) => {

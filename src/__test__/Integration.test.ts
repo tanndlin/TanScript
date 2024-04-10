@@ -87,10 +87,10 @@ describe('Function Tests', () => {
         );
     });
 
-    it('Variables in global scope should not be in scope for function', () => {
+    it('Variables in global scope should be in scope for function', () => {
         const script = 'let x = 10;\ndef add(a) { x += a; }\nadd(5);';
         const engine = new Engine(script);
-        expect(() => engine.run()).toThrow(UndeclaredVariableError);
+        expect(() => engine.run()).not.toThrow();
     });
 
     it('modifing a variable in a function should not affect the callers scope', () => {
@@ -102,6 +102,15 @@ describe('Function Tests', () => {
 
         const scope = engine.getEnvironment().getGlobalScope();
         expect(scope.getVariable<number>('a')).toBe(0);
+    });
+
+    it('allows recursion', () => {
+        const script =
+            'def fib(n) { if (n <= 1) { n; } else { fib(n - 1) + fib(n - 2); } }\nfib(10);';
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(55);
     });
 });
 

@@ -347,14 +347,15 @@ export default class Parser {
     parseDecleration(): DeclarationASTNode {
         this.consumeToken(Token.DECLERATION);
 
-        const assignASTNode = this.parseAssignment();
+        const assignASTNode = this.parseAssignment(undefined, false);
         const declAST = new DeclarationASTNode();
         declAST.addChild(assignASTNode);
         return declAST;
     }
 
     parseAssignment(
-        identToken: LexerToken = this.consumeToken(Token.IDENTIFIER)
+        identToken: LexerToken = this.consumeToken(Token.IDENTIFIER),
+        allowShortHand = true
     ): AssignASTNode {
         const assignToken = this.consumeOneOf([
             Token.ASSIGN,
@@ -364,6 +365,11 @@ export default class Parser {
         // +=, -=, *=, /=
         if (OPERATORS.has(assignToken.getType())) {
             // The token we consumed is an operator
+            if (!allowShortHand)
+                throw new ParserError(
+                    `Unexpected token ${assignToken.getValue()}. Expected an assignment operator. Cannot use shorthand assignment in this context.`
+                );
+
             return this.parseShortHandAssign(identToken, assignToken);
         }
 

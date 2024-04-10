@@ -351,6 +351,21 @@ describe('Parser Assignment', () => {
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AddASTNode);
     });
+
+    it('should not allow shorthand assignment during declaration', () => {
+        const tokens = [
+            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.NUMBER, '1'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.EOF, ''),
+        ];
+
+        const parser = new Parser(tokens);
+        expect(() => parser.parse()).toThrow(ParserError);
+    });
 });
 
 describe('Parser Error Cases', () => {
