@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest --watch --config ./jest.config.js",
+    "test": "jest --watchAll --config ./jest.config.js",
     "build": "tsc",
     "watch": "nodemon -e ts -w ./src -x npm run watch:serve",
     "watch:serve": "node -r ts-node/register --inspect src/index.ts"
