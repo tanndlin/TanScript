@@ -62,10 +62,12 @@ export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
 export class LexerToken {
     private type: Token;
     private value: string;
+    private lineNumber: number;
 
-    constructor(type: Token, value: string) {
+    constructor(type: Token, value: string, lineNumber: number = -1) {
         this.type = type;
         this.value = value;
+        this.lineNumber = lineNumber;
     }
 
     getType(): Token {
@@ -74,6 +76,10 @@ export class LexerToken {
 
     getValue(): string {
         return this.value;
+    }
+
+    getLineNumber(): number {
+        return this.lineNumber;
     }
 }
 

@@ -6,8 +6,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('10');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.NUMBER, '10'),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.NUMBER, '10', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -26,8 +26,8 @@ describe('Lexer Tests', () => {
             const lexer = new Lexer(word);
             const tokens = lexer.getTokens();
             expect(tokens).toEqual([
-                new LexerToken(tokenType as Token, word),
-                new LexerToken(Token.EOF, ''),
+                new LexerToken(tokenType as Token, word, 1),
+                new LexerToken(Token.EOF, '', 1),
             ]);
         }
     );
@@ -36,8 +36,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('x');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.IDENTIFIER, 'x'),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.IDENTIFIER, 'x', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -45,8 +45,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('letx');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.IDENTIFIER, 'letx'),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.IDENTIFIER, 'letx', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -54,8 +54,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('x10');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.IDENTIFIER, 'x10'),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.IDENTIFIER, 'x10', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -63,11 +63,11 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('+-*/');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.PLUS, '+'),
-            new LexerToken(Token.MINUS, '-'),
-            new LexerToken(Token.MULTIPLY, '*'),
-            new LexerToken(Token.DIVIDE, '/'),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.PLUS, '+', 1),
+            new LexerToken(Token.MINUS, '-', 1),
+            new LexerToken(Token.MULTIPLY, '*', 1),
+            new LexerToken(Token.DIVIDE, '/', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -75,8 +75,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('<=');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.LEQ, '<='),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.LEQ, '<=', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 
@@ -84,8 +84,8 @@ describe('Lexer Tests', () => {
         const lexer = new Lexer('>=');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
-            new LexerToken(Token.GEQ, '>='),
-            new LexerToken(Token.EOF, ''),
+            new LexerToken(Token.GEQ, '>=', 1),
+            new LexerToken(Token.EOF, '', 1),
         ]);
     });
 });

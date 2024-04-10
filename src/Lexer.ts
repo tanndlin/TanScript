@@ -10,6 +10,7 @@ import {
 class Lexer {
     private tokens: LexerToken[];
     private pos = 0;
+    private lineNumber = 1;
 
     constructor(private script: string) {
         this.tokens = [];
@@ -21,6 +22,7 @@ class Lexer {
             const char = this.script[this.pos];
             // If char is whitespace, skip
             if (/\s/.test(char)) {
+                if (char === '\n') this.lineNumber++;
                 this.pos++;
                 continue;
             }
@@ -30,7 +32,7 @@ class Lexer {
                 case Token.NUMBER:
                     const number = this.readNumber();
                     this.tokens.push(
-                        new LexerToken(tokenType, number.toString())
+                        this.createToken(tokenType, number.toString())
                     );
                     break;
                 case Token.IDENTIFIER:
@@ -38,14 +40,14 @@ class Lexer {
                     // if is a reserved word
                     if (Object.keys(RESERVED_WORDS).includes(identifier))
                         this.tokens.push(
-                            new LexerToken(
+                            this.createToken(
                                 RESERVED_WORDS[identifier as ReservedWordsKey],
                                 identifier
                             )
                         );
                     else
                         this.tokens.push(
-                            new LexerToken(Token.IDENTIFIER, identifier)
+                            this.createToken(Token.IDENTIFIER, identifier)
                         );
                     break;
 
@@ -73,21 +75,21 @@ class Lexer {
                 // Grab the second one for now, since bitwise is not implemented
                 case Token.AND:
                     this.pos++;
-                    this.tokens.push(new LexerToken(Token.AND, '&&'));
+                    this.tokens.push(this.createToken(Token.AND, '&&'));
                     break;
                 case Token.OR:
                     this.pos++;
-                    this.tokens.push(new LexerToken(Token.OR, '||'));
+                    this.tokens.push(this.createToken(Token.OR, '||'));
                     break;
 
                 default:
-                    this.tokens.push(new LexerToken(tokenType, char));
+                    this.tokens.push(this.createToken(tokenType, char));
             }
 
             this.pos++;
         }
 
-        this.tokens.push(new LexerToken(Token.EOF, ''));
+        this.tokens.push(this.createToken(Token.EOF, ''));
     }
 
     tryParsePair(
@@ -97,9 +99,9 @@ class Lexer {
     ): LexerToken {
         if (this.script[this.pos + 1] === secondChar) {
             this.pos++;
-            return new LexerToken(secondToken, tokenToValue(secondToken));
+            return this.createToken(secondToken, tokenToValue(secondToken));
         } else {
-            return new LexerToken(curToken, tokenToValue(curToken));
+            return this.createToken(curToken, tokenToValue(curToken));
         }
     }
 
@@ -136,6 +138,10 @@ class Lexer {
 
     getTokens(): LexerToken[] {
         return this.tokens;
+    }
+
+    createToken(type: Token, value: string): LexerToken {
+        return new LexerToken(type, value, this.lineNumber);
     }
 }
 

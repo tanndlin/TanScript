@@ -98,7 +98,9 @@ export default class Parser {
             return this.parseExpressionOrNumber();
         }
 
-        throw new ParserError(`Unexpected token: ${curToken.getValue()}`);
+        throw new ParserError(
+            `Unexpected token at line ${curToken.getLineNumber()}: ${curToken.getValue()}`
+        );
     }
 
     parseWhile(): ASTNode {
@@ -427,7 +429,9 @@ export default class Parser {
 
         if (this.tokens[this.pos].getType() !== token)
             throw new ParserError(
-                `Unexpected token: ${this.tokens[
+                `Unexpected token at line ${this.tokens[
+                    this.pos
+                ].getLineNumber()}: ${this.tokens[
                     this.pos
                 ].getValue()}. Expected ${token}`
             );
@@ -441,7 +445,9 @@ export default class Parser {
 
         if (!tokens.includes(this.tokens[this.pos].getType()))
             throw new ParserError(
-                `Unexpected token: ${this.tokens[
+                `Unexpected token at line ${this.tokens[
+                    this.pos
+                ].getLineNumber()}: ${this.tokens[
                     this.pos
                 ].getValue()}. Expected one of ${tokens.join(', ')}`
             );
