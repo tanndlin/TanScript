@@ -16,5 +16,12 @@
                 }
             ]
         },
+        {
+            "splitTerminals": [
+                {
+                    "name": "Git",
+                },
+            ]
+        }
     ],
 }

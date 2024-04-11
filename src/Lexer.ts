@@ -12,6 +12,13 @@ class Lexer {
     private pos = 0;
     private lineNumber = 1;
 
+    private readonly validChars = new Set([
+        '_',
+        ...LOWERCASE_LETTERS,
+        ...UPPERCASE_LETTERS,
+        ...NUMBERS,
+    ]);
+
     constructor(private script: string) {
         this.tokens = [];
         this.tokenize();
@@ -117,16 +124,9 @@ class Lexer {
     }
 
     readIdentifier() {
-        const validChars = new Set([
-            '_',
-            ...LOWERCASE_LETTERS,
-            ...UPPERCASE_LETTERS,
-            ...NUMBERS,
-        ]);
-
         const start = this.pos;
         while (
-            validChars.has(this.script[this.pos]) &&
+            this.validChars.has(this.script[this.pos]) &&
             this.pos < this.script.length
         ) {
             this.pos++;
