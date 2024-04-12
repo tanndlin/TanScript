@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import util from 'util';
-import Environment from './Environment';
+import Compiler from './Compiler';
 import Lexer from './Lexer';
 import Parser from './Parser';
 
@@ -17,8 +17,11 @@ try {
 
     console.log(util.inspect(ast, { showHidden: false, depth: null }));
 
-    const env = new Environment(ast);
-    env.evaluate();
+    // const env = new Environment(ast);
+    // env.evaluate();
+
+    const compiler = new Compiler(ast);
+    compiler.compile();
 } catch (e) {
     console.error(e);
 }

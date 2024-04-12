@@ -12,6 +12,13 @@ export class ParserError extends Error {
     }
 }
 
+export class CompilerError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'CompilerError';
+    }
+}
+
 export class RuntimeError extends Error {
     constructor(message: string) {
         super(message);
