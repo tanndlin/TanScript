@@ -15,22 +15,18 @@ import {
 
 describe('Enviornment Basic Tests', () => {
     it('should run basic script', () => {
-        const root = new BlockASTNode([]);
-        const decl = new DeclarationASTNode();
         const assign = new AssignASTNode(
             new IdentifierASTNode('x'),
             new NumberASTNode('10')
         );
 
+        const decl = new DeclarationASTNode(assign);
         const add = new AddASTNode(
             new IdentifierASTNode('x') as INumberableAST,
             new NumberASTNode('5')
         );
 
-        decl.addChild(assign);
-        root.addChild(decl);
-        root.addChild(add);
-
+        const root = new BlockASTNode([decl, add]);
         const ast = new AST(root);
         const env = new Environment(ast);
         const result = env.evaluate();
@@ -39,15 +35,14 @@ describe('Enviornment Basic Tests', () => {
 
     it('should store variables in scope', () => {
         const root = new BlockASTNode([]);
-        const decl = new DeclarationASTNode();
         const assign = new AssignASTNode(
             new IdentifierASTNode('x'),
             new NumberASTNode('10')
         );
 
-        decl.addChild(assign);
-        root.addChild(decl);
+        const decl = new DeclarationASTNode(assign);
 
+        root.addChild(decl);
         const ast = new AST(root);
         const env = new Environment(ast);
         env.evaluate();
@@ -55,6 +50,39 @@ describe('Enviornment Basic Tests', () => {
         const scope = env.getGlobalScope();
         const x = scope.getVariable<number>('x');
         expect(x).toBe(10);
+    });
+
+    it('should allow declaration with no assignment', () => {
+        const root = new BlockASTNode([]);
+        const decl = new DeclarationASTNode(new IdentifierASTNode('x'));
+
+        root.addChild(decl);
+        const ast = new AST(root);
+        const env = new Environment(ast);
+        env.evaluate();
+
+        const scope = env.getGlobalScope();
+        const x = scope.getVariable<number>('x');
+        expect(x).toBe(undefined);
+    });
+
+    it('should allow reassignment', () => {
+        const root = new BlockASTNode([]);
+        const decl = new DeclarationASTNode(new IdentifierASTNode('x'));
+        const newAssign = new AssignASTNode(
+            new IdentifierASTNode('x'),
+            new NumberASTNode('20')
+        );
+
+        root.addChild(decl);
+        root.addChild(newAssign);
+        const ast = new AST(root);
+        const env = new Environment(ast);
+        env.evaluate();
+
+        const scope = env.getGlobalScope();
+        const x = scope.getVariable<number>('x');
+        expect(x).toBe(20);
     });
 });
 

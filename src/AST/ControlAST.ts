@@ -1,13 +1,12 @@
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
 import { RuntimeValue, Token } from '../types';
-import { tokenToValue } from '../util';
 import { ASTNode, BlockASTNode, IdentifierASTNode } from './AST';
 import { BooleanOpASTNode } from './BoolAST';
 
 export abstract class ControlStructureASTNode extends ASTNode {
     constructor(type: Token, children: ASTNode[]) {
-        super(type, tokenToValue(type), children);
+        super(type, children);
     }
 }
 
@@ -80,7 +79,8 @@ export class FunctionDefASTNode extends ASTNode {
         private paramList: IdentifierASTNode[],
         block: BlockASTNode
     ) {
-        super(Token.FUNCTION, name, [block]);
+        super(Token.FUNCTION, [block]);
+        this.value = name;
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -118,7 +118,8 @@ export class FunctionDefASTNode extends ASTNode {
 
 export class FunctionCallASTNode extends ASTNode {
     constructor(name: string, args: ASTNode[]) {
-        super(Token.IDENTIFIER, name, args);
+        super(Token.IDENTIFIER, args);
+        this.value = name;
     }
 
     evaluate(scope: Scope): RuntimeValue {

@@ -334,13 +334,10 @@ export default class Parser {
     }
 
     parseLParen(): LParenASTNode {
-        const lParenNode = new LParenASTNode();
         const expression = this.parseExpressionOrNumber();
         this.consumeToken(Token.RPAREN);
 
-        lParenNode.addChild(expression);
-        lParenNode.addChild(new RParenASTNode());
-
+        const lParenNode = new LParenASTNode([expression, new RParenASTNode()]);
         return lParenNode;
     }
 
@@ -348,8 +345,7 @@ export default class Parser {
         this.consumeToken(Token.DECLERATION);
 
         const assignASTNode = this.parseAssignment(undefined, false);
-        const declAST = new DeclarationASTNode();
-        declAST.addChild(assignASTNode);
+        const declAST = new DeclarationASTNode(assignASTNode);
         return declAST;
     }
 

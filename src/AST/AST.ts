@@ -1,6 +1,7 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { RuntimeValue, Token } from '../types';
+import { tokenToValue } from '../util';
 
 export class AST {
     constructor(private root: RootASTNode) {}
@@ -30,10 +31,10 @@ export abstract class ASTNode extends RootASTNode {
     protected type: Token;
     protected value: string;
 
-    constructor(type: Token, value: string, children: ASTNode[]) {
+    constructor(type: Token, children: ASTNode[]) {
         super(children);
         this.type = type;
-        this.value = value;
+        this.value = tokenToValue(type);
     }
 
     abstract evaluate(scope: Scope): RuntimeValue;
@@ -47,17 +48,41 @@ export abstract class ASTNode extends RootASTNode {
     }
 }
 
-export class EOFASTNode extends ASTNode {
-    constructor() {
-        super(Token.EOF, '', []);
+export class DecoratorASTNode extends ASTNode {
+    constructor(token: Token) {
+        super(token, []);
     }
 
-    evaluate(scope: Scope): RuntimeValue {}
+    evaluate(scope: Scope): RuntimeValue {
+        throw new TannerError('Unexpected call to DecoratorASTNode.evaluate');
+    }
+
+    addChild(node: ASTNode): void {
+        throw new TannerError('Unexpected call to DecoratorASTNode.addChild');
+    }
+}
+
+export class EOFASTNode extends DecoratorASTNode {
+    constructor() {
+        super(Token.EOF);
+    }
+}
+
+export class RParenASTNode extends DecoratorASTNode {
+    constructor() {
+        super(Token.RPAREN);
+    }
+}
+
+export class SemiASTNode extends DecoratorASTNode {
+    constructor() {
+        super(Token.SEMI);
+    }
 }
 
 export class LParenASTNode extends ASTNode {
-    constructor() {
-        super(Token.LPAREN, '(', []);
+    constructor(children: ASTNode[]) {
+        super(Token.LPAREN, children);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -66,35 +91,19 @@ export class LParenASTNode extends ASTNode {
     }
 }
 
-export class RParenASTNode extends ASTNode {
-    constructor() {
-        super(Token.RPAREN, ')', []);
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        throw new TannerError('Unexpected RParen.eval');
-    }
-}
-
-export class SemiASTNode extends ASTNode {
-    constructor() {
-        super(Token.SEMI, ';', []);
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        throw new TannerError('Unexpected Semi.eval');
-    }
-}
-
 export class DeclarationASTNode extends ASTNode {
-    constructor() {
-        super(Token.DECLERATION, 'let', []);
+    constructor(assign: AssignASTNode | IdentifierASTNode) {
+        super(Token.DECLERATION, [assign]);
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [assignment] = this.getChildren();
-        const [identifier, value] = assignment.getChildren();
+        const [child] = this.getChildren();
+        if (child.getType() === Token.IDENTIFIER) {
+            scope.addVariable(child.getValue(), undefined);
+            return null;
+        }
 
+        const [identifier, value] = child.getChildren();
         const evaluatedValue = value.evaluate(scope);
         scope.addVariable(identifier.getValue(), evaluatedValue);
         return evaluatedValue;
@@ -103,7 +112,8 @@ export class DeclarationASTNode extends ASTNode {
 
 export class IdentifierASTNode extends ASTNode {
     constructor(value: string) {
-        super(Token.IDENTIFIER, value, []);
+        super(Token.IDENTIFIER, []);
+        this.value = value;
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -113,7 +123,7 @@ export class IdentifierASTNode extends ASTNode {
 
 export class AssignASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
-        super(Token.ASSIGN, '=', [left, right]);
+        super(Token.ASSIGN, [left, right]);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -126,7 +136,7 @@ export class AssignASTNode extends ASTNode {
 
 export class BlockASTNode extends ASTNode {
     constructor(children: ASTNode[]) {
-        super(Token.LCURLY, '{', children);
+        super(Token.LCURLY, children);
     }
 
     evaluate(scope: Scope): void {

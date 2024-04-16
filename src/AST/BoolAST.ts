@@ -1,13 +1,12 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { RuntimeValue, Token } from '../types';
-import { tokenToValue } from '../util';
 import { ASTNode } from './AST';
 import { INumberableAST } from './NumberAST';
 
 export class BooleanOpASTNode extends ASTNode {
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
-        super(type, tokenToValue(type), [left, right]);
+        super(type, [left, right]);
     }
 
     evaluate(scope: Scope): boolean {
@@ -57,7 +56,7 @@ export class GreaterEqASTNode extends BooleanOpASTNode {
 
 export class NotEqualASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
-        super(Token.NEQ, '!=', [left, right]);
+        super(Token.NEQ, [left, right]);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -70,7 +69,7 @@ export class NotEqualASTNode extends ASTNode {
 
 export class EqualASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
-        super(Token.EQUAL, '==', [left, right]);
+        super(Token.EQUAL, [left, right]);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -83,7 +82,7 @@ export class EqualASTNode extends ASTNode {
 
 export class AndASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
-        super(Token.AND, '&&', [left, right]);
+        super(Token.AND, [left, right]);
     }
 
     evaluate(scope: Scope): boolean {
@@ -96,7 +95,7 @@ export class AndASTNode extends ASTNode {
 
 export class OrASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
-        super(Token.OR, '||', [left, right]);
+        super(Token.OR, [left, right]);
     }
 
     evaluate(scope: Scope): boolean {
@@ -109,7 +108,7 @@ export class OrASTNode extends ASTNode {
 
 export class NotASTNode extends ASTNode {
     constructor(value: ASTNode) {
-        super(Token.NOT, '!', [value]);
+        super(Token.NOT, [value]);
     }
 
     evaluate(scope: Scope): boolean {

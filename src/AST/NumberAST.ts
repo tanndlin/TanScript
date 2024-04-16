@@ -1,7 +1,6 @@
 import Scope from '../Scope';
 import { RuntimeError, TannerError } from '../errors';
 import { Token } from '../types';
-import { tokenToValue } from '../util';
 import { ASTNode } from './AST';
 
 export interface INumberableAST extends ASTNode {
@@ -10,7 +9,7 @@ export interface INumberableAST extends ASTNode {
 
 export class MathASTNode extends ASTNode implements INumberableAST {
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
-        super(type, tokenToValue(type), [left, right]);
+        super(type, [left, right]);
     }
 
     evaluate(scope: Scope): number {
@@ -62,7 +61,8 @@ export class DivideASTNode extends MathASTNode {
 
 export class NumberASTNode extends ASTNode {
     constructor(value: string) {
-        super(Token.NUMBER, value, []);
+        super(Token.NUMBER, []);
+        this.value = value;
     }
 
     evaluate(): number {
