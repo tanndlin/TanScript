@@ -8,11 +8,11 @@ import {
     IdentifierASTNode,
     LParenASTNode,
     RParenASTNode,
+    StringASTNode,
 } from './AST/AST';
 import {
     AndASTNode,
     BooleanASTNode,
-    BooleanOpASTNode,
     EqualASTNode,
     GreaterEqASTNode,
     GreaterThanASTNode,
@@ -38,7 +38,13 @@ import {
     SubtractASTNode,
 } from './AST/NumberAST';
 import { ParserError } from './errors';
-import { BooleanToken, LexerToken, OPERATORS, Token } from './types';
+import {
+    BooleanToken,
+    LexerToken,
+    OPERATORS,
+    PrimitiveValues as PRIMITIVE_VALUES,
+    Token,
+} from './types';
 
 export default class Parser {
     private pos = 0;
@@ -69,6 +75,7 @@ export default class Parser {
             case Token.LPAREN:
             case Token.TRUE:
             case Token.FALSE:
+            case Token.STRING:
             case Token.NOT:
                 return this.parseExpressionOrNumber();
 
@@ -219,12 +226,10 @@ export default class Parser {
     parseExpressionOrNumber(curToken?: LexerToken): ASTNode {
         if (!curToken) {
             curToken = this.consumeOneOf([
-                Token.NUMBER,
                 Token.IDENTIFIER,
-                Token.TRUE,
-                Token.FALSE,
                 Token.LPAREN,
                 Token.NOT,
+                ...PRIMITIVE_VALUES,
             ]);
         }
 
@@ -320,9 +325,7 @@ export default class Parser {
         }
     }
 
-    private getLeftASTFromToken(
-        consumedToken: LexerToken
-    ): BooleanOpASTNode | INumberableAST {
+    private getLeftASTFromToken(consumedToken: LexerToken): ASTNode {
         if (consumedToken.getType() === Token.LPAREN) {
             return this.parseLParen() as INumberableAST;
         }
@@ -353,6 +356,10 @@ export default class Parser {
 
         if (consumedToken.getType() === Token.NOT) {
             return this.parseNot(consumedToken);
+        }
+
+        if (consumedToken.getType() === Token.STRING) {
+            return new StringASTNode(consumedToken.getValue());
         }
 
         return new NumberASTNode(consumedToken.getValue());

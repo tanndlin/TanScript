@@ -88,4 +88,18 @@ describe('Lexer Tests', () => {
             new LexerToken(Token.EOF, '', 1),
         ]);
     });
+
+    it('should lex a simple string', () => {
+        const lexer = new Lexer('let x = "Hello world!";');
+        const tokens = lexer.getTokens();
+
+        expect(tokens).toEqual([
+            new LexerToken(Token.DECLERATION, 'let', 1),
+            new LexerToken(Token.IDENTIFIER, 'x', 1),
+            new LexerToken(Token.ASSIGN, '=', 1),
+            new LexerToken(Token.STRING, 'Hello world!', 1),
+            new LexerToken(Token.SEMI, ';', 1),
+            new LexerToken(Token.EOF, '', 1),
+        ]);
+    });
 });

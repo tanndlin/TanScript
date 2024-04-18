@@ -121,6 +121,17 @@ export class IdentifierASTNode extends ASTNode {
     }
 }
 
+export class StringASTNode extends ASTNode {
+    constructor(value: string) {
+        super(Token.STRING, []);
+        this.value = value;
+    }
+
+    evaluate(): string {
+        return this.value;
+    }
+}
+
 export class AssignASTNode extends ASTNode {
     constructor(left: ASTNode, right: ASTNode) {
         super(Token.ASSIGN, [left, right]);

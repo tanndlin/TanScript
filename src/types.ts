@@ -9,6 +9,7 @@ export enum Token {
     FALSE = 'false',
 
     NUMBER = 'number',
+    STRING = 'string',
     PLUS = '+',
     MINUS = '-',
     MULTIPLY = '*',
@@ -47,6 +48,13 @@ export const OPERATORS = new Set([
     Token.NEQ,
     Token.AND,
     Token.OR,
+]);
+
+export const PrimitiveValues = new Set([
+    Token.NUMBER,
+    Token.STRING,
+    Token.TRUE,
+    Token.FALSE,
 ]);
 
 export const RESERVED_WORDS = {

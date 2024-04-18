@@ -34,6 +34,8 @@ export const valueToToken = (value: string): Token => {
             return Token.OR;
         case '!':
             return Token.NOT;
+        case '"':
+            return Token.STRING;
 
         default:
             // Check for numbers and identifiers

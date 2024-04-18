@@ -6,6 +6,7 @@ import {
     IdentifierASTNode,
     LParenASTNode,
     RParenASTNode,
+    StringASTNode,
 } from '../AST/AST';
 import {
     GreaterEqASTNode,
@@ -814,5 +815,55 @@ describe('Control Structures', () => {
         const [functionCall1, functionCall2] = addAST.getChildren();
         expect(functionCall1).toBeInstanceOf(FunctionCallASTNode);
         expect(functionCall2).toBeInstanceOf(FunctionCallASTNode);
+    });
+});
+
+describe('String Parsing', () => {
+    it('should parse a simgple string', () => {
+        const tokens = [
+            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.IDENTIFIER, 'x'),
+            new LexerToken(Token.ASSIGN, '='),
+            new LexerToken(Token.STRING, 'Hello world!'),
+            new LexerToken(Token.SEMI, ';'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [declAST] = root.getChildren();
+        expect(declAST).toBeInstanceOf(DeclarationASTNode);
+
+        const [assignAST] = declAST.getChildren();
+        expect(assignAST).toBeInstanceOf(AssignASTNode);
+
+        const [identifier, value] = assignAST.getChildren();
+        expect(identifier.getType()).toBe(Token.IDENTIFIER);
+        expect(identifier.getValue()).toBe('x');
+
+        expect(value).toBeInstanceOf(StringASTNode);
+        expect(value.getValue()).toBe('Hello world!');
+    });
+
+    it('should parse string concatenation', () => {
+        const tokens = [
+            new LexerToken(Token.STRING, 'hello'),
+            new LexerToken(Token.PLUS, '+'),
+            new LexerToken(Token.STRING, 'world'),
+            new LexerToken(Token.EOF, 'EOF'),
+        ];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+        const root = ast.getRoot();
+
+        const [addAST] = root.getChildren();
+        expect(addAST).toBeInstanceOf(AddASTNode);
+
+        const [string1, string2] = addAST.getChildren();
+        expect(string1).toBeInstanceOf(StringASTNode);
+        expect(string2).toBeInstanceOf(StringASTNode);
     });
 });

@@ -1,5 +1,5 @@
 import Scope from '../Scope';
-import { RuntimeError, TannerError } from '../errors';
+import { TannerError } from '../errors';
 import { Token } from '../types';
 import { ASTNode } from './AST';
 
@@ -15,10 +15,6 @@ export class MathASTNode extends ASTNode implements INumberableAST {
     evaluate(scope: Scope): number {
         const left = (this.getChildren()[0] as INumberableAST).evaluate(scope);
         const right = (this.getChildren()[1] as INumberableAST).evaluate(scope);
-        if (isNaN(left) || isNaN(right))
-            throw new RuntimeError(
-                'Cannot perform math operations on non-numbers'
-            );
 
         switch (this.getType()) {
             case Token.PLUS:

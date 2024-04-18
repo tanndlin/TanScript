@@ -89,6 +89,11 @@ class Lexer {
                     this.tokens.push(this.createToken(Token.OR, '||'));
                     break;
 
+                case Token.STRING:
+                    const string = this.readString();
+                    this.tokens.push(this.createToken(Token.STRING, string));
+                    break;
+
                 default:
                     this.tokens.push(this.createToken(tokenType, char));
             }
@@ -134,6 +139,16 @@ class Lexer {
 
         this.pos--;
         return this.script.substring(start, this.pos + 1);
+    }
+
+    readString() {
+        const start = this.pos;
+        this.pos++;
+        while (this.script[this.pos] !== '"') {
+            this.pos++;
+        }
+
+        return this.script.substring(start + 1, this.pos);
     }
 
     getTokens(): LexerToken[] {
