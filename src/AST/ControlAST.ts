@@ -1,3 +1,4 @@
+import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
 import { RuntimeValue, Token } from '../types';
@@ -123,6 +124,13 @@ export class FunctionCallASTNode extends ASTNode {
     }
 
     evaluate(scope: Scope): RuntimeValue {
+        if (this.value in allFunctions) {
+            const args = this.getChildren().map((arg) =>
+                arg.evaluate(scope)
+            ) as RuntimeValue[];
+            return allFunctions[this.value as BuiltInFuncName](...args);
+        }
+
         const funcDef = scope.getFunction(this.value);
         return funcDef.callFunction(scope, this.getChildren());
     }
