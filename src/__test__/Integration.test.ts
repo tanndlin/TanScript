@@ -123,6 +123,23 @@ describe('Function Tests', () => {
 
         expect(result).toBe(55);
     });
+
+    it('allows nested functions', () => {
+        const script = `def add3(a,b,c) {\
+            def add2(d,e) {\
+                d + e;\
+            }\
+
+            add2(a, add2(b,c));\
+        }\
+
+        add3(69,420,69420);`;
+
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(69909);
+    });
 });
 
 describe.each([
