@@ -155,3 +155,22 @@ describe.each([
         expect(result).toBe(expected);
     });
 });
+
+describe.each([
+    ['true && true', true],
+    ['true && false', false],
+    ['false && true', false],
+    ['false && false', false],
+    ['true || true', true],
+    ['true || false', true],
+    ['false || true', true],
+    ['false || false', false],
+    ['true && true && false', false],
+])('Boolean Expression Tests', (script, expected) => {
+    it(`should evaluate ${script} to ${expected}`, () => {
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(expected);
+    });
+});

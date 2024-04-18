@@ -5,6 +5,8 @@ export enum Token {
     ELSE = 'else',
     FUNCTION = 'def',
     DECLERATION = 'let',
+    TRUE = 'true',
+    FALSE = 'false',
 
     NUMBER = 'number',
     PLUS = '+',
@@ -54,6 +56,8 @@ export const RESERVED_WORDS = {
     if: Token.IF,
     else: Token.ELSE,
     def: Token.FUNCTION,
+    true: Token.TRUE,
+    false: Token.FALSE,
 };
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;

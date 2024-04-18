@@ -30,6 +30,16 @@ export class BooleanOpASTNode extends ASTNode {
     }
 }
 
+export class BooleanASTNode extends ASTNode {
+    constructor(token: Token.TRUE | Token.FALSE) {
+        super(token, []);
+    }
+
+    evaluate(): boolean {
+        return this.getType() === Token.TRUE;
+    }
+}
+
 export class LessThanASTNode extends BooleanOpASTNode {
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.LESS, left, right);

@@ -11,6 +11,7 @@ import {
 } from './AST/AST';
 import {
     AndASTNode,
+    BooleanASTNode,
     BooleanOpASTNode,
     EqualASTNode,
     GreaterEqASTNode,
@@ -66,6 +67,8 @@ export default class Parser {
 
             case Token.NUMBER:
             case Token.LPAREN:
+            case Token.TRUE:
+            case Token.FALSE:
                 return this.parseExpressionOrNumber();
 
             case Token.DECLERATION:
@@ -221,6 +224,8 @@ export default class Parser {
                 Token.NUMBER,
                 Token.LPAREN,
                 Token.IDENTIFIER,
+                Token.TRUE,
+                Token.FALSE,
             ]);
         }
 
@@ -239,6 +244,13 @@ export default class Parser {
             leftAST = new IdentifierASTNode(
                 curToken.getValue()
             ) as INumberableAST;
+        } else if (
+            curToken.getType() === Token.TRUE ||
+            curToken.getType() === Token.FALSE
+        ) {
+            leftAST = new BooleanASTNode(
+                curToken.getType() as Token.TRUE | Token.FALSE
+            );
         } else {
             leftAST = new NumberASTNode(curToken.getValue());
         }
