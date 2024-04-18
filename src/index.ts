@@ -17,7 +17,7 @@ try {
 
     console.log(util.inspect(ast, { showHidden: false, depth: null }));
 
-    const env = new Environment(ast);
+    const env = new Environment(ast, true);
     env.evaluate();
 
     // const compiler = new Compiler(ast);

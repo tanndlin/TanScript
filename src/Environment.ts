@@ -5,7 +5,7 @@ import { RuntimeValue, Token } from './types';
 export default class Environment {
     private globalScope: Scope;
 
-    constructor(private ast: AST) {
+    constructor(private ast: AST, private debug: boolean = false) {
         this.globalScope = new Scope(null);
     }
 
@@ -17,9 +17,10 @@ export default class Environment {
         statements.forEach((statement, i) => {
             if (statement.getType() === Token.EOF) return;
 
-            console.log(`Statement ${i + 1}:`);
+            if (this.debug) console.log(`Statement ${i + 1}:`);
             retValue = statement.evaluate(this.globalScope);
-            console.log(retValue);
+
+            if (this.debug) console.log(retValue);
         });
 
         return retValue;
