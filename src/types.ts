@@ -88,3 +88,4 @@ export class LexerToken {
 
 export type Maybe<T> = T | null | undefined;
 export type RuntimeValue = Maybe<number | string | boolean | void>;
+export type BooleanToken = Token.TRUE | Token.FALSE;

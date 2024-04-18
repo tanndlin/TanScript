@@ -38,7 +38,7 @@ import {
     SubtractASTNode,
 } from './AST/NumberAST';
 import { ParserError } from './errors';
-import { LexerToken, OPERATORS, Token } from './types';
+import { BooleanToken, LexerToken, OPERATORS, Token } from './types';
 
 export default class Parser {
     private pos = 0;
@@ -348,9 +348,7 @@ export default class Parser {
             consumedToken.getType() === Token.TRUE ||
             consumedToken.getType() === Token.FALSE
         ) {
-            return new BooleanASTNode(
-                consumedToken.getType() as Token.TRUE | Token.FALSE
-            );
+            return new BooleanASTNode(consumedToken.getType() as BooleanToken);
         }
 
         if (consumedToken.getType() === Token.NOT) {

@@ -1,6 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { RuntimeValue, Token } from '../types';
+import { BooleanToken, RuntimeValue, Token } from '../types';
 import { ASTNode } from './AST';
 import { INumberableAST } from './NumberAST';
 
@@ -31,7 +31,7 @@ export class BooleanOpASTNode extends ASTNode {
 }
 
 export class BooleanASTNode extends ASTNode {
-    constructor(token: Token.TRUE | Token.FALSE) {
+    constructor(token: BooleanToken) {
         super(token, []);
     }
 
