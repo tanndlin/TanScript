@@ -222,38 +222,14 @@ export default class Parser {
         if (!curToken) {
             curToken = this.consumeOneOf([
                 Token.NUMBER,
-                Token.LPAREN,
                 Token.IDENTIFIER,
                 Token.TRUE,
                 Token.FALSE,
+                Token.LPAREN,
             ]);
         }
 
-        let leftAST: INumberableAST | BooleanOpASTNode;
-        if (curToken.getType() === Token.LPAREN) {
-            leftAST = this.parseLParen() as INumberableAST;
-        } else if (
-            curToken.getType() === Token.IDENTIFIER &&
-            this.tokens[this.pos].getType() === Token.LPAREN
-        ) {
-            // This is a function call
-            leftAST = this.parseFunctionCall(curToken) as
-                | INumberableAST
-                | BooleanOpASTNode;
-        } else if (curToken.getType() === Token.IDENTIFIER) {
-            leftAST = new IdentifierASTNode(
-                curToken.getValue()
-            ) as INumberableAST;
-        } else if (
-            curToken.getType() === Token.TRUE ||
-            curToken.getType() === Token.FALSE
-        ) {
-            leftAST = new BooleanASTNode(
-                curToken.getType() as Token.TRUE | Token.FALSE
-            );
-        } else {
-            leftAST = new NumberASTNode(curToken.getValue());
-        }
+        const leftAST = this.getLeftASTFromToken(curToken);
 
         // There needs to be at least 2 more tokens to form an expression
         if (this.pos + 1 >= this.tokens.length) {
@@ -343,6 +319,42 @@ export default class Parser {
                     `Unexpected token: ${nextToken.getValue()}. Expected an operator or EOF`
                 );
         }
+    }
+
+    private getLeftASTFromToken(
+        consumeToken: LexerToken
+    ): BooleanOpASTNode | INumberableAST {
+        if (consumeToken.getType() === Token.LPAREN) {
+            return this.parseLParen() as INumberableAST;
+        }
+
+        // If it looks something like x()
+        if (
+            consumeToken.getType() === Token.IDENTIFIER &&
+            this.tokens[this.pos].getType() === Token.LPAREN
+        ) {
+            // This is a function call
+            return this.parseFunctionCall(consumeToken) as
+                | INumberableAST
+                | BooleanASTNode;
+        }
+
+        if (consumeToken.getType() === Token.IDENTIFIER) {
+            return new IdentifierASTNode(consumeToken.getValue()) as
+                | INumberableAST
+                | BooleanASTNode;
+        }
+
+        if (
+            consumeToken.getType() === Token.TRUE ||
+            consumeToken.getType() === Token.FALSE
+        ) {
+            return new BooleanASTNode(
+                consumeToken.getType() as Token.TRUE | Token.FALSE
+            );
+        }
+
+        return new NumberASTNode(consumeToken.getValue());
     }
 
     parseLParen(): LParenASTNode {
