@@ -69,6 +69,7 @@ export default class Parser {
             case Token.LPAREN:
             case Token.TRUE:
             case Token.FALSE:
+            case Token.NOT:
                 return this.parseExpressionOrNumber();
 
             case Token.DECLERATION:
@@ -91,9 +92,6 @@ export default class Parser {
 
             case Token.FUNCTION:
                 return this.parseFunctionDef();
-
-            case Token.NOT:
-                return this.parseNot();
         }
 
         if (OPERATORS.has(curToken.getType())) {
@@ -226,6 +224,7 @@ export default class Parser {
                 Token.TRUE,
                 Token.FALSE,
                 Token.LPAREN,
+                Token.NOT,
             ]);
         }
 
@@ -322,39 +321,43 @@ export default class Parser {
     }
 
     private getLeftASTFromToken(
-        consumeToken: LexerToken
+        consumedToken: LexerToken
     ): BooleanOpASTNode | INumberableAST {
-        if (consumeToken.getType() === Token.LPAREN) {
+        if (consumedToken.getType() === Token.LPAREN) {
             return this.parseLParen() as INumberableAST;
         }
 
         // If it looks something like x()
         if (
-            consumeToken.getType() === Token.IDENTIFIER &&
+            consumedToken.getType() === Token.IDENTIFIER &&
             this.tokens[this.pos].getType() === Token.LPAREN
         ) {
             // This is a function call
-            return this.parseFunctionCall(consumeToken) as
+            return this.parseFunctionCall(consumedToken) as
                 | INumberableAST
                 | BooleanASTNode;
         }
 
-        if (consumeToken.getType() === Token.IDENTIFIER) {
-            return new IdentifierASTNode(consumeToken.getValue()) as
+        if (consumedToken.getType() === Token.IDENTIFIER) {
+            return new IdentifierASTNode(consumedToken.getValue()) as
                 | INumberableAST
                 | BooleanASTNode;
         }
 
         if (
-            consumeToken.getType() === Token.TRUE ||
-            consumeToken.getType() === Token.FALSE
+            consumedToken.getType() === Token.TRUE ||
+            consumedToken.getType() === Token.FALSE
         ) {
             return new BooleanASTNode(
-                consumeToken.getType() as Token.TRUE | Token.FALSE
+                consumedToken.getType() as Token.TRUE | Token.FALSE
             );
         }
 
-        return new NumberASTNode(consumeToken.getValue());
+        if (consumedToken.getType() === Token.NOT) {
+            return this.parseNot(consumedToken);
+        }
+
+        return new NumberASTNode(consumedToken.getValue());
     }
 
     parseLParen(): LParenASTNode {
@@ -443,8 +446,15 @@ export default class Parser {
         return new AssignASTNode(identAST, resultExpression);
     }
 
-    parseNot(): NotASTNode {
-        const notToken = this.consumeToken(Token.NOT);
+    parseNot(notToken?: LexerToken): NotASTNode {
+        if (!notToken) this.consumeToken(Token.NOT);
+
+        // Check special case where the next token is a LPAREN
+        if (this.tokens[this.pos].getType() === Token.LPAREN) {
+            this.consumeToken(Token.LPAREN);
+            return new NotASTNode(this.parseLParen());
+        }
+
         const expression = this.parseExpressionOrNumber();
         return new NotASTNode(expression);
     }

@@ -63,6 +63,17 @@ describe('Integration Tests', () => {
             UndeclaredVariableError
         );
     });
+
+    it.each([
+        ['!true || false', false],
+        ['!(true) || true', true],
+        ['!(2+(5*2) > 5 - (2/2)) || true', true],
+    ])('should run a complex script %s', (script, expected) => {
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(expected);
+    });
 });
 
 describe('Function Tests', () => {
