@@ -1,4 +1,6 @@
+import { AssignASTNode } from './AST/AST';
 import { FunctionDefASTNode } from './AST/ControlAST';
+import { ComputedSignal, Signal } from './Signal';
 import {
     TannerError,
     UndeclaredFunctionError,
@@ -10,12 +12,14 @@ import { RuntimeValue } from './types';
 export default class Scope {
     private parent: Scope | null;
     private variables: Map<string, any>;
+    private signals: Map<string, Signal>;
     private scopes: Map<string, Scope>;
 
     constructor(parent: Scope | null) {
         this.parent = parent;
         this.variables = new Map();
         this.scopes = new Map();
+        this.signals = new Map();
     }
 
     getVariable<T>(name: string): T {
@@ -76,5 +80,51 @@ export default class Scope {
         }
 
         throw new UndeclaredFunctionError(`Function ${name} not found`);
+    }
+
+    getSignal(name: string): Signal {
+        if (this.signals.has(name)) {
+            return this.signals.get(name)!;
+        }
+
+        if (!this.parent) {
+            throw new UndeclaredVariableError(`Signal ${name} not found`);
+        }
+
+        return this.parent.getSignal(name);
+    }
+
+    getSignalValue(name: string): RuntimeValue {
+        const signal = this.getSignal(name);
+        if (!signal)
+            throw new UndeclaredVariableError(`Signal ${name} not found`);
+
+        return signal.getValue();
+    }
+
+    setSignal(identifer: string, value: RuntimeValue) {
+        identifer = `#${identifer}`;
+        let signal: Signal;
+        try {
+            signal = this.getSignal(identifer);
+        } catch (e) {
+            signal = new Signal(identifer, value);
+        }
+        signal.markChildrenDirty();
+
+        this.signals.set(identifer, signal);
+    }
+
+    setSignalCompute(identifer: string, assignAST: AssignASTNode) {
+        let signal: Signal;
+        try {
+            signal = this.getSignal(identifer);
+        } catch (e) {
+            signal = new ComputedSignal(this, identifer, assignAST);
+        }
+
+        signal.markChildrenDirty();
+
+        this.signals.set(identifer, signal);
     }
 }

@@ -1,3 +1,5 @@
+import { ASTNode } from './AST/AST';
+import { SignalAST } from './AST/SignalAST';
 import { Token } from './types';
 
 export const valueToToken = (value: string): Token => {
@@ -36,6 +38,12 @@ export const valueToToken = (value: string): Token => {
             return Token.NOT;
         case '"':
             return Token.STRING;
+        case ':':
+            return Token.COLON;
+        case '#':
+            return Token.SIGNAL;
+        case '$':
+            return Token.COMPUTE;
 
         default:
             // Check for numbers and identifiers
@@ -104,3 +112,23 @@ export const UPPERCASE_LETTERS = Array.from({ length: 26 }, (_, i) =>
 export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48)
 );
+
+export const findSignals = (ast: ASTNode): string[] => {
+    const children = ast.getChildren();
+
+    if (children.length == 0) {
+        return [];
+    }
+
+    const ret: string[] = [];
+
+    children.forEach((c) => {
+        if (c instanceof SignalAST) {
+            ret.push(c.name);
+        } else {
+            const found = findSignals(c).forEach((s) => ret.push(s));
+        }
+    });
+
+    return ret;
+};

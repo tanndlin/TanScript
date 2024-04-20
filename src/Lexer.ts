@@ -1,3 +1,4 @@
+import { LexerError } from './errors';
 import { LexerToken, RESERVED_WORDS, ReservedWordsKey, Token } from './types';
 import {
     LOWERCASE_LETTERS,
@@ -78,6 +79,66 @@ class Lexer {
                         this.tryParsePair(tokenType, '=', Token.NEQ)
                     );
                     break;
+                case Token.SIGNAL: {
+                    // If next char is a letter this is a signal
+                    const nextChar = this.script[this.pos + 1];
+                    if (
+                        new Set([
+                            ...LOWERCASE_LETTERS,
+                            ...UPPERCASE_LETTERS,
+                        ]).has(nextChar)
+                    ) {
+                        this.pos++;
+                        const identifer = this.readIdentifier();
+                        this.tokens.push(
+                            this.createToken(Token.SIGNAL, `#${identifer}`)
+                        );
+                        break;
+                    }
+
+                    // Otherwise it must be a signal assignment
+                    const nextchar = this.script[this.pos + 1];
+                    if (nextChar !== '=')
+                        throw new LexerError(
+                            `Unexpected token aftet #: ${nextChar}. Expected an assignment`
+                        );
+
+                    this.pos++;
+                    this.tokens.push(
+                        this.createToken(Token.SIGNAL_ASSIGN, '#=')
+                    );
+                    break;
+                }
+                case Token.COMPUTE: {
+                    // If next char is a letter this is a signal
+                    const nextChar = this.script[this.pos + 1];
+                    if (
+                        new Set([
+                            ...LOWERCASE_LETTERS,
+                            ...UPPERCASE_LETTERS,
+                        ]).has(nextChar)
+                    ) {
+                        this.pos++;
+                        const identifer = this.readIdentifier();
+                        this.tokens.push(
+                            this.createToken(Token.COMPUTE, `#${identifer}`)
+                        );
+                        break;
+                    }
+
+                    // Otherwise it must be a COMPUTE assignment
+                    const nextchar = this.script[this.pos + 1];
+                    if (nextChar !== '=')
+                        throw new LexerError(
+                            `Unexpected token aftet $: ${nextChar}. Expected an assignment`
+                        );
+
+                    this.pos++;
+                    this.tokens.push(
+                        this.createToken(Token.COMPUTE_ASSIGN, '$=')
+                    );
+                    break;
+                }
 
                 // Grab the second one for now, since bitwise is not implemented
                 case Token.AND:

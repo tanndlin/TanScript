@@ -33,6 +33,11 @@ export enum Token {
     AND = '&&',
     OR = '||',
     COMMA = ',',
+    COLON = ':',
+    SIGNAL = '#',
+    COMPUTE = '$',
+    COMPUTE_ASSIGN = '$=',
+    SIGNAL_ASSIGN = 'SIGNAL_ASSIGN',
 }
 
 export const OPERATORS = new Set([
@@ -56,6 +61,8 @@ export const PrimitiveValues = new Set([
     Token.TRUE,
     Token.FALSE,
 ]);
+
+export const SIGNAL_OPERATORS = new Set([Token.SIGNAL, Token.COMPUTE]);
 
 export const RESERVED_WORDS = {
     let: Token.DECLERATION,

@@ -37,12 +37,19 @@ import {
     NumberASTNode,
     SubtractASTNode,
 } from './AST/NumberAST';
+import {
+    SignalAST,
+    SignalAssignmentAST,
+    SignalComputeAST,
+    SignalComputeAssignmentAST,
+} from './AST/SignalAST';
 import { ParserError } from './errors';
 import {
     BooleanToken,
     LexerToken,
     OPERATORS,
     PrimitiveValues as PRIMITIVE_VALUES,
+    SIGNAL_OPERATORS,
     Token,
 } from './types';
 
@@ -81,6 +88,13 @@ export default class Parser {
 
             case Token.DECLERATION:
                 return this.parseDecleration();
+
+            case Token.SIGNAL:
+                this.pos++;
+                return new SignalAST(curToken.getValue());
+            case Token.COMPUTE:
+                this.pos++;
+                return new SignalComputeAST(curToken.getValue());
 
             case Token.WHILE:
                 return this.parseWhile();
@@ -201,6 +215,13 @@ export default class Parser {
             }
         }
 
+        if (
+            this.tokens[this.pos].getType() === Token.SIGNAL_ASSIGN ||
+            this.tokens[this.pos].getType() === Token.COMPUTE_ASSIGN
+        ) {
+            return this.parseSignalAssign(identToken);
+        }
+
         // Check if the next token is an assignment
         if (this.tokens[this.pos].getType() === Token.ASSIGN) {
             return this.parseAssignment(identToken);
@@ -208,6 +229,33 @@ export default class Parser {
 
         // The token is not an assignment, so it must be an expression
         return this.parseExpressionOrNumber(identToken);
+    }
+
+    parseSignalAssign(
+        identToken: LexerToken,
+        assignToken?: LexerToken
+    ): SignalAssignmentAST | SignalComputeAssignmentAST {
+        if (!assignToken)
+            assignToken = this.consumeOneOf([
+                Token.SIGNAL_ASSIGN,
+                Token.COMPUTE_ASSIGN,
+            ]);
+
+        if (assignToken.getType() === Token.SIGNAL_ASSIGN) {
+            return new SignalAssignmentAST(
+                new AssignASTNode(
+                    new IdentifierASTNode(identToken.getValue()),
+                    this.parseExpressionOrNumber()
+                )
+            );
+        }
+
+        return new SignalComputeAssignmentAST(
+            new AssignASTNode(
+                new IdentifierASTNode(identToken.getValue()),
+                this.parseExpressionOrNumber()
+            )
+        );
     }
 
     parseBlock(): ASTNode {
@@ -230,6 +278,7 @@ export default class Parser {
                 Token.LPAREN,
                 Token.NOT,
                 ...PRIMITIVE_VALUES,
+                ...SIGNAL_OPERATORS,
             ]);
         }
 
@@ -362,6 +411,15 @@ export default class Parser {
             return new StringASTNode(consumedToken.getValue());
         }
 
+        if (consumedToken.getType() === Token.SIGNAL) {
+            return new SignalAST(consumedToken.getValue());
+        }
+
+        if (consumedToken.getType() === Token.COMPUTE) {
+            const identToken = this.consumeToken(Token.IDENTIFIER);
+            return new SignalComputeAST(identToken.getValue());
+        }
+
         return new NumberASTNode(consumedToken.getValue());
     }
 
@@ -387,6 +445,8 @@ export default class Parser {
     ): AssignASTNode {
         const assignToken = this.consumeOneOf([
             Token.ASSIGN,
+            Token.SIGNAL_ASSIGN,
+            Token.COMPUTE_ASSIGN,
             ...OPERATORS.values(),
         ]);
 
@@ -399,6 +459,13 @@ export default class Parser {
                 );
 
             return this.parseShortHandAssign(identToken, assignToken);
+        }
+
+        if (
+            assignToken.getType() === Token.SIGNAL_ASSIGN ||
+            assignToken.getType() === Token.COMPUTE_ASSIGN
+        ) {
+            return this.parseSignalAssign(identToken, assignToken);
         }
 
         // Already comsumed the assign token

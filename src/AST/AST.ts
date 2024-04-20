@@ -2,6 +2,7 @@ import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { RuntimeValue, Token } from '../types';
 import { tokenToValue } from '../util';
+import { SignalAssignmentAST, SignalComputeAssignmentAST } from './SignalAST';
 
 export class AST {
     constructor(private root: RootASTNode) {}
@@ -103,10 +104,21 @@ export class DeclarationASTNode extends ASTNode {
             return null;
         }
 
-        const [identifier, value] = child.getChildren();
-        const evaluatedValue = value.evaluate(scope);
-        scope.addVariable(identifier.getValue(), evaluatedValue);
-        return evaluatedValue;
+        if (child instanceof AssignASTNode) {
+            const [identifier, value] = child.getChildren();
+            const evaluatedValue = value.evaluate(scope);
+            scope.addVariable(identifier.getValue(), evaluatedValue);
+            return evaluatedValue;
+        }
+
+        if (
+            child instanceof SignalAssignmentAST ||
+            child instanceof SignalComputeAssignmentAST
+        ) {
+            return child.evaluate(scope);
+        }
+
+        throw new TannerError('Unexpectd AST Type as child for decl');
     }
 }
 
@@ -137,10 +149,10 @@ export class AssignASTNode extends ASTNode {
         super(Token.ASSIGN, [left, right]);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(scope: Scope, isSignal = false): RuntimeValue {
         const [identifier, value] = this.getChildren();
         const evaluatedValue = value.evaluate(scope);
-        scope.setVariable(identifier.getValue(), evaluatedValue);
+        if (!isSignal) scope.setVariable(identifier.getValue(), evaluatedValue);
         return evaluatedValue;
     }
 }
