@@ -89,9 +89,9 @@ class Lexer {
                         ]).has(nextChar)
                     ) {
                         this.pos++;
-                        const identifer = this.readIdentifier();
+                        const identifier = this.readIdentifier();
                         this.tokens.push(
-                            this.createToken(Token.SIGNAL, `#${identifer}`)
+                            this.createToken(Token.SIGNAL, `#${identifier}`)
                         );
                         break;
                     }
@@ -119,9 +119,9 @@ class Lexer {
                         ]).has(nextChar)
                     ) {
                         this.pos++;
-                        const identifer = this.readIdentifier();
+                        const identifier = this.readIdentifier();
                         this.tokens.push(
-                            this.createToken(Token.COMPUTE, `#${identifer}`)
+                            this.createToken(Token.COMPUTE, `$${identifier}`)
                         );
                         break;
                     }

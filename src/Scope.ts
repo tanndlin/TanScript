@@ -102,29 +102,31 @@ export default class Scope {
         return signal.getValue();
     }
 
-    setSignal(identifer: string, value: RuntimeValue) {
-        identifer = `#${identifer}`;
+    setSignal(identifier: string, value: RuntimeValue) {
+        identifier = `#${identifier}`;
         let signal: Signal;
         try {
-            signal = this.getSignal(identifer);
+            signal = this.getSignal(identifier);
+            signal.value = value;
+            signal.markChildrenDirty();
         } catch (e) {
-            signal = new Signal(identifer, value);
+            signal = new Signal(identifier, value);
         }
-        signal.markChildrenDirty();
 
-        this.signals.set(identifer, signal);
+        this.signals.set(identifier, signal);
     }
 
-    setSignalCompute(identifer: string, assignAST: AssignASTNode) {
+    setSignalCompute(identifier: string, assignAST: AssignASTNode) {
+        identifier = `$${identifier}`;
         let signal: Signal;
         try {
-            signal = this.getSignal(identifer);
+            signal = this.getSignal(identifier);
         } catch (e) {
-            signal = new ComputedSignal(this, identifer, assignAST);
+            signal = new ComputedSignal(this, identifier, assignAST);
         }
 
         signal.markChildrenDirty();
 
-        this.signals.set(identifer, signal);
+        this.signals.set(identifier, signal);
     }
 }

@@ -13,13 +13,13 @@ export class SignalAST extends ASTNode {
 }
 
 export class SignalAssignmentAST extends ASTNode {
-    public identifer: string;
+    public identifier: string;
 
     constructor(assign: AssignASTNode) {
         super(Token.SIGNAL, [assign]);
 
         const [identAST, valueAST] = assign.getChildren();
-        this.identifer = identAST.getValue();
+        this.identifier = identAST.getValue();
     }
 
     public evaluate(scope: Scope): RuntimeValue {
@@ -27,7 +27,7 @@ export class SignalAssignmentAST extends ASTNode {
         const [identAST, valueAST] = assign.getChildren();
         const value = valueAST.evaluate(scope);
 
-        scope.setSignal(this.identifer, value);
+        scope.setSignal(this.identifier, value);
         return value;
     }
 }
@@ -43,13 +43,13 @@ export class SignalComputeAST extends ASTNode {
 }
 
 export class SignalComputeAssignmentAST extends ASTNode {
-    public identifer: string;
+    public identifier: string;
 
     constructor(assign: AssignASTNode) {
         super(Token.SIGNAL, [assign]);
 
         const [identAST, valueAST] = assign.getChildren();
-        this.identifer = identAST.getValue();
+        this.identifier = identAST.getValue();
     }
 
     public evaluate(scope: Scope): RuntimeValue {
@@ -58,6 +58,6 @@ export class SignalComputeAssignmentAST extends ASTNode {
         const [identAST, valueAST] = assignAST.getChildren();
         const callback = () => valueAST.evaluate(scope);
 
-        scope.setSignalCompute(this.identifer, assignAST);
+        scope.setSignalCompute(this.identifier, assignAST);
     }
 }

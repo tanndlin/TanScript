@@ -39,6 +39,7 @@ export class ComputedSignal extends Signal {
         signals.forEach((signalName) => {
             const signal = scope.getSignal(signalName);
             this.dependsOn.push(signal);
+            signal.dependencies.push(this);
         });
 
         this.callback = () => value.evaluate(scope);
