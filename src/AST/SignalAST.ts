@@ -3,12 +3,13 @@ import { RuntimeValue, Token } from '../types';
 import { ASTNode, AssignASTNode } from './AST';
 
 export class SignalAST extends ASTNode {
-    constructor(public name: string) {
+    constructor(name: string) {
         super(Token.SIGNAL, []);
+        this.value = name;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        return scope.getSignalValue(this.name);
+        return scope.getSignalValue(this.value);
     }
 }
 
@@ -16,7 +17,7 @@ export class SignalAssignmentAST extends ASTNode {
     public identifier: string;
 
     constructor(assign: AssignASTNode) {
-        super(Token.SIGNAL, [assign]);
+        super(Token.SIGNAL_ASSIGN, [assign]);
 
         const [identAST, valueAST] = assign.getChildren();
         this.identifier = identAST.getValue();
@@ -46,7 +47,7 @@ export class SignalComputeAssignmentAST extends ASTNode {
     public identifier: string;
 
     constructor(assign: AssignASTNode) {
-        super(Token.SIGNAL, [assign]);
+        super(Token.COMPUTE_ASSIGN, [assign]);
 
         const [identAST, valueAST] = assign.getChildren();
         this.identifier = identAST.getValue();

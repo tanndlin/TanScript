@@ -2,7 +2,6 @@ import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { RuntimeValue, Token } from '../types';
 import { tokenToValue } from '../util';
-import { SignalAssignmentAST, SignalComputeAssignmentAST } from './SignalAST';
 
 export class AST {
     constructor(private root: RootASTNode) {}
@@ -112,13 +111,15 @@ export class DeclarationASTNode extends ASTNode {
         }
 
         if (
-            child instanceof SignalAssignmentAST ||
-            child instanceof SignalComputeAssignmentAST
+            child.getType() === Token.SIGNAL_ASSIGN ||
+            child.getType() === Token.COMPUTE_ASSIGN
         ) {
             return child.evaluate(scope);
         }
 
-        throw new TannerError('Unexpectd AST Type as child for decl');
+        throw new TannerError(
+            `Unexpectd AST Type as child for decl. Got: ${child.getType()}`
+        );
     }
 }
 

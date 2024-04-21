@@ -1,5 +1,4 @@
 import { ASTNode } from './AST/AST';
-import { SignalAST, SignalComputeAST } from './AST/SignalAST';
 import { Token } from './types';
 
 export const valueToToken = (value: string): Token => {
@@ -123,8 +122,8 @@ export const findSignals = (ast: ASTNode): string[] => {
     const ret: string[] = [];
 
     children.forEach((c) => {
-        if (c instanceof SignalAST || c instanceof SignalComputeAST) {
-            ret.push(c.name);
+        if (c.getType() === Token.SIGNAL || c.getType() === Token.COMPUTE) {
+            ret.push(c.getValue());
         } else {
             const found = findSignals(c).forEach((s) => ret.push(s));
         }
