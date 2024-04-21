@@ -33,7 +33,7 @@ export class SignalAssignmentAST extends ASTNode {
 }
 
 export class SignalComputeAST extends ASTNode {
-    constructor(private name: string) {
+    constructor(public name: string) {
         super(Token.SIGNAL, []);
     }
 

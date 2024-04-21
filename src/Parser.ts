@@ -416,8 +416,7 @@ export default class Parser {
         }
 
         if (consumedToken.getType() === Token.COMPUTE) {
-            const identToken = this.consumeToken(Token.IDENTIFIER);
-            return new SignalComputeAST(identToken.getValue());
+            return new SignalComputeAST(consumedToken.getValue());
         }
 
         return new NumberASTNode(consumedToken.getValue());

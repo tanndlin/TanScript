@@ -38,6 +38,9 @@ export class ComputedSignal extends Signal {
         const signals = findSignals(value);
         signals.forEach((signalName) => {
             const signal = scope.getSignal(signalName);
+            if (signal instanceof ComputedSignal)
+                this.dependsOn.push(...signal.dependsOn);
+
             this.dependsOn.push(signal);
             signal.dependencies.push(this);
         });
