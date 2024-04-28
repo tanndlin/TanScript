@@ -19,9 +19,6 @@ try {
 
     const env = new Environment(ast, true);
     env.evaluate();
-
-    // const compiler = new Compiler(ast);
-    // compiler.compile();
 } catch (e) {
     console.error(e);
 }
