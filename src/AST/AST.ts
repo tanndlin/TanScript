@@ -105,6 +105,14 @@ export class DeclarationASTNode extends ASTNode {
 
         if (child instanceof AssignASTNode) {
             const [identifier, value] = child.getChildren();
+
+            // Special case for lambdas
+            // Yes this should be a token.lambda but I'm lazy
+            if (value.getType() === Token.FUNCTION) {
+                value.evaluate(scope);
+                return undefined;
+            }
+
             const evaluatedValue = value.evaluate(scope);
             scope.addVariable(identifier.getValue(), evaluatedValue);
             return evaluatedValue;

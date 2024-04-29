@@ -472,26 +472,27 @@ export default class Parser {
             return this.parseSignalAssign(identToken, assignToken);
         }
 
+        const identAST = new IdentifierASTNode(identToken.getValue());
+
         // If looks like a lambda
-        if (this.tokens[this.pos + 1].getType() === Token.LPAREN) {
-            const ret = this.tryParseLambda();
-            if (ret) return ret;
+        if (this.tokens[this.pos].getType() === Token.LPAREN) {
+            const ret = this.tryParseLambda(identToken.getValue());
+            if (ret) return new AssignASTNode(identAST, ret);
         }
 
         // Already comsumed the assign token
         const expressionAST = this.parseExpressionOrNumber();
 
-        const identAST = new IdentifierASTNode(identToken.getValue());
         return new AssignASTNode(identAST, expressionAST);
     }
 
-    tryParseLambda() {
-        const parseLambda = () => {
+    tryParseLambda(name: string) {
+        const parseLambda = (name: string) => {
             const args = this.parseParameters();
             this.consumeToken(Token.LAMBDA);
 
             const block = this.parseBlock();
-            return new FunctionDefASTNode('', args, block);
+            return new FunctionDefASTNode(name, args, block);
         };
 
         let counter = this.pos;
@@ -500,7 +501,7 @@ export default class Parser {
         }
 
         if (this.tokens[counter + 1].getType() === Token.LAMBDA) {
-            return parseLambda();
+            return parseLambda(name);
         }
     }
 

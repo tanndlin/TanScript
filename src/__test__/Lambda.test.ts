@@ -1,6 +1,7 @@
 import { BlockASTNode, DeclarationASTNode } from '../AST/AST';
 import { FunctionDefASTNode } from '../AST/ControlAST';
 import { AddASTNode } from '../AST/NumberAST';
+import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { LexerToken, Token } from '../types';
@@ -50,5 +51,69 @@ describe('Lambda Tests', () => {
 
         const [add] = block.getChildren();
         expect(add).toBeInstanceOf(AddASTNode);
+    });
+
+    it('should parse a lambda with params', () => {
+        const script = 'let f = (a, b) => {a + b;}';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+
+        const root = ast.getRoot();
+        const [decl] = root.getChildren();
+
+        expect(decl).toBeInstanceOf(DeclarationASTNode);
+
+        const [assign] = decl.getChildren();
+        expect(assign.getChildren().length).toBe(2);
+        expect(assign.getChildren()[1]).toBeInstanceOf(FunctionDefASTNode);
+        const lambda = assign.getChildren()[1] as FunctionDefASTNode;
+
+        const params = lambda.getParamList();
+        expect(params.length).toBe(2);
+        expect(params[0].getValue()).toBe('a');
+        expect(params[1].getValue()).toBe('b');
+
+        const [block] = lambda.getChildren();
+        expect(block).toBeInstanceOf(BlockASTNode);
+
+        const [add] = block.getChildren();
+        expect(add).toBeInstanceOf(AddASTNode);
+    });
+
+    it('should run a lambda successfully', () => {
+        const script = 'let f = (a, b) => {a + b;}; f(1, 2);';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+        const env = new Environment(ast, true);
+        const result = env.evaluate();
+        expect(result).toBe(3);
+
+        const scope = env.getGlobalScope();
+        const f = scope.getFunction('f');
+
+        expect(f).toBeInstanceOf(FunctionDefASTNode);
+    });
+
+    it('lambda should have access to outer scope', () => {
+        const script = 'let a = 1; let f = () => {a + 1;}; f();';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+        const env = new Environment(ast, true);
+        const result = env.evaluate();
+        expect(result).toBe(2);
+    });
+
+    it('lambda can be used as a param', () => {
+        const script =
+            'let double = (a) => {a * 2;}; let do = (f, a) => {f(a);}; do(double, 5);';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+        const env = new Environment(ast, true);
+        const result = env.evaluate();
+        expect(result).toBe(10);
     });
 });
