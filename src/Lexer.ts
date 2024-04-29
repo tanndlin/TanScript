@@ -70,9 +70,27 @@ class Lexer {
                     );
                     break;
                 case Token.ASSIGN:
-                    this.tokens.push(
-                        this.tryParsePair(tokenType, '=', Token.EQUAL)
-                    );
+                    const nextToken = this.script[this.pos + 1];
+                    switch (nextToken) {
+                        case Token.ASSIGN:
+                            this.pos++;
+                            this.tokens.push(
+                                this.createToken(Token.EQUAL, '==')
+                            );
+                            break;
+                        case Token.GREATER:
+                            this.pos++;
+                            this.tokens.push(
+                                this.createToken(Token.LAMBDA, '=>')
+                            );
+                            break;
+                        default:
+                            this.tokens.push(
+                                this.createToken(Token.ASSIGN, '=')
+                            );
+                            break;
+                    }
+
                     break;
                 case Token.NOT:
                     this.tokens.push(

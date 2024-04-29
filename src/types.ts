@@ -28,6 +28,7 @@ export enum Token {
     GREATER = '>',
     GEQ = '>=',
     EQUAL = '==',
+    LAMBDA = '=>',
     NOT = '!',
     NEQ = '!=',
     AND = '&&',

@@ -173,6 +173,12 @@ export default class Parser {
         this.consumeToken(Token.FUNCTION);
         const identToken = this.consumeToken(Token.IDENTIFIER);
 
+        const args: IdentifierASTNode[] = this.parseParameters();
+        const block = this.parseBlock();
+        return new FunctionDefASTNode(identToken.getValue(), args, block);
+    }
+
+    private parseParameters() {
         this.consumeToken(Token.LPAREN);
         const args: IdentifierASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RPAREN) {
@@ -185,8 +191,7 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RPAREN);
-        const block = this.parseBlock();
-        return new FunctionDefASTNode(identToken.getValue(), args, block);
+        return args;
     }
 
     parseFunctionCall(identToken: LexerToken): FunctionCallASTNode {
@@ -467,11 +472,36 @@ export default class Parser {
             return this.parseSignalAssign(identToken, assignToken);
         }
 
+        // If looks like a lambda
+        if (this.tokens[this.pos + 1].getType() === Token.LPAREN) {
+            const ret = this.tryParseLambda();
+            if (ret) return ret;
+        }
+
         // Already comsumed the assign token
         const expressionAST = this.parseExpressionOrNumber();
 
         const identAST = new IdentifierASTNode(identToken.getValue());
         return new AssignASTNode(identAST, expressionAST);
+    }
+
+    tryParseLambda() {
+        const parseLambda = () => {
+            const args = this.parseParameters();
+            this.consumeToken(Token.LAMBDA);
+
+            const block = this.parseBlock();
+            return new FunctionDefASTNode('', args, block);
+        };
+
+        let counter = this.pos;
+        while (this.tokens[counter].getType() !== Token.RPAREN) {
+            counter++;
+        }
+
+        if (this.tokens[counter + 1].getType() === Token.LAMBDA) {
+            return parseLambda();
+        }
     }
 
     parseShortHandAssign(

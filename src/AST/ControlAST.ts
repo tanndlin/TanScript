@@ -135,3 +135,11 @@ export class FunctionCallASTNode extends ASTNode {
         return funcDef.callFunction(scope, this.getChildren());
     }
 }
+
+export class LambdaASTNode extends ASTNode {
+    evaluate(scope: Scope): RuntimeValue {
+        let retValue: RuntimeValue = undefined;
+        this.children.forEach((c) => (retValue = c.evaluate(scope)));
+        return retValue;
+    }
+}
