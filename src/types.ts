@@ -39,6 +39,8 @@ export enum Token {
     COMPUTE = '$',
     COMPUTE_ASSIGN = '$=',
     SIGNAL_ASSIGN = 'SIGNAL_ASSIGN',
+    LBRACKET = '[',
+    RBRACKET = ']',
 }
 
 export const OPERATORS = new Set([
@@ -103,5 +105,6 @@ export class LexerToken {
 }
 
 export type Maybe<T> = T | null | undefined;
-export type RuntimeValue = Maybe<number | string | boolean | void>;
+export type Iterable = RuntimeValue[];
+export type RuntimeValue = Maybe<number | string | boolean | Iterable | void>;
 export type BooleanToken = Token.TRUE | Token.FALSE;

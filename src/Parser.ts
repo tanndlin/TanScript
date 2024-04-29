@@ -29,6 +29,7 @@ import {
     IfASTNode,
     WhileASTNode,
 } from './AST/ControlAST';
+import { ListASTNode } from './AST/IterableAST';
 import {
     AddASTNode,
     DivideASTNode,
@@ -281,6 +282,7 @@ export default class Parser {
             curToken = this.consumeOneOf([
                 Token.IDENTIFIER,
                 Token.LPAREN,
+                Token.LBRACKET,
                 Token.NOT,
                 ...PRIMITIVE_VALUES,
                 ...SIGNAL_OPERATORS,
@@ -370,6 +372,7 @@ export default class Parser {
                 this.pos++;
                 return leftAST;
             case Token.RPAREN:
+            case Token.RBRACKET:
             case Token.RCURLY:
                 return leftAST;
             default:
@@ -424,7 +427,27 @@ export default class Parser {
             return new SignalComputeAST(consumedToken.getValue());
         }
 
+        if (consumedToken.getType() === Token.LBRACKET) {
+            return this.parseArray(consumedToken);
+        }
+
         return new NumberASTNode(consumedToken.getValue());
+    }
+
+    parseArray(consumedToken?: LexerToken): ListASTNode {
+        if (!consumedToken) consumedToken = this.consumeToken(Token.LBRACKET);
+
+        const elements: ASTNode[] = [];
+        while (this.tokens[this.pos].getType() !== Token.RBRACKET) {
+            elements.push(this.parseNext());
+
+            if (this.tokens[this.pos].getType() === Token.COMMA) {
+                this.consumeToken(Token.COMMA);
+            }
+        }
+
+        this.consumeToken(Token.RBRACKET);
+        return new ListASTNode(elements);
     }
 
     parseLParen(): LParenASTNode {

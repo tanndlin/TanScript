@@ -43,6 +43,10 @@ export const valueToToken = (value: string): Token => {
             return Token.SIGNAL;
         case '$':
             return Token.COMPUTE;
+        case '[':
+            return Token.LBRACKET;
+        case ']':
+            return Token.RBRACKET;
 
         default:
             // Check for numbers and identifiers

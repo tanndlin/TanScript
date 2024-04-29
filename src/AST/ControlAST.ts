@@ -67,7 +67,8 @@ export class IfASTNode extends ControlStructureASTNode {
         const [condition, block, elseBlock] = this.getChildren();
 
         if ((condition as BooleanOpASTNode).evaluate(scope)) {
-            return block.evaluate(scope);
+            const ret = block.evaluate(scope);
+            return ret;
         } else if (elseBlock) {
             return elseBlock.evaluate(scope);
         }
