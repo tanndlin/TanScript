@@ -1,5 +1,9 @@
+import { IdentifierASTNode } from './AST/AST';
+import { IterableASTNode } from './AST/IterableAST';
+
 export enum Token {
     FOR = 'for',
+    FOREACH = 'foreach',
     WHILE = 'while',
     IF = 'if',
     ELSE = 'else',
@@ -7,6 +11,7 @@ export enum Token {
     DECLERATION = 'let',
     TRUE = 'true',
     FALSE = 'false',
+    IN = 'in',
 
     NUMBER = 'number',
     STRING = 'string',
@@ -71,11 +76,13 @@ export const RESERVED_WORDS = {
     let: Token.DECLERATION,
     while: Token.WHILE,
     for: Token.FOR,
+    foreach: Token.FOREACH,
     if: Token.IF,
     else: Token.ELSE,
     def: Token.FUNCTION,
     true: Token.TRUE,
     false: Token.FALSE,
+    in: Token.IN,
 };
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
@@ -108,3 +115,4 @@ export type Maybe<T> = T | null | undefined;
 export type Iterable = RuntimeValue[];
 export type RuntimeValue = Maybe<number | string | boolean | Iterable | void>;
 export type BooleanToken = Token.TRUE | Token.FALSE;
+export type IterableResolvable = IterableASTNode | IdentifierASTNode;

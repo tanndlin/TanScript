@@ -29,7 +29,7 @@ import {
     IfASTNode,
     WhileASTNode,
 } from './AST/ControlAST';
-import { ListASTNode } from './AST/IterableAST';
+import { ForEachASTNode, ListASTNode } from './AST/IterableAST';
 import {
     AddASTNode,
     DivideASTNode,
@@ -103,6 +103,9 @@ export default class Parser {
             case Token.FOR:
                 return this.parseFor();
 
+            case Token.FOREACH:
+                return this.parseForEach();
+
             case Token.IF:
                 return this.parseIf();
 
@@ -111,6 +114,9 @@ export default class Parser {
 
             case Token.LCURLY:
                 return this.parseBlock();
+
+            case Token.LBRACKET:
+                return this.parseArray();
 
             case Token.FUNCTION:
                 return this.parseFunctionDef();
@@ -138,7 +144,7 @@ export default class Parser {
         return new WhileASTNode(condition, block);
     }
 
-    parseFor(): ASTNode {
+    parseFor(): ForASTNode {
         this.consumeToken(Token.FOR);
         this.consumeToken(Token.LPAREN);
 
@@ -152,7 +158,23 @@ export default class Parser {
         return new ForASTNode(init, condition, update, block);
     }
 
-    parseIf(): ASTNode {
+    parseForEach(): ForEachASTNode {
+        this.consumeToken(Token.FOREACH);
+        this.consumeToken(Token.LPAREN);
+
+        const ident = this.consumeToken(Token.IDENTIFIER);
+        const identAST = new IdentifierASTNode(ident.getValue());
+        this.consumeToken(Token.IN);
+
+        const iterable = this.parseNext();
+        this.consumeToken(Token.RPAREN);
+
+        const block = this.parseBlock();
+
+        return new ForEachASTNode(identAST, iterable, block);
+    }
+
+    parseIf(): IfASTNode {
         this.consumeToken(Token.IF);
         this.consumeToken(Token.LPAREN);
 

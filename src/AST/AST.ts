@@ -154,7 +154,7 @@ export class StringASTNode extends ASTNode {
 }
 
 export class AssignASTNode extends ASTNode {
-    constructor(left: ASTNode, right: ASTNode) {
+    constructor(left: IdentifierASTNode, right: ASTNode) {
         super(Token.ASSIGN, [left, right]);
     }
 
