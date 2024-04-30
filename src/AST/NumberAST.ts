@@ -25,6 +25,8 @@ export class MathASTNode extends ASTNode implements INumberableAST {
                 return left * right;
             case Token.DIVIDE:
                 return left / right;
+            case Token.MOD:
+                return left % right;
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }
@@ -52,6 +54,12 @@ export class MultiplyASTNode extends MathASTNode {
 export class DivideASTNode extends MathASTNode {
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.DIVIDE, left, right);
+    }
+}
+
+export class ModASTNode extends MathASTNode {
+    constructor(left: INumberableAST, right: INumberableAST) {
+        super(Token.MOD, left, right);
     }
 }
 

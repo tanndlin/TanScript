@@ -60,13 +60,14 @@ describe('Lexer Tests', () => {
     });
 
     it('should tokenize math operators', () => {
-        const lexer = new Lexer('+-*/');
+        const lexer = new Lexer('+-*/%');
         const tokens = lexer.getTokens();
         expect(tokens).toEqual([
             new LexerToken(Token.PLUS, '+', 1),
             new LexerToken(Token.MINUS, '-', 1),
             new LexerToken(Token.MULTIPLY, '*', 1),
             new LexerToken(Token.DIVIDE, '/', 1),
+            new LexerToken(Token.MOD, '%', 1),
             new LexerToken(Token.EOF, '', 1),
         ]);
     });

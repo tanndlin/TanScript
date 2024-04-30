@@ -1,7 +1,9 @@
-let x = [1,2,3];
-foreach (i in x) {
-    let double = (x) => {
-        x * 2;
-    }
-    print(double(i));
+let sum = 0;
+
+for(let i = 1; i < 1000; i += 1){
+    if(((i % 3) == 0) || ((i % 5) == 0)){
+        sum += i;
+    } else {}
 }
+
+print(sum)

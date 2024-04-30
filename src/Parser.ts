@@ -34,6 +34,7 @@ import {
     AddASTNode,
     DivideASTNode,
     INumberableAST,
+    ModASTNode,
     MultiplyASTNode,
     NumberASTNode,
     SubtractASTNode,
@@ -342,6 +343,12 @@ export default class Parser {
             case Token.DIVIDE:
                 this.pos++;
                 return new DivideASTNode(
+                    leftAST as INumberableAST,
+                    this.parseExpressionOrNumber() as INumberableAST
+                );
+            case Token.MOD:
+                this.pos++;
+                return new ModASTNode(
                     leftAST as INumberableAST,
                     this.parseExpressionOrNumber() as INumberableAST
                 );

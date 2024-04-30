@@ -10,12 +10,39 @@ describe('Integration Tests', () => {
         expect(result).toBe(10);
     });
 
-    it('should run script with addition', () => {
-        const script = 'let x = 10; x = x + 5;';
+    it.each([
+        ['let x = 10; x = x + 5;', 15],
+        ['let x = 10; x = x - 5;', 5],
+        ['let x = 10; x = x * 5;', 50],
+        ['let x = 10; x = x / 5;', 2],
+        ['let x = 10; x = x % 5;', 0],
+    ])('should run script with arithmetic %s', (script, expected) => {
         const engine = new Engine(script);
         const result = engine.run();
 
-        expect(result).toBe(15);
+        expect(result).toBe(expected);
+    });
+
+    it('should check equals with a math expression', () => {
+        const script = '10 % 5 == 0;';
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(true);
+    });
+
+    it('should respect PEMDAS', () => {
+        const script = '2 * 5 + 7;';
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toBe(19);
+    });
+
+    it('should respect heirarchy', () => {
+        const script = 'true || false == false && true';
+        const engine = new Engine(script);
+        expect(engine.run()).toBe(true);
     });
 
     it('should run script with multiple variables', () => {

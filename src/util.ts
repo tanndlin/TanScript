@@ -11,6 +11,8 @@ export const valueToToken = (value: string): Token => {
             return Token.MULTIPLY;
         case '/':
             return Token.DIVIDE;
+        case '%':
+            return Token.MOD;
         case '<':
             return Token.LESS;
         case '>':

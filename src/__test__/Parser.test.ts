@@ -161,7 +161,7 @@ describe.each([
     it('should parse correctly', () => {
         const tokens = [
             new LexerToken(Token.NUMBER, '1'),
-            new LexerToken(tokenType, '<='),
+            new LexerToken(tokenType, tokenType),
             new LexerToken(Token.NUMBER, '2'),
         ];
 
