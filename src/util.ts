@@ -1,4 +1,5 @@
 import { ASTNode } from './AST/AST';
+import { LexerError } from './errors';
 import { Token } from './types';
 
 export const valueToToken = (value: string): Token => {
@@ -53,7 +54,13 @@ export const valueToToken = (value: string): Token => {
         default:
             // Check for numbers and identifiers
             if (!isNaN(Number(value))) return Token.NUMBER;
-            return Token.IDENTIFIER;
+            if (
+                (value.charCodeAt(0) >= 65 && value.charCodeAt(0) <= 90) ||
+                (value.charCodeAt(0) >= 97 && value.charCodeAt(0) <= 122)
+            )
+                return Token.IDENTIFIER;
+
+            throw new LexerError(`Unexpected token: ${value}`);
     }
 };
 
