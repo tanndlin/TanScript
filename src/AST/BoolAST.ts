@@ -1,10 +1,9 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { BooleanToken, Token } from '../types';
+import { BooleanToken, IBooleanableAST, INumberableAST, Token } from '../types';
 import { ASTNode } from './AST';
-import { INumberableAST } from './NumberAST';
 
-export class BooleanOpASTNode extends ASTNode {
+export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
         super(type, [left, right]);
     }
@@ -22,8 +21,6 @@ export class BooleanOpASTNode extends ASTNode {
                 return left > right;
             case Token.GEQ:
                 return left >= right;
-            case Token.EQUAL:
-                return left === right;
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }

@@ -1,5 +1,8 @@
-import { IdentifierASTNode } from './AST/AST';
+import { ASTNode, IdentifierASTNode } from './AST/AST';
+import * as BoolAST from './AST/BoolAST';
 import { IterableASTNode } from './AST/IterableAST';
+import * as NumberAST from './AST/NumberAST';
+import Scope from './Scope';
 
 export enum Token {
     FOR = 'for',
@@ -118,3 +121,33 @@ export type Iterable = RuntimeValue[];
 export type RuntimeValue = Maybe<number | string | boolean | Iterable | void>;
 export type BooleanToken = Token.TRUE | Token.FALSE;
 export type IterableResolvable = IterableASTNode | IdentifierASTNode;
+
+export interface INumberableAST extends ASTNode {
+    evaluate(scope: Scope): number;
+}
+
+export interface IBooleanableAST extends ASTNode {
+    evaluate(scope: Scope): boolean;
+}
+
+export type ExpressionableAST = INumberableAST | IBooleanableAST;
+
+export interface ITokenConstructorPair {
+    token: Token;
+    ast: AnyOperatorConstructor;
+}
+
+export interface IMathOperatorConstructor {
+    new (left: INumberableAST, right: INumberableAST): NumberAST.MathASTNode;
+}
+export interface IRelationalOperatorConstructor {
+    new (left: INumberableAST, right: INumberableAST): BoolAST.BooleanOpASTNode;
+}
+export interface IEqualityOperatorConstructor {
+    new (left: ASTNode, right: ASTNode): BoolAST.BooleanOpASTNode;
+}
+
+export type AnyOperatorConstructor =
+    | IMathOperatorConstructor
+    | IRelationalOperatorConstructor
+    | IEqualityOperatorConstructor;

@@ -11,19 +11,7 @@ import {
     SemiASTNode,
     StringASTNode,
 } from './AST/AST';
-import {
-    AndASTNode,
-    BooleanASTNode,
-    BooleanOpASTNode,
-    EqualASTNode,
-    GreaterEqASTNode,
-    GreaterThanASTNode,
-    LessEqASTNode,
-    LessThanASTNode,
-    NotASTNode,
-    NotEqualASTNode,
-    OrASTNode,
-} from './AST/BoolAST';
+import { BooleanASTNode, NotASTNode } from './AST/BoolAST';
 import {
     ForASTNode,
     FunctionCallASTNode,
@@ -35,9 +23,6 @@ import { ForEachASTNode, ListASTNode } from './AST/IterableAST';
 import {
     AddASTNode,
     DivideASTNode,
-    INumberableAST,
-    MathASTNode,
-    ModASTNode,
     MultiplyASTNode,
     NumberASTNode,
     SubtractASTNode,
@@ -49,8 +34,11 @@ import {
     SignalComputeAssignmentAST,
 } from './AST/SignalAST';
 import { ParserError } from './errors';
+import { PRECEDENCE } from './precedence';
 import {
     BooleanToken,
+    ExpressionableAST,
+    INumberableAST,
     LexerToken,
     OPERATORS,
     PrimitiveValues,
@@ -303,9 +291,9 @@ export default class Parser {
         return new BlockASTNode(children);
     }
 
-    private parseExpressionOrNumber(): INumberableAST | BooleanOpASTNode {
+    private parseExpressionOrNumber(): ExpressionableAST {
         // logical expression is the least priority
-        const expr = this.parseLogicalExpression();
+        const expr = this.parseNextPrecedence(PRECEDENCE.length - 1);
 
         if (
             this.tokens[this.pos] &&
@@ -317,82 +305,39 @@ export default class Parser {
         return expr;
     }
 
-    private parseMulDiv = this.parseFactory<INumberableAST, MathASTNode>(
-        this.parseFactor.bind(this),
-        [
-            { token: Token.MULTIPLY, ast: MultiplyASTNode },
-            { token: Token.DIVIDE, ast: DivideASTNode },
-            { token: Token.MOD, ast: ModASTNode },
-        ]
-    );
+    // Goes bottom up, starting with the lowest precedence
+    // This is because each level calls the next higher precedence
+    private parseNextPrecedence(depth: number): ExpressionableAST {
+        if (depth === -1) {
+            return this.parseFactor() as ExpressionableAST;
+        }
 
-    private parseAddSub = this.parseFactory<INumberableAST, MathASTNode>(
-        this.parseMulDiv.bind(this),
-        [
-            { token: Token.PLUS, ast: AddASTNode },
-            { token: Token.MINUS, ast: SubtractASTNode },
-        ]
-    );
+        let left = this.parseNextPrecedence(depth - 1);
 
-    private parseRelationalExpression = this.parseFactory<
-        INumberableAST,
-        BooleanOpASTNode
-    >(this.parseAddSub.bind(this), [
-        { token: Token.LESS, ast: LessThanASTNode },
-        { token: Token.GREATER, ast: GreaterThanASTNode },
-        { token: Token.LEQ, ast: LessEqASTNode },
-        { token: Token.GEQ, ast: GreaterEqASTNode },
-    ]);
+        const pairs = PRECEDENCE[depth];
+        while (this.pos < this.tokens.length) {
+            let matchFound = false;
+            const curTokenType = this.tokens[this.pos].getType();
 
-    private parseEquality = this.parseFactory<ASTNode, BooleanOpASTNode>(
-        this.parseRelationalExpression.bind(this),
-        [
-            { token: Token.EQUAL, ast: EqualASTNode },
-            { token: Token.NEQ, ast: NotEqualASTNode },
-        ]
-    );
+            for (const { token, ast } of pairs) {
+                if (curTokenType === token) {
+                    this.pos++;
 
-    private parseLogicalExpression = this.parseFactory<
-        ASTNode,
-        BooleanOpASTNode
-    >(this.parseEquality.bind(this), [
-        { token: Token.AND, ast: AndASTNode },
-        { token: Token.OR, ast: OrASTNode },
-    ]);
-
-    // This is a factory that returns a parser for a certain precendence
-    // The `tokens` is a list of tokens that are of the same precedence
-    // Returns a function that parses higher precedence first, then the tokens of equal precedence
-    private parseFactory<T, X>(
-        parseHigherPrecedence: Function,
-        tokens: {
-            token: Token;
-            ast: new (left: T, right: T) => X;
-        }[]
-    ): () => X {
-        return () => {
-            let left = parseHigherPrecedence();
-
-            // Keep checking until no match
-            while (this.pos < this.tokens.length) {
-                let matchFound = false;
-                const curTokenType = this.tokens[this.pos].getType();
-
-                for (const { token, ast } of tokens) {
-                    if (curTokenType === token) {
-                        this.pos++;
-                        left = new ast(left, parseHigherPrecedence() as T);
-                        matchFound = true;
-                        break;
-                    }
+                    // TODO: Remove any casts
+                    left = new ast(
+                        left as any,
+                        this.parseNextPrecedence(depth - 1) as any
+                    );
+                    matchFound = true;
+                    break;
                 }
-
-                // If the next token matches none, return
-                if (!matchFound) break;
             }
 
-            return left;
-        };
+            // If the next token matches none, return
+            if (!matchFound) break;
+        }
+
+        return left;
     }
 
     private parseFactor(): ASTNode {

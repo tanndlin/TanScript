@@ -1,11 +1,7 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { Token } from '../types';
+import { INumberableAST, Token } from '../types';
 import { ASTNode } from './AST';
-
-export interface INumberableAST extends ASTNode {
-    evaluate(scope: Scope): number;
-}
 
 export class MathASTNode extends ASTNode implements INumberableAST {
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {

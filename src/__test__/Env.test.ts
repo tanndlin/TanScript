@@ -5,13 +5,14 @@ import {
     DeclarationASTNode,
     IdentifierASTNode,
 } from '../AST/AST';
-import { AddASTNode, INumberableAST, NumberASTNode } from '../AST/NumberAST';
+import { AddASTNode, NumberASTNode } from '../AST/NumberAST';
 import Engine from '../Engine';
 import Environment from '../Environment';
 import {
     UseBeforeDeclarationError as AssignBeforeDeclarationError,
     UndeclaredVariableError,
 } from '../errors';
+import { INumberableAST } from '../types';
 
 describe('Enviornment Basic Tests', () => {
     it('should run basic script', () => {
