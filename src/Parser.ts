@@ -36,6 +36,7 @@ import {
     AddASTNode,
     DivideASTNode,
     INumberableAST,
+    MathASTNode,
     ModASTNode,
     MultiplyASTNode,
     NumberASTNode,
@@ -303,6 +304,7 @@ export default class Parser {
     }
 
     private parseExpressionOrNumber(): INumberableAST | BooleanOpASTNode {
+        // logical expression is the least priority
         const expr = this.parseLogicalExpression();
 
         if (
@@ -315,174 +317,82 @@ export default class Parser {
         return expr;
     }
 
-    private parseLogicalExpression(): INumberableAST | BooleanOpASTNode {
-        let left: INumberableAST | BooleanOpASTNode = this.parseEquality();
+    private parseMulDiv = this.parseFactory<INumberableAST, MathASTNode>(
+        this.parseFactor.bind(this),
+        [
+            { token: Token.MULTIPLY, ast: MultiplyASTNode },
+            { token: Token.DIVIDE, ast: DivideASTNode },
+            { token: Token.MOD, ast: ModASTNode },
+        ]
+    );
 
-        while (this.pos < this.tokens.length) {
-            switch (this.tokens[this.pos].getType()) {
-                case Token.AND:
-                    this.pos++;
-                    left = new AndASTNode(
-                        left,
-                        this.parseEquality() as INumberableAST
-                    );
-                    break;
+    private parseAddSub = this.parseFactory<INumberableAST, MathASTNode>(
+        this.parseMulDiv.bind(this),
+        [
+            { token: Token.PLUS, ast: AddASTNode },
+            { token: Token.MINUS, ast: SubtractASTNode },
+        ]
+    );
 
-                case Token.OR:
-                    this.pos++;
-                    left = new OrASTNode(
-                        left,
-                        this.parseEquality() as INumberableAST
-                    );
-                    break;
+    private parseRelationalExpression = this.parseFactory<
+        INumberableAST,
+        BooleanOpASTNode
+    >(this.parseAddSub.bind(this), [
+        { token: Token.LESS, ast: LessThanASTNode },
+        { token: Token.GREATER, ast: GreaterThanASTNode },
+        { token: Token.LEQ, ast: LessEqASTNode },
+        { token: Token.GEQ, ast: GreaterEqASTNode },
+    ]);
 
-                default:
-                    return left;
+    private parseEquality = this.parseFactory<ASTNode, BooleanOpASTNode>(
+        this.parseRelationalExpression.bind(this),
+        [
+            { token: Token.EQUAL, ast: EqualASTNode },
+            { token: Token.NEQ, ast: NotEqualASTNode },
+        ]
+    );
+
+    private parseLogicalExpression = this.parseFactory<
+        ASTNode,
+        BooleanOpASTNode
+    >(this.parseEquality.bind(this), [
+        { token: Token.AND, ast: AndASTNode },
+        { token: Token.OR, ast: OrASTNode },
+    ]);
+
+    // This is a factory that returns a parser for a certain precendence
+    // The `tokens` is a list of tokens that are of the same precedence
+    // Returns a function that parses higher precedence first, then the tokens of equal precedence
+    private parseFactory<T, X>(
+        parseHigherPrecedence: Function,
+        tokens: {
+            token: Token;
+            ast: new (left: T, right: T) => X;
+        }[]
+    ): () => X {
+        return () => {
+            let left = parseHigherPrecedence();
+
+            // Keep checking until no match
+            while (this.pos < this.tokens.length) {
+                let matchFound = false;
+                const curTokenType = this.tokens[this.pos].getType();
+
+                for (const { token, ast } of tokens) {
+                    if (curTokenType === token) {
+                        this.pos++;
+                        left = new ast(left, parseHigherPrecedence() as T);
+                        matchFound = true;
+                        break;
+                    }
+                }
+
+                // If the next token matches none, return
+                if (!matchFound) break;
             }
-        }
 
-        return left;
-    }
-
-    private parseEquality(): INumberableAST | BooleanOpASTNode {
-        let left: INumberableAST | BooleanOpASTNode =
-            this.parseRelationalExpression();
-
-        while (this.pos < this.tokens.length) {
-            switch (this.tokens[this.pos].getType()) {
-                case Token.EQUAL:
-                    this.pos++;
-                    left = new EqualASTNode(
-                        left,
-                        this.parseRelationalExpression()
-                    );
-                    break;
-
-                case Token.NEQ:
-                    this.pos++;
-                    left = new NotEqualASTNode(
-                        left,
-                        this.parseRelationalExpression()
-                    );
-                    break;
-
-                default:
-                    return left;
-            }
-        }
-
-        return left;
-    }
-
-    private parseRelationalExpression(): INumberableAST | BooleanOpASTNode {
-        let left: INumberableAST | BooleanOpASTNode = this.parseAddSub();
-
-        while (this.pos < this.tokens.length) {
-            switch (this.tokens[this.pos].getType()) {
-                case Token.LESS:
-                    this.pos++;
-                    left = new LessThanASTNode(
-                        left as INumberableAST,
-                        this.parseAddSub() as INumberableAST
-                    );
-                    break;
-
-                case Token.GREATER:
-                    this.pos++;
-                    left = new GreaterThanASTNode(
-                        left as INumberableAST,
-                        this.parseAddSub() as INumberableAST
-                    );
-                    break;
-
-                case Token.LEQ:
-                    this.pos++;
-                    left = new LessEqASTNode(
-                        left as INumberableAST,
-                        this.parseAddSub() as INumberableAST
-                    );
-                    break;
-
-                case Token.GEQ:
-                    this.pos++;
-                    left = new GreaterEqASTNode(
-                        left as INumberableAST,
-                        this.parseAddSub() as INumberableAST
-                    );
-                    break;
-
-                default:
-                    return left;
-            }
-        }
-
-        return left;
-    }
-
-    private parseAddSub(): INumberableAST {
-        let left = this.parseMulDiv();
-
-        while (this.pos < this.tokens.length) {
-            switch (this.tokens[this.pos].getType()) {
-                case Token.PLUS:
-                    this.pos++;
-                    left = new AddASTNode(
-                        left,
-                        this.parseMulDiv() as INumberableAST
-                    );
-                    break;
-
-                case Token.MINUS:
-                    this.pos++;
-                    left = new SubtractASTNode(
-                        left,
-                        this.parseMulDiv() as INumberableAST
-                    );
-                    break;
-
-                default:
-                    return left;
-            }
-        }
-
-        return left;
-    }
-
-    private parseMulDiv(): INumberableAST {
-        let left = this.parseFactor() as INumberableAST;
-
-        while (this.pos < this.tokens.length) {
-            switch (this.tokens[this.pos].getType()) {
-                case Token.MULTIPLY:
-                    this.pos++;
-                    left = new MultiplyASTNode(
-                        left,
-                        this.parseFactor() as INumberableAST
-                    );
-                    break;
-
-                case Token.DIVIDE:
-                    this.pos++;
-                    left = new DivideASTNode(
-                        left,
-                        this.parseFactor() as INumberableAST
-                    );
-                    break;
-
-                case Token.MOD:
-                    this.pos++;
-                    left = new ModASTNode(
-                        left,
-                        this.parseFactor() as INumberableAST
-                    );
-                    break;
-
-                default:
-                    return left;
-            }
-        }
-
-        return left;
+            return left;
+        };
     }
 
     private parseFactor(): ASTNode {
