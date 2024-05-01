@@ -65,22 +65,6 @@ export const OPERATORS = new Set([
     Token.OR,
 ]);
 
-export const PRECENDENCE = {
-    [Token.PLUS]: 1,
-    [Token.MINUS]: 1,
-    [Token.MULTIPLY]: 2,
-    [Token.DIVIDE]: 2,
-    [Token.MOD]: 2,
-    [Token.LESS]: 3,
-    [Token.LEQ]: 3,
-    [Token.GREATER]: 3,
-    [Token.GEQ]: 3,
-    [Token.EQUAL]: 3,
-    [Token.NEQ]: 3,
-    [Token.AND]: 4,
-    [Token.OR]: 4,
-};
-
 export const PrimitiveValues = new Set([
     Token.NUMBER,
     Token.STRING,

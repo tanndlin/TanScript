@@ -8,11 +8,13 @@ import {
     IdentifierASTNode,
     LParenASTNode,
     RParenASTNode,
+    SemiASTNode,
     StringASTNode,
 } from './AST/AST';
 import {
     AndASTNode,
     BooleanASTNode,
+    BooleanOpASTNode,
     EqualASTNode,
     GreaterEqASTNode,
     GreaterThanASTNode,
@@ -50,7 +52,7 @@ import {
     BooleanToken,
     LexerToken,
     OPERATORS,
-    PrimitiveValues as PRIMITIVE_VALUES,
+    PrimitiveValues,
     SIGNAL_OPERATORS,
     Token,
 } from './types';
@@ -78,7 +80,7 @@ export default class Parser {
                 return new EOFASTNode();
             case Token.SEMI:
                 this.pos++;
-                return new EOFASTNode();
+                return new SemiASTNode();
 
             case Token.NUMBER:
             case Token.LPAREN:
@@ -257,7 +259,8 @@ export default class Parser {
         }
 
         // The token is not an assignment, so it must be an expression
-        return this.parseExpressionOrNumber(identToken);
+        this.pos--;
+        return this.parseExpressionOrNumber();
     }
 
     parseSignalAssign(
@@ -299,116 +302,200 @@ export default class Parser {
         return new BlockASTNode(children);
     }
 
-    // If the current token is a number, make sure next token is either an operator or EOF
-    parseExpressionOrNumber(curToken?: LexerToken): ASTNode {
-        if (!curToken) {
-            curToken = this.consumeOneOf([
-                Token.IDENTIFIER,
-                Token.LPAREN,
-                Token.LBRACKET,
-                Token.NOT,
-                ...PRIMITIVE_VALUES,
-                ...SIGNAL_OPERATORS,
-            ]);
+    private parseExpressionOrNumber(): INumberableAST | BooleanOpASTNode {
+        const expr = this.parseLogicalExpression();
+
+        if (
+            this.tokens[this.pos] &&
+            this.tokens[this.pos].getType() === Token.SEMI
+        ) {
+            this.consumeToken(Token.SEMI);
         }
 
-        const leftAST = this.getLeftASTFromToken(curToken);
+        return expr;
+    }
 
-        // There needs to be at least 2 more tokens to form an expression
-        if (this.pos + 1 >= this.tokens.length) {
-            this.pos++;
-            return leftAST;
+    private parseLogicalExpression(): INumberableAST | BooleanOpASTNode {
+        let left: INumberableAST | BooleanOpASTNode = this.parseEquality();
+
+        while (this.pos < this.tokens.length) {
+            switch (this.tokens[this.pos].getType()) {
+                case Token.AND:
+                    this.pos++;
+                    left = new AndASTNode(
+                        left,
+                        this.parseEquality() as INumberableAST
+                    );
+                    break;
+
+                case Token.OR:
+                    this.pos++;
+                    left = new OrASTNode(
+                        left,
+                        this.parseEquality() as INumberableAST
+                    );
+                    break;
+
+                default:
+                    return left;
+            }
         }
 
-        const nextToken = this.tokens[this.pos];
-        switch (nextToken.getType()) {
-            case Token.PLUS:
-                this.pos++;
-                return new AddASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.MINUS:
-                this.pos++;
-                return new SubtractASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.MULTIPLY:
-                this.pos++;
-                return new MultiplyASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.DIVIDE:
-                this.pos++;
-                return new DivideASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.MOD:
-                this.pos++;
-                return new ModASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.LESS:
-                this.pos++;
-                return new LessThanASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.GREATER:
-                this.pos++;
-                return new GreaterThanASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.LEQ:
-                this.pos++;
-                return new LessEqASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
-            case Token.GEQ:
-                this.pos++;
-                return new GreaterEqASTNode(
-                    leftAST as INumberableAST,
-                    this.parseExpressionOrNumber() as INumberableAST
-                );
+        return left;
+    }
 
-            case Token.EQUAL:
-                this.pos++;
-                return new EqualASTNode(
-                    leftAST,
-                    this.parseExpressionOrNumber()
-                ) as INumberableAST;
-            case Token.NEQ:
-                this.pos++;
-                return new NotEqualASTNode(
-                    leftAST,
-                    this.parseExpressionOrNumber()
-                ) as INumberableAST;
-            case Token.AND:
-                this.pos++;
-                return new AndASTNode(leftAST, this.parseExpressionOrNumber());
-            case Token.OR:
-                this.pos++;
-                return new OrASTNode(leftAST, this.parseExpressionOrNumber());
-            case Token.EOF:
-            case Token.SEMI:
-            case Token.COMMA:
-                this.pos++;
-                return leftAST;
-            case Token.RPAREN:
-            case Token.RBRACKET:
-            case Token.RCURLY:
-                return leftAST;
-            default:
-                throw new ParserError(
-                    `Unexpected token: ${nextToken.getValue()}. Expected an operator or EOF`
-                );
+    private parseEquality(): INumberableAST | BooleanOpASTNode {
+        let left: INumberableAST | BooleanOpASTNode =
+            this.parseRelationalExpression();
+
+        while (this.pos < this.tokens.length) {
+            switch (this.tokens[this.pos].getType()) {
+                case Token.EQUAL:
+                    this.pos++;
+                    left = new EqualASTNode(
+                        left,
+                        this.parseRelationalExpression()
+                    );
+                    break;
+
+                case Token.NEQ:
+                    this.pos++;
+                    left = new NotEqualASTNode(
+                        left,
+                        this.parseRelationalExpression()
+                    );
+                    break;
+
+                default:
+                    return left;
+            }
         }
+
+        return left;
+    }
+
+    private parseRelationalExpression(): INumberableAST | BooleanOpASTNode {
+        let left: INumberableAST | BooleanOpASTNode = this.parseAddSub();
+
+        while (this.pos < this.tokens.length) {
+            switch (this.tokens[this.pos].getType()) {
+                case Token.LESS:
+                    this.pos++;
+                    left = new LessThanASTNode(
+                        left as INumberableAST,
+                        this.parseAddSub() as INumberableAST
+                    );
+                    break;
+
+                case Token.GREATER:
+                    this.pos++;
+                    left = new GreaterThanASTNode(
+                        left as INumberableAST,
+                        this.parseAddSub() as INumberableAST
+                    );
+                    break;
+
+                case Token.LEQ:
+                    this.pos++;
+                    left = new LessEqASTNode(
+                        left as INumberableAST,
+                        this.parseAddSub() as INumberableAST
+                    );
+                    break;
+
+                case Token.GEQ:
+                    this.pos++;
+                    left = new GreaterEqASTNode(
+                        left as INumberableAST,
+                        this.parseAddSub() as INumberableAST
+                    );
+                    break;
+
+                default:
+                    return left;
+            }
+        }
+
+        return left;
+    }
+
+    private parseAddSub(): INumberableAST {
+        let left = this.parseMulDiv();
+
+        while (this.pos < this.tokens.length) {
+            switch (this.tokens[this.pos].getType()) {
+                case Token.PLUS:
+                    this.pos++;
+                    left = new AddASTNode(
+                        left,
+                        this.parseMulDiv() as INumberableAST
+                    );
+                    break;
+
+                case Token.MINUS:
+                    this.pos++;
+                    left = new SubtractASTNode(
+                        left,
+                        this.parseMulDiv() as INumberableAST
+                    );
+                    break;
+
+                default:
+                    return left;
+            }
+        }
+
+        return left;
+    }
+
+    private parseMulDiv(): INumberableAST {
+        let left = this.parseFactor() as INumberableAST;
+
+        while (this.pos < this.tokens.length) {
+            switch (this.tokens[this.pos].getType()) {
+                case Token.MULTIPLY:
+                    this.pos++;
+                    left = new MultiplyASTNode(
+                        left,
+                        this.parseFactor() as INumberableAST
+                    );
+                    break;
+
+                case Token.DIVIDE:
+                    this.pos++;
+                    left = new DivideASTNode(
+                        left,
+                        this.parseFactor() as INumberableAST
+                    );
+                    break;
+
+                case Token.MOD:
+                    this.pos++;
+                    left = new ModASTNode(
+                        left,
+                        this.parseFactor() as INumberableAST
+                    );
+                    break;
+
+                default:
+                    return left;
+            }
+        }
+
+        return left;
+    }
+
+    private parseFactor(): ASTNode {
+        const token = this.consumeOneOf([
+            Token.IDENTIFIER,
+            Token.LPAREN,
+            Token.LBRACKET,
+            Token.NOT,
+            ...PrimitiveValues,
+            ...SIGNAL_OPERATORS,
+        ]);
+
+        return this.getLeftASTFromToken(token);
     }
 
     private getLeftASTFromToken(consumedToken: LexerToken): ASTNode {
@@ -492,6 +579,13 @@ export default class Parser {
 
         const assignASTNode = this.parseAssignment(undefined, false);
         const declAST = new DeclarationASTNode(assignASTNode);
+
+        if (
+            this.tokens[this.pos] &&
+            this.tokens[this.pos].getType() === Token.SEMI
+        ) {
+            this.consumeToken(Token.SEMI);
+        }
         return declAST;
     }
 

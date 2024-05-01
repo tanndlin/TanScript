@@ -1,6 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { BooleanToken, RuntimeValue, Token } from '../types';
+import { BooleanToken, Token } from '../types';
 import { ASTNode } from './AST';
 import { INumberableAST } from './NumberAST';
 
@@ -69,7 +69,7 @@ export class NotEqualASTNode extends ASTNode {
         super(Token.NEQ, [left, right]);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(scope: Scope): boolean {
         const left = this.getChildren()[0].evaluate(scope);
         const right = this.getChildren()[1].evaluate(scope);
 
@@ -82,7 +82,7 @@ export class EqualASTNode extends ASTNode {
         super(Token.EQUAL, [left, right]);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(scope: Scope): boolean {
         const left = this.getChildren()[0].evaluate(scope);
         const right = this.getChildren()[1].evaluate(scope);
 

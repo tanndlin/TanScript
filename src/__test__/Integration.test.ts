@@ -31,12 +31,20 @@ describe('Integration Tests', () => {
         expect(result).toBe(true);
     });
 
-    it('should respect PEMDAS', () => {
-        const script = '2 * 5 + 7;';
+    it.each([
+        ['2 + 3 * 4', 14], // Multiplication before addition
+        ['2 * 3 + 4', 10], // Multiplication before addition
+        ['2 * (3 + 4)', 14], // Parentheses before multiplication
+        ['(2 + 3) * 4', 20], // Parentheses before multiplication
+        ['2 + 3 * 4 / 2', 8], // Multiplication and division before addition
+        ['2 * 3 / 4 + 2', 3.5], // Multiplication and division before addition
+        ['(2 + 3) * 4 / 2', 10], // Parentheses before multiplication and division
+        ['2 + 3 * (4 / 2)', 8], // Parentheses before multiplication and addition
+    ])('should respect PEMDAS in script %s', (script, expected) => {
         const engine = new Engine(script);
         const result = engine.run();
 
-        expect(result).toBe(19);
+        expect(result).toBe(expected);
     });
 
     it('should respect heirarchy', () => {
