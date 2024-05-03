@@ -78,8 +78,6 @@ export default class Parser {
             case Token.FALSE:
             case Token.STRING:
             case Token.NOT:
-            case Token.SIGNAL:
-            case Token.COMPUTE:
                 return this.parseExpressionOrNumber();
 
             case Token.DECLERATION:
@@ -98,6 +96,8 @@ export default class Parser {
                 return this.parseIf();
 
             case Token.IDENTIFIER:
+            case Token.SIGNAL:
+            case Token.COMPUTE:
                 return this.parseAssignmentOrExpression();
 
             case Token.LCURLY:
@@ -222,7 +222,11 @@ export default class Parser {
     }
 
     parseAssignmentOrExpression(): ASTNode {
-        const identToken = this.consumeToken(Token.IDENTIFIER);
+        const identToken = this.consumeOneOf([
+            Token.IDENTIFIER,
+            Token.SIGNAL,
+            Token.COMPUTE,
+        ]);
 
         // Check if the next token is a shorhand assign
         if (OPERATORS.has(this.tokens[this.pos].getType())) {

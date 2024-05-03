@@ -1,9 +1,33 @@
-let sum = 0;
+def isPalindrome(n){
+    let copy = n;
+    let reversed = 0;
 
-for(let i = 1; i < 1000; i += 1){
-    if(((i % 3) == 0) || ((i % 5) == 0)){
-        sum += i;
-    } else {}
+    while(n > 0){
+        let digit = n % 10;
+        n //= 10;
+        reversed = reversed * 10 + digit;
+    }
+
+    reversed == copy;
 }
 
-print(sum)
+
+let max = 0;
+
+let a #= 100;
+let nextA $= #a + 1;
+
+let b #= 100;
+let nextB $= #b + 1;
+
+let product $= #a * #b;
+
+for(a #= 100; #a < 1000; a #= $nextA){
+    for(b #= 100; #b < 1000; b #= $nextB){
+        if($product > max && isPalindrome($product)){
+            max = $product;
+        }
+    }
+}
+
+max;
