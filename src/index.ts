@@ -18,7 +18,10 @@ try {
     console.log(util.inspect(ast, { showHidden: false, depth: null }));
 
     const env = new Environment(ast, true);
+
+    console.time('Execution time');
     env.evaluate();
+    console.timeEnd('Execution time');
 } catch (e) {
     console.error(e);
 }
