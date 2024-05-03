@@ -94,6 +94,10 @@ export class AndASTNode extends ASTNode {
 
     evaluate(scope: Scope): boolean {
         const left = this.getChildren()[0].evaluate(scope);
+
+        // Short circuit
+        if (!left) return false;
+
         const right = this.getChildren()[1].evaluate(scope);
 
         return !!left && !!right;
@@ -107,6 +111,10 @@ export class OrASTNode extends ASTNode {
 
     evaluate(scope: Scope): boolean {
         const left = this.getChildren()[0].evaluate(scope);
+
+        // Short circuit
+        if (left) return true;
+
         const right = this.getChildren()[1].evaluate(scope);
 
         return !!left || !!right;
