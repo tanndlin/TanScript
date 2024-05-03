@@ -5,7 +5,7 @@ import { ASTNode, AssignASTNode } from './AST';
 export class SignalAST extends ASTNode {
     constructor(name: string) {
         super(Token.SIGNAL, []);
-        this.value = name;
+        this.value = name.replace('#', '');
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -20,7 +20,7 @@ export class SignalAssignmentAST extends ASTNode {
         super(Token.SIGNAL_ASSIGN, [assign]);
 
         const [identAST, valueAST] = assign.getChildren();
-        this.identifier = identAST.getValue();
+        this.identifier = identAST.getValue().replace('#', '');
     }
 
     public evaluate(scope: Scope): RuntimeValue {
@@ -34,12 +34,13 @@ export class SignalAssignmentAST extends ASTNode {
 }
 
 export class SignalComputeAST extends ASTNode {
-    constructor(public name: string) {
+    constructor(name: string) {
         super(Token.SIGNAL, []);
+        this.value = name.replace('$', '');
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        return scope.getSignalValue(this.name);
+        return scope.getSignalValue(this.value);
     }
 }
 
@@ -51,6 +52,7 @@ export class SignalComputeAssignmentAST extends ASTNode {
 
         const [identAST, valueAST] = assign.getChildren();
         this.identifier = identAST.getValue();
+        this.identifier = identAST.getValue().replace('$', '');
     }
 
     public evaluate(scope: Scope): RuntimeValue {

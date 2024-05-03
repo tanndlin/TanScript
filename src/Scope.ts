@@ -83,8 +83,6 @@ export default class Scope {
     }
 
     getSignal(name: string): Signal {
-        name = name.replace(/#/g, '');
-
         if (this.signals.has(name)) {
             return this.signals.get(name)!;
         }
@@ -118,7 +116,6 @@ export default class Scope {
     }
 
     setSignalCompute(identifier: string, assignAST: AssignASTNode) {
-        identifier = `$${identifier}`;
         let signal: Signal;
         try {
             signal = this.getSignal(identifier);

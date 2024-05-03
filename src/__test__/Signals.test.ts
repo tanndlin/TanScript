@@ -67,10 +67,10 @@ describe('Signals Tests', () => {
 
         const env = engine.getEnvironment();
         const scope = env.getGlobalScope();
-        const x = scope.getSignal('#x');
+        const x = scope.getSignal('x');
         expect(x.getValue()).toBe(4);
 
-        const y = scope.getSignal('$y') as ComputedSignal;
+        const y = scope.getSignal('y') as ComputedSignal;
         expect(y.value).toBe(3);
         expect(y.isDirty).toBe(true);
 

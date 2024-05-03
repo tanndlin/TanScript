@@ -1,33 +1,16 @@
-def isPalindrome(n){
-    let copy = n;
-    let reversed = 0;
+let a #= 0;
+let b #= 0;
+let c #= 0;
 
-    while(n > 0){
-        let digit = n % 10;
-        n //= 10;
-        reversed = reversed * 10 + digit;
-    }
+let sum $= #a + #b + #c;
+let product $= #a * #b * #c;
+let isTriplet $= #a * #a + #b * #b == #c * #c;
 
-    reversed == copy;
-}
-
-
-let max = 0;
-
-let a #= 100;
-let nextA $= #a + 1;
-
-let b #= 100;
-let nextB $= #b + 1;
-
-let product $= #a * #b;
-
-for(a #= 100; #a < 1000; #a++){
-    for(b #= 100; #b < 1000; #b++){
-        if($product > max && isPalindrome($product)){
-            max = $product;
+for(a #= 1; #a < 1000; #a++){
+    for(b #= #a; #a + #b < 1000; #b++){
+        c #= 1000 - #a - #b;
+        if(#c > #b && $isTriplet){
+            print($product)
         }
     }
 }
-
-max;
