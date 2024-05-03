@@ -21,6 +21,8 @@ export class MathASTNode extends ASTNode implements INumberableAST {
                 return left * right;
             case Token.DIVIDE:
                 return left / right;
+            case Token.INT_DIVIDE:
+                return Math.floor(left / right);
             case Token.MOD:
                 return left % right;
             default:
@@ -50,6 +52,12 @@ export class MultiplyASTNode extends MathASTNode {
 export class DivideASTNode extends MathASTNode {
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.DIVIDE, left, right);
+    }
+}
+
+export class IntegerDivideASTNode extends MathASTNode {
+    constructor(left: INumberableAST, right: INumberableAST) {
+        super(Token.INT_DIVIDE, left, right);
     }
 }
 

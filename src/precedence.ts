@@ -6,6 +6,7 @@ export const PRECEDENCE: ITokenConstructorPair[][] = [
     [
         { token: Token.MULTIPLY, ast: NumberAST.MultiplyASTNode },
         { token: Token.DIVIDE, ast: NumberAST.DivideASTNode },
+        { token: Token.INT_DIVIDE, ast: NumberAST.IntegerDivideASTNode },
         { token: Token.MOD, ast: NumberAST.ModASTNode },
     ],
     [

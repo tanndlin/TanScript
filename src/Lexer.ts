@@ -158,6 +158,12 @@ class Lexer {
                     break;
                 }
 
+                case Token.DIVIDE:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '/', Token.INT_DIVIDE)
+                    );
+                    break;
+
                 // Grab the second one for now, since bitwise is not implemented
                 case Token.AND:
                     this.pos++;

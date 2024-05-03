@@ -50,6 +50,7 @@ export enum Token {
     SIGNAL_ASSIGN = 'SIGNAL_ASSIGN',
     LBRACKET = '[',
     RBRACKET = ']',
+    INT_DIVIDE = '//',
 }
 
 export const OPERATORS = new Set([
@@ -57,6 +58,7 @@ export const OPERATORS = new Set([
     Token.MINUS,
     Token.MULTIPLY,
     Token.DIVIDE,
+    Token.INT_DIVIDE,
     Token.MOD,
     Token.LESS,
     Token.LEQ,
