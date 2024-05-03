@@ -60,4 +60,11 @@ export class ComputedSignal extends Signal {
 
         return this.value;
     }
+
+    markChildrenDirty(): void {
+        // If this signal is already dirty, then all of its dependencies are dirty
+        if (this.isDirty) return;
+
+        super.markChildrenDirty();
+    }
 }
