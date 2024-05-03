@@ -23,6 +23,7 @@ import { ForEachASTNode, ListASTNode } from './AST/IterableAST';
 import {
     AddASTNode,
     DivideASTNode,
+    IntegerDivideASTNode,
     MultiplyASTNode,
     NumberASTNode,
     SubtractASTNode,
@@ -77,17 +78,12 @@ export default class Parser {
             case Token.FALSE:
             case Token.STRING:
             case Token.NOT:
+            case Token.SIGNAL:
+            case Token.COMPUTE:
                 return this.parseExpressionOrNumber();
 
             case Token.DECLERATION:
                 return this.parseDecleration();
-
-            case Token.SIGNAL:
-                this.pos++;
-                return new SignalAST(curToken.getValue());
-            case Token.COMPUTE:
-                this.pos++;
-                return new SignalComputeAST(curToken.getValue());
 
             case Token.WHILE:
                 return this.parseWhile();
@@ -542,11 +538,25 @@ export default class Parser {
         }
 
         // /=
-        const resultExpression = new DivideASTNode(
-            identAST as INumberableAST,
-            expressionAST as INumberableAST
+        if (assignToken.getType() === Token.DIVIDE) {
+            const resultExpression = new DivideASTNode(
+                identAST as INumberableAST,
+                expressionAST as INumberableAST
+            );
+            return new AssignASTNode(identAST, resultExpression);
+        }
+
+        if (assignToken.getType() === Token.INT_DIVIDE) {
+            const resultExpression = new IntegerDivideASTNode(
+                identAST as INumberableAST,
+                expressionAST as INumberableAST
+            );
+            return new AssignASTNode(identAST, resultExpression);
+        }
+
+        throw new ParserError(
+            `Unexpected token ${assignToken.getValue()}. Expected an assignment operator`
         );
-        return new AssignASTNode(identAST, resultExpression);
     }
 
     parseNot(notToken?: LexerToken): NotASTNode {
