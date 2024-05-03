@@ -109,6 +109,18 @@ describe('Integration Tests', () => {
 
         expect(result).toBe(expected);
     });
+
+    it('should allow incrementing a signal', () => {
+        const script = 'let x #= 0;\n #x++;';
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        const scope = engine.getEnvironment().getGlobalScope();
+        const x = scope.getSignal('x');
+
+        expect(result).toBe(1);
+        expect(x.getValue()).toBe(1);
+    });
 });
 
 describe('Function Tests', () => {

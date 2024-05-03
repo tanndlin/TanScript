@@ -24,6 +24,7 @@ import {
     AddASTNode,
     DivideASTNode,
     IntegerDivideASTNode,
+    MathASTNode,
     MultiplyASTNode,
     NumberASTNode,
     SubtractASTNode,
@@ -97,8 +98,17 @@ export default class Parser {
 
             case Token.IDENTIFIER:
             case Token.SIGNAL:
-            case Token.COMPUTE:
-                return this.parseAssignmentOrExpression();
+            case Token.COMPUTE: {
+                let ret = this.parseAssignmentOrExpression();
+                if (
+                    this.tokens[this.pos] &&
+                    this.tokens[this.pos].getType() === Token.SEMI
+                ) {
+                    this.consumeToken(Token.SEMI);
+                }
+
+                return ret;
+            }
 
             case Token.LCURLY:
                 return this.parseBlock();
@@ -229,29 +239,11 @@ export default class Parser {
         ]);
 
         if (this.tokens[this.pos].getType() === Token.INCREMENT) {
-            this.consumeToken(Token.INCREMENT);
-            return new AssignASTNode(
-                new IdentifierASTNode(identToken.getValue()),
-                new AddASTNode(
-                    new IdentifierASTNode(
-                        identToken.getValue()
-                    ) as INumberableAST,
-                    new NumberASTNode('1')
-                )
-            );
+            return this.parseIncrementDecrement(AddASTNode, identToken);
         }
 
         if (this.tokens[this.pos].getType() === Token.DECREMENT) {
-            this.consumeToken(Token.DECREMENT);
-            return new AssignASTNode(
-                new IdentifierASTNode(identToken.getValue()),
-                new SubtractASTNode(
-                    new IdentifierASTNode(
-                        identToken.getValue()
-                    ) as INumberableAST,
-                    new NumberASTNode('1')
-                )
-            );
+            return this.parseIncrementDecrement(SubtractASTNode, identToken);
         }
 
         // Check if the next token is a shorhand assign
@@ -276,6 +268,49 @@ export default class Parser {
         // The token is not an assignment, so it must be an expression
         this.pos--;
         return this.parseExpressionOrNumber();
+    }
+
+    parseIncrementDecrement<
+        T extends new (
+            left: INumberableAST,
+            right: INumberableAST
+        ) => MathASTNode
+    >(Ctor: T, identToken: LexerToken) {
+        this.consumeOneOf([Token.INCREMENT, Token.DECREMENT]);
+
+        if (identToken.getType() === Token.SIGNAL) {
+            return new SignalAssignmentAST(
+                new AssignASTNode(
+                    new IdentifierASTNode(identToken.getValue()),
+                    new Ctor(
+                        new SignalAST(identToken.getValue()) as INumberableAST,
+                        new NumberASTNode('1')
+                    )
+                )
+            );
+        }
+
+        if (identToken.getType() === Token.COMPUTE) {
+            return new SignalComputeAssignmentAST(
+                new AssignASTNode(
+                    new IdentifierASTNode(identToken.getValue()),
+                    new Ctor(
+                        new SignalComputeAST(
+                            identToken.getValue()
+                        ) as INumberableAST,
+                        new NumberASTNode('1')
+                    )
+                )
+            );
+        }
+
+        return new AssignASTNode(
+            new IdentifierASTNode(identToken.getValue()),
+            new Ctor(
+                new IdentifierASTNode(identToken.getValue()) as INumberableAST,
+                new NumberASTNode('1')
+            )
+        );
     }
 
     parseSignalAssign(
