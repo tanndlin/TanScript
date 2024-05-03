@@ -51,6 +51,8 @@ export enum Token {
     LBRACKET = '[',
     RBRACKET = ']',
     INT_DIVIDE = '//',
+    INCREMENT = '++',
+    DECREMENT = '--',
 }
 
 export const OPERATORS = new Set([
@@ -68,6 +70,8 @@ export const OPERATORS = new Set([
     Token.NEQ,
     Token.AND,
     Token.OR,
+    Token.INCREMENT,
+    Token.DECREMENT,
 ]);
 
 export const PrimitiveValues = new Set([

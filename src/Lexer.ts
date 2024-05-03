@@ -158,6 +158,18 @@ class Lexer {
                     break;
                 }
 
+                case Token.PLUS:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '+', Token.INCREMENT)
+                    );
+                    break;
+
+                case Token.MINUS:
+                    this.tokens.push(
+                        this.tryParsePair(tokenType, '-', Token.DECREMENT)
+                    );
+                    break;
+
                 case Token.DIVIDE:
                     this.tokens.push(
                         this.tryParsePair(tokenType, '/', Token.INT_DIVIDE)

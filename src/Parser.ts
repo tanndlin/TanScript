@@ -228,6 +228,32 @@ export default class Parser {
             Token.COMPUTE,
         ]);
 
+        if (this.tokens[this.pos].getType() === Token.INCREMENT) {
+            this.consumeToken(Token.INCREMENT);
+            return new AssignASTNode(
+                new IdentifierASTNode(identToken.getValue()),
+                new AddASTNode(
+                    new IdentifierASTNode(
+                        identToken.getValue()
+                    ) as INumberableAST,
+                    new NumberASTNode('1')
+                )
+            );
+        }
+
+        if (this.tokens[this.pos].getType() === Token.DECREMENT) {
+            this.consumeToken(Token.DECREMENT);
+            return new AssignASTNode(
+                new IdentifierASTNode(identToken.getValue()),
+                new SubtractASTNode(
+                    new IdentifierASTNode(
+                        identToken.getValue()
+                    ) as INumberableAST,
+                    new NumberASTNode('1')
+                )
+            );
+        }
+
         // Check if the next token is a shorhand assign
         if (OPERATORS.has(this.tokens[this.pos].getType())) {
             if (this.tokens[this.pos + 1].getType() === Token.ASSIGN) {

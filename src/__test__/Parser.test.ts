@@ -126,6 +126,28 @@ describe('Parser Math Operators', () => {
         expect(right.getValue()).toBe('3');
     });
 
+    it.each([
+        new LexerToken(Token.INCREMENT, '++'),
+        new LexerToken(Token.DECREMENT, '--'),
+    ])('should parse an increment/decrement', (token) => {
+        const tokens = [new LexerToken(Token.IDENTIFIER, 'x'), token];
+
+        const parser = new Parser(tokens);
+        const ast = parser.parse();
+
+        expect(ast).toBeInstanceOf(AST);
+
+        const root = ast.getRoot();
+        const children = root.getChildren();
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBeInstanceOf(AssignASTNode);
+
+        // Left should be an identifier
+        const [identifier, _] = children[0].getChildren();
+        expect(identifier.getType()).toBe(Token.IDENTIFIER);
+        expect(identifier.getValue()).toBe('x');
+    });
+
     it('should parse a basic conditional', () => {
         const tokens = [
             new LexerToken(Token.NUMBER, '1'),
