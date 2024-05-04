@@ -11,8 +11,8 @@ describe('Lexer Tests', () => {
         ]);
     });
 
-    const objectFlip = (obj) => {
-        const ret = {};
+    const objectFlip = (obj: any) => {
+        const ret: { [key: string]: string } = {};
         Object.keys(obj).forEach((key) => {
             ret[obj[key]] = key;
         });
