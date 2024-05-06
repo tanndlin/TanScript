@@ -1,6 +1,6 @@
 use crate::types;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LexerToken {
     pub token: types::Token,
     pub position: usize,
