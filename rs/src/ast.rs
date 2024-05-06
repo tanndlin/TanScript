@@ -28,40 +28,21 @@ impl AstNode {
 }
 
 fn evaluate_node(node: &AstNode) -> Option<i32> {
+    macro_rules! eval_operator {
+        ($op:tt) => {
+            match (evaluate_node(&node.children[0]), evaluate_node(&node.children[1])) {
+                (Some(l), Some(r)) => Some(l $op r),
+                _ => None,
+            }
+        };
+    }
+
     match node.node_type {
         NodeType::Number => node.value.clone().unwrap().parse::<i32>().ok(),
-        NodeType::Add => {
-            let left = evaluate_node(&node.children[0]);
-            let right = evaluate_node(&node.children[1]);
-            match (left, right) {
-                (Some(l), Some(r)) => Some(l + r),
-                _ => None,
-            }
-        }
-        NodeType::Subtract => {
-            let left = evaluate_node(&node.children[0]);
-            let right = evaluate_node(&node.children[1]);
-            match (left, right) {
-                (Some(l), Some(r)) => Some(l - r),
-                _ => None,
-            }
-        }
-        NodeType::Multiply => {
-            let left = evaluate_node(&node.children[0]);
-            let right = evaluate_node(&node.children[1]);
-            match (left, right) {
-                (Some(l), Some(r)) => Some(l * r),
-                _ => None,
-            }
-        }
-        NodeType::Divide => {
-            let left = evaluate_node(&node.children[0]);
-            let right = evaluate_node(&node.children[1]);
-            match (left, right) {
-                (Some(l), Some(r)) => Some(l / r),
-                _ => None,
-            }
-        }
+        NodeType::Add => eval_operator!(+),
+        NodeType::Subtract => eval_operator!(-),
+        NodeType::Multiply => eval_operator!(*),
+        NodeType::Divide => eval_operator!(/),
         NodeType::Block => {
             let mut result = None;
             for child in &node.children {
