@@ -60,6 +60,7 @@ fn match_operator(c: char) -> Option<types::Token> {
         '-' => Some(types::Token::Subtract),
         '*' => Some(types::Token::Multiply),
         '/' => Some(types::Token::Divide),
+        '%' => Some(types::Token::Mod),
         ';' => Some(types::Token::Semi),
         _ => None,
     }

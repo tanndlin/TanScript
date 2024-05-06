@@ -6,5 +6,6 @@ pub enum Token {
     Subtract,
     Multiply,
     Divide,
+    Mod,
     Semi,
 }

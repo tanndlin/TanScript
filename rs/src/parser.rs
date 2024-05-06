@@ -49,12 +49,17 @@ fn parse_mul_div(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode
     }
 
     match tokens[*position].token {
-        Token::Multiply | Token::Divide => {
-            let op = consume_one_of(vec![Token::Multiply, Token::Divide], tokens, position);
+        Token::Multiply | Token::Divide | Token::Mod => {
+            let op = consume_one_of(
+                vec![Token::Multiply, Token::Divide, Token::Mod],
+                tokens,
+                position,
+            );
             let mut ast = ast::AstNode {
                 node_type: match op.token {
                     Token::Multiply => ast::NodeType::Multiply,
                     Token::Divide => ast::NodeType::Divide,
+                    Token::Mod => ast::NodeType::Mod,
                     _ => panic!("Expected multiply or divide"),
                 },
                 children: vec![left],

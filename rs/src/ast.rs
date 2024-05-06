@@ -12,6 +12,7 @@ pub enum NodeType {
     Subtract,
     Multiply,
     Divide,
+    Mod,
 }
 
 #[derive(Debug)]
@@ -43,6 +44,7 @@ fn evaluate_node(node: &AstNode) -> Option<i32> {
         NodeType::Subtract => eval_operator!(-),
         NodeType::Multiply => eval_operator!(*),
         NodeType::Divide => eval_operator!(/),
+        NodeType::Mod => eval_operator!(%),
         NodeType::Block => {
             let mut result = None;
             for child in &node.children {
