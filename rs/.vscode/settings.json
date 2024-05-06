@@ -9,6 +9,16 @@
                     ]
                 },
                 {
+                    "name": "Test",
+                    "commands": [
+                        "watchexec -r cargo test"
+                    ]
+                }
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
                     "name": "Git",
                     "commands": [
                         "cd .."
