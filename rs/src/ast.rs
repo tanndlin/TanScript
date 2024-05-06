@@ -6,7 +6,6 @@ pub enum NodeType {
 
     // Flow control
     Block,
-    Semi,
 
     // Expressions
     Add,

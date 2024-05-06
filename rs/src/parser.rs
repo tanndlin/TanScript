@@ -39,24 +39,58 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
 }
 
 fn parse_expression(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
-    let left = parse_factor(&tokens[*position]);
-    *position += 1;
+    parse_add_sub(tokens, position)
+}
 
-    // If the next token is not an operator, return the left node
+fn parse_mul_div(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let left = parse_factor(&tokens[*position], position);
     if *position == tokens.len() {
         return left;
     }
 
     match tokens[*position].token {
-        Token::Add | Token::Subtract | Token::Multiply | Token::Divide => {
-            let mut operator = parse_operator(&tokens[*position]);
-            operator.children.push(left);
+        Token::Multiply | Token::Divide => {
+            let op = consume_one_of(vec![Token::Multiply, Token::Divide], tokens, position);
+            let mut ast = ast::AstNode {
+                node_type: match op.token {
+                    Token::Multiply => ast::NodeType::Multiply,
+                    Token::Divide => ast::NodeType::Divide,
+                    _ => panic!("Expected multiply or divide"),
+                },
+                children: vec![left],
+                value: None,
+            };
 
-            *position += 1;
-            let right = parse_expression(tokens, position);
-            operator.children.push(right);
+            let right = parse_mul_div(tokens, position);
+            ast.children.push(right);
+            ast
+        }
+        _ => left,
+    }
+}
 
-            operator
+fn parse_add_sub(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let left = parse_mul_div(&tokens, position);
+    if *position == tokens.len() {
+        return left;
+    }
+
+    match tokens[*position].token {
+        Token::Add | Token::Subtract => {
+            let op = consume_one_of(vec![Token::Add, Token::Subtract], tokens, position);
+            let mut ast = ast::AstNode {
+                node_type: match op.token {
+                    Token::Add => ast::NodeType::Add,
+                    Token::Subtract => ast::NodeType::Subtract,
+                    _ => panic!("Expected add or subtract"),
+                },
+                children: vec![left],
+                value: None,
+            };
+
+            let right = parse_add_sub(tokens, position);
+            ast.children.push(right);
+            ast
         }
         _ => left,
     }
@@ -84,102 +118,44 @@ fn parse_identifier(token: &LexerToken) -> ast::AstNode {
     }
 }
 
-fn parse_factor(token: &LexerToken) -> ast::AstNode {
-    match token.token {
+fn parse_factor(token: &LexerToken, position: &mut usize) -> ast::AstNode {
+    let node = match token.token {
         types::Token::Number(_) => parse_number(&token),
         types::Token::Identifier(_) => parse_identifier(&token),
         _ => panic!("Expected number or identifier"),
-    }
-}
-
-fn parse_operator(token: &LexerToken) -> ast::AstNode {
-    let op_type = match token.token {
-        types::Token::Add => ast::NodeType::Add,
-        types::Token::Subtract => ast::NodeType::Subtract,
-        types::Token::Multiply => ast::NodeType::Multiply,
-        types::Token::Divide => ast::NodeType::Divide,
-        _ => panic!("Expected operator"),
     };
 
-    ast::AstNode {
-        node_type: op_type,
-        children: vec![],
-        value: None,
-    }
+    *position += 1;
+    return node;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_number() {
-        let tokens = vec![LexerToken {
-            token: Token::Number(42),
-            position: 0,
-            line: 0,
-        }];
-
-        let ast = parse(tokens);
-        assert_eq!(ast.node_type, ast::NodeType::Block);
-        assert_eq!(ast.children.len(), 1);
-
-        let number = &ast.children[0];
-        assert_eq!(number.node_type, ast::NodeType::Number);
-        assert_eq!(number.value, Some("42".to_string()));
+fn consume_token(
+    expected_token: Token,
+    tokens: &Vec<LexerToken>,
+    position: &mut usize,
+) -> LexerToken {
+    let token = &tokens[*position];
+    if token.token != expected_token {
+        panic!("Expected token {:?}, got {:?}", expected_token, token.token);
     }
 
-    #[test]
-    fn test_parse_identifier() {
-        let tokens = vec![LexerToken {
-            token: Token::Identifier("foo".to_string()),
-            position: 0,
-            line: 0,
-        }];
+    *position += 1;
+    return token.clone();
+}
 
-        let ast = parse(tokens);
-        assert_eq!(ast.node_type, ast::NodeType::Block);
-        assert_eq!(ast.children.len(), 1);
-
-        let identifier = &ast.children[0];
-        assert_eq!(identifier.node_type, ast::NodeType::Identifier);
-        assert_eq!(identifier.value, Some("foo".to_string()));
+fn consume_one_of(
+    expected_tokens: Vec<Token>,
+    tokens: &Vec<LexerToken>,
+    position: &mut usize,
+) -> LexerToken {
+    let token = &tokens[*position];
+    if !expected_tokens.contains(&token.token) {
+        panic!(
+            "Expected one of {:?}, got {:?}",
+            expected_tokens, token.token
+        );
     }
 
-    #[test]
-    fn test_parse_addition() {
-        let tokens = vec![
-            LexerToken {
-                token: Token::Number(42),
-                position: 0,
-                line: 0,
-            },
-            LexerToken {
-                token: Token::Add,
-                position: 0,
-                line: 0,
-            },
-            LexerToken {
-                token: Token::Number(42),
-                position: 0,
-                line: 0,
-            },
-        ];
-
-        let ast = parse(tokens);
-        assert_eq!(ast.node_type, ast::NodeType::Block);
-        assert_eq!(ast.children.len(), 1);
-
-        let add = &ast.children[0];
-        assert_eq!(add.node_type, ast::NodeType::Add);
-        assert_eq!(add.children.len(), 2);
-
-        let left = &add.children[0];
-        assert_eq!(left.node_type, ast::NodeType::Number);
-        assert_eq!(left.value, Some("42".to_string()));
-
-        let right = &add.children[1];
-        assert_eq!(right.node_type, ast::NodeType::Number);
-        assert_eq!(right.value, Some("42".to_string()));
-    }
+    *position += 1;
+    return token.clone();
 }

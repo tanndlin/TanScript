@@ -8,8 +8,6 @@ pub struct LexerToken {
 }
 
 pub fn tokenize(script: &str) -> Vec<LexerToken> {
-    println!("Tokenize");
-
     let mut tokens: Vec<LexerToken> = vec![];
     let mut position = 0;
     let mut line_number = 1;
