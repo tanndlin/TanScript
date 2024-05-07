@@ -105,6 +105,11 @@ fn compile_function_def(node: &AstNode) -> String {
 }
 
 fn compile_function_call(node: &AstNode) -> String {
+    // Check if the function is a built-in function
+    if node.value.clone().unwrap().as_str() == "print" {
+        return compile_print(node);
+    }
+
     format!(
         "{}({})",
         node.value.clone().unwrap(),
@@ -155,4 +160,16 @@ fn compile_expression(node: &AstNode) -> String {
         NodeType::Mod => compile_operator!("%"),
         _ => compile_node(node),
     }
+}
+
+// ---------------------------- Built-in functions ----------------------------
+fn compile_print(node: &AstNode) -> String {
+    let args = node
+        .children
+        .iter()
+        .map(compile_node)
+        .collect::<Vec<String>>();
+
+    let format = args.iter().map(|_| "%d").collect::<Vec<&str>>().join(", ");
+    format!("printf(\"{}\\n\", {});", format, args.join(", "))
 }
