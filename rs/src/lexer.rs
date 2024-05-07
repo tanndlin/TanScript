@@ -25,7 +25,7 @@ pub fn tokenize(script: &str) -> Vec<LexerToken> {
         };
 
         tokens.push(lexer_token);
-        if position < script.len() && script.chars().nth(position).unwrap() == '\n' {
+        if position < script.len() && is_newline(script.chars().nth(position).unwrap()) {
             line_number += 1;
         }
     }
@@ -72,7 +72,11 @@ fn lex_identifier(script: &str, position: &mut usize) -> String {
 }
 
 fn is_whitespace(c: char) -> bool {
-    c == ' ' || c == '\n' || c == '\t'
+    c == ' ' || c == '\n' || c == '\t' || c == '\r'
+}
+
+fn is_newline(c: char) -> bool {
+    c == '\n' || c == '\r'
 }
 
 fn match_operator(c: char) -> Option<types::Token> {
