@@ -33,6 +33,7 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         | Token::Multiply
         | Token::Divide
         | Token::Mod
+        | Token::Not
         | Token::Identifier(_)
         | Token::Number(_) => parse_expression(tokens, position),
         Token::Declare => parse_declare(tokens, position),
@@ -47,6 +48,12 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         Token::Semi => panic!("Unexpected semicolon"),
         Token::Comma => panic!("Unexpected comma"),
         Token::RCurly => panic!("Unexpected RCurly"),
+        Token::Eq => panic!("Unexpected Eq"),
+        Token::NotEq => panic!("Unexpected NotEq"),
+        Token::LessThan => panic!("Unexpected LessThan"),
+        Token::GreaterThan => panic!("Unexpected GreaterThan"),
+        Token::Leq => panic!("Unexpected Leq"),
+        Token::Geq => panic!("Unexpected Geq"),
     }
 }
 
@@ -169,7 +176,7 @@ fn parse_assignment(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstN
 }
 
 fn parse_expression(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
-    parse_add_sub(tokens, position)
+    parse_equality(tokens, position)
 }
 
 fn parse_mul_div(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
@@ -185,20 +192,16 @@ fn parse_mul_div(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode
                 tokens,
                 position,
             );
-            let mut ast = ast::AstNode {
+            ast::AstNode {
                 node_type: match op.token {
                     Token::Multiply => ast::NodeType::Multiply,
                     Token::Divide => ast::NodeType::Divide,
                     Token::Mod => ast::NodeType::Mod,
                     _ => panic!("Expected multiply or divide"),
                 },
-                children: vec![left],
+                children: vec![left, parse_mul_div(tokens, position)],
                 value: None,
-            };
-
-            let right = parse_mul_div(tokens, position);
-            ast.children.push(right);
-            ast
+            }
         }
         _ => left,
     }
@@ -213,17 +216,69 @@ fn parse_add_sub(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode
     match tokens[*position].token {
         Token::Add | Token::Subtract => {
             let op = consume_one_of(vec![Token::Add, Token::Subtract], tokens, position);
-            let mut ast = ast::AstNode {
+            ast::AstNode {
                 node_type: match op.token {
                     Token::Add => ast::NodeType::Add,
                     Token::Subtract => ast::NodeType::Subtract,
                     _ => panic!("Expected add or subtract"),
                 },
+                children: vec![left, parse_add_sub(tokens, position)],
+                value: None,
+            }
+        }
+        _ => left,
+    }
+}
+
+fn parse_relational(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let left = parse_add_sub(tokens, position);
+    if *position == tokens.len() {
+        return left;
+    }
+
+    match tokens[*position].token {
+        Token::LessThan | Token::GreaterThan | Token::Leq | Token::Geq => {
+            let op = consume_one_of(
+                vec![Token::LessThan, Token::GreaterThan, Token::Leq, Token::Geq],
+                tokens,
+                position,
+            );
+            ast::AstNode {
+                node_type: match op.token {
+                    Token::LessThan => ast::NodeType::LessThan,
+                    Token::GreaterThan => ast::NodeType::GreaterThan,
+                    Token::Leq => ast::NodeType::Leq,
+                    Token::Geq => ast::NodeType::Geq,
+                    _ => panic!("Expected relational operator"),
+                },
+                children: vec![left, parse_relational(tokens, position)],
+                value: None,
+            }
+        }
+        _ => left,
+    }
+}
+
+fn parse_equality(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let left = parse_relational(tokens, position);
+    if *position == tokens.len() {
+        return left;
+    }
+
+    match tokens[*position].token {
+        Token::Eq | Token::NotEq => {
+            let op = consume_one_of(vec![Token::Eq, Token::NotEq], tokens, position);
+            let mut ast = ast::AstNode {
+                node_type: match op.token {
+                    Token::Eq => ast::NodeType::Eq,
+                    Token::NotEq => ast::NodeType::NotEq,
+                    _ => panic!("Expected equality operator"),
+                },
                 children: vec![left],
                 value: None,
             };
 
-            let right = parse_add_sub(tokens, position);
+            let right = parse_equality(tokens, position);
             ast.children.push(right);
             ast
         }

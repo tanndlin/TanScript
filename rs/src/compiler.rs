@@ -45,7 +45,13 @@ fn compile_node(node: &AstNode) -> String {
         | NodeType::Subtract
         | NodeType::Multiply
         | NodeType::Divide
-        | NodeType::Mod => compile_expression(node),
+        | NodeType::Mod
+        | NodeType::Eq
+        | NodeType::NotEq
+        | NodeType::LessThan
+        | NodeType::GreaterThan
+        | NodeType::Leq
+        | NodeType::Geq => compile_expression(node),
         NodeType::Number => node.value.clone().unwrap(),
         NodeType::Identifier => node.value.clone().unwrap(),
         NodeType::Block => compile_block(node),
@@ -56,7 +62,6 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::FunctionCall => compile_function_call(node),
         NodeType::Return => format!("return {};", compile_node(&node.children[0])),
         NodeType::If => compile_if(node),
-        NodeType::Else => panic!("Unexpected Else node"),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
     }
 }
@@ -185,6 +190,12 @@ fn compile_expression(node: &AstNode) -> String {
         NodeType::Multiply => compile_operator!("*"),
         NodeType::Divide => compile_operator!("/"),
         NodeType::Mod => compile_operator!("%"),
+        NodeType::Eq => compile_operator!("=="),
+        NodeType::NotEq => compile_operator!("!="),
+        NodeType::LessThan => compile_operator!("<"),
+        NodeType::GreaterThan => compile_operator!(">"),
+        NodeType::Leq => compile_operator!("<="),
+        NodeType::Geq => compile_operator!(">="),
         _ => compile_node(node),
     }
 }

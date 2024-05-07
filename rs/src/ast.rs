@@ -11,7 +11,6 @@ pub enum NodeType {
     FunctionCall,
     Return,
     If,
-    Else,
 
     // Expressions
     Add,
@@ -22,6 +21,12 @@ pub enum NodeType {
     Mod,
     Declare,
     Assign,
+    Eq,
+    NotEq,
+    LessThan,
+    GreaterThan,
+    Leq,
+    Geq,
 }
 
 #[derive(Debug)]

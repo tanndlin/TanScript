@@ -1,8 +1,9 @@
 use crate::types;
+use crate::types::Token;
 
 #[derive(Debug, Clone)]
 pub struct LexerToken {
-    pub token: types::Token,
+    pub token: Token,
     pub position: usize,
     pub line: usize,
 }
@@ -33,14 +34,13 @@ pub fn tokenize(script: &str) -> Vec<LexerToken> {
     tokens
 }
 
-fn next_token(script: &str, position: &mut usize) -> types::Token {
+fn next_token(script: &str, position: &mut usize) -> Token {
     let c = script.chars().nth(*position).unwrap();
     if c.is_digit(10) {
         return lex_number(script, position);
     }
 
-    if let Some(token) = match_operator(c) {
-        *position += 1;
+    if let Some(token) = match_operator(&script, position) {
         return token;
     }
 
@@ -53,7 +53,7 @@ fn next_token(script: &str, position: &mut usize) -> types::Token {
         return keyword.to_token();
     }
 
-    types::Token::Identifier(possibly_ident.to_string())
+    Token::Identifier(possibly_ident.to_string())
 }
 
 fn lex_identifier(script: &str, position: &mut usize) -> String {
@@ -79,25 +79,69 @@ fn is_newline(c: char) -> bool {
     c == '\n' || c == '\r'
 }
 
-fn match_operator(c: char) -> Option<types::Token> {
-    match c {
-        '+' => Some(types::Token::Add),
-        '-' => Some(types::Token::Subtract),
-        '*' => Some(types::Token::Multiply),
-        '/' => Some(types::Token::Divide),
-        '%' => Some(types::Token::Mod),
-        ';' => Some(types::Token::Semi),
-        '=' => Some(types::Token::Assign),
-        '(' => Some(types::Token::LParen),
-        ')' => Some(types::Token::RParen),
-        '{' => Some(types::Token::LCurly),
-        '}' => Some(types::Token::RCurly),
-        ',' => Some(types::Token::Comma),
+fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
+    let c = script.chars().nth(*position).unwrap();
+
+    // Try double char operators first
+    if let Some(token) = match_double_char_op(script, position) {
+        return Some(token);
+    }
+
+    let ret = match c {
+        '+' => Some(Token::Add),
+        '-' => Some(Token::Subtract),
+        '*' => Some(Token::Multiply),
+        '/' => Some(Token::Divide),
+        '%' => Some(Token::Mod),
+        '<' => Some(Token::LessThan),
+        '>' => Some(Token::GreaterThan),
+        '!' => Some(Token::Not),
+        ';' => Some(Token::Semi),
+        '=' => Some(Token::Assign),
+        '(' => Some(Token::LParen),
+        ')' => Some(Token::RParen),
+        '{' => Some(Token::LCurly),
+        '}' => Some(Token::RCurly),
+        ',' => Some(Token::Comma),
+        _ => None,
+    };
+
+    if ret.is_some() {
+        *position += 1;
+    }
+
+    ret
+}
+
+fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
+    if (*position + 1) >= script.len() {
+        return None;
+    }
+
+    let c = script.chars().nth(*position).unwrap();
+    let next_c = script.chars().nth(*position + 1).unwrap();
+    match (c, next_c) {
+        ('=', '=') => {
+            *position += 2;
+            Some(Token::Eq)
+        }
+        ('!', '=') => {
+            *position += 2;
+            Some(Token::NotEq)
+        }
+        ('<', '=') => {
+            *position += 2;
+            Some(Token::Leq)
+        }
+        ('>', '=') => {
+            *position += 2;
+            Some(Token::Geq)
+        }
         _ => None,
     }
 }
 
-fn lex_number(script: &str, position: &mut usize) -> types::Token {
+fn lex_number(script: &str, position: &mut usize) -> Token {
     let mut number = String::new();
 
     while *position < script.len() {
@@ -110,7 +154,7 @@ fn lex_number(script: &str, position: &mut usize) -> types::Token {
         }
     }
 
-    types::Token::Number(number.parse::<i32>().unwrap())
+    Token::Number(number.parse::<i32>().unwrap())
 }
 
 // Tests
@@ -128,28 +172,29 @@ mod tests {
 
     #[test]
     fn test_match_operator() {
-        assert_eq!(match_operator('+'), Some(types::Token::Add));
-        assert_eq!(match_operator('-'), Some(types::Token::Subtract));
-        assert_eq!(match_operator('*'), Some(types::Token::Multiply));
-        assert_eq!(match_operator('/'), Some(types::Token::Divide));
-        assert_eq!(match_operator('a'), None);
+        assert_eq!(match_operator("+", &mut 0), Some(Token::Add));
+        assert_eq!(match_operator("-", &mut 0), Some(Token::Subtract));
+        assert_eq!(match_operator("*", &mut 0), Some(Token::Multiply));
+        assert_eq!(match_operator("/", &mut 0), Some(Token::Divide));
+        assert_eq!(match_operator("%", &mut 0), Some(Token::Mod));
+        assert_eq!(match_operator("a", &mut 0), None);
     }
 
     #[test]
     fn test_lex_number() {
         let token = lex_number("123", &mut 0);
-        assert_eq!(token, types::Token::Number(123));
+        assert_eq!(token, Token::Number(123));
 
         let token = lex_number("123abc", &mut 0);
-        assert_eq!(token, types::Token::Number(123));
+        assert_eq!(token, Token::Number(123));
     }
 
     #[test]
     fn lex_simple_expression() {
         let tokens = tokenize("1 + 2");
         assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].token, types::Token::Number(1));
-        assert_eq!(tokens[1].token, types::Token::Add);
-        assert_eq!(tokens[2].token, types::Token::Number(2));
+        assert_eq!(tokens[0].token, Token::Number(1));
+        assert_eq!(tokens[1].token, Token::Add);
+        assert_eq!(tokens[2].token, Token::Number(2));
     }
 }
