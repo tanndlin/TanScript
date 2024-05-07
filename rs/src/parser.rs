@@ -40,10 +40,22 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         Token::LParen => parse_parentheses(tokens, position),
         Token::Function => parse_function(tokens, position),
         Token::LCurly => parse_block(tokens, position),
+        Token::Return => parse_return(tokens, position),
         Token::RParen => panic!("Unexpected right parenthesis"),
         Token::Semi => panic!("Unexpected semicolon"),
         Token::Comma => panic!("Unexpected comma"),
         Token::RCurly => panic!("Unexpected RCurly"),
+    }
+}
+
+fn parse_return(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::Return, tokens, position);
+    let expression = parse_expression(tokens, position);
+
+    ast::AstNode {
+        node_type: ast::NodeType::Return,
+        children: vec![expression],
+        value: None,
     }
 }
 

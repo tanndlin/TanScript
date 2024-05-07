@@ -17,6 +17,7 @@ pub enum Token {
     Declare,
     Function,
     Comma,
+    Return,
 }
 
 pub enum Keywords {
@@ -48,14 +49,14 @@ impl Keywords {
     pub fn to_token(&self) -> Token {
         match self {
             Keywords::Let => Token::Declare,
-            // Keywords::Return => Token::Identifier("return".to_string()),
+            Keywords::Return => Token::Return,
             // Keywords::If => Token::Identifier("if".to_string()),
             // Keywords::Else => Token::Identifier("else".to_string()),
             // Keywords::While => Token::Identifier("while".to_string()),
             Keywords::Function => Token::Function,
             // Keywords::True => Token::Identifier("true".to_string()),
             // Keywords::False => Token::Identifier("false".to_string()),
-            _ => panic!("Not implemented"),
+            _ => panic!("Keyword not implemented"),
         }
     }
 }

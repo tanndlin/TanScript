@@ -9,6 +9,7 @@ pub enum NodeType {
     FunctionDef,
     Parameters,
     FunctionCall,
+    Return,
 
     // Expressions
     Add,

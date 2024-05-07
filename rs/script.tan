@@ -1,5 +1,7 @@
 fn fuck(int a){
     let b = 2 + a;
+    return b;
 };
 
 let f = fuck(10) * 2;
+print(f);

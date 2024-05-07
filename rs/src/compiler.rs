@@ -54,6 +54,7 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::LParen => compile_parentheses(&node.children[0]),
         NodeType::FunctionDef => compile_function_def(node),
         NodeType::FunctionCall => compile_function_call(node),
+        NodeType::Return => format!("return {};", compile_node(&node.children[0])),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
     }
 }
