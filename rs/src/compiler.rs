@@ -18,7 +18,12 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::Block => node.children.iter().map(compile_node).collect(),
         NodeType::Declare => compile_declare(node),
         NodeType::Assign => compile_assign(node),
+        NodeType::LParen => compile_parentheses(&node.children[0]),
     }
+}
+
+fn compile_parentheses(node: &AstNode) -> String {
+    format!("({})", compile_expression(node))
 }
 
 fn compile_declare(node: &AstNode) -> String {

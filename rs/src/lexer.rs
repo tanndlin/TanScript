@@ -84,6 +84,8 @@ fn match_operator(c: char) -> Option<types::Token> {
         '%' => Some(types::Token::Mod),
         ';' => Some(types::Token::Semi),
         '=' => Some(types::Token::Assign),
+        '(' => Some(types::Token::LParen),
+        ')' => Some(types::Token::RParen),
         _ => None,
     }
 }

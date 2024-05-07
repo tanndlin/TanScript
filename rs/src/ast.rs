@@ -12,6 +12,7 @@ pub enum NodeType {
     Subtract,
     Multiply,
     Divide,
+    LParen,
     Mod,
     Declare,
     Assign,
@@ -61,6 +62,7 @@ fn evaluate_node(node: &AstNode) -> Option<i32> {
             let value = evaluate_node(expr).unwrap();
             Some(value)
         }
+        NodeType::LParen => evaluate_node(&node.children[0]),
         _ => panic!("Not implemented for {:?}", node.node_type),
     }
 }

@@ -5,7 +5,7 @@
                 {
                     "name": "Run",
                     "commands": [
-                        "watchexec -e rs -r cargo run"
+                        "watchexec -e rs,tan -r cargo run"
                     ]
                 },
                 {

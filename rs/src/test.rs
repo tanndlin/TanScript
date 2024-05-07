@@ -20,6 +20,12 @@ test!(integration_parse_multiplication, "let a = 6 * 7;", 42);
 test!(integration_parse_division, "let a = 84 / 2;", 42);
 test!(integration_parse_modulus, "let a = 85 % 43;", 42);
 test!(
+    integration_parse_parentheses1,
+    "let a = ( 2 + 2 ) * 10;",
+    40
+);
+test!(integration_parse_parentheses2, "let a = 10 * (2 + 2);", 40);
+test!(
     integration_follows_pemdas_mult_after,
     "let a = 2 + 2 * 10;",
     22

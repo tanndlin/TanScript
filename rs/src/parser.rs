@@ -36,9 +36,23 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         | Token::Identifier(_)
         | Token::Number(_) => parse_expression(tokens, position),
         Token::Declare => parse_declare(tokens, position),
-        Token::Semi => panic!("Unexpected semicolon"),
         Token::Assign => parse_assignment(tokens, position),
+        Token::LParen => parse_parentheses(tokens, position),
+        Token::RParen => panic!("Unexpected right parenthesis"),
+        Token::Semi => panic!("Unexpected semicolon"),
     }
+}
+
+fn parse_parentheses(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::LParen, tokens, position);
+    let ast = ast::AstNode {
+        node_type: ast::NodeType::LParen,
+        children: vec![parse_expression(tokens, position)],
+        value: None,
+    };
+
+    consume_token(Token::RParen, tokens, position);
+    ast
 }
 
 fn parse_declare(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
@@ -158,6 +172,7 @@ fn parse_factor(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode 
     match token.token {
         types::Token::Number(_) => parse_number(tokens, position),
         types::Token::Identifier(_) => parse_identifier(tokens, position),
+        types::Token::LParen => parse_parentheses(tokens, position),
         _ => panic!("Expected number or identifier"),
     }
 }
