@@ -18,13 +18,9 @@ pub fn tokenize(script: &str) -> Vec<LexerToken> {
             continue;
         }
 
-        let token_position = position;
-        let (token, new_pos) = next_token(script, position);
-        position = new_pos;
-
         let lexer_token = LexerToken {
-            token: token,
-            position: token_position,
+            position: position,
+            token: next_token(script, &mut position),
             line: line_number,
         };
 
@@ -37,17 +33,42 @@ pub fn tokenize(script: &str) -> Vec<LexerToken> {
     tokens
 }
 
-fn next_token(script: &str, position: usize) -> (types::Token, usize) {
-    let c = script.chars().nth(position).unwrap();
+fn next_token(script: &str, position: &mut usize) -> types::Token {
+    let c = script.chars().nth(*position).unwrap();
     if c.is_digit(10) {
         return lex_number(script, position);
     }
 
     if let Some(token) = match_operator(c) {
-        return (token, position + 1);
+        *position += 1;
+        return token;
     }
 
-    (types::Token::Identifier(c.to_string()), position + 1)
+    if !c.is_alphanumeric() {
+        panic!("Unexpected character: {}", c);
+    }
+
+    let possibly_ident = lex_identifier(script, position);
+    if let Some(keyword) = types::Keywords::from_string(&possibly_ident) {
+        return keyword.to_token();
+    }
+
+    types::Token::Identifier(possibly_ident.to_string())
+}
+
+fn lex_identifier(script: &str, position: &mut usize) -> String {
+    let mut ident = String::new();
+    while *position < script.len() {
+        let c = script.chars().nth(*position).unwrap();
+        if c.is_alphanumeric() {
+            ident.push(c);
+            *position += 1;
+        } else {
+            break;
+        }
+    }
+
+    ident
 }
 
 fn is_whitespace(c: char) -> bool {
@@ -62,30 +83,25 @@ fn match_operator(c: char) -> Option<types::Token> {
         '/' => Some(types::Token::Divide),
         '%' => Some(types::Token::Mod),
         ';' => Some(types::Token::Semi),
+        '=' => Some(types::Token::Assign),
         _ => None,
     }
 }
 
-fn lex_number(script: &str, position: usize) -> (types::Token, usize) {
+fn lex_number(script: &str, position: &mut usize) -> types::Token {
     let mut number = String::new();
-    let c = script.chars().nth(position).unwrap();
-    number.push(c);
 
-    let mut next_position = position + 1;
-    while next_position < script.len() {
-        let next_c = script.chars().nth(next_position).unwrap();
+    while *position < script.len() {
+        let next_c = script.chars().nth(*position).unwrap();
         if next_c.is_digit(10) {
             number.push(next_c);
-            next_position += 1;
+            *position += 1;
         } else {
             break;
         }
     }
 
-    (
-        types::Token::Number(number.parse::<i32>().unwrap()),
-        next_position,
-    )
+    types::Token::Number(number.parse::<i32>().unwrap())
 }
 
 // Tests
@@ -112,13 +128,11 @@ mod tests {
 
     #[test]
     fn test_lex_number() {
-        let (token, next_position) = lex_number("123", 0);
+        let token = lex_number("123", &mut 0);
         assert_eq!(token, types::Token::Number(123));
-        assert_eq!(next_position, 3);
 
-        let (token, next_position) = lex_number("123abc", 0);
+        let token = lex_number("123abc", &mut 0);
         assert_eq!(token, types::Token::Number(123));
-        assert_eq!(next_position, 3);
     }
 
     #[test]

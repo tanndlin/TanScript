@@ -1,4 +1,5 @@
 mod ast;
+mod compiler;
 mod lexer;
 mod parser;
 mod test;
@@ -12,6 +13,9 @@ fn main() {
     }
 
     let ast = parser::parse(tokens);
-    println!("{:?}", ast);
-    println!("Result: {}", ast.evaluate());
+    let result = compiler::compile(&ast);
+    println!("{}", result);
+
+    // Write to file
+    std::fs::write("script.c", result).expect("Could not write file");
 }

@@ -13,6 +13,8 @@ pub enum NodeType {
     Multiply,
     Divide,
     Mod,
+    Declare,
+    Assign,
 }
 
 #[derive(Debug)]
@@ -52,6 +54,13 @@ fn evaluate_node(node: &AstNode) -> Option<i32> {
             }
             result
         }
-        _ => None,
+        NodeType::Declare => {
+            let assign = &node.children[0];
+            let expr = &assign.children[1];
+
+            let value = evaluate_node(expr).unwrap();
+            Some(value)
+        }
+        _ => panic!("Not implemented for {:?}", node.node_type),
     }
 }

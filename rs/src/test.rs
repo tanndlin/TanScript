@@ -14,11 +14,23 @@ macro_rules! test {
     };
 }
 
-test!(parse_addition, "20 + 22", 42);
-test!(parse_subtraction, "64-22", 42);
-test!(parse_multiplication, "6 * 7", 42);
-test!(parse_division, "84 / 2", 42);
-test!(parse_modulus, "85 % 43", 42);
-test!(follows_pemdas_mult_after, "2 + 2 * 10", 22);
-test!(follows_pemdas_mult_before, "10 * 2 + 2", 22);
-test!(parse_multiple_ops, "10 + 10 + 5 + 2", 27);
+test!(integration_parse_addition, "let a = 20 + 22;", 42);
+test!(integration_parse_subtraction, "let a = 64-22;", 42);
+test!(integration_parse_multiplication, "let a = 6 * 7;", 42);
+test!(integration_parse_division, "let a = 84 / 2;", 42);
+test!(integration_parse_modulus, "let a = 85 % 43;", 42);
+test!(
+    integration_follows_pemdas_mult_after,
+    "let a = 2 + 2 * 10;",
+    22
+);
+test!(
+    integration_follows_pemdas_mult_before,
+    "let a = 10 * 2 + 2;",
+    22
+);
+test!(
+    integration_parse_multiple_ops,
+    "let a = 10 + 10 + 5 + 2;",
+    27
+);

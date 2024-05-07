@@ -21,7 +21,7 @@ pub fn parse(tokens: Vec<LexerToken>) -> ast::AstNode {
 
 fn parse_statement(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
     let node = parse_next(tokens, position);
-    *position += 1; // Skip the semicolon
+    consume_token(Token::Semi, tokens, position);
     node
 }
 
@@ -32,9 +32,34 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         | Token::Subtract
         | Token::Multiply
         | Token::Divide
+        | Token::Mod
         | Token::Identifier(_)
         | Token::Number(_) => parse_expression(tokens, position),
-        _ => panic!("Unexpected token, got {:?}", token.token),
+        Token::Declare => parse_declare(tokens, position),
+        Token::Semi => panic!("Unexpected semicolon"),
+        Token::Assign => parse_assignment(tokens, position),
+    }
+}
+
+fn parse_declare(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::Declare, tokens, position);
+    ast::AstNode {
+        node_type: ast::NodeType::Declare,
+        children: vec![parse_assignment(tokens, position)],
+        value: None,
+    }
+}
+
+fn parse_assignment(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let ident_ast = parse_identifier(tokens, position);
+
+    consume_token(Token::Assign, tokens, position);
+    let expression_ast = parse_expression(tokens, position);
+
+    ast::AstNode {
+        node_type: ast::NodeType::Assign,
+        children: vec![ident_ast, expression_ast],
+        value: None,
     }
 }
 
@@ -43,7 +68,7 @@ fn parse_expression(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstN
 }
 
 fn parse_mul_div(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
-    let left = parse_factor(&tokens[*position], position);
+    let left = parse_factor(tokens, position);
     if *position == tokens.len() {
         return left;
     }
@@ -101,7 +126,9 @@ fn parse_add_sub(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode
     }
 }
 
-fn parse_number(token: &LexerToken) -> ast::AstNode {
+fn parse_number(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let token = consume_token(Token::Number(0), tokens, position);
+
     ast::AstNode {
         node_type: ast::NodeType::Number,
         value: match token.token {
@@ -112,26 +139,27 @@ fn parse_number(token: &LexerToken) -> ast::AstNode {
     }
 }
 
-fn parse_identifier(token: &LexerToken) -> ast::AstNode {
+fn parse_identifier(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let tok = consume_token(Token::Identifier(String::new()), tokens, position);
+
     ast::AstNode {
         node_type: ast::NodeType::Identifier,
-        value: match &token.token {
-            types::Token::Identifier(name) => Some(name.clone()),
+        value: match tok.token {
+            types::Token::Identifier(value) => Some(value),
             _ => panic!("Expected identifier"),
         },
         children: vec![],
     }
 }
 
-fn parse_factor(token: &LexerToken, position: &mut usize) -> ast::AstNode {
-    let node = match token.token {
-        types::Token::Number(_) => parse_number(&token),
-        types::Token::Identifier(_) => parse_identifier(&token),
-        _ => panic!("Expected number or identifier"),
-    };
+fn parse_factor(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let token = &tokens[*position];
 
-    *position += 1;
-    return node;
+    match token.token {
+        types::Token::Number(_) => parse_number(tokens, position),
+        types::Token::Identifier(_) => parse_identifier(tokens, position),
+        _ => panic!("Expected number or identifier"),
+    }
 }
 
 fn consume_token(
@@ -140,7 +168,7 @@ fn consume_token(
     position: &mut usize,
 ) -> LexerToken {
     let token = &tokens[*position];
-    if token.token != expected_token {
+    if !types::variant_eq(&expected_token, &token.token) {
         panic!("Expected token {:?}, got {:?}", expected_token, token.token);
     }
 
@@ -163,4 +191,43 @@ fn consume_one_of(
 
     *position += 1;
     return token.clone();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::tokenize;
+
+    #[test]
+    fn parser_parse_addition() {
+        let script = "1 + 2;";
+        let tokens = tokenize(script);
+        let ast = parse(tokens);
+
+        let add = &ast.children[0];
+        assert_eq!(add.node_type, ast::NodeType::Add);
+        assert_eq!(add.children.len(), 2);
+
+        assert_eq!(add.children[0].node_type, ast::NodeType::Number);
+        assert_eq!(add.children[0].value, Some("1".to_string()));
+
+        assert_eq!(add.children[1].node_type, ast::NodeType::Number);
+        assert_eq!(add.children[1].value, Some("2".to_string()));
+    }
+
+    #[test]
+    fn parser_parse_assignment() {
+        let script = "a = 1;";
+        let tokens = tokenize(script);
+        let assign_ast = parse_assignment(&tokens, &mut 0);
+
+        assert_eq!(assign_ast.node_type, ast::NodeType::Assign);
+        assert_eq!(assign_ast.children.len(), 2);
+
+        assert_eq!(assign_ast.children[0].node_type, ast::NodeType::Identifier);
+        assert_eq!(assign_ast.children[0].value, Some("a".to_string()));
+
+        assert_eq!(assign_ast.children[1].node_type, ast::NodeType::Number);
+        assert_eq!(assign_ast.children[1].value, Some("1".to_string()));
+    }
 }

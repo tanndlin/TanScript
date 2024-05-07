@@ -5,13 +5,13 @@
                 {
                     "name": "Run",
                     "commands": [
-                        "watchexec -r cargo run"
+                        "watchexec -e rs -r cargo run"
                     ]
                 },
                 {
                     "name": "Test",
                     "commands": [
-                        "watchexec -r cargo test"
+                        "watchexec -e rs -r cargo test"
                     ]
                 }
             ]
