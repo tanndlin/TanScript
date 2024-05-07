@@ -55,8 +55,34 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::FunctionDef => compile_function_def(node),
         NodeType::FunctionCall => compile_function_call(node),
         NodeType::Return => format!("return {};", compile_node(&node.children[0])),
+        NodeType::If => compile_if(node),
+        NodeType::Else => panic!("Unexpected Else node"),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
     }
+}
+
+fn compile_if(node: &AstNode) -> String {
+    let cond_ast = &node.children[0];
+    let body_ast = &node.children[1];
+
+    if node.children.len() == 2 {
+        return format!(
+            "if ({}) {{\n{}\n}}",
+            compile_expression(cond_ast),
+            compile_block(body_ast)
+        );
+    }
+
+    let cond = compile_expression(cond_ast);
+    let body = compile_block(body_ast);
+    let else_ast = &node.children[2];
+
+    format!(
+        "if ({}) {{\n{}\n}} else {{\n{}\n}}",
+        cond,
+        body,
+        compile_block(else_ast)
+    )
 }
 
 fn compile_block(node: &AstNode) -> String {

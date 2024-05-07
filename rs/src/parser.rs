@@ -41,10 +41,32 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         Token::Function => parse_function(tokens, position),
         Token::LCurly => parse_block(tokens, position),
         Token::Return => parse_return(tokens, position),
+        Token::If => parse_if(tokens, position),
+        Token::Else => panic!("Unexpected else"),
         Token::RParen => panic!("Unexpected right parenthesis"),
         Token::Semi => panic!("Unexpected semicolon"),
         Token::Comma => panic!("Unexpected comma"),
         Token::RCurly => panic!("Unexpected RCurly"),
+    }
+}
+
+fn parse_if(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::If, tokens, position);
+    let condition = parse_expression(tokens, position);
+    let block = parse_block(tokens, position);
+
+    let mut children = vec![condition, block];
+
+    if tokens[*position].token == Token::Else {
+        consume_token(Token::Else, tokens, position);
+        let else_block = parse_block(tokens, position);
+        children.push(else_block);
+    }
+
+    ast::AstNode {
+        node_type: ast::NodeType::If,
+        children,
+        value: None,
     }
 }
 

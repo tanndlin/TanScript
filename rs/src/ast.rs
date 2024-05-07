@@ -10,6 +10,8 @@ pub enum NodeType {
     Parameters,
     FunctionCall,
     Return,
+    If,
+    Else,
 
     // Expressions
     Add,

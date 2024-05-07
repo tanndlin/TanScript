@@ -18,6 +18,8 @@ pub enum Token {
     Function,
     Comma,
     Return,
+    If,
+    Else,
 }
 
 pub enum Keywords {
@@ -50,8 +52,8 @@ impl Keywords {
         match self {
             Keywords::Let => Token::Declare,
             Keywords::Return => Token::Return,
-            // Keywords::If => Token::Identifier("if".to_string()),
-            // Keywords::Else => Token::Identifier("else".to_string()),
+            Keywords::If => Token::If,
+            Keywords::Else => Token::Else,
             // Keywords::While => Token::Identifier("while".to_string()),
             Keywords::Function => Token::Function,
             // Keywords::True => Token::Identifier("true".to_string()),
