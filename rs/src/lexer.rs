@@ -90,6 +90,9 @@ fn match_operator(c: char) -> Option<types::Token> {
         '=' => Some(types::Token::Assign),
         '(' => Some(types::Token::LParen),
         ')' => Some(types::Token::RParen),
+        '{' => Some(types::Token::LCurly),
+        '}' => Some(types::Token::RCurly),
+        ',' => Some(types::Token::Comma),
         _ => None,
     }
 }

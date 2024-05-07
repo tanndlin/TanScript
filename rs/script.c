@@ -1,4 +1,10 @@
 #include <stdio.h>
+
+int fuck(int a) {
+	int b = 2 + a;
+}
+
 int main() {
-int a = 3 + 5 * (8 / 2);
+	int f = fuck(10) * 2;
+	return 0;
 }

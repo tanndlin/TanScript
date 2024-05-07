@@ -10,8 +10,13 @@ pub enum Token {
     RParen,
     Mod,
     Semi,
-    Declare,
     Assign,
+    LCurly,
+    RCurly,
+
+    Declare,
+    Function,
+    Comma,
 }
 
 pub enum Keywords {
@@ -33,7 +38,7 @@ impl Keywords {
             "if" => Some(Keywords::If),
             "else" => Some(Keywords::Else),
             "while" => Some(Keywords::While),
-            "function" => Some(Keywords::Function),
+            "fn" => Some(Keywords::Function),
             "true" => Some(Keywords::True),
             "false" => Some(Keywords::False),
             _ => None,
@@ -47,7 +52,7 @@ impl Keywords {
             // Keywords::If => Token::Identifier("if".to_string()),
             // Keywords::Else => Token::Identifier("else".to_string()),
             // Keywords::While => Token::Identifier("while".to_string()),
-            // Keywords::Function => Token::Identifier("function".to_string()),
+            Keywords::Function => Token::Function,
             // Keywords::True => Token::Identifier("true".to_string()),
             // Keywords::False => Token::Identifier("false".to_string()),
             _ => panic!("Not implemented"),

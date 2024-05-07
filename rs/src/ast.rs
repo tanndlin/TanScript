@@ -6,6 +6,9 @@ pub enum NodeType {
 
     // Flow control
     Block,
+    FunctionDef,
+    Parameters,
+    FunctionCall,
 
     // Expressions
     Add,

@@ -38,8 +38,65 @@ fn parse_next(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
         Token::Declare => parse_declare(tokens, position),
         Token::Assign => parse_assignment(tokens, position),
         Token::LParen => parse_parentheses(tokens, position),
+        Token::Function => parse_function(tokens, position),
+        Token::LCurly => parse_block(tokens, position),
         Token::RParen => panic!("Unexpected right parenthesis"),
         Token::Semi => panic!("Unexpected semicolon"),
+        Token::Comma => panic!("Unexpected comma"),
+        Token::RCurly => panic!("Unexpected RCurly"),
+    }
+}
+
+fn parse_function(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::Function, tokens, position);
+    let name = parse_identifier(tokens, position);
+
+    consume_token(Token::LParen, tokens, position);
+    let mut args = vec![];
+    while tokens[*position].token != Token::RParen {
+        // type
+        args.push(parse_identifier(tokens, position));
+
+        // name
+        args.push(parse_identifier(tokens, position));
+
+        if tokens[*position].token == Token::RParen {
+            break;
+        }
+
+        consume_token(Token::Comma, tokens, position);
+    }
+
+    consume_token(Token::RParen, tokens, position);
+
+    let params = ast::AstNode {
+        node_type: ast::NodeType::Parameters,
+        children: args,
+        value: None,
+    };
+
+    let block_ast = parse_block(tokens, position);
+    ast::AstNode {
+        node_type: ast::NodeType::FunctionDef,
+        children: vec![params, block_ast],
+        value: name.value,
+    }
+}
+
+fn parse_block(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    consume_token(Token::LCurly, tokens, position);
+
+    let mut children = vec![];
+    while tokens[*position].token != Token::RCurly {
+        children.push(parse_statement(tokens, position));
+    }
+
+    consume_token(Token::RCurly, tokens, position);
+
+    ast::AstNode {
+        node_type: ast::NodeType::Block,
+        children,
+        value: None,
     }
 }
 
@@ -171,9 +228,44 @@ fn parse_factor(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode 
 
     match token.token {
         types::Token::Number(_) => parse_number(tokens, position),
-        types::Token::Identifier(_) => parse_identifier(tokens, position),
+        types::Token::Identifier(_) => parse_identifier_or_function_call(tokens, position),
         types::Token::LParen => parse_parentheses(tokens, position),
         _ => panic!("Expected number or identifier"),
+    }
+}
+
+fn parse_identifier_or_function_call(
+    tokens: &Vec<LexerToken>,
+    position: &mut usize,
+) -> ast::AstNode {
+    match tokens.get(*position + 1) {
+        Some(token) => match token.token {
+            Token::LParen => parse_function_call(tokens, position),
+            _ => parse_identifier(tokens, position),
+        },
+        None => parse_identifier(tokens, position),
+    }
+}
+
+fn parse_function_call(tokens: &Vec<LexerToken>, position: &mut usize) -> ast::AstNode {
+    let ident_ast = parse_identifier(tokens, position);
+    consume_token(Token::LParen, tokens, position);
+
+    let mut args = vec![];
+    while tokens[*position].token != Token::RParen {
+        args.push(parse_expression(tokens, position));
+        if tokens[*position].token == Token::RParen {
+            break;
+        }
+        consume_token(Token::Comma, tokens, position);
+    }
+
+    consume_token(Token::RParen, tokens, position);
+
+    ast::AstNode {
+        node_type: ast::NodeType::FunctionCall,
+        children: args,
+        value: ident_ast.value,
     }
 }
 
@@ -182,6 +274,10 @@ fn consume_token(
     tokens: &Vec<LexerToken>,
     position: &mut usize,
 ) -> LexerToken {
+    if tokens.len() <= *position {
+        panic!("Expected token {:?}, got end of input", expected_token);
+    }
+
     let token = &tokens[*position];
     if !types::variant_eq(&expected_token, &token.token) {
         panic!("Expected token {:?}, got {:?}", expected_token, token.token);
