@@ -3,6 +3,7 @@ pub enum NodeType {
     // Factors
     Number,
     Identifier,
+    Boolean,
 
     // Flow control
     Block,
@@ -28,6 +29,7 @@ pub enum NodeType {
     Geq,
     And,
     Or,
+    Not,
 
     ShortAddAssign,
     ShortSubAssign,

@@ -2,6 +2,7 @@
 pub enum Token {
     Identifier(String),
     Number(i32),
+    Boolean(bool),
     Add,
     Subtract,
     Multiply,
@@ -75,8 +76,8 @@ impl Keywords {
             Keywords::Else => Token::Else,
             Keywords::While => Token::While,
             Keywords::Function => Token::Function,
-            // Keywords::True => Token::True,
-            // Keywords::False => Token::False,
+            Keywords::True => Token::Boolean(true),
+            Keywords::False => Token::Boolean(false),
             _ => panic!("Keyword not implemented"),
         }
     }

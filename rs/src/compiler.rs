@@ -54,8 +54,8 @@ fn compile_node(node: &AstNode) -> String {
         | NodeType::Geq
         | NodeType::And
         | NodeType::Or => compile_expression(node),
-        NodeType::Number => node.value.clone().unwrap(),
-        NodeType::Identifier => node.value.clone().unwrap(),
+        NodeType::Not => format!("!{}", compile_expression(&node.children[0])),
+        NodeType::Number | NodeType::Identifier | NodeType::Boolean => node.value.clone().unwrap(),
         NodeType::Block => compile_block(node),
         NodeType::Declare => compile_declare(node),
         NodeType::Assign => compile_assign(node),

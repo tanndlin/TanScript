@@ -57,7 +57,8 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         | Token::Divide
         | Token::Mod
         | Token::Not
-        | Token::Number(_) => parse_expression(parser),
+        | Token::Number(_)
+        | Token::Boolean(_) => parse_expression(parser),
         Token::Identifier(_) => parse_expression_or_assignment(parser),
         Token::Declare => parse_declare(parser),
         Token::LParen => parse_parentheses(parser),
@@ -289,8 +290,22 @@ fn parse_expression(parser: &mut Parser) -> ast::AstNode {
     parse_and_or(parser)
 }
 
+fn parse_prefix_op(parser: &mut Parser) -> ast::AstNode {
+    let token = parser.get_current_token().clone();
+    if token.token == Token::Not {
+        consume_token(parser, Token::Not);
+        return ast::AstNode {
+            node_type: ast::NodeType::Not,
+            children: vec![parse_prefix_op(parser)],
+            value: None,
+        };
+    }
+
+    parse_factor(parser)
+}
+
 fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
-    let left = parse_factor(parser);
+    let left = parse_prefix_op(parser);
     if parser.is_end() {
         return left;
     }
@@ -447,7 +462,21 @@ fn parse_factor(parser: &mut Parser) -> ast::AstNode {
         types::Token::Number(_) => parse_number(parser),
         types::Token::Identifier(_) => parse_identifier_or_function_call(parser),
         types::Token::LParen => parse_parentheses(parser),
+        types::Token::Boolean(_) => parse_boolean(parser),
         _ => panic!("Expected number or identifier"),
+    }
+}
+
+fn parse_boolean(parser: &mut Parser) -> ast::AstNode {
+    let token = consume_token(parser, Token::Boolean(false));
+
+    ast::AstNode {
+        node_type: ast::NodeType::Boolean,
+        value: match token.token {
+            types::Token::Boolean(value) => Some(value.to_string()),
+            _ => panic!("Expected boolean"),
+        },
+        children: vec![],
     }
 }
 
