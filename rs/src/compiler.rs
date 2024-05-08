@@ -27,7 +27,7 @@ pub fn compile(ast: &AstNode) -> String {
     let body = rest
         .iter()
         .map(|node| compile_node(&node))
-        .map(|s| "\t".to_string() + &s)
+        .map(|s| "\t".to_string() + &s + ";")
         .collect::<Vec<String>>()
         .join("\n");
 
@@ -60,10 +60,22 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::LParen => compile_parentheses(&node.children[0]),
         NodeType::FunctionDef => compile_function_def(node),
         NodeType::FunctionCall => compile_function_call(node),
-        NodeType::Return => format!("return {};", compile_node(&node.children[0])),
+        NodeType::Return => format!("return {}", compile_node(&node.children[0])),
         NodeType::If => compile_if(node),
+        NodeType::While => compile_while(node),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
     }
+}
+
+fn compile_while(node: &AstNode) -> String {
+    let cond_ast = &node.children[0];
+    let body_ast = &node.children[1];
+
+    format!(
+        "while ({}) {{\n{}\n}}",
+        compile_expression(cond_ast),
+        compile_block(body_ast)
+    )
 }
 
 fn compile_if(node: &AstNode) -> String {
@@ -94,7 +106,7 @@ fn compile_block(node: &AstNode) -> String {
     node.children
         .iter()
         .map(compile_node)
-        .map(|s| "\t".to_string() + &s)
+        .map(|s| "\t".to_string() + &s + ";")
         .collect::<Vec<String>>()
         .join("\n")
 }
@@ -166,7 +178,7 @@ fn compile_assign(node: &AstNode) -> String {
     let expression = &node.children[1];
 
     format!(
-        "{} = {};",
+        "{} = {}",
         ident.value.clone().unwrap(),
         compile_expression(expression)
     )
@@ -209,5 +221,5 @@ fn compile_print(node: &AstNode) -> String {
         .collect::<Vec<String>>();
 
     let format = args.iter().map(|_| "%d").collect::<Vec<&str>>().join(", ");
-    format!("printf(\"{}\\n\", {});", format, args.join(", "))
+    format!("printf(\"{}\\n\", {})", format, args.join(", "))
 }

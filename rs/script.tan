@@ -7,5 +7,13 @@ fn fuck(int a){
     };
 };
 
+fn foo(int n){
+    while n < 10 {
+        print(n);
+        n = n + 1;
+    };
+};
+
 let f = fuck(10) * 2;
 print(f);
+foo(0);

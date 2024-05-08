@@ -57,15 +57,16 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         | Token::Divide
         | Token::Mod
         | Token::Not
-        | Token::Identifier(_)
         | Token::Number(_) => parse_expression(parser),
+        Token::Identifier(_) => parse_expression_or_assignment(parser),
         Token::Declare => parse_declare(parser),
-        Token::Assign => parse_assignment(parser),
         Token::LParen => parse_parentheses(parser),
         Token::Function => parse_function(parser),
         Token::LCurly => parse_block(parser),
         Token::Return => parse_return(parser),
         Token::If => parse_if(parser),
+        Token::While => parse_while(parser),
+        Token::Assign => panic!("Unexpected assign"),
         Token::Else => panic!("Unexpected else"),
         Token::RParen => panic!("Unexpected right parenthesis"),
         Token::Semi => panic!("Unexpected semicolon"),
@@ -77,6 +78,27 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::GreaterThan => panic!("Unexpected GreaterThan"),
         Token::Leq => panic!("Unexpected Leq"),
         Token::Geq => panic!("Unexpected Geq"),
+    }
+}
+
+fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
+    let next_token = parser.get_next(1).unwrap();
+
+    match next_token.token {
+        Token::Assign => parse_assignment(parser),
+        _ => parse_expression(parser),
+    }
+}
+
+fn parse_while(parser: &mut Parser) -> ast::AstNode {
+    consume_token(parser, Token::While);
+    let condition = parse_expression(parser);
+    let block = parse_block(parser);
+
+    ast::AstNode {
+        node_type: ast::NodeType::While,
+        children: vec![condition, block],
+        value: None,
     }
 }
 

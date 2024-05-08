@@ -11,6 +11,7 @@ pub enum NodeType {
     FunctionCall,
     Return,
     If,
+    While,
 
     // Expressions
     Add,

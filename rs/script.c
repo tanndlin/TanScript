@@ -6,11 +6,18 @@ int fuck(int a) {
         return 0;
     } else {
         return b;
-    }
+    };
+}
+int foo(int n) {
+    while (n < 10) {
+        printf("%d\n", n);
+        n = n + 1;
+    };
 }
 
 int main() {
     int f = fuck(10) * 2;
     printf("%d\n", f);
+    foo(0);
     return 0;
 }

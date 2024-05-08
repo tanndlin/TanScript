@@ -28,6 +28,7 @@ pub enum Token {
     Return,
     If,
     Else,
+    While,
 }
 
 pub enum Keywords {
@@ -62,10 +63,10 @@ impl Keywords {
             Keywords::Return => Token::Return,
             Keywords::If => Token::If,
             Keywords::Else => Token::Else,
-            // Keywords::While => Token::Identifier("while".to_string()),
+            Keywords::While => Token::While,
             Keywords::Function => Token::Function,
-            // Keywords::True => Token::Identifier("true".to_string()),
-            // Keywords::False => Token::Identifier("false".to_string()),
+            // Keywords::True => Token::True,
+            // Keywords::False => Token::False,
             _ => panic!("Keyword not implemented"),
         }
     }
