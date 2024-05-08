@@ -29,6 +29,11 @@ pub enum NodeType {
     And,
     Or,
 
+    ShortAddAssign,
+    ShortSubAssign,
+    ShortMulAssign,
+    ShortDivAssign,
+    ShortModAssign,
     Assign,
     Declare,
 }

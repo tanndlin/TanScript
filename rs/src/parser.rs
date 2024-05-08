@@ -67,6 +67,13 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::If => parse_if(parser),
         Token::While => parse_while(parser),
         Token::Assign => panic!("Unexpected assign"),
+        Token::ShortAddAssign => panic!("Unexpected short add assign"),
+        Token::ShortSubAssign => panic!("Unexpected short sub assign"),
+        Token::ShortMulAssign => panic!("Unexpected short mul assign"),
+        Token::ShortDivAssign => panic!("Unexpected short div assign"),
+        Token::ShortModAssign => panic!("Unexpected short mod assign"),
+        Token::Increment => panic!("Unexpected increment"),
+        Token::Decrement => panic!("Unexpected decrement"),
         Token::Else => panic!("Unexpected else"),
         Token::RParen => panic!("Unexpected right parenthesis"),
         Token::Semi => panic!("Unexpected semicolon"),
@@ -88,7 +95,63 @@ fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
 
     match next_token.token {
         Token::Assign => parse_assignment(parser),
+        Token::ShortAddAssign
+        | Token::ShortSubAssign
+        | Token::ShortMulAssign
+        | Token::ShortDivAssign
+        | Token::ShortModAssign => parse_short_assign(parser),
+        Token::Increment | Token::Decrement => parse_increment_decrement(parser),
         _ => parse_expression(parser),
+    }
+}
+
+fn parse_short_assign(parser: &mut Parser) -> ast::AstNode {
+    let ident_ast = parse_identifier(parser);
+    let op = consume_one_of(
+        parser,
+        vec![
+            Token::ShortAddAssign,
+            Token::ShortSubAssign,
+            Token::ShortMulAssign,
+            Token::ShortDivAssign,
+            Token::ShortModAssign,
+        ],
+    );
+
+    let expression_ast = parse_expression(parser);
+
+    ast::AstNode {
+        node_type: match op.token {
+            Token::ShortAddAssign => ast::NodeType::ShortAddAssign,
+            Token::ShortSubAssign => ast::NodeType::ShortSubAssign,
+            Token::ShortMulAssign => ast::NodeType::ShortMulAssign,
+            Token::ShortDivAssign => ast::NodeType::ShortDivAssign,
+            Token::ShortModAssign => ast::NodeType::ShortModAssign,
+            _ => panic!("Unexpected short assign"),
+        },
+        children: vec![ident_ast, expression_ast],
+        value: None,
+    }
+}
+
+fn parse_increment_decrement(parser: &mut Parser) -> ast::AstNode {
+    let ident_ast = parse_identifier(parser);
+    let op = consume_one_of(parser, vec![Token::Increment, Token::Decrement]);
+
+    let one_ast = ast::AstNode {
+        node_type: ast::NodeType::Number,
+        children: vec![],
+        value: Some("1".to_string()),
+    };
+
+    ast::AstNode {
+        node_type: match op.token {
+            Token::Increment => ast::NodeType::ShortAddAssign,
+            Token::Decrement => ast::NodeType::ShortDivAssign,
+            _ => panic!("Unexpected increment or decrement"),
+        },
+        children: vec![ident_ast, one_ast],
+        value: None,
     }
 }
 

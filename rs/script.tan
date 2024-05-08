@@ -1,11 +1,5 @@
-let sum = 0;
-let n = 1;
-while n < 1000 {
-    if n % 3 == 0 || n % 5 == 0 {
-        sum = sum + n;
-    };
-
-    n = n + 1;
+let i = 0;
+while i < 10 {
+    print(i);
+    i++;
 };
-
-print(sum);

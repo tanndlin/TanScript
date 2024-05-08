@@ -114,39 +114,43 @@ fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
 }
 
 fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
+    macro_rules! match_double_char_op {
+        ($c:expr, $next_c:expr, $token:expr) => {
+            if $c == $next_c {
+                *position += 2;
+                return Some($token);
+            }
+        };
+    }
+
     if (*position + 1) >= script.len() {
         return None;
     }
 
     let c = script.chars().nth(*position).unwrap();
     let next_c = script.chars().nth(*position + 1).unwrap();
-    match (c, next_c) {
-        ('=', '=') => {
-            *position += 2;
-            Some(Token::Eq)
-        }
-        ('!', '=') => {
-            *position += 2;
-            Some(Token::NotEq)
-        }
-        ('<', '=') => {
-            *position += 2;
-            Some(Token::Leq)
-        }
-        ('>', '=') => {
-            *position += 2;
-            Some(Token::Geq)
-        }
-        ('&', '&') => {
-            *position += 2;
-            Some(Token::And)
-        }
-        ('|', '|') => {
-            *position += 2;
-            Some(Token::Or)
-        }
+    let matched = match (c, next_c) {
+        ('=', '=') => Some(Token::Eq),
+        ('!', '=') => Some(Token::NotEq),
+        ('<', '=') => Some(Token::Leq),
+        ('>', '=') => Some(Token::Geq),
+        ('&', '&') => Some(Token::And),
+        ('|', '|') => Some(Token::Or),
+        ('+', '=') => Some(Token::ShortAddAssign),
+        ('-', '=') => Some(Token::ShortSubAssign),
+        ('*', '=') => Some(Token::ShortMulAssign),
+        ('/', '=') => Some(Token::ShortDivAssign),
+        ('%', '=') => Some(Token::ShortModAssign),
+        ('+', '+') => Some(Token::Increment),
+        ('-', '-') => Some(Token::Decrement),
         _ => None,
+    };
+
+    if (matched.is_some()) {
+        *position += 2;
     }
+
+    matched
 }
 
 fn lex_number(script: &str, position: &mut usize) -> Token {

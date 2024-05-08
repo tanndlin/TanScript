@@ -21,6 +21,14 @@ pub enum Token {
 
     Semi,
     Assign,
+    ShortAddAssign,
+    ShortSubAssign,
+    ShortMulAssign,
+    ShortDivAssign,
+    ShortModAssign,
+    Increment,
+    Decrement,
+
     LCurly,
     RCurly,
 

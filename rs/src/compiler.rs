@@ -59,6 +59,11 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::Block => compile_block(node),
         NodeType::Declare => compile_declare(node),
         NodeType::Assign => compile_assign(node),
+        NodeType::ShortAddAssign
+        | NodeType::ShortSubAssign
+        | NodeType::ShortMulAssign
+        | NodeType::ShortDivAssign
+        | NodeType::ShortModAssign => compile_short_assign(node),
         NodeType::LParen => compile_parentheses(&node.children[0]),
         NodeType::FunctionDef => compile_function_def(node),
         NodeType::FunctionCall => compile_function_call(node),
@@ -67,6 +72,27 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::While => compile_while(node),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
     }
+}
+
+fn compile_short_assign(node: &AstNode) -> String {
+    let ident = &node.children[0];
+    let expression = &node.children[1];
+
+    let op = match node.node_type {
+        NodeType::ShortAddAssign => "+",
+        NodeType::ShortSubAssign => "-",
+        NodeType::ShortMulAssign => "*",
+        NodeType::ShortDivAssign => "/",
+        NodeType::ShortModAssign => "%",
+        _ => panic!("Unexpected node type"),
+    };
+
+    format!(
+        "{} {}= {}",
+        ident.value.clone().unwrap(),
+        op,
+        compile_expression(expression)
+    )
 }
 
 fn compile_while(node: &AstNode) -> String {
