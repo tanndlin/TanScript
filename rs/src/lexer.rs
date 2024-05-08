@@ -88,11 +88,11 @@ fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
     }
 
     let ret = match c {
-        '+' => Some(Token::Add),
-        '-' => Some(Token::Subtract),
-        '*' => Some(Token::Multiply),
-        '/' => Some(Token::Divide),
-        '%' => Some(Token::Mod),
+        '+' => Some(Token::Operator(types::Operator::Add)),
+        '-' => Some(Token::Operator(types::Operator::Subtract)),
+        '*' => Some(Token::Operator(types::Operator::Multiply)),
+        '/' => Some(Token::Operator(types::Operator::Divide)),
+        '%' => Some(Token::Operator(types::Operator::Mod)),
         '<' => Some(Token::LessThan),
         '>' => Some(Token::GreaterThan),
         '!' => Some(Token::Not),
@@ -114,15 +114,6 @@ fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
 }
 
 fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
-    macro_rules! match_double_char_op {
-        ($c:expr, $next_c:expr, $token:expr) => {
-            if $c == $next_c {
-                *position += 2;
-                return Some($token);
-            }
-        };
-    }
-
     if (*position + 1) >= script.len() {
         return None;
     }
@@ -136,17 +127,17 @@ fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
         ('>', '=') => Some(Token::Geq),
         ('&', '&') => Some(Token::And),
         ('|', '|') => Some(Token::Or),
-        ('+', '=') => Some(Token::ShortAddAssign),
-        ('-', '=') => Some(Token::ShortSubAssign),
-        ('*', '=') => Some(Token::ShortMulAssign),
-        ('/', '=') => Some(Token::ShortDivAssign),
-        ('%', '=') => Some(Token::ShortModAssign),
+        ('+', '=') => Some(Token::ShortAssign(types::Operator::Add)),
+        ('-', '=') => Some(Token::ShortAssign(types::Operator::Subtract)),
+        ('*', '=') => Some(Token::ShortAssign(types::Operator::Multiply)),
+        ('/', '=') => Some(Token::ShortAssign(types::Operator::Divide)),
+        ('%', '=') => Some(Token::ShortAssign(types::Operator::Mod)),
         ('+', '+') => Some(Token::Increment),
         ('-', '-') => Some(Token::Decrement),
         _ => None,
     };
 
-    if (matched.is_some()) {
+    if matched.is_some() {
         *position += 2;
     }
 
@@ -184,11 +175,26 @@ mod tests {
 
     #[test]
     fn test_match_operator() {
-        assert_eq!(match_operator("+", &mut 0), Some(Token::Add));
-        assert_eq!(match_operator("-", &mut 0), Some(Token::Subtract));
-        assert_eq!(match_operator("*", &mut 0), Some(Token::Multiply));
-        assert_eq!(match_operator("/", &mut 0), Some(Token::Divide));
-        assert_eq!(match_operator("%", &mut 0), Some(Token::Mod));
+        assert_eq!(
+            match_operator("+", &mut 0),
+            Some(Token::Operator(types::Operator::Add))
+        );
+        assert_eq!(
+            match_operator("-", &mut 0),
+            Some(Token::Operator(types::Operator::Subtract))
+        );
+        assert_eq!(
+            match_operator("*", &mut 0),
+            Some(Token::Operator(types::Operator::Multiply))
+        );
+        assert_eq!(
+            match_operator("/", &mut 0),
+            Some(Token::Operator(types::Operator::Divide))
+        );
+        assert_eq!(
+            match_operator("%", &mut 0),
+            Some(Token::Operator(types::Operator::Mod))
+        );
         assert_eq!(match_operator("a", &mut 0), None);
     }
 
@@ -206,7 +212,7 @@ mod tests {
         let tokens = tokenize("1 + 2");
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].token, Token::Number(1));
-        assert_eq!(tokens[1].token, Token::Add);
+        assert_eq!(tokens[1].token, Token::Operator(types::Operator::Add));
         assert_eq!(tokens[2].token, Token::Number(2));
     }
 }

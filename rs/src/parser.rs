@@ -1,6 +1,8 @@
 use crate::ast;
+use crate::ast::NodeType;
 use crate::lexer::LexerToken;
 use crate::types;
+use crate::types::Operator;
 use crate::types::Token;
 
 struct Parser {
@@ -29,7 +31,7 @@ pub fn parse(tokens: Vec<LexerToken>) -> ast::AstNode {
     };
 
     let mut root = ast::AstNode {
-        node_type: ast::NodeType::Block,
+        node_type: NodeType::Block,
         children: vec![],
         value: None,
     };
@@ -51,14 +53,10 @@ fn parse_statement(parser: &mut Parser) -> ast::AstNode {
 fn parse_next(parser: &mut Parser) -> ast::AstNode {
     let token = parser.get_current_token();
     match token.token {
-        Token::Add
-        | Token::Subtract
-        | Token::Multiply
-        | Token::Divide
-        | Token::Mod
-        | Token::Not
-        | Token::Number(_)
-        | Token::Boolean(_) => parse_expression(parser),
+        Token::Operator(_) | Token::Not | Token::Number(_) | Token::Boolean(_) => {
+            parse_expression(parser)
+        }
+
         Token::Identifier(_) => parse_expression_or_assignment(parser),
         Token::Declare => parse_declare(parser),
         Token::LParen => parse_parentheses(parser),
@@ -68,11 +66,7 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::If => parse_if(parser),
         Token::While => parse_while(parser),
         Token::Assign => panic!("Unexpected assign"),
-        Token::ShortAddAssign => panic!("Unexpected short add assign"),
-        Token::ShortSubAssign => panic!("Unexpected short sub assign"),
-        Token::ShortMulAssign => panic!("Unexpected short mul assign"),
-        Token::ShortDivAssign => panic!("Unexpected short div assign"),
-        Token::ShortModAssign => panic!("Unexpected short mod assign"),
+        Token::ShortAssign(_) => panic!("Unexpected short assign"),
         Token::Increment => panic!("Unexpected increment"),
         Token::Decrement => panic!("Unexpected decrement"),
         Token::Else => panic!("Unexpected else"),
@@ -96,11 +90,7 @@ fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
 
     match next_token.token {
         Token::Assign => parse_assignment(parser),
-        Token::ShortAddAssign
-        | Token::ShortSubAssign
-        | Token::ShortMulAssign
-        | Token::ShortDivAssign
-        | Token::ShortModAssign => parse_short_assign(parser),
+        Token::ShortAssign(_) => parse_short_assign(parser),
         Token::Increment | Token::Decrement => parse_increment_decrement(parser),
         _ => parse_expression(parser),
     }
@@ -108,27 +98,14 @@ fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
 
 fn parse_short_assign(parser: &mut Parser) -> ast::AstNode {
     let ident_ast = parse_identifier(parser);
-    let op = consume_one_of(
-        parser,
-        vec![
-            Token::ShortAddAssign,
-            Token::ShortSubAssign,
-            Token::ShortMulAssign,
-            Token::ShortDivAssign,
-            Token::ShortModAssign,
-        ],
-    );
+    let op = consume_token(parser, Token::ShortAssign(Operator::Add));
 
     let expression_ast = parse_expression(parser);
 
     ast::AstNode {
         node_type: match op.token {
-            Token::ShortAddAssign => ast::NodeType::ShortAddAssign,
-            Token::ShortSubAssign => ast::NodeType::ShortSubAssign,
-            Token::ShortMulAssign => ast::NodeType::ShortMulAssign,
-            Token::ShortDivAssign => ast::NodeType::ShortDivAssign,
-            Token::ShortModAssign => ast::NodeType::ShortModAssign,
-            _ => panic!("Unexpected short assign"),
+            Token::ShortAssign(op) => NodeType::ShortAssign(op),
+            _ => panic!("expected short assign, got {:?}", op),
         },
         children: vec![ident_ast, expression_ast],
         value: None,
@@ -140,15 +117,15 @@ fn parse_increment_decrement(parser: &mut Parser) -> ast::AstNode {
     let op = consume_one_of(parser, vec![Token::Increment, Token::Decrement]);
 
     let one_ast = ast::AstNode {
-        node_type: ast::NodeType::Number,
+        node_type: NodeType::Number,
         children: vec![],
         value: Some("1".to_string()),
     };
 
     ast::AstNode {
         node_type: match op.token {
-            Token::Increment => ast::NodeType::ShortAddAssign,
-            Token::Decrement => ast::NodeType::ShortDivAssign,
+            Token::Increment => NodeType::ShortAssign(Operator::Add),
+            Token::Decrement => NodeType::ShortAssign(Operator::Subtract),
             _ => panic!("Unexpected increment or decrement"),
         },
         children: vec![ident_ast, one_ast],
@@ -162,7 +139,7 @@ fn parse_while(parser: &mut Parser) -> ast::AstNode {
     let block = parse_block(parser);
 
     ast::AstNode {
-        node_type: ast::NodeType::While,
+        node_type: NodeType::While,
         children: vec![condition, block],
         value: None,
     }
@@ -182,7 +159,7 @@ fn parse_if(parser: &mut Parser) -> ast::AstNode {
     }
 
     ast::AstNode {
-        node_type: ast::NodeType::If,
+        node_type: NodeType::If,
         children,
         value: None,
     }
@@ -193,7 +170,7 @@ fn parse_return(parser: &mut Parser) -> ast::AstNode {
     let expression = parse_expression(parser);
 
     ast::AstNode {
-        node_type: ast::NodeType::Return,
+        node_type: NodeType::Return,
         children: vec![expression],
         value: None,
     }
@@ -222,14 +199,14 @@ fn parse_function(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::RParen);
 
     let params = ast::AstNode {
-        node_type: ast::NodeType::Parameters,
+        node_type: NodeType::Parameters,
         children: args,
         value: None,
     };
 
     let block_ast = parse_block(parser);
     ast::AstNode {
-        node_type: ast::NodeType::FunctionDef,
+        node_type: NodeType::FunctionDef,
         children: vec![params, block_ast],
         value: name.value,
     }
@@ -246,7 +223,7 @@ fn parse_block(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::RCurly);
 
     ast::AstNode {
-        node_type: ast::NodeType::Block,
+        node_type: NodeType::Block,
         children,
         value: None,
     }
@@ -255,7 +232,7 @@ fn parse_block(parser: &mut Parser) -> ast::AstNode {
 fn parse_parentheses(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::LParen);
     let ast = ast::AstNode {
-        node_type: ast::NodeType::LParen,
+        node_type: NodeType::LParen,
         children: vec![parse_expression(parser)],
         value: None,
     };
@@ -267,7 +244,7 @@ fn parse_parentheses(parser: &mut Parser) -> ast::AstNode {
 fn parse_declare(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::Declare);
     ast::AstNode {
-        node_type: ast::NodeType::Declare,
+        node_type: NodeType::Declare,
         children: vec![parse_assignment(parser)],
         value: None,
     }
@@ -280,7 +257,7 @@ fn parse_assignment(parser: &mut Parser) -> ast::AstNode {
     let expression_ast = parse_expression(parser);
 
     ast::AstNode {
-        node_type: ast::NodeType::Assign,
+        node_type: NodeType::Assign,
         children: vec![ident_ast, expression_ast],
         value: None,
     }
@@ -295,7 +272,7 @@ fn parse_prefix_op(parser: &mut Parser) -> ast::AstNode {
     if token.token == Token::Not {
         consume_token(parser, Token::Not);
         return ast::AstNode {
-            node_type: ast::NodeType::Not,
+            node_type: NodeType::Not,
             children: vec![parse_prefix_op(parser)],
             value: None,
         };
@@ -310,16 +287,13 @@ fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
         return left;
     }
 
-    match parser.get_current_token().token {
-        Token::Multiply | Token::Divide | Token::Mod => {
-            let op = consume_one_of(parser, vec![Token::Multiply, Token::Divide, Token::Mod]);
+    match parser.get_current_token().token.clone() {
+        Token::Operator(op @ Operator::Multiply)
+        | Token::Operator(op @ Operator::Divide)
+        | Token::Operator(op @ Operator::Mod) => {
+            parser.position += 1;
             ast::AstNode {
-                node_type: match op.token {
-                    Token::Multiply => ast::NodeType::Multiply,
-                    Token::Divide => ast::NodeType::Divide,
-                    Token::Mod => ast::NodeType::Mod,
-                    _ => panic!("Expected multiply or divide"),
-                },
+                node_type: ast::operator_to_node_type(op),
                 children: vec![left, parse_mul_div(parser)],
                 value: None,
             }
@@ -334,15 +308,11 @@ fn parse_add_sub(parser: &mut Parser) -> ast::AstNode {
         return left;
     }
 
-    match parser.get_current_token().token {
-        Token::Add | Token::Subtract => {
-            let op = consume_one_of(parser, vec![Token::Add, Token::Subtract]);
+    match parser.get_current_token().token.clone() {
+        Token::Operator(op @ Operator::Add) | Token::Operator(op @ Operator::Subtract) => {
+            parser.position += 1;
             ast::AstNode {
-                node_type: match op.token {
-                    Token::Add => ast::NodeType::Add,
-                    Token::Subtract => ast::NodeType::Subtract,
-                    _ => panic!("Expected add or subtract"),
-                },
+                node_type: ast::operator_to_node_type(op),
                 children: vec![left, parse_add_sub(parser)],
                 value: None,
             }
@@ -365,10 +335,10 @@ fn parse_relational(parser: &mut Parser) -> ast::AstNode {
             );
             ast::AstNode {
                 node_type: match op.token {
-                    Token::LessThan => ast::NodeType::LessThan,
-                    Token::GreaterThan => ast::NodeType::GreaterThan,
-                    Token::Leq => ast::NodeType::Leq,
-                    Token::Geq => ast::NodeType::Geq,
+                    Token::LessThan => NodeType::LessThan,
+                    Token::GreaterThan => NodeType::GreaterThan,
+                    Token::Leq => NodeType::Leq,
+                    Token::Geq => NodeType::Geq,
                     _ => panic!("Expected relational operator"),
                 },
                 children: vec![left, parse_relational(parser)],
@@ -390,8 +360,8 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
             let op = consume_one_of(parser, vec![Token::Eq, Token::NotEq]);
             let mut ast = ast::AstNode {
                 node_type: match op.token {
-                    Token::Eq => ast::NodeType::Eq,
-                    Token::NotEq => ast::NodeType::NotEq,
+                    Token::Eq => NodeType::Eq,
+                    Token::NotEq => NodeType::NotEq,
                     _ => panic!("Expected equality operator"),
                 },
                 children: vec![left],
@@ -417,8 +387,8 @@ fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
             let op = consume_one_of(parser, vec![Token::And, Token::Or]);
             ast::AstNode {
                 node_type: match op.token {
-                    Token::And => ast::NodeType::And,
-                    Token::Or => ast::NodeType::Or,
+                    Token::And => NodeType::And,
+                    Token::Or => NodeType::Or,
                     _ => panic!("Expected and or or"),
                 },
                 children: vec![left, parse_and_or(parser)],
@@ -433,7 +403,7 @@ fn parse_number(parser: &mut Parser) -> ast::AstNode {
     let token = consume_token(parser, Token::Number(0));
 
     ast::AstNode {
-        node_type: ast::NodeType::Number,
+        node_type: NodeType::Number,
         value: match token.token {
             types::Token::Number(value) => Some(value.to_string()),
             _ => panic!("Expected number"),
@@ -446,7 +416,7 @@ fn parse_identifier(parser: &mut Parser) -> ast::AstNode {
     let tok = consume_token(parser, Token::Identifier(String::new()));
 
     ast::AstNode {
-        node_type: ast::NodeType::Identifier,
+        node_type: NodeType::Identifier,
         value: match tok.token {
             types::Token::Identifier(value) => Some(value),
             _ => panic!("Expected identifier"),
@@ -471,7 +441,7 @@ fn parse_boolean(parser: &mut Parser) -> ast::AstNode {
     let token = consume_token(parser, Token::Boolean(false));
 
     ast::AstNode {
-        node_type: ast::NodeType::Boolean,
+        node_type: NodeType::Boolean,
         value: match token.token {
             types::Token::Boolean(value) => Some(value.to_string()),
             _ => panic!("Expected boolean"),
@@ -506,7 +476,7 @@ fn parse_function_call(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::RParen);
 
     ast::AstNode {
-        node_type: ast::NodeType::FunctionCall,
+        node_type: NodeType::FunctionCall,
         children: args,
         value: ident_ast.value,
     }
@@ -551,13 +521,13 @@ mod tests {
         let ast = parse(tokens);
 
         let add = &ast.children[0];
-        assert_eq!(add.node_type, ast::NodeType::Add);
+        assert_eq!(add.node_type, NodeType::Operator(Operator::Add));
         assert_eq!(add.children.len(), 2);
 
-        assert_eq!(add.children[0].node_type, ast::NodeType::Number);
+        assert_eq!(add.children[0].node_type, NodeType::Number);
         assert_eq!(add.children[0].value, Some("1".to_string()));
 
-        assert_eq!(add.children[1].node_type, ast::NodeType::Number);
+        assert_eq!(add.children[1].node_type, NodeType::Number);
         assert_eq!(add.children[1].value, Some("2".to_string()));
     }
 
@@ -570,13 +540,13 @@ mod tests {
             position: 0,
         });
 
-        assert_eq!(assign_ast.node_type, ast::NodeType::Assign);
+        assert_eq!(assign_ast.node_type, NodeType::Assign);
         assert_eq!(assign_ast.children.len(), 2);
 
-        assert_eq!(assign_ast.children[0].node_type, ast::NodeType::Identifier);
+        assert_eq!(assign_ast.children[0].node_type, NodeType::Identifier);
         assert_eq!(assign_ast.children[0].value, Some("a".to_string()));
 
-        assert_eq!(assign_ast.children[1].node_type, ast::NodeType::Number);
+        assert_eq!(assign_ast.children[1].node_type, NodeType::Number);
         assert_eq!(assign_ast.children[1].value, Some("1".to_string()));
     }
 }

@@ -1,3 +1,5 @@
+use crate::types::Operator;
+
 #[derive(Debug, PartialEq)]
 pub enum NodeType {
     // Factors
@@ -15,12 +17,8 @@ pub enum NodeType {
     While,
 
     // Expressions
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Operator(Operator),
     LParen,
-    Mod,
     Eq,
     NotEq,
     LessThan,
@@ -31,13 +29,13 @@ pub enum NodeType {
     Or,
     Not,
 
-    ShortAddAssign,
-    ShortSubAssign,
-    ShortMulAssign,
-    ShortDivAssign,
-    ShortModAssign,
+    ShortAssign(Operator),
     Assign,
     Declare,
+}
+
+pub fn operator_to_node_type(op: Operator) -> NodeType {
+    NodeType::Operator(op)
 }
 
 #[derive(Debug)]
@@ -65,11 +63,11 @@ fn evaluate_node(node: &AstNode) -> Option<i32> {
 
     match node.node_type {
         NodeType::Number => node.value.clone().unwrap().parse::<i32>().ok(),
-        NodeType::Add => eval_operator!(+),
-        NodeType::Subtract => eval_operator!(-),
-        NodeType::Multiply => eval_operator!(*),
-        NodeType::Divide => eval_operator!(/),
-        NodeType::Mod => eval_operator!(%),
+        NodeType::Operator(Operator::Add) => eval_operator!(+),
+        NodeType::Operator(Operator::Subtract) => eval_operator!(-),
+        NodeType::Operator(Operator::Multiply) => eval_operator!(*),
+        NodeType::Operator(Operator::Divide) => eval_operator!(/),
+        NodeType::Operator(Operator::Mod) => eval_operator!(%),
         NodeType::Block => {
             let mut result = None;
             for child in &node.children {

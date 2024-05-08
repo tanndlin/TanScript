@@ -3,13 +3,9 @@ pub enum Token {
     Identifier(String),
     Number(i32),
     Boolean(bool),
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Operator(Operator),
     LParen,
     RParen,
-    Mod,
     Eq,
     NotEq,
     LessThan,
@@ -22,11 +18,7 @@ pub enum Token {
 
     Semi,
     Assign,
-    ShortAddAssign,
-    ShortSubAssign,
-    ShortMulAssign,
-    ShortDivAssign,
-    ShortModAssign,
+    ShortAssign(Operator),
     Increment,
     Decrement,
 
@@ -40,6 +32,15 @@ pub enum Token {
     If,
     Else,
     While,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Operator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Mod,
 }
 
 pub enum Keywords {

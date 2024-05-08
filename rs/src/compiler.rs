@@ -2,6 +2,7 @@ use core::panic;
 
 use crate::ast::AstNode;
 use crate::ast::NodeType;
+use crate::types::Operator;
 
 pub fn compile(ast: &AstNode) -> String {
     // Find all function definitions and put them at the top
@@ -41,11 +42,7 @@ pub fn compile(ast: &AstNode) -> String {
 
 fn compile_node(node: &AstNode) -> String {
     match node.node_type {
-        NodeType::Add
-        | NodeType::Subtract
-        | NodeType::Multiply
-        | NodeType::Divide
-        | NodeType::Mod
+        NodeType::Operator(_)
         | NodeType::Eq
         | NodeType::NotEq
         | NodeType::LessThan
@@ -59,11 +56,7 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::Block => compile_block(node),
         NodeType::Declare => compile_declare(node),
         NodeType::Assign => compile_assign(node),
-        NodeType::ShortAddAssign
-        | NodeType::ShortSubAssign
-        | NodeType::ShortMulAssign
-        | NodeType::ShortDivAssign
-        | NodeType::ShortModAssign => compile_short_assign(node),
+        NodeType::ShortAssign(_) => compile_short_assign(node),
         NodeType::LParen => compile_parentheses(&node.children[0]),
         NodeType::FunctionDef => compile_function_def(node),
         NodeType::FunctionCall => compile_function_call(node),
@@ -79,11 +72,11 @@ fn compile_short_assign(node: &AstNode) -> String {
     let expression = &node.children[1];
 
     let op = match node.node_type {
-        NodeType::ShortAddAssign => "+",
-        NodeType::ShortSubAssign => "-",
-        NodeType::ShortMulAssign => "*",
-        NodeType::ShortDivAssign => "/",
-        NodeType::ShortModAssign => "%",
+        NodeType::ShortAssign(Operator::Add) => "+",
+        NodeType::ShortAssign(Operator::Subtract) => "-",
+        NodeType::ShortAssign(Operator::Multiply) => "*",
+        NodeType::ShortAssign(Operator::Divide) => "/",
+        NodeType::ShortAssign(Operator::Mod) => "%",
         _ => panic!("Unexpected node type"),
     };
 
@@ -225,11 +218,11 @@ fn compile_expression(node: &AstNode) -> String {
     }
 
     match node.node_type {
-        NodeType::Add => compile_operator!("+"),
-        NodeType::Subtract => compile_operator!("-"),
-        NodeType::Multiply => compile_operator!("*"),
-        NodeType::Divide => compile_operator!("/"),
-        NodeType::Mod => compile_operator!("%"),
+        NodeType::Operator(Operator::Add) => compile_operator!("+"),
+        NodeType::Operator(Operator::Subtract) => compile_operator!("-"),
+        NodeType::Operator(Operator::Multiply) => compile_operator!("*"),
+        NodeType::Operator(Operator::Divide) => compile_operator!("/"),
+        NodeType::Operator(Operator::Mod) => compile_operator!("%"),
         NodeType::Eq => compile_operator!("=="),
         NodeType::NotEq => compile_operator!("!="),
         NodeType::LessThan => compile_operator!("<"),
