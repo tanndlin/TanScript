@@ -8,39 +8,66 @@ pub struct LexerToken {
     pub line: usize,
 }
 
-pub fn tokenize(script: &str) -> Vec<LexerToken> {
-    let mut tokens: Vec<LexerToken> = vec![];
-    let mut position = 0;
-    let mut line_number = 1;
+struct Lexer {
+    script: String,
+    position: usize,
+    line_number: usize,
+    tokens: Vec<LexerToken>,
+}
 
-    while position < script.len() {
-        if is_whitespace(script.chars().nth(position).unwrap()) {
-            position += 1;
+impl Lexer {
+    fn is_end(&self) -> bool {
+        self.position >= self.script.len()
+    }
+
+    fn has_two_more_chars(&self) -> bool {
+        self.position + 1 < self.script.len()
+    }
+
+    fn create_token(&mut self, token: Token) {
+        self.tokens.push(LexerToken {
+            position: self.position,
+            token: token,
+            line: self.line_number,
+        });
+    }
+
+    fn cur_char(&self) -> char {
+        self.script.chars().nth(self.position).unwrap()
+    }
+}
+
+pub fn tokenize(script: &str) -> Vec<LexerToken> {
+    let mut lexer = Lexer {
+        script: script.to_string(),
+        position: 0,
+        line_number: 1,
+        tokens: vec![],
+    };
+
+    while !lexer.is_end() {
+        if is_whitespace(lexer.cur_char()) {
+            lexer.position += 1;
             continue;
         }
 
-        let lexer_token = LexerToken {
-            position: position,
-            token: next_token(script, &mut position),
-            line: line_number,
-        };
-
-        tokens.push(lexer_token);
-        if position < script.len() && is_newline(script.chars().nth(position).unwrap()) {
-            line_number += 1;
+        let next_token = next_token(&mut lexer);
+        lexer.create_token(next_token);
+        if !lexer.is_end() && is_newline(lexer.cur_char()) {
+            lexer.line_number += 1;
         }
     }
 
-    tokens
+    lexer.tokens
 }
 
-fn next_token(script: &str, position: &mut usize) -> Token {
-    let c = script.chars().nth(*position).unwrap();
+fn next_token(lexer: &mut Lexer) -> Token {
+    let c = lexer.cur_char();
     if c.is_digit(10) {
-        return lex_number(script, position);
+        return lex_number(lexer);
     }
 
-    if let Some(token) = match_operator(&script, position) {
+    if let Some(token) = match_operator(lexer) {
         return token;
     }
 
@@ -48,7 +75,7 @@ fn next_token(script: &str, position: &mut usize) -> Token {
         panic!("Unexpected character: {}", c);
     }
 
-    let possibly_ident = lex_identifier(script, position);
+    let possibly_ident = lex_identifier(lexer);
     if let Some(keyword) = types::Keywords::from_string(&possibly_ident) {
         return keyword.to_token();
     }
@@ -56,13 +83,13 @@ fn next_token(script: &str, position: &mut usize) -> Token {
     Token::Identifier(possibly_ident.to_string())
 }
 
-fn lex_identifier(script: &str, position: &mut usize) -> String {
+fn lex_identifier(lexer: &mut Lexer) -> String {
     let mut ident = String::new();
-    while *position < script.len() {
-        let c = script.chars().nth(*position).unwrap();
+    while !lexer.is_end() {
+        let c = lexer.cur_char();
         if c.is_alphanumeric() {
             ident.push(c);
-            *position += 1;
+            lexer.position += 1;
         } else {
             break;
         }
@@ -72,22 +99,20 @@ fn lex_identifier(script: &str, position: &mut usize) -> String {
 }
 
 fn is_whitespace(c: char) -> bool {
-    c == ' ' || c == '\n' || c == '\t' || c == '\r'
+    c == ' ' || c == '\t' || is_newline(c)
 }
 
 fn is_newline(c: char) -> bool {
     c == '\n' || c == '\r'
 }
 
-fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
-    let c = script.chars().nth(*position).unwrap();
-
+fn match_operator(lexer: &mut Lexer) -> Option<Token> {
     // Try double char operators first
-    if let Some(token) = match_double_char_op(script, position) {
+    if let Some(token) = match_double_char_op(lexer) {
         return Some(token);
     }
 
-    let ret = match c {
+    let ret = match lexer.cur_char() {
         '+' => Some(Token::Operator(types::Operator::Add)),
         '-' => Some(Token::Operator(types::Operator::Subtract)),
         '*' => Some(Token::Operator(types::Operator::Multiply)),
@@ -107,19 +132,19 @@ fn match_operator(script: &str, position: &mut usize) -> Option<Token> {
     };
 
     if ret.is_some() {
-        *position += 1;
+        lexer.position += 1;
     }
 
     ret
 }
 
-fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
-    if (*position + 1) >= script.len() {
+fn match_double_char_op(lexer: &mut Lexer) -> Option<Token> {
+    if !lexer.has_two_more_chars() {
         return None;
     }
 
-    let c = script.chars().nth(*position).unwrap();
-    let next_c = script.chars().nth(*position + 1).unwrap();
+    let c = lexer.cur_char();
+    let next_c = lexer.script.chars().nth(lexer.position + 1).unwrap();
     let matched = match (c, next_c) {
         ('=', '=') => Some(Token::Eq),
         ('!', '=') => Some(Token::NotEq),
@@ -138,20 +163,20 @@ fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
     };
 
     if matched.is_some() {
-        *position += 2;
+        lexer.position += 2;
     }
 
     matched
 }
 
-fn lex_number(script: &str, position: &mut usize) -> Token {
+fn lex_number(lexer: &mut Lexer) -> Token {
     let mut number = String::new();
 
-    while *position < script.len() {
-        let next_c = script.chars().nth(*position).unwrap();
+    while !lexer.is_end() {
+        let next_c = lexer.cur_char();
         if next_c.is_digit(10) {
             number.push(next_c);
-            *position += 1;
+            lexer.position += 1;
         } else {
             break;
         }
@@ -174,45 +199,30 @@ mod tests {
     }
 
     #[test]
-    fn test_match_operator() {
-        assert_eq!(
-            match_operator("+", &mut 0),
-            Some(Token::Operator(types::Operator::Add))
-        );
-        assert_eq!(
-            match_operator("-", &mut 0),
-            Some(Token::Operator(types::Operator::Subtract))
-        );
-        assert_eq!(
-            match_operator("*", &mut 0),
-            Some(Token::Operator(types::Operator::Multiply))
-        );
-        assert_eq!(
-            match_operator("/", &mut 0),
-            Some(Token::Operator(types::Operator::Divide))
-        );
-        assert_eq!(
-            match_operator("%", &mut 0),
-            Some(Token::Operator(types::Operator::Mod))
-        );
-        assert_eq!(match_operator("a", &mut 0), None);
-    }
-
-    #[test]
-    fn test_lex_number() {
-        let token = lex_number("123", &mut 0);
-        assert_eq!(token, Token::Number(123));
-
-        let token = lex_number("123abc", &mut 0);
-        assert_eq!(token, Token::Number(123));
-    }
-
-    #[test]
     fn lex_simple_expression() {
         let tokens = tokenize("1 + 2");
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].token, Token::Number(1));
         assert_eq!(tokens[1].token, Token::Operator(types::Operator::Add));
         assert_eq!(tokens[2].token, Token::Number(2));
+    }
+
+    #[test]
+    fn lex_all_operators() {
+        let tokens = tokenize("+-*/%<><=>===!=&&||");
+        assert_eq!(tokens.len(), 13);
+        assert_eq!(tokens[0].token, Token::Operator(types::Operator::Add));
+        assert_eq!(tokens[1].token, Token::Operator(types::Operator::Subtract));
+        assert_eq!(tokens[2].token, Token::Operator(types::Operator::Multiply));
+        assert_eq!(tokens[3].token, Token::Operator(types::Operator::Divide));
+        assert_eq!(tokens[4].token, Token::Operator(types::Operator::Mod));
+        assert_eq!(tokens[5].token, Token::LessThan);
+        assert_eq!(tokens[6].token, Token::GreaterThan);
+        assert_eq!(tokens[7].token, Token::Leq);
+        assert_eq!(tokens[8].token, Token::Geq);
+        assert_eq!(tokens[9].token, Token::Eq);
+        assert_eq!(tokens[10].token, Token::NotEq);
+        assert_eq!(tokens[11].token, Token::And);
+        assert_eq!(tokens[12].token, Token::Or);
     }
 }
