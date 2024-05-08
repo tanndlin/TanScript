@@ -137,6 +137,14 @@ fn match_double_char_op(script: &str, position: &mut usize) -> Option<Token> {
             *position += 2;
             Some(Token::Geq)
         }
+        ('&', '&') => {
+            *position += 2;
+            Some(Token::And)
+        }
+        ('|', '|') => {
+            *position += 2;
+            Some(Token::Or)
+        }
         _ => None,
     }
 }

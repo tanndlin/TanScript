@@ -1,23 +1,14 @@
 #include <stdio.h>
 
-int fuck(int a) {
-    int b = 2 + a;
-    if (b < 10) {
-        return 0;
-    } else {
-        return b;
-    };
-}
-int foo(int n) {
-    while (n < 10) {
-        printf("%d\n", n);
+int main() {
+    int sum = 0;
+    int n = 1;
+    while (n < 1000) {
+        if (n % 3 == 0 || n % 5 == 0) {
+            sum = sum + n;
+        };
         n = n + 1;
     };
-}
-
-int main() {
-    int f = fuck(10) * 2;
-    printf("%d\n", f);
-    foo(0);
+    printf("%d\n", sum);
     return 0;
 }

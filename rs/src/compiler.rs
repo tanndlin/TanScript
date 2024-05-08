@@ -51,7 +51,9 @@ fn compile_node(node: &AstNode) -> String {
         | NodeType::LessThan
         | NodeType::GreaterThan
         | NodeType::Leq
-        | NodeType::Geq => compile_expression(node),
+        | NodeType::Geq
+        | NodeType::And
+        | NodeType::Or => compile_expression(node),
         NodeType::Number => node.value.clone().unwrap(),
         NodeType::Identifier => node.value.clone().unwrap(),
         NodeType::Block => compile_block(node),
@@ -208,6 +210,8 @@ fn compile_expression(node: &AstNode) -> String {
         NodeType::GreaterThan => compile_operator!(">"),
         NodeType::Leq => compile_operator!("<="),
         NodeType::Geq => compile_operator!(">="),
+        NodeType::And => compile_operator!("&&"),
+        NodeType::Or => compile_operator!("||"),
         _ => compile_node(node),
     }
 }

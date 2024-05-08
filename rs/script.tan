@@ -1,19 +1,11 @@
-fn fuck(int a){
-    let b = 2 + a;
-    if b < 10 {
-        return 0;
-    } else {
-        return b;
+let sum = 0;
+let n = 1;
+while n < 1000 {
+    if n % 3 == 0 || n % 5 == 0 {
+        sum = sum + n;
     };
+
+    n = n + 1;
 };
 
-fn foo(int n){
-    while n < 10 {
-        print(n);
-        n = n + 1;
-    };
-};
-
-let f = fuck(10) * 2;
-print(f);
-foo(0);
+print(sum);

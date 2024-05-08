@@ -20,14 +20,17 @@ pub enum NodeType {
     Divide,
     LParen,
     Mod,
-    Declare,
-    Assign,
     Eq,
     NotEq,
     LessThan,
     GreaterThan,
     Leq,
     Geq,
+    And,
+    Or,
+
+    Assign,
+    Declare,
 }
 
 #[derive(Debug)]

@@ -16,6 +16,8 @@ pub enum Token {
     Leq,
     Geq,
     Not,
+    And,
+    Or,
 
     Semi,
     Assign,

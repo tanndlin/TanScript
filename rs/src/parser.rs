@@ -78,6 +78,8 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::GreaterThan => panic!("Unexpected GreaterThan"),
         Token::Leq => panic!("Unexpected Leq"),
         Token::Geq => panic!("Unexpected Geq"),
+        Token::And => panic!("Unexpected And"),
+        Token::Or => panic!("Unexpected Or"),
     }
 }
 
@@ -221,7 +223,7 @@ fn parse_assignment(parser: &mut Parser) -> ast::AstNode {
 }
 
 fn parse_expression(parser: &mut Parser) -> ast::AstNode {
-    parse_equality(parser)
+    parse_and_or(parser)
 }
 
 fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
@@ -321,6 +323,29 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
             let right = parse_equality(parser);
             ast.children.push(right);
             ast
+        }
+        _ => left,
+    }
+}
+
+fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
+    let left = parse_equality(parser);
+    if parser.is_end() {
+        return left;
+    }
+
+    match parser.get_current_token().token {
+        Token::And | Token::Or => {
+            let op = consume_one_of(parser, vec![Token::And, Token::Or]);
+            ast::AstNode {
+                node_type: match op.token {
+                    Token::And => ast::NodeType::And,
+                    Token::Or => ast::NodeType::Or,
+                    _ => panic!("Expected and or or"),
+                },
+                children: vec![left, parse_and_or(parser)],
+                value: None,
+            }
         }
         _ => left,
     }
