@@ -2,6 +2,7 @@ use crate::ast;
 use crate::ast::NodeType;
 use crate::lexer::LexerToken;
 use crate::types;
+use crate::types::BitwiseOp;
 use crate::types::Operator;
 use crate::types::Token;
 
@@ -53,10 +54,11 @@ fn parse_statement(parser: &mut Parser) -> ast::AstNode {
 fn parse_next(parser: &mut Parser) -> ast::AstNode {
     let token = parser.get_current_token();
     match token.token {
-        Token::Operator(_) | Token::Not | Token::Number(_) | Token::Boolean(_) => {
-            parse_expression(parser)
-        }
-
+        Token::Operator(_)
+        | Token::Not
+        | Token::BitwiseOp(BitwiseOp::Not)
+        | Token::Number(_)
+        | Token::Boolean(_) => parse_expression(parser),
         Token::Identifier(_) => parse_expression_or_assignment(parser),
         Token::Declare => parse_declare(parser),
         Token::LParen => parse_parentheses(parser),
@@ -82,6 +84,7 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::Geq => panic!("Unexpected Geq"),
         Token::And => panic!("Unexpected And"),
         Token::Or => panic!("Unexpected Or"),
+        Token::BitwiseOp(_) => panic!("Unexpected BitwiseOp"),
     }
 }
 
@@ -269,16 +272,21 @@ fn parse_expression(parser: &mut Parser) -> ast::AstNode {
 
 fn parse_prefix_op(parser: &mut Parser) -> ast::AstNode {
     let token = parser.get_current_token().clone();
-    if token.token == Token::Not {
-        consume_token(parser, Token::Not);
-        return ast::AstNode {
-            node_type: NodeType::Not,
-            children: vec![parse_prefix_op(parser)],
-            value: None,
-        };
+    match token.token {
+        Token::Not | Token::BitwiseOp(BitwiseOp::Not) => {
+            parser.position += 1;
+            ast::AstNode {
+                node_type: match token.token {
+                    Token::Not => NodeType::Not,
+                    Token::BitwiseOp(BitwiseOp::Not) => NodeType::BitwiseOp(BitwiseOp::Not),
+                    _ => panic!("Expected not or bitwise not"),
+                },
+                children: vec![parse_prefix_op(parser)],
+                value: None,
+            }
+        }
+        _ => parse_factor(parser),
     }
-
-    parse_factor(parser)
 }
 
 fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
@@ -376,8 +384,29 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
+fn parse_bitwise_op(parser: &mut Parser) -> ast::AstNode {
     let left = parse_equality(parser);
+    if parser.is_end() {
+        return left;
+    }
+
+    match parser.get_current_token().token.clone() {
+        Token::BitwiseOp(op @ BitwiseOp::And)
+        | Token::BitwiseOp(op @ BitwiseOp::Or)
+        | Token::BitwiseOp(op @ BitwiseOp::Xor) => {
+            parser.position += 1;
+            ast::AstNode {
+                node_type: ast::bitwise_op_to_node_type(op),
+                children: vec![left, parse_bitwise_op(parser)],
+                value: None,
+            }
+        }
+        _ => left,
+    }
+}
+
+fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
+    let left = parse_bitwise_op(parser);
     if parser.is_end() {
         return left;
     }

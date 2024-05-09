@@ -1,27 +1,4 @@
-fn isPalindrome(int n){
-    let rev = 0;
-    let temp = n;
-    while temp > 0 {
-        rev = rev * 10 + temp % 10;
-        temp = temp / 10;
-    };
-
-    return n == rev;
-};
-
-
-let max = 0;
-let a = 1;
-while a < 1000 {
-    let b = a;
-    while b < 1000 {
-        if isPalindrome(a * b) && a * b > max {
-            max = a * b;
-        };
-        b++;
-    };
-
-    a++;
-};
-
-print(max);
+let a = 4;
+let b = 5;
+let c = ~a ^ b;
+print(c);

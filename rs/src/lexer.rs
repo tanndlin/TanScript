@@ -128,6 +128,10 @@ fn match_operator(lexer: &mut Lexer) -> Option<Token> {
         '{' => Some(Token::LCurly),
         '}' => Some(Token::RCurly),
         ',' => Some(Token::Comma),
+        '&' => Some(Token::BitwiseOp(types::BitwiseOp::And)),
+        '|' => Some(Token::BitwiseOp(types::BitwiseOp::Or)),
+        '~' => Some(Token::BitwiseOp(types::BitwiseOp::Not)),
+        '^' => Some(Token::BitwiseOp(types::BitwiseOp::Xor)),
         _ => None,
     };
 

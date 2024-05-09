@@ -2,6 +2,7 @@ use core::panic;
 
 use crate::ast::AstNode;
 use crate::ast::NodeType;
+use crate::types::BitwiseOp;
 use crate::types::Operator;
 
 pub fn compile(ast: &AstNode) -> String {
@@ -50,7 +51,8 @@ fn compile_node(node: &AstNode) -> String {
         | NodeType::Leq
         | NodeType::Geq
         | NodeType::And
-        | NodeType::Or => compile_expression(node),
+        | NodeType::Or
+        | NodeType::BitwiseOp(_) => compile_expression(node),
         NodeType::Not => format!("!{}", compile_expression(&node.children[0])),
         NodeType::Number | NodeType::Identifier | NodeType::Boolean => node.value.clone().unwrap(),
         NodeType::Block => compile_block(node),
@@ -231,6 +233,12 @@ fn compile_expression(node: &AstNode) -> String {
         NodeType::Geq => compile_operator!(">="),
         NodeType::And => compile_operator!("&&"),
         NodeType::Or => compile_operator!("||"),
+        NodeType::BitwiseOp(BitwiseOp::And) => compile_operator!("&"),
+        NodeType::BitwiseOp(BitwiseOp::Or) => compile_operator!("|"),
+        NodeType::BitwiseOp(BitwiseOp::Not) => {
+            format!("~{}", compile_expression(&node.children[0]))
+        }
+        NodeType::BitwiseOp(BitwiseOp::Xor) => compile_operator!("^"),
         _ => compile_node(node),
     }
 }

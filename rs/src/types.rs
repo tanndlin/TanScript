@@ -4,6 +4,7 @@ pub enum Token {
     Number(i32),
     Boolean(bool),
     Operator(Operator),
+    BitwiseOp(BitwiseOp),
     LParen,
     RParen,
     Eq,
@@ -41,6 +42,14 @@ pub enum Operator {
     Multiply,
     Divide,
     Mod,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BitwiseOp {
+    And,
+    Or,
+    Not,
+    Xor,
 }
 
 pub enum Keywords {

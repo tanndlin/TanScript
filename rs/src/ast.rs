@@ -1,3 +1,4 @@
+use crate::types::BitwiseOp;
 use crate::types::Operator;
 
 #[derive(Debug, PartialEq)]
@@ -28,6 +29,7 @@ pub enum NodeType {
     And,
     Or,
     Not,
+    BitwiseOp(BitwiseOp),
 
     ShortAssign(Operator),
     Assign,
@@ -36,6 +38,10 @@ pub enum NodeType {
 
 pub fn operator_to_node_type(op: Operator) -> NodeType {
     NodeType::Operator(op)
+}
+
+pub fn bitwise_op_to_node_type(op: BitwiseOp) -> NodeType {
+    NodeType::BitwiseOp(op)
 }
 
 #[derive(Debug)]
