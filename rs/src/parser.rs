@@ -337,12 +337,9 @@ fn parse_relational(parser: &mut Parser) -> ast::AstNode {
 
     match parser.get_current_token().token {
         Token::LessThan | Token::GreaterThan | Token::Leq | Token::Geq => {
-            let op = consume_one_of(
-                parser,
-                vec![Token::LessThan, Token::GreaterThan, Token::Leq, Token::Geq],
-            );
+            parser.position += 1;
             ast::AstNode {
-                node_type: match op.token {
+                node_type: match parser.get_current_token().token {
                     Token::LessThan => NodeType::LessThan,
                     Token::GreaterThan => NodeType::GreaterThan,
                     Token::Leq => NodeType::Leq,
@@ -365,20 +362,16 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
 
     match parser.get_current_token().token {
         Token::Eq | Token::NotEq => {
-            let op = consume_one_of(parser, vec![Token::Eq, Token::NotEq]);
-            let mut ast = ast::AstNode {
-                node_type: match op.token {
+            parser.position += 1;
+            ast::AstNode {
+                node_type: match parser.get_current_token().token {
                     Token::Eq => NodeType::Eq,
                     Token::NotEq => NodeType::NotEq,
                     _ => panic!("Expected equality operator"),
                 },
-                children: vec![left],
+                children: vec![left, parse_equality(parser)],
                 value: None,
-            };
-
-            let right = parse_equality(parser);
-            ast.children.push(right);
-            ast
+            }
         }
         _ => left,
     }
@@ -413,9 +406,9 @@ fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
 
     match parser.get_current_token().token {
         Token::And | Token::Or => {
-            let op = consume_one_of(parser, vec![Token::And, Token::Or]);
+            parser.position += 1;
             ast::AstNode {
-                node_type: match op.token {
+                node_type: match parser.get_current_token().token {
                     Token::And => NodeType::And,
                     Token::Or => NodeType::Or,
                     _ => panic!("Expected and or or"),
