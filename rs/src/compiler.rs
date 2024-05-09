@@ -3,6 +3,7 @@ use core::panic;
 use crate::ast::AstNode;
 use crate::ast::NodeType;
 use crate::types::BitwiseOp;
+use crate::types::DataType;
 use crate::types::Operator;
 
 pub fn compile(ast: &AstNode) -> String {
@@ -24,7 +25,7 @@ pub fn compile(ast: &AstNode) -> String {
         .collect::<Vec<String>>()
         .join("\n");
 
-    let header = "#include <stdio.h>\n";
+    let header = "#include <stdio.h>\n#include <stdbool.h>\n";
     let main = "int main() {\n";
     let body = rest
         .iter()
@@ -66,6 +67,8 @@ fn compile_node(node: &AstNode) -> String {
         NodeType::If => compile_if(node),
         NodeType::While => compile_while(node),
         NodeType::Parameters => panic!("Unexpected Parameters node"),
+        NodeType::Type(_) => panic!("Unexpected Type node"),
+        NodeType::Parameter => panic!("Unexpected Parameter node"),
     }
 }
 
@@ -137,37 +140,39 @@ fn compile_block(node: &AstNode) -> String {
 fn compile_function_def(node: &AstNode) -> String {
     let name = &node.value.clone().unwrap();
     let params = &node.children[0];
-    let body = &node.children[1];
+    let explicit_type = &node.children[1];
+    let body = &node.children[2];
 
-    // Params.children.len is a multiple of 2
-    // The first one is the type and the second one is the name
-    // Join each pair with a comma
-    let param_str = params
-        .children
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            if i % 2 == 0 {
-                format!(
-                    "{} {}",
-                    p.value.clone().unwrap(),
-                    params.children[i + 1].value.clone().unwrap()
-                )
-            } else {
-                "".to_string()
-            }
-        })
-        .collect::<Vec<String>>()
-        .join(", ");
-
-    // Remove last comma and space
-    let param_str = param_str.trim_end_matches(", ").to_string();
+    let param_str = compile_parameters(params);
+    let return_type = match explicit_type.node_type {
+        NodeType::Type(DataType::Integer) => "int",
+        NodeType::Type(DataType::Float) => "float",
+        NodeType::Type(DataType::Boolean) => "bool",
+        _ => panic!("Unexpected type"),
+    };
 
     format!(
-        "int {}({}) {{\n{}\n}}",
+        "{} {}({}) {{\n{}\n}}",
+        return_type,
         name,
         param_str,
         compile_block(body)
+    )
+}
+
+fn compile_parameters(node: &AstNode) -> String {
+    node.children
+        .iter()
+        .map(compile_parameter)
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+fn compile_parameter(node: &AstNode) -> String {
+    format!(
+        "{} {}",
+        node.children[0].value.clone().unwrap(),
+        node.children[1].value.clone().unwrap()
     )
 }
 

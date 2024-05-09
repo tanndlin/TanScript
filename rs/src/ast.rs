@@ -1,4 +1,5 @@
 use crate::types::BitwiseOp;
+use crate::types::DataType;
 use crate::types::Operator;
 
 #[derive(Debug, PartialEq)]
@@ -12,6 +13,8 @@ pub enum NodeType {
     Block,
     FunctionDef,
     Parameters,
+    Parameter,
+    Type(DataType),
     FunctionCall,
     Return,
     If,

@@ -85,6 +85,8 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
         Token::And => panic!("Unexpected And"),
         Token::Or => panic!("Unexpected Or"),
         Token::BitwiseOp(_) => panic!("Unexpected BitwiseOp"),
+        Token::Type(_) => panic!("Unexpected Type specifier"),
+        Token::Colon => panic!("Unexpected colon"),
     }
 }
 
@@ -186,11 +188,7 @@ fn parse_function(parser: &mut Parser) -> ast::AstNode {
     consume_token(parser, Token::LParen);
     let mut args = vec![];
     while parser.get_current_token().token != Token::RParen {
-        // type
-        args.push(parse_identifier(parser));
-
-        // name
-        args.push(parse_identifier(parser));
+        args.push(parse_parameter(parser));
 
         if parser.get_current_token().token == Token::RParen {
             break;
@@ -207,11 +205,49 @@ fn parse_function(parser: &mut Parser) -> ast::AstNode {
         value: None,
     };
 
+    let token = consume_token(parser, Token::Type(types::DataType::Integer));
+    let explicit_type = match token.token.clone() {
+        Token::Type(t @ types::DataType::Integer)
+        | Token::Type(t @ types::DataType::Boolean)
+        | Token::Type(t @ types::DataType::Float) => t,
+        _ => panic!("Expected type specifier"),
+    };
+
+    let type_ast = ast::AstNode {
+        node_type: NodeType::Type(explicit_type),
+        children: vec![],
+        value: None,
+    };
+
     let block_ast = parse_block(parser);
     ast::AstNode {
         node_type: NodeType::FunctionDef,
-        children: vec![params, block_ast],
+        children: vec![params, type_ast, block_ast],
         value: name.value,
+    }
+}
+
+fn parse_parameter(parser: &mut Parser) -> ast::AstNode {
+    let token = consume_token(parser, Token::Type(types::DataType::Integer));
+
+    let explicit_type = match token.token.clone() {
+        Token::Type(t @ types::DataType::Integer)
+        | Token::Type(t @ types::DataType::Boolean)
+        | Token::Type(t @ types::DataType::Float) => t,
+        _ => panic!("Expected type specifier"),
+    };
+
+    let type_ast = ast::AstNode {
+        node_type: NodeType::Type(explicit_type.clone()),
+        children: vec![],
+        value: Some(explicit_type.to_string()),
+    };
+
+    let ident_ast = parse_identifier(parser);
+    ast::AstNode {
+        node_type: NodeType::Parameter,
+        children: vec![type_ast, ident_ast],
+        value: None,
     }
 }
 

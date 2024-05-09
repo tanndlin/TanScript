@@ -132,6 +132,7 @@ fn match_operator(lexer: &mut Lexer) -> Option<Token> {
         '|' => Some(Token::BitwiseOp(types::BitwiseOp::Or)),
         '~' => Some(Token::BitwiseOp(types::BitwiseOp::Not)),
         '^' => Some(Token::BitwiseOp(types::BitwiseOp::Xor)),
+        ':' => Some(Token::Colon),
         _ => None,
     };
 

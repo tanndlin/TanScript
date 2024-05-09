@@ -5,6 +5,7 @@ pub enum Token {
     Boolean(bool),
     Operator(Operator),
     BitwiseOp(BitwiseOp),
+    Type(DataType),
     LParen,
     RParen,
     Eq,
@@ -18,6 +19,7 @@ pub enum Token {
     Or,
 
     Semi,
+    Colon,
     Assign,
     ShortAssign(Operator),
     Increment,
@@ -52,6 +54,23 @@ pub enum BitwiseOp {
     Xor,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataType {
+    Integer,
+    Float,
+    Boolean,
+}
+
+impl DataType {
+    pub fn to_string(&self) -> String {
+        match self {
+            DataType::Integer => "int".to_string(),
+            DataType::Float => "float".to_string(),
+            DataType::Boolean => "bool".to_string(),
+        }
+    }
+}
+
 pub enum Keywords {
     Let,
     Return,
@@ -61,6 +80,9 @@ pub enum Keywords {
     Function,
     True,
     False,
+    Integer,
+    Float,
+    Boolean,
 }
 
 impl Keywords {
@@ -74,6 +96,9 @@ impl Keywords {
             "fn" => Some(Keywords::Function),
             "true" => Some(Keywords::True),
             "false" => Some(Keywords::False),
+            "int" => Some(Keywords::Integer),
+            "float" => Some(Keywords::Float),
+            "bool" => Some(Keywords::Boolean),
             _ => None,
         }
     }
@@ -88,6 +113,9 @@ impl Keywords {
             Keywords::Function => Token::Function,
             Keywords::True => Token::Boolean(true),
             Keywords::False => Token::Boolean(false),
+            Keywords::Integer => Token::Type(DataType::Integer),
+            Keywords::Float => Token::Type(DataType::Float),
+            Keywords::Boolean => Token::Type(DataType::Boolean),
             _ => panic!("Keyword not implemented"),
         }
     }
