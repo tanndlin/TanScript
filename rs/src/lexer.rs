@@ -1,5 +1,4 @@
-use crate::types;
-use crate::types::Token;
+use crate::types::*;
 
 #[derive(Debug, Clone)]
 pub struct LexerToken {
@@ -76,7 +75,7 @@ fn next_token(lexer: &mut Lexer) -> Token {
     }
 
     let possibly_ident = lex_identifier(lexer);
-    if let Some(keyword) = types::Keywords::from_string(&possibly_ident) {
+    if let Some(keyword) = Keywords::from_string(&possibly_ident) {
         return keyword.to_token();
     }
 
@@ -113,11 +112,11 @@ fn match_operator(lexer: &mut Lexer) -> Option<Token> {
     }
 
     let ret = match lexer.cur_char() {
-        '+' => Some(Token::Operator(types::Operator::Add)),
-        '-' => Some(Token::Operator(types::Operator::Subtract)),
-        '*' => Some(Token::Operator(types::Operator::Multiply)),
-        '/' => Some(Token::Operator(types::Operator::Divide)),
-        '%' => Some(Token::Operator(types::Operator::Mod)),
+        '+' => Some(Token::Operator(Operator::Add)),
+        '-' => Some(Token::Operator(Operator::Subtract)),
+        '*' => Some(Token::Operator(Operator::Multiply)),
+        '/' => Some(Token::Operator(Operator::Divide)),
+        '%' => Some(Token::Operator(Operator::Mod)),
         '<' => Some(Token::LessThan),
         '>' => Some(Token::GreaterThan),
         '!' => Some(Token::Not),
@@ -128,10 +127,10 @@ fn match_operator(lexer: &mut Lexer) -> Option<Token> {
         '{' => Some(Token::LCurly),
         '}' => Some(Token::RCurly),
         ',' => Some(Token::Comma),
-        '&' => Some(Token::BitwiseOp(types::BitwiseOp::And)),
-        '|' => Some(Token::BitwiseOp(types::BitwiseOp::Or)),
-        '~' => Some(Token::BitwiseOp(types::BitwiseOp::Not)),
-        '^' => Some(Token::BitwiseOp(types::BitwiseOp::Xor)),
+        '&' => Some(Token::BitwiseOp(BitwiseOp::And)),
+        '|' => Some(Token::BitwiseOp(BitwiseOp::Or)),
+        '~' => Some(Token::BitwiseOp(BitwiseOp::Not)),
+        '^' => Some(Token::BitwiseOp(BitwiseOp::Xor)),
         ':' => Some(Token::Colon),
         _ => None,
     };
@@ -157,11 +156,11 @@ fn match_double_char_op(lexer: &mut Lexer) -> Option<Token> {
         ('>', '=') => Some(Token::Geq),
         ('&', '&') => Some(Token::And),
         ('|', '|') => Some(Token::Or),
-        ('+', '=') => Some(Token::ShortAssign(types::Operator::Add)),
-        ('-', '=') => Some(Token::ShortAssign(types::Operator::Subtract)),
-        ('*', '=') => Some(Token::ShortAssign(types::Operator::Multiply)),
-        ('/', '=') => Some(Token::ShortAssign(types::Operator::Divide)),
-        ('%', '=') => Some(Token::ShortAssign(types::Operator::Mod)),
+        ('+', '=') => Some(Token::ShortAssign(Operator::Add)),
+        ('-', '=') => Some(Token::ShortAssign(Operator::Subtract)),
+        ('*', '=') => Some(Token::ShortAssign(Operator::Multiply)),
+        ('/', '=') => Some(Token::ShortAssign(Operator::Divide)),
+        ('%', '=') => Some(Token::ShortAssign(Operator::Mod)),
         ('+', '+') => Some(Token::Increment),
         ('-', '-') => Some(Token::Decrement),
         _ => None,
@@ -208,7 +207,7 @@ mod tests {
         let tokens = tokenize("1 + 2");
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].token, Token::Number(1));
-        assert_eq!(tokens[1].token, Token::Operator(types::Operator::Add));
+        assert_eq!(tokens[1].token, Token::Operator(Operator::Add));
         assert_eq!(tokens[2].token, Token::Number(2));
     }
 
@@ -216,11 +215,11 @@ mod tests {
     fn lex_all_operators() {
         let tokens = tokenize("+-*/%<><=>===!=&&||");
         assert_eq!(tokens.len(), 13);
-        assert_eq!(tokens[0].token, Token::Operator(types::Operator::Add));
-        assert_eq!(tokens[1].token, Token::Operator(types::Operator::Subtract));
-        assert_eq!(tokens[2].token, Token::Operator(types::Operator::Multiply));
-        assert_eq!(tokens[3].token, Token::Operator(types::Operator::Divide));
-        assert_eq!(tokens[4].token, Token::Operator(types::Operator::Mod));
+        assert_eq!(tokens[0].token, Token::Operator(Operator::Add));
+        assert_eq!(tokens[1].token, Token::Operator(Operator::Subtract));
+        assert_eq!(tokens[2].token, Token::Operator(Operator::Multiply));
+        assert_eq!(tokens[3].token, Token::Operator(Operator::Divide));
+        assert_eq!(tokens[4].token, Token::Operator(Operator::Mod));
         assert_eq!(tokens[5].token, Token::LessThan);
         assert_eq!(tokens[6].token, Token::GreaterThan);
         assert_eq!(tokens[7].token, Token::Leq);

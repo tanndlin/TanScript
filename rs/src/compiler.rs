@@ -1,10 +1,5 @@
-use core::panic;
-
-use crate::ast::AstNode;
-use crate::ast::NodeType;
-use crate::types::BitwiseOp;
-use crate::types::DataType;
-use crate::types::Operator;
+use crate::ast::*;
+use crate::types::*;
 
 pub fn compile(ast: &AstNode) -> String {
     // Find all function definitions and put them at the top

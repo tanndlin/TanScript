@@ -1,10 +1,6 @@
-use crate::ast;
-use crate::ast::NodeType;
+use crate::ast::*;
 use crate::lexer::LexerToken;
-use crate::types;
-use crate::types::BitwiseOp;
-use crate::types::Operator;
-use crate::types::Token;
+use crate::types::*;
 
 struct Parser {
     tokens: Vec<LexerToken>,
@@ -25,13 +21,13 @@ impl Parser {
     }
 }
 
-pub fn parse(tokens: Vec<LexerToken>) -> ast::AstNode {
+pub fn parse(tokens: Vec<LexerToken>) -> AstNode {
     let mut parser = Parser {
         tokens,
         position: 0,
     };
 
-    let mut root = ast::AstNode {
+    let mut root = AstNode {
         node_type: NodeType::Block,
         children: vec![],
         value: None,
@@ -45,13 +41,13 @@ pub fn parse(tokens: Vec<LexerToken>) -> ast::AstNode {
     root
 }
 
-fn parse_statement(parser: &mut Parser) -> ast::AstNode {
+fn parse_statement(parser: &mut Parser) -> AstNode {
     let node = parse_next(parser);
     consume_token(parser, Token::Semi);
     node
 }
 
-fn parse_next(parser: &mut Parser) -> ast::AstNode {
+fn parse_next(parser: &mut Parser) -> AstNode {
     let token = parser.get_current_token();
     match token.token {
         Token::Operator(_)
@@ -90,7 +86,7 @@ fn parse_next(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
+fn parse_expression_or_assignment(parser: &mut Parser) -> AstNode {
     let next_token = parser.get_next(1).unwrap();
 
     match next_token.token {
@@ -101,13 +97,13 @@ fn parse_expression_or_assignment(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_short_assign(parser: &mut Parser) -> ast::AstNode {
+fn parse_short_assign(parser: &mut Parser) -> AstNode {
     let ident_ast = parse_identifier(parser);
     let op = consume_token(parser, Token::ShortAssign(Operator::Add));
 
     let expression_ast = parse_expression(parser);
 
-    ast::AstNode {
+    AstNode {
         node_type: match op.token {
             Token::ShortAssign(op) => NodeType::ShortAssign(op),
             _ => panic!("expected short assign, got {:?}", op),
@@ -117,17 +113,17 @@ fn parse_short_assign(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_increment_decrement(parser: &mut Parser) -> ast::AstNode {
+fn parse_increment_decrement(parser: &mut Parser) -> AstNode {
     let ident_ast = parse_identifier(parser);
     let op = consume_one_of(parser, vec![Token::Increment, Token::Decrement]);
 
-    let one_ast = ast::AstNode {
+    let one_ast = AstNode {
         node_type: NodeType::Number,
         children: vec![],
         value: Some("1".to_string()),
     };
 
-    ast::AstNode {
+    AstNode {
         node_type: match op.token {
             Token::Increment => NodeType::ShortAssign(Operator::Add),
             Token::Decrement => NodeType::ShortAssign(Operator::Subtract),
@@ -138,19 +134,19 @@ fn parse_increment_decrement(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_while(parser: &mut Parser) -> ast::AstNode {
+fn parse_while(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::While);
     let condition = parse_expression(parser);
     let block = parse_block(parser);
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::While,
         children: vec![condition, block],
         value: None,
     }
 }
 
-fn parse_if(parser: &mut Parser) -> ast::AstNode {
+fn parse_if(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::If);
     let condition = parse_expression(parser);
     let block = parse_block(parser);
@@ -163,25 +159,25 @@ fn parse_if(parser: &mut Parser) -> ast::AstNode {
         children.push(else_block);
     }
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::If,
         children,
         value: None,
     }
 }
 
-fn parse_return(parser: &mut Parser) -> ast::AstNode {
+fn parse_return(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::Return);
     let expression = parse_expression(parser);
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Return,
         children: vec![expression],
         value: None,
     }
 }
 
-fn parse_function(parser: &mut Parser) -> ast::AstNode {
+fn parse_function(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::Function);
     let name = parse_identifier(parser);
 
@@ -199,59 +195,59 @@ fn parse_function(parser: &mut Parser) -> ast::AstNode {
 
     consume_token(parser, Token::RParen);
 
-    let params = ast::AstNode {
+    let params = AstNode {
         node_type: NodeType::Parameters,
         children: args,
         value: None,
     };
 
-    let token = consume_token(parser, Token::Type(types::DataType::Integer));
+    let token = consume_token(parser, Token::Type(DataType::Integer));
     let explicit_type = match token.token.clone() {
-        Token::Type(t @ types::DataType::Integer)
-        | Token::Type(t @ types::DataType::Boolean)
-        | Token::Type(t @ types::DataType::Float) => t,
+        Token::Type(t @ DataType::Integer)
+        | Token::Type(t @ DataType::Boolean)
+        | Token::Type(t @ DataType::Float) => t,
         _ => panic!("Expected type specifier"),
     };
 
-    let type_ast = ast::AstNode {
+    let type_ast = AstNode {
         node_type: NodeType::Type(explicit_type),
         children: vec![],
         value: None,
     };
 
     let block_ast = parse_block(parser);
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::FunctionDef,
         children: vec![params, type_ast, block_ast],
         value: name.value,
     }
 }
 
-fn parse_parameter(parser: &mut Parser) -> ast::AstNode {
-    let token = consume_token(parser, Token::Type(types::DataType::Integer));
+fn parse_parameter(parser: &mut Parser) -> AstNode {
+    let token = consume_token(parser, Token::Type(DataType::Integer));
 
     let explicit_type = match token.token.clone() {
-        Token::Type(t @ types::DataType::Integer)
-        | Token::Type(t @ types::DataType::Boolean)
-        | Token::Type(t @ types::DataType::Float) => t,
+        Token::Type(t @ DataType::Integer)
+        | Token::Type(t @ DataType::Boolean)
+        | Token::Type(t @ DataType::Float) => t,
         _ => panic!("Expected type specifier"),
     };
 
-    let type_ast = ast::AstNode {
+    let type_ast = AstNode {
         node_type: NodeType::Type(explicit_type.clone()),
         children: vec![],
         value: Some(explicit_type.to_string()),
     };
 
     let ident_ast = parse_identifier(parser);
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Parameter,
         children: vec![type_ast, ident_ast],
         value: None,
     }
 }
 
-fn parse_block(parser: &mut Parser) -> ast::AstNode {
+fn parse_block(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::LCurly);
 
     let mut children = vec![];
@@ -261,16 +257,16 @@ fn parse_block(parser: &mut Parser) -> ast::AstNode {
 
     consume_token(parser, Token::RCurly);
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Block,
         children,
         value: None,
     }
 }
 
-fn parse_parentheses(parser: &mut Parser) -> ast::AstNode {
+fn parse_parentheses(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::LParen);
-    let ast = ast::AstNode {
+    let ast = AstNode {
         node_type: NodeType::LParen,
         children: vec![parse_expression(parser)],
         value: None,
@@ -280,38 +276,38 @@ fn parse_parentheses(parser: &mut Parser) -> ast::AstNode {
     ast
 }
 
-fn parse_declare(parser: &mut Parser) -> ast::AstNode {
+fn parse_declare(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::Declare);
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Declare,
         children: vec![parse_assignment(parser)],
         value: None,
     }
 }
 
-fn parse_assignment(parser: &mut Parser) -> ast::AstNode {
+fn parse_assignment(parser: &mut Parser) -> AstNode {
     let ident_ast = parse_identifier(parser);
 
     consume_token(parser, Token::Assign);
     let expression_ast = parse_expression(parser);
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Assign,
         children: vec![ident_ast, expression_ast],
         value: None,
     }
 }
 
-fn parse_expression(parser: &mut Parser) -> ast::AstNode {
+fn parse_expression(parser: &mut Parser) -> AstNode {
     parse_and_or(parser)
 }
 
-fn parse_prefix_op(parser: &mut Parser) -> ast::AstNode {
+fn parse_prefix_op(parser: &mut Parser) -> AstNode {
     let token = parser.get_current_token().clone();
     match token.token {
         Token::Not | Token::BitwiseOp(BitwiseOp::Not) => {
             parser.position += 1;
-            ast::AstNode {
+            AstNode {
                 node_type: match token.token {
                     Token::Not => NodeType::Not,
                     Token::BitwiseOp(BitwiseOp::Not) => NodeType::BitwiseOp(BitwiseOp::Not),
@@ -325,7 +321,7 @@ fn parse_prefix_op(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
+fn parse_mul_div(parser: &mut Parser) -> AstNode {
     let left = parse_prefix_op(parser);
     if parser.is_end() {
         return left;
@@ -336,8 +332,8 @@ fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
         | Token::Operator(op @ Operator::Divide)
         | Token::Operator(op @ Operator::Mod) => {
             parser.position += 1;
-            ast::AstNode {
-                node_type: ast::operator_to_node_type(op),
+            AstNode {
+                node_type: operator_to_node_type(op),
                 children: vec![left, parse_mul_div(parser)],
                 value: None,
             }
@@ -346,7 +342,7 @@ fn parse_mul_div(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_add_sub(parser: &mut Parser) -> ast::AstNode {
+fn parse_add_sub(parser: &mut Parser) -> AstNode {
     let left = parse_mul_div(parser);
     if parser.is_end() {
         return left;
@@ -355,8 +351,8 @@ fn parse_add_sub(parser: &mut Parser) -> ast::AstNode {
     match parser.get_current_token().token.clone() {
         Token::Operator(op @ Operator::Add) | Token::Operator(op @ Operator::Subtract) => {
             parser.position += 1;
-            ast::AstNode {
-                node_type: ast::operator_to_node_type(op),
+            AstNode {
+                node_type: operator_to_node_type(op),
                 children: vec![left, parse_add_sub(parser)],
                 value: None,
             }
@@ -365,7 +361,7 @@ fn parse_add_sub(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_relational(parser: &mut Parser) -> ast::AstNode {
+fn parse_relational(parser: &mut Parser) -> AstNode {
     let left = parse_add_sub(parser);
     if parser.is_end() {
         return left;
@@ -374,7 +370,7 @@ fn parse_relational(parser: &mut Parser) -> ast::AstNode {
     match parser.get_current_token().token {
         Token::LessThan | Token::GreaterThan | Token::Leq | Token::Geq => {
             parser.position += 1;
-            ast::AstNode {
+            AstNode {
                 node_type: match parser.get_current_token().token {
                     Token::LessThan => NodeType::LessThan,
                     Token::GreaterThan => NodeType::GreaterThan,
@@ -390,7 +386,7 @@ fn parse_relational(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_equality(parser: &mut Parser) -> ast::AstNode {
+fn parse_equality(parser: &mut Parser) -> AstNode {
     let left = parse_relational(parser);
     if parser.is_end() {
         return left;
@@ -399,7 +395,7 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
     match parser.get_current_token().token {
         Token::Eq | Token::NotEq => {
             parser.position += 1;
-            ast::AstNode {
+            AstNode {
                 node_type: match parser.get_current_token().token {
                     Token::Eq => NodeType::Eq,
                     Token::NotEq => NodeType::NotEq,
@@ -413,7 +409,7 @@ fn parse_equality(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_bitwise_op(parser: &mut Parser) -> ast::AstNode {
+fn parse_bitwise_op(parser: &mut Parser) -> AstNode {
     let left = parse_equality(parser);
     if parser.is_end() {
         return left;
@@ -424,8 +420,8 @@ fn parse_bitwise_op(parser: &mut Parser) -> ast::AstNode {
         | Token::BitwiseOp(op @ BitwiseOp::Or)
         | Token::BitwiseOp(op @ BitwiseOp::Xor) => {
             parser.position += 1;
-            ast::AstNode {
-                node_type: ast::bitwise_op_to_node_type(op),
+            AstNode {
+                node_type: bitwise_op_to_node_type(op),
                 children: vec![left, parse_bitwise_op(parser)],
                 value: None,
             }
@@ -434,7 +430,7 @@ fn parse_bitwise_op(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
+fn parse_and_or(parser: &mut Parser) -> AstNode {
     let left = parse_bitwise_op(parser);
     if parser.is_end() {
         return left;
@@ -443,7 +439,7 @@ fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
     match parser.get_current_token().token {
         Token::And | Token::Or => {
             parser.position += 1;
-            ast::AstNode {
+            AstNode {
                 node_type: match parser.get_current_token().token {
                     Token::And => NodeType::And,
                     Token::Or => NodeType::Or,
@@ -457,58 +453,58 @@ fn parse_and_or(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_number(parser: &mut Parser) -> ast::AstNode {
+fn parse_number(parser: &mut Parser) -> AstNode {
     let token = consume_token(parser, Token::Number(0));
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Number,
         value: match token.token {
-            types::Token::Number(value) => Some(value.to_string()),
+            Token::Number(value) => Some(value.to_string()),
             _ => panic!("Expected number"),
         },
         children: vec![],
     }
 }
 
-fn parse_identifier(parser: &mut Parser) -> ast::AstNode {
+fn parse_identifier(parser: &mut Parser) -> AstNode {
     let tok = consume_token(parser, Token::Identifier(String::new()));
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Identifier,
         value: match tok.token {
-            types::Token::Identifier(value) => Some(value),
+            Token::Identifier(value) => Some(value),
             _ => panic!("Expected identifier"),
         },
         children: vec![],
     }
 }
 
-fn parse_factor(parser: &mut Parser) -> ast::AstNode {
+fn parse_factor(parser: &mut Parser) -> AstNode {
     let token = &parser.get_current_token();
 
     match token.token {
-        types::Token::Number(_) => parse_number(parser),
-        types::Token::Identifier(_) => parse_identifier_or_function_call(parser),
-        types::Token::LParen => parse_parentheses(parser),
-        types::Token::Boolean(_) => parse_boolean(parser),
+        Token::Number(_) => parse_number(parser),
+        Token::Identifier(_) => parse_identifier_or_function_call(parser),
+        Token::LParen => parse_parentheses(parser),
+        Token::Boolean(_) => parse_boolean(parser),
         _ => panic!("Expected number or identifier"),
     }
 }
 
-fn parse_boolean(parser: &mut Parser) -> ast::AstNode {
+fn parse_boolean(parser: &mut Parser) -> AstNode {
     let token = consume_token(parser, Token::Boolean(false));
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::Boolean,
         value: match token.token {
-            types::Token::Boolean(value) => Some(value.to_string()),
+            Token::Boolean(value) => Some(value.to_string()),
             _ => panic!("Expected boolean"),
         },
         children: vec![],
     }
 }
 
-fn parse_identifier_or_function_call(parser: &mut Parser) -> ast::AstNode {
+fn parse_identifier_or_function_call(parser: &mut Parser) -> AstNode {
     match parser.get_next(1) {
         Some(token) => match token.token {
             Token::LParen => parse_function_call(parser),
@@ -518,7 +514,7 @@ fn parse_identifier_or_function_call(parser: &mut Parser) -> ast::AstNode {
     }
 }
 
-fn parse_function_call(parser: &mut Parser) -> ast::AstNode {
+fn parse_function_call(parser: &mut Parser) -> AstNode {
     let ident_ast = parse_identifier(parser);
     consume_token(parser, Token::LParen);
 
@@ -533,7 +529,7 @@ fn parse_function_call(parser: &mut Parser) -> ast::AstNode {
 
     consume_token(parser, Token::RParen);
 
-    ast::AstNode {
+    AstNode {
         node_type: NodeType::FunctionCall,
         children: args,
         value: ident_ast.value,
@@ -546,7 +542,7 @@ fn consume_token(parser: &mut Parser, expected_token: Token) -> LexerToken {
     }
 
     let token = parser.get_current_token().clone();
-    if !types::variant_eq(&expected_token, &token.token) {
+    if !variant_eq(&expected_token, &token.token) {
         panic!("Expected token {:?}, got {:?}", expected_token, token.token);
     }
 
