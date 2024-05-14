@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::compiler::{compile_declare, compile_expression};
 use crate::lexer::tokenize;
 use crate::parser::parse;
 
@@ -39,4 +40,30 @@ test!(
     integration_parse_multiple_ops,
     "let a = 10 + 10 + 5 + 2;",
     27
+);
+
+macro_rules! test_compile {
+    ($name:ident, $compile_fn:ident, $script:expr, $expected:expr) => {
+        #[test]
+        fn $name() {
+            let tokens = tokenize($script);
+            let root = parse(tokens);
+
+            assert_eq!($compile_fn(&root.children[0]), $expected);
+        }
+    };
+}
+
+test_compile!(
+    integration_compile_uninitialized,
+    compile_declare,
+    "let a;",
+    "int a"
+);
+
+test_compile!(
+    integration_compile_addition,
+    compile_declare,
+    "let a = 20 + 22;",
+    "int a = 20 + 22"
 );

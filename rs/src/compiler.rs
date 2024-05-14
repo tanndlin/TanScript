@@ -37,7 +37,7 @@ pub fn compile(ast: &AstNode) -> String {
     )
 }
 
-fn compile_node(node: &AstNode) -> String {
+pub fn compile_node(node: &AstNode) -> String {
     match node.node_type {
         NodeType::Operator(_)
         | NodeType::Eq
@@ -67,7 +67,7 @@ fn compile_node(node: &AstNode) -> String {
     }
 }
 
-fn compile_short_assign(node: &AstNode) -> String {
+pub fn compile_short_assign(node: &AstNode) -> String {
     let ident = &node.children[0];
     let expression = &node.children[1];
 
@@ -88,7 +88,7 @@ fn compile_short_assign(node: &AstNode) -> String {
     )
 }
 
-fn compile_while(node: &AstNode) -> String {
+pub fn compile_while(node: &AstNode) -> String {
     let cond_ast = &node.children[0];
     let body_ast = &node.children[1];
 
@@ -99,7 +99,7 @@ fn compile_while(node: &AstNode) -> String {
     )
 }
 
-fn compile_if(node: &AstNode) -> String {
+pub fn compile_if(node: &AstNode) -> String {
     let cond_ast = &node.children[0];
     let body_ast = &node.children[1];
 
@@ -123,7 +123,7 @@ fn compile_if(node: &AstNode) -> String {
     )
 }
 
-fn compile_block(node: &AstNode) -> String {
+pub fn compile_block(node: &AstNode) -> String {
     node.children
         .iter()
         .map(compile_node)
@@ -132,7 +132,7 @@ fn compile_block(node: &AstNode) -> String {
         .join("\n")
 }
 
-fn compile_function_def(node: &AstNode) -> String {
+pub fn compile_function_def(node: &AstNode) -> String {
     let name = &node.value.clone().unwrap();
     let params = &node.children[0];
     let explicit_type = &node.children[1];
@@ -155,7 +155,7 @@ fn compile_function_def(node: &AstNode) -> String {
     )
 }
 
-fn compile_parameters(node: &AstNode) -> String {
+pub fn compile_parameters(node: &AstNode) -> String {
     node.children
         .iter()
         .map(compile_parameter)
@@ -163,7 +163,7 @@ fn compile_parameters(node: &AstNode) -> String {
         .join(", ")
 }
 
-fn compile_parameter(node: &AstNode) -> String {
+pub fn compile_parameter(node: &AstNode) -> String {
     format!(
         "{} {}",
         node.children[0].value.clone().unwrap(),
@@ -171,7 +171,7 @@ fn compile_parameter(node: &AstNode) -> String {
     )
 }
 
-fn compile_function_call(node: &AstNode) -> String {
+pub fn compile_function_call(node: &AstNode) -> String {
     // Check if the function is a built-in function
     if node.value.clone().unwrap().as_str() == "print" {
         return compile_print(node);
@@ -188,15 +188,19 @@ fn compile_function_call(node: &AstNode) -> String {
     )
 }
 
-fn compile_parentheses(node: &AstNode) -> String {
+pub fn compile_parentheses(node: &AstNode) -> String {
     format!("({})", compile_expression(node))
 }
 
-fn compile_declare(node: &AstNode) -> String {
-    format!("int {}", compile_assign(&node.children[0]))
+pub fn compile_declare(node: &AstNode) -> String {
+    match node.children[0].node_type {
+        NodeType::Assign => format!("int {}", compile_assign(&node.children[0])),
+        NodeType::Identifier => format!("int {}", node.children[0].value.clone().unwrap()),
+        _ => panic!("Unexpected node type inside declare"),
+    }
 }
 
-fn compile_assign(node: &AstNode) -> String {
+pub fn compile_assign(node: &AstNode) -> String {
     let ident = &node.children[0];
     let expression = &node.children[1];
 
@@ -207,7 +211,7 @@ fn compile_assign(node: &AstNode) -> String {
     )
 }
 
-fn compile_expression(node: &AstNode) -> String {
+pub fn compile_expression(node: &AstNode) -> String {
     macro_rules! compile_operator {
         ($op:tt) => {
             format!(
@@ -244,7 +248,7 @@ fn compile_expression(node: &AstNode) -> String {
 }
 
 // ---------------------------- Built-in functions ----------------------------
-fn compile_print(node: &AstNode) -> String {
+pub fn compile_print(node: &AstNode) -> String {
     let args = node
         .children
         .iter()

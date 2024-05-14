@@ -278,9 +278,20 @@ fn parse_parentheses(parser: &mut Parser) -> AstNode {
 
 fn parse_declare(parser: &mut Parser) -> AstNode {
     consume_token(parser, Token::Declare);
+
+    let next_token = parser.get_next(1).unwrap();
+    if next_token.token == Token::Assign {
+        return AstNode {
+            node_type: NodeType::Declare,
+            children: vec![parse_assignment(parser)],
+            value: None,
+        };
+    }
+
+    // Allow uninitialized variables
     AstNode {
         node_type: NodeType::Declare,
-        children: vec![parse_assignment(parser)],
+        children: vec![parse_identifier(parser)],
         value: None,
     }
 }
