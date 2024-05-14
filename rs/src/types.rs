@@ -28,7 +28,6 @@ pub enum Token {
     LCurly,
     RCurly,
 
-    Declare,
     Function,
     Comma,
     Return,
@@ -72,7 +71,6 @@ impl DataType {
 }
 
 pub enum Keywords {
-    Let,
     Return,
     If,
     Else,
@@ -88,7 +86,6 @@ pub enum Keywords {
 impl Keywords {
     pub fn from_string(s: &str) -> Option<Keywords> {
         match s {
-            "let" => Some(Keywords::Let),
             "return" => Some(Keywords::Return),
             "if" => Some(Keywords::If),
             "else" => Some(Keywords::Else),
@@ -105,7 +102,6 @@ impl Keywords {
 
     pub fn to_token(&self) -> Token {
         match self {
-            Keywords::Let => Token::Declare,
             Keywords::Return => Token::Return,
             Keywords::If => Token::If,
             Keywords::Else => Token::Else,

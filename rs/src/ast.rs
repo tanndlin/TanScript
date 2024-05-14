@@ -85,7 +85,7 @@ fn evaluate_node(node: &AstNode) -> Option<i32> {
             result
         }
         NodeType::Declare => {
-            let assign = &node.children[0];
+            let assign = &node.children[1];
             let expr = &assign.children[1];
 
             let value = evaluate_node(expr).unwrap();

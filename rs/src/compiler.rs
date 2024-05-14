@@ -193,10 +193,21 @@ pub fn compile_parentheses(node: &AstNode) -> String {
 }
 
 pub fn compile_declare(node: &AstNode) -> String {
-    match node.children[0].node_type {
-        NodeType::Assign => format!("int {}", compile_assign(&node.children[0])),
-        NodeType::Identifier => format!("int {}", node.children[0].value.clone().unwrap()),
+    let value = match node.children[1].node_type {
+        NodeType::Assign => compile_assign(&node.children[1]),
+        NodeType::Identifier => node.children[1].value.clone().unwrap(),
         _ => panic!("Unexpected node type inside declare"),
+    };
+
+    format!("{} {}", compile_data_type(&node.children[0]), value)
+}
+
+pub fn compile_data_type(node: &AstNode) -> String {
+    match node.node_type {
+        NodeType::Type(DataType::Integer) => "int".to_string(),
+        NodeType::Type(DataType::Float) => "float".to_string(),
+        NodeType::Type(DataType::Boolean) => "bool".to_string(),
+        _ => panic!("Unexpected data type"),
     }
 }
 

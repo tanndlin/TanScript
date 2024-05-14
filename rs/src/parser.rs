@@ -56,7 +56,7 @@ fn parse_next(parser: &mut Parser) -> AstNode {
         | Token::Number(_)
         | Token::Boolean(_) => parse_expression(parser),
         Token::Identifier(_) => parse_expression_or_assignment(parser),
-        Token::Declare => parse_declare(parser),
+        Token::Type(_) => parse_declare(parser),
         Token::LParen => parse_parentheses(parser),
         Token::Function => parse_function(parser),
         Token::LCurly => parse_block(parser),
@@ -81,7 +81,6 @@ fn parse_next(parser: &mut Parser) -> AstNode {
         Token::And => panic!("Unexpected And"),
         Token::Or => panic!("Unexpected Or"),
         Token::BitwiseOp(_) => panic!("Unexpected BitwiseOp"),
-        Token::Type(_) => panic!("Unexpected Type specifier"),
         Token::Colon => panic!("Unexpected colon"),
     }
 }
@@ -277,13 +276,23 @@ fn parse_parentheses(parser: &mut Parser) -> AstNode {
 }
 
 fn parse_declare(parser: &mut Parser) -> AstNode {
-    consume_token(parser, Token::Declare);
+    let token = consume_token(parser, Token::Type(DataType::Integer));
+    let type_ast = match token.token.clone() {
+        Token::Type(t @ DataType::Integer)
+        | Token::Type(t @ DataType::Boolean)
+        | Token::Type(t @ DataType::Float) => AstNode {
+            node_type: NodeType::Type(t.clone()),
+            children: vec![],
+            value: Some(t.to_string()),
+        },
+        _ => panic!("Expected type specifier"),
+    };
 
     let next_token = parser.get_next(1).unwrap();
     if next_token.token == Token::Assign {
         return AstNode {
             node_type: NodeType::Declare,
-            children: vec![parse_assignment(parser)],
+            children: vec![type_ast, parse_assignment(parser)],
             value: None,
         };
     }
@@ -291,7 +300,7 @@ fn parse_declare(parser: &mut Parser) -> AstNode {
     // Allow uninitialized variables
     AstNode {
         node_type: NodeType::Declare,
-        children: vec![parse_identifier(parser)],
+        children: vec![type_ast, parse_identifier(parser)],
         value: None,
     }
 }
