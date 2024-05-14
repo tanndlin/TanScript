@@ -280,7 +280,8 @@ fn parse_declare(parser: &mut Parser) -> AstNode {
     let type_ast = match token.token.clone() {
         Token::Type(t @ DataType::Integer)
         | Token::Type(t @ DataType::Boolean)
-        | Token::Type(t @ DataType::Float) => AstNode {
+        | Token::Type(t @ DataType::Float)
+        | Token::Type(t @ DataType::Pointer(_)) => AstNode {
             node_type: NodeType::Type(t.clone()),
             children: vec![],
             value: Some(t.to_string()),

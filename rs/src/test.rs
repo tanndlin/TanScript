@@ -74,3 +74,10 @@ test_compile!(
     "int a = 20 + 22;",
     "int a = 20 + 22"
 );
+
+test_compile!(
+    integration_compile_pointer,
+    compile_declare,
+    "int** a;",
+    "int** a"
+);

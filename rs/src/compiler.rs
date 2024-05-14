@@ -199,15 +199,33 @@ pub fn compile_declare(node: &AstNode) -> String {
         _ => panic!("Unexpected node type inside declare"),
     };
 
-    format!("{} {}", compile_data_type(&node.children[0]), value)
+    format!(
+        "{} {}",
+        compile_data_type(&node.children[0].node_type),
+        value
+    )
 }
 
-pub fn compile_data_type(node: &AstNode) -> String {
-    match node.node_type {
+pub fn compile_data_type(node_type: &NodeType) -> String {
+    match node_type {
         NodeType::Type(DataType::Integer) => "int".to_string(),
         NodeType::Type(DataType::Float) => "float".to_string(),
         NodeType::Type(DataType::Boolean) => "bool".to_string(),
+        NodeType::Type(DataType::Pointer(pointer_base)) => {
+            format!("{}*", compile_pointer_type(pointer_base))
+        }
         _ => panic!("Unexpected data type"),
+    }
+}
+
+pub fn compile_pointer_type(node_type: &Box<DataType>) -> String {
+    match **node_type {
+        DataType::Integer => "int".to_string(),
+        DataType::Float => "float".to_string(),
+        DataType::Boolean => "bool".to_string(),
+        DataType::Pointer(ref pointer_base) => {
+            format!("{}*", compile_pointer_type(pointer_base))
+        }
     }
 }
 

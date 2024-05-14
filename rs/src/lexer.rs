@@ -76,10 +76,32 @@ fn next_token(lexer: &mut Lexer) -> Token {
 
     let possibly_ident = lex_identifier(lexer);
     if let Some(keyword) = Keywords::from_string(&possibly_ident) {
+        // if the keyword is a data type
+        if let Keywords::Integer | Keywords::Float | Keywords::Boolean = keyword {
+            return lex_data_type(lexer, keyword);
+        }
+
         return keyword.to_token();
     }
 
     Token::Identifier(possibly_ident.to_string())
+}
+
+// Grabs all * after a data type for pointers
+fn lex_data_type(lexer: &mut Lexer, keyword: Keywords) -> Token {
+    let mut data_type = match keyword {
+        Keywords::Integer => DataType::Integer,
+        Keywords::Float => DataType::Float,
+        Keywords::Boolean => DataType::Boolean,
+        _ => panic!("Unexpected keyword"),
+    };
+
+    while !lexer.is_end() && lexer.cur_char() == '*' {
+        lexer.position += 1;
+        data_type = DataType::Pointer(Box::new(data_type));
+    }
+
+    Token::Type(data_type)
 }
 
 fn lex_identifier(lexer: &mut Lexer) -> String {

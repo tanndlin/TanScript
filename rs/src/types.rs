@@ -55,6 +55,7 @@ pub enum BitwiseOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
+    Pointer(Box<DataType>),
     Integer,
     Float,
     Boolean,
@@ -66,6 +67,7 @@ impl DataType {
             DataType::Integer => "int".to_string(),
             DataType::Float => "float".to_string(),
             DataType::Boolean => "bool".to_string(),
+            DataType::Pointer(t) => format!("{}*", t.to_string()),
         }
     }
 }
