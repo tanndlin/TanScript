@@ -1,4 +1,4 @@
-import { DeclarationASTNode, IdentifierASTNode } from '../AST/AST';
+import { DeclarationASTNode } from '../AST/AST';
 import { NumberASTNode } from '../AST/NumberAST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
@@ -27,13 +27,13 @@ describe('Object Tests', () => {
         expect(a).toBeInstanceOf(AttributeAST);
         expect(b).toBeInstanceOf(AttributeAST);
 
-        const [aName, aValue] = a.getChildren();
-        const [bName, bValue] = b.getChildren();
+        const [aValue] = a.getChildren();
+        const [bValue] = b.getChildren();
 
-        expect(aName).toBeInstanceOf(IdentifierASTNode);
+        expect(a.getValue()).toBe('a');
         expect(aValue).toBeInstanceOf(NumberASTNode);
 
-        expect(bName).toBeInstanceOf(IdentifierASTNode);
+        expect(b.getValue()).toBe('b');
         expect(bValue).toBeInstanceOf(NumberASTNode);
     });
 
@@ -52,6 +52,6 @@ describe('Object Tests', () => {
         const scope = env.getGlobalScope();
         const obj = scope.getVariable<Object>('obj');
 
-        expect(obj).toStrictEqual({ a: 1, b: 2 });
+        expect(obj).toStrictEqual({ attributes: { a: 1, b: 2 }, methods: {} });
     });
 });

@@ -29,6 +29,7 @@ import {
     NumberASTNode,
     SubtractASTNode,
 } from './AST/NumberAST';
+import { AttributeAST, ObjectAST } from './AST/ObjectAST';
 import {
     SignalAST,
     SignalAssignmentAST,
@@ -406,6 +407,7 @@ export default class Parser {
             Token.IDENTIFIER,
             Token.LPAREN,
             Token.LBRACKET,
+            Token.LCURLY,
             Token.NOT,
             ...PrimitiveValues,
             ...SIGNAL_OPERATORS,
@@ -463,6 +465,10 @@ export default class Parser {
             return this.parseArray(consumedToken);
         }
 
+        if (consumedToken.getType() === Token.LCURLY) {
+            return this.parseObject(consumedToken);
+        }
+
         return new NumberASTNode(consumedToken.getValue());
     }
 
@@ -480,6 +486,26 @@ export default class Parser {
 
         this.consumeToken(Token.RBRACKET);
         return new ListASTNode(elements);
+    }
+
+    parseObject(consumedToken?: LexerToken): ASTNode {
+        if (!consumedToken) consumedToken = this.consumeToken(Token.LCURLY);
+
+        const attributes: AttributeAST[] = [];
+        while (this.tokens[this.pos].getType() !== Token.RCURLY) {
+            const key = this.consumeToken(Token.IDENTIFIER);
+            this.consumeToken(Token.COLON);
+
+            const value = this.parseNext();
+            attributes.push(new AttributeAST(key.getValue(), value));
+
+            if (this.tokens[this.pos].getType() === Token.COMMA) {
+                this.consumeToken(Token.COMMA);
+            }
+        }
+
+        this.consumeToken(Token.RCURLY);
+        return new ObjectAST(attributes);
     }
 
     parseLParen(): LParenASTNode {
