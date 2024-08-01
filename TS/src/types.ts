@@ -124,7 +124,13 @@ export class LexerToken {
 
 export type Maybe<T> = T | null | undefined;
 export type Iterable = RuntimeValue[];
-export type RuntimeValue = Maybe<number | string | boolean | Iterable | void>;
+export type Object = {
+    attributes: Record<string, RuntimeValue>;
+    methods: Record<string, Function>;
+};
+export type RuntimeValue = Maybe<
+    number | string | boolean | Iterable | void | Object
+>;
 export type BooleanToken = Token.TRUE | Token.FALSE;
 export type IterableResolvable = IterableASTNode | IdentifierASTNode;
 
