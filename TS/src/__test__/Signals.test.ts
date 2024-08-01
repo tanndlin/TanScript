@@ -77,4 +77,22 @@ describe('Signals Tests', () => {
         expect(y.getValue()).toBe(6);
         expect(y.isDirty).toBe(false);
     });
+
+    it('should work for chained computed signals', () => {
+        const script = 'let x #= 1;\nlet y $= #x + 2;\nlet z $= #y + 3;';
+        const engine = new Engine(script);
+
+        engine.run();
+
+        const env = engine.getEnvironment();
+        const scope = env.getGlobalScope();
+        const x = scope.getSignal('x');
+        expect(x.getValue()).toBe(1);
+
+        const y = scope.getSignal('y') as ComputedSignal;
+        expect(y.getValue()).toBe(3);
+
+        const z = scope.getSignal('z') as ComputedSignal;
+        expect(z.getValue()).toBe(6);
+    });
 });
