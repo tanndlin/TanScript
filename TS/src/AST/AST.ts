@@ -168,13 +168,16 @@ export class BlockASTNode extends ASTNode {
         super(Token.LCURLY, children);
     }
 
-    evaluate(scope: Scope): void {
-        const newScope = new Scope(scope);
-        let retValue;
+    evaluate(scope: Scope): RuntimeValue {
+        const newScope = new Scope(scope.globalScope, scope);
+        let retValue: RuntimeValue = undefined;
 
-        this.getChildren().forEach((statement) => {
+        for (const statement of this.getChildren()) {
+            if (scope.isReturning()) {
+                return scope.getReturnValue();
+            }
             retValue = statement.evaluate(newScope);
-        });
+        }
 
         return retValue;
     }

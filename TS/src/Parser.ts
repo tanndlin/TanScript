@@ -17,6 +17,7 @@ import {
     FunctionCallASTNode,
     FunctionDefASTNode,
     IfASTNode,
+    ReturnASTNode,
     WhileASTNode,
 } from './AST/ControlAST';
 import { ForEachASTNode, ListASTNode } from './AST/IterableAST';
@@ -123,6 +124,9 @@ export default class Parser {
 
             case Token.FUNCTION:
                 return this.parseFunctionDef();
+            case Token.RETURN:
+                this.consumeToken(Token.RETURN);
+                return new ReturnASTNode(this.parseNext());
         }
 
         if (OPERATORS.has(curToken.getType())) {

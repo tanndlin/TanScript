@@ -10,16 +10,25 @@ import {
 import { RuntimeValue } from './types';
 
 export default class Scope {
+    public globalScope: Scope | null;
     private parent: Scope | null;
     private variables: Map<string, any>;
     private signals: Map<string, Signal>;
     private scopes: Map<string, Scope>;
 
-    constructor(parent: Scope | null) {
+    private isGlobalScope: boolean;
+
+    private returning: boolean = false;
+    private returnedValue: RuntimeValue | null = null;
+
+    constructor(globalScope: Scope | null, parent: Scope | null) {
+        this.globalScope = globalScope ?? this;
         this.parent = parent;
         this.variables = new Map();
         this.scopes = new Map();
         this.signals = new Map();
+
+        this.isGlobalScope = !globalScope;
     }
 
     getVariable<T>(name: string): T {
@@ -29,6 +38,11 @@ export default class Scope {
             if (scope.variables.has(name))
                 return scope.variables.get(name) as T;
             scope = scope.parent;
+        }
+
+        // Check the global scope
+        if (this.globalScope && this.globalScope.variables.has(name)) {
+            return this.globalScope.variables.get(name) as T;
         }
 
         throw new UndeclaredVariableError(`Variable ${name} not found`);
@@ -80,6 +94,20 @@ export default class Scope {
         }
 
         throw new UndeclaredFunctionError(`Function ${name} not found`);
+    }
+
+    setReturnValue(value: RuntimeValue) {
+        this.returning = true;
+        this.returnedValue = value;
+        this.parent?.setReturnValue(value);
+    }
+
+    getReturnValue() {
+        return this.returnedValue;
+    }
+
+    isReturning() {
+        return this.returning;
     }
 
     getSignal(name: string): Signal {

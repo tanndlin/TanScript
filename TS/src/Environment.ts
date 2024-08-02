@@ -6,7 +6,7 @@ export default class Environment {
     private globalScope: Scope;
 
     constructor(private ast: AST, private debug: boolean = false) {
-        this.globalScope = new Scope(null);
+        this.globalScope = new Scope(null, null);
     }
 
     public evaluate(): RuntimeValue {

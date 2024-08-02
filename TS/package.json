@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest --watchAll --config ./jest.config.js",
     "build": "tsc -outDir build ",
-    "watch": "nodemon -e ts -w ./src -x npm run watch:serve",
+    "watch": "nodemon -e ts,tan -w . -x npm run watch:serve",
     "watch:serve": "node -r ts-node/register --inspect src/index.ts"
   },
   "author": "",

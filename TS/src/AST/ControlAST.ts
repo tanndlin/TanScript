@@ -42,7 +42,7 @@ export class ForASTNode extends ControlStructureASTNode {
         const [init, condition, update, block] = this.getChildren();
 
         // Make a new scope for the looping variable
-        const newScope = new Scope(scope);
+        const newScope = new Scope(scope.globalScope, scope);
         init.evaluate(newScope);
 
         let ret;
@@ -90,7 +90,11 @@ export class FunctionDefASTNode extends ASTNode {
         return null;
     }
 
-    callFunction(callersScope: Scope, params: ASTNode[]): RuntimeValue {
+    callFunction(
+        callersScope: Scope,
+        params: ASTNode[],
+        funcDef: FunctionDefASTNode
+    ): RuntimeValue {
         // Make sure the number of params line up
         if (params.length !== this.paramList.length) {
             throw new RuntimeError(
@@ -100,7 +104,8 @@ export class FunctionDefASTNode extends ASTNode {
             );
         }
 
-        const newScope = new Scope(callersScope);
+        const newScope = new Scope(callersScope.globalScope, null);
+        newScope.addFunction(this.value, funcDef);
         const [block] = this.getChildren();
 
         params.forEach((param, i) => {
@@ -133,6 +138,17 @@ export class FunctionCallASTNode extends ASTNode {
         }
 
         const funcDef = scope.getFunction(this.value);
-        return funcDef.callFunction(scope, this.getChildren());
+        return funcDef.callFunction(scope, this.getChildren(), funcDef);
+    }
+}
+
+export class ReturnASTNode extends ControlStructureASTNode {
+    constructor(value: ASTNode) {
+        super(Token.RETURN, [value]);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        const [value] = this.getChildren();
+        return scope.setReturnValue(value.evaluate(scope));
     }
 }

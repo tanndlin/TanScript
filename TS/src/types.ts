@@ -15,6 +15,7 @@ export enum Token {
     TRUE = 'true',
     FALSE = 'false',
     IN = 'in',
+    RETURN = 'return',
 
     NUMBER = 'number',
     STRING = 'string',
@@ -95,6 +96,7 @@ export const RESERVED_WORDS = {
     true: Token.TRUE,
     false: Token.FALSE,
     in: Token.IN,
+    return: Token.RETURN,
 };
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;

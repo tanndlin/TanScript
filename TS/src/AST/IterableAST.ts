@@ -57,7 +57,7 @@ export class ForEachASTNode extends ControlStructureASTNode {
             const curItem = iterator.next();
 
             // Add the current item to the scope
-            const newScope = new Scope(scope);
+            const newScope = new Scope(scope.globalScope, scope);
             newScope.addVariable(ident.getValue(), curItem);
             ret = block.evaluate(newScope);
         }

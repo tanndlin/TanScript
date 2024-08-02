@@ -151,6 +151,13 @@ describe('Function Tests', () => {
         expect(() => engine.run()).not.toThrow();
     });
 
+    it('Variables in local scope should not be in function scope', () => {
+        const script =
+            'def foo() { print(x); }\ndef bar() {let x = 10; foo();} bar();';
+        const engine = new Engine(script);
+        expect(() => engine.run()).toThrow(UndeclaredVariableError);
+    });
+
     it('modifing a variable in a function should not affect the callers scope', () => {
         const script = 'def foo(a) { a += 10; }\n let a = 0;\n foo(a);';
         const engine = new Engine(script);
