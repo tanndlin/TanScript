@@ -1,6 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { RuntimeValue, Token } from '../types';
+import { RuntimeValue, Token, TokenTypeable } from '../types';
 import { tokenToValue } from '../util';
 
 export class AST {
@@ -11,10 +11,11 @@ export class AST {
     }
 }
 
-export class RootASTNode {
+export class RootASTNode extends TokenTypeable {
     protected children: ASTNode[];
 
     constructor(children?: ASTNode[]) {
+        super(Token.ROOT);
         this.children = children ?? [];
     }
 
@@ -98,7 +99,7 @@ export class DeclarationASTNode extends ASTNode {
 
     evaluate(scope: Scope): RuntimeValue {
         const [child] = this.getChildren();
-        if (child.getType() === Token.IDENTIFIER) {
+        if (child.isType(Token.IDENTIFIER)) {
             scope.addVariable(child.getValue(), undefined);
             return null;
         }
@@ -108,7 +109,7 @@ export class DeclarationASTNode extends ASTNode {
 
             // Special case for lambdas
             // Yes this should be a token.lambda but I'm lazy
-            if (value.getType() === Token.FUNCTION) {
+            if (value.isType(Token.FUNCTION)) {
                 value.evaluate(scope);
                 return undefined;
             }
@@ -118,10 +119,7 @@ export class DeclarationASTNode extends ASTNode {
             return evaluatedValue;
         }
 
-        if (
-            child.getType() === Token.SIGNAL_ASSIGN ||
-            child.getType() === Token.COMPUTE_ASSIGN
-        ) {
+        if (child.isOneOf(Token.SIGNAL_ASSIGN, Token.COMPUTE_ASSIGN)) {
             return child.evaluate(scope);
         }
 

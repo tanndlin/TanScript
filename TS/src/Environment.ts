@@ -15,7 +15,7 @@ export default class Environment {
         const root = this.ast.getRoot();
         const statements = root.getChildren();
         statements.forEach((statement, i) => {
-            if (statement.getType() === Token.EOF) return;
+            if (statement.isType(Token.EOF)) return;
 
             if (this.debug) console.log(`Statement ${i + 1}:`);
             retValue = statement.evaluate(this.globalScope);

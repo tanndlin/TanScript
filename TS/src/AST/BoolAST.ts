@@ -33,7 +33,7 @@ export class BooleanASTNode extends ASTNode {
     }
 
     evaluate(): boolean {
-        return this.getType() === Token.TRUE;
+        return this.isType(Token.TRUE);
     }
 }
 

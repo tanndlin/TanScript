@@ -99,13 +99,24 @@ export const RESERVED_WORDS = {
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
 
-export class LexerToken {
-    private type: Token;
+export abstract class TokenTypeable {
+    constructor(protected type: Token) {}
+
+    public isType(type: Token): boolean {
+        return this.type === type;
+    }
+
+    public isOneOf(...types: Token[]): boolean {
+        return types.includes(this.type);
+    }
+}
+
+export class LexerToken extends TokenTypeable {
     private value: string;
     private lineNumber: number;
 
     constructor(type: Token, value: string, lineNumber: number = -1) {
-        this.type = type;
+        super(type);
         this.value = value;
         this.lineNumber = lineNumber;
     }

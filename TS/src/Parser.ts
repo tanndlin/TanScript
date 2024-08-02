@@ -107,7 +107,7 @@ export default class Parser {
                 let ret = this.parseAssignmentOrExpression();
                 if (
                     this.tokens[this.pos] &&
-                    this.tokens[this.pos].getType() === Token.SEMI
+                    this.tokens[this.pos].isType(Token.SEMI)
                 ) {
                     this.consumeToken(Token.SEMI);
                 }
@@ -187,7 +187,7 @@ export default class Parser {
         const block = this.parseBlock();
 
         // Check if there is an else block
-        if (this.tokens[this.pos].getType() === Token.ELSE) {
+        if (this.tokens[this.pos].isType(Token.ELSE)) {
             this.consumeToken(Token.ELSE);
             return new IfASTNode(condition, block, this.parseBlock());
         }
@@ -211,7 +211,7 @@ export default class Parser {
             const argToken = this.consumeToken(Token.IDENTIFIER);
             args.push(new IdentifierASTNode(argToken.getValue()));
 
-            if (this.tokens[this.pos].getType() === Token.COMMA) {
+            if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
             }
         }
@@ -227,7 +227,7 @@ export default class Parser {
         while (this.tokens[this.pos].getType() !== Token.RPAREN) {
             args.push(this.parseNext());
 
-            if (this.tokens[this.pos].getType() === Token.COMMA) {
+            if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
             }
         }
@@ -243,30 +243,32 @@ export default class Parser {
             Token.COMPUTE,
         ]);
 
-        if (this.tokens[this.pos].getType() === Token.INCREMENT) {
+        if (this.tokens[this.pos].isType(Token.INCREMENT)) {
             return this.parseIncrementDecrement(AddASTNode, identToken);
         }
 
-        if (this.tokens[this.pos].getType() === Token.DECREMENT) {
+        if (this.tokens[this.pos].isType(Token.DECREMENT)) {
             return this.parseIncrementDecrement(SubtractASTNode, identToken);
         }
 
         // Check if the next token is a shorhand assign
         if (OPERATORS.has(this.tokens[this.pos].getType())) {
-            if (this.tokens[this.pos + 1].getType() === Token.ASSIGN) {
+            if (this.tokens[this.pos + 1].isType(Token.ASSIGN)) {
                 return this.parseAssignment(identToken);
             }
         }
 
         if (
-            this.tokens[this.pos].getType() === Token.SIGNAL_ASSIGN ||
-            this.tokens[this.pos].getType() === Token.COMPUTE_ASSIGN
+            this.tokens[this.pos].isOneOf(
+                Token.SIGNAL_ASSIGN,
+                Token.COMPUTE_ASSIGN
+            )
         ) {
             return this.parseSignalAssign(identToken);
         }
 
         // Check if the next token is an assignment
-        if (this.tokens[this.pos].getType() === Token.ASSIGN) {
+        if (this.tokens[this.pos].isType(Token.ASSIGN)) {
             return this.parseAssignment(identToken);
         }
 
@@ -283,7 +285,7 @@ export default class Parser {
     >(Ctor: T, identToken: LexerToken) {
         this.consumeOneOf([Token.INCREMENT, Token.DECREMENT]);
 
-        if (identToken.getType() === Token.SIGNAL) {
+        if (identToken.isType(Token.SIGNAL)) {
             return new SignalAssignmentAST(
                 new AssignASTNode(
                     new IdentifierASTNode(identToken.getValue()),
@@ -295,7 +297,7 @@ export default class Parser {
             );
         }
 
-        if (identToken.getType() === Token.COMPUTE) {
+        if (identToken.isType(Token.COMPUTE)) {
             return new SignalComputeAssignmentAST(
                 new AssignASTNode(
                     new IdentifierASTNode(identToken.getValue()),
@@ -328,7 +330,7 @@ export default class Parser {
                 Token.COMPUTE_ASSIGN,
             ]);
 
-        if (assignToken.getType() === Token.SIGNAL_ASSIGN) {
+        if (assignToken.isType(Token.SIGNAL_ASSIGN)) {
             return new SignalAssignmentAST(
                 new AssignASTNode(
                     new IdentifierASTNode(identToken.getValue()),
@@ -361,10 +363,7 @@ export default class Parser {
         // logical expression is the least priority
         const expr = this.parseNextPrecedence(PRECEDENCE.length - 1);
 
-        if (
-            this.tokens[this.pos] &&
-            this.tokens[this.pos].getType() === Token.SEMI
-        ) {
+        if (this.tokens[this.pos] && this.tokens[this.pos].isType(Token.SEMI)) {
             this.consumeToken(Token.SEMI);
         }
 
@@ -421,20 +420,20 @@ export default class Parser {
     }
 
     private getLeftASTFromToken(consumedToken: LexerToken): ASTNode {
-        if (consumedToken.getType() === Token.LPAREN) {
+        if (consumedToken.isType(Token.LPAREN)) {
             return this.parseLParen() as INumberableAST;
         }
 
         // If it looks something like x()
-        if (consumedToken.getType() === Token.IDENTIFIER) {
-            if (this.tokens[this.pos].getType() === Token.LPAREN) {
+        if (consumedToken.isType(Token.IDENTIFIER)) {
+            if (this.tokens[this.pos].isType(Token.LPAREN)) {
                 // This is a function call
                 return this.parseFunctionCall(consumedToken) as
                     | INumberableAST
                     | BooleanASTNode;
             }
 
-            if (this.tokens[this.pos].getType() === Token.PERIOD) {
+            if (this.tokens[this.pos].isType(Token.PERIOD)) {
                 return this.parseObjectAccess(consumedToken);
             }
 
@@ -444,33 +443,33 @@ export default class Parser {
         }
 
         if (
-            consumedToken.getType() === Token.TRUE ||
-            consumedToken.getType() === Token.FALSE
+            consumedToken.isType(Token.TRUE) ||
+            consumedToken.isType(Token.FALSE)
         ) {
             return new BooleanASTNode(consumedToken.getType() as BooleanToken);
         }
 
-        if (consumedToken.getType() === Token.NOT) {
+        if (consumedToken.isType(Token.NOT)) {
             return this.parseNot(consumedToken);
         }
 
-        if (consumedToken.getType() === Token.STRING) {
+        if (consumedToken.isType(Token.STRING)) {
             return new StringASTNode(consumedToken.getValue());
         }
 
-        if (consumedToken.getType() === Token.SIGNAL) {
+        if (consumedToken.isType(Token.SIGNAL)) {
             return new SignalAST(consumedToken.getValue());
         }
 
-        if (consumedToken.getType() === Token.COMPUTE) {
+        if (consumedToken.isType(Token.COMPUTE)) {
             return new SignalComputeAST(consumedToken.getValue());
         }
 
-        if (consumedToken.getType() === Token.LBRACKET) {
+        if (consumedToken.isType(Token.LBRACKET)) {
             return this.parseArray(consumedToken);
         }
 
-        if (consumedToken.getType() === Token.LCURLY) {
+        if (consumedToken.isType(Token.LCURLY)) {
             return this.parseObject(consumedToken);
         }
 
@@ -493,7 +492,7 @@ export default class Parser {
         while (this.tokens[this.pos].getType() !== Token.RBRACKET) {
             elements.push(this.parseNext());
 
-            if (this.tokens[this.pos].getType() === Token.COMMA) {
+            if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
             }
         }
@@ -513,7 +512,7 @@ export default class Parser {
             const value = this.parseNext();
             attributes.push(new AttributeASTNode(key.getValue(), value));
 
-            if (this.tokens[this.pos].getType() === Token.COMMA) {
+            if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
             }
         }
@@ -536,10 +535,7 @@ export default class Parser {
         const assignASTNode = this.parseAssignment(undefined, false);
         const declAST = new DeclarationASTNode(assignASTNode);
 
-        if (
-            this.tokens[this.pos] &&
-            this.tokens[this.pos].getType() === Token.SEMI
-        ) {
+        if (this.tokens[this.pos] && this.tokens[this.pos].isType(Token.SEMI)) {
             this.consumeToken(Token.SEMI);
         }
         return declAST;
@@ -568,8 +564,8 @@ export default class Parser {
         }
 
         if (
-            assignToken.getType() === Token.SIGNAL_ASSIGN ||
-            assignToken.getType() === Token.COMPUTE_ASSIGN
+            assignToken.isType(Token.SIGNAL_ASSIGN) ||
+            assignToken.isType(Token.COMPUTE_ASSIGN)
         ) {
             return this.parseSignalAssign(identToken, assignToken);
         }
@@ -577,7 +573,7 @@ export default class Parser {
         const identAST = new IdentifierASTNode(identToken.getValue());
 
         // If looks like a lambda
-        if (this.tokens[this.pos].getType() === Token.LPAREN) {
+        if (this.tokens[this.pos].isType(Token.LPAREN)) {
             const ret = this.tryParseLambda(identToken.getValue());
             if (ret) return new AssignASTNode(identAST, ret);
         }
@@ -602,7 +598,7 @@ export default class Parser {
             counter++;
         }
 
-        if (this.tokens[counter + 1].getType() === Token.LAMBDA) {
+        if (this.tokens[counter + 1].isType(Token.LAMBDA)) {
             return parseLambda(name);
         }
     }
@@ -616,7 +612,7 @@ export default class Parser {
         const identAST = new IdentifierASTNode(identToken.getValue());
 
         // +=
-        if (assignToken.getType() === Token.PLUS) {
+        if (assignToken.isType(Token.PLUS)) {
             const resultExpression = new AddASTNode(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST
@@ -625,7 +621,7 @@ export default class Parser {
         }
 
         // -=
-        if (assignToken.getType() === Token.MINUS) {
+        if (assignToken.isType(Token.MINUS)) {
             const resultExpression = new SubtractASTNode(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST
@@ -634,7 +630,7 @@ export default class Parser {
         }
 
         // *=
-        if (assignToken.getType() === Token.MULTIPLY) {
+        if (assignToken.isType(Token.MULTIPLY)) {
             const resultExpression = new MultiplyASTNode(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST
@@ -643,7 +639,7 @@ export default class Parser {
         }
 
         // /=
-        if (assignToken.getType() === Token.DIVIDE) {
+        if (assignToken.isType(Token.DIVIDE)) {
             const resultExpression = new DivideASTNode(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST
@@ -651,7 +647,7 @@ export default class Parser {
             return new AssignASTNode(identAST, resultExpression);
         }
 
-        if (assignToken.getType() === Token.INT_DIVIDE) {
+        if (assignToken.isType(Token.INT_DIVIDE)) {
             const resultExpression = new IntegerDivideASTNode(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST
@@ -668,7 +664,7 @@ export default class Parser {
         if (!notToken) this.consumeToken(Token.NOT);
 
         // Check special case where the next token is a LPAREN
-        if (this.tokens[this.pos].getType() === Token.LPAREN) {
+        if (this.tokens[this.pos].isType(Token.LPAREN)) {
             this.consumeToken(Token.LPAREN);
             return new NotASTNode(this.parseLParen());
         }
