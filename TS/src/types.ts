@@ -53,6 +53,7 @@ export enum Token {
     INT_DIVIDE = '//',
     INCREMENT = '++',
     DECREMENT = '--',
+    PERIOD = '.',
 }
 
 export const OPERATORS = new Set([

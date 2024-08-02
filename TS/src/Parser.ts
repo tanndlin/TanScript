@@ -29,7 +29,11 @@ import {
     NumberASTNode,
     SubtractASTNode,
 } from './AST/NumberAST';
-import { AttributeAST, ObjectAST } from './AST/ObjectAST';
+import {
+    AttributeASTNode,
+    ObjectASTNode,
+    ObjectAccessAST,
+} from './AST/ObjectAST';
 import {
     SignalAST,
     SignalAssignmentAST,
@@ -422,17 +426,18 @@ export default class Parser {
         }
 
         // If it looks something like x()
-        if (
-            consumedToken.getType() === Token.IDENTIFIER &&
-            this.tokens[this.pos].getType() === Token.LPAREN
-        ) {
-            // This is a function call
-            return this.parseFunctionCall(consumedToken) as
-                | INumberableAST
-                | BooleanASTNode;
-        }
-
         if (consumedToken.getType() === Token.IDENTIFIER) {
+            if (this.tokens[this.pos].getType() === Token.LPAREN) {
+                // This is a function call
+                return this.parseFunctionCall(consumedToken) as
+                    | INumberableAST
+                    | BooleanASTNode;
+            }
+
+            if (this.tokens[this.pos].getType() === Token.PERIOD) {
+                return this.parseObjectAccess(consumedToken);
+            }
+
             return new IdentifierASTNode(consumedToken.getValue()) as
                 | INumberableAST
                 | BooleanASTNode;
@@ -472,6 +477,15 @@ export default class Parser {
         return new NumberASTNode(consumedToken.getValue());
     }
 
+    parseObjectAccess(identToken: LexerToken): ASTNode {
+        const identAST = new IdentifierASTNode(identToken.getValue());
+        this.consumeToken(Token.PERIOD);
+
+        const key = this.consumeToken(Token.IDENTIFIER);
+        const attributeIdent = new IdentifierASTNode(key.getValue());
+        return new ObjectAccessAST(identAST, attributeIdent);
+    }
+
     parseArray(consumedToken?: LexerToken): ListASTNode {
         if (!consumedToken) consumedToken = this.consumeToken(Token.LBRACKET);
 
@@ -491,13 +505,13 @@ export default class Parser {
     parseObject(consumedToken?: LexerToken): ASTNode {
         if (!consumedToken) consumedToken = this.consumeToken(Token.LCURLY);
 
-        const attributes: AttributeAST[] = [];
+        const attributes: AttributeASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RCURLY) {
             const key = this.consumeToken(Token.IDENTIFIER);
             this.consumeToken(Token.COLON);
 
             const value = this.parseNext();
-            attributes.push(new AttributeAST(key.getValue(), value));
+            attributes.push(new AttributeASTNode(key.getValue(), value));
 
             if (this.tokens[this.pos].getType() === Token.COMMA) {
                 this.consumeToken(Token.COMMA);
@@ -505,7 +519,7 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RCURLY);
-        return new ObjectAST(attributes);
+        return new ObjectASTNode(attributes);
     }
 
     parseLParen(): LParenASTNode {

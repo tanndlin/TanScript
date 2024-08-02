@@ -3,7 +3,7 @@ import { NumberASTNode } from '../AST/NumberAST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
-import { AttributeAST, ObjectAST } from './../AST/ObjectAST';
+import { AttributeASTNode, ObjectASTNode } from './../AST/ObjectAST';
 
 describe('Object Tests', () => {
     it('should parse an object', () => {
@@ -20,12 +20,12 @@ describe('Object Tests', () => {
         const [assign] = decl.getChildren();
         const [ident, obj] = assign.getChildren();
 
-        expect(obj).toBeInstanceOf(ObjectAST);
+        expect(obj).toBeInstanceOf(ObjectASTNode);
         expect(obj.getChildren().length).toBe(2);
 
         const [a, b] = obj.getChildren();
-        expect(a).toBeInstanceOf(AttributeAST);
-        expect(b).toBeInstanceOf(AttributeAST);
+        expect(a).toBeInstanceOf(AttributeASTNode);
+        expect(b).toBeInstanceOf(AttributeASTNode);
 
         const [aValue] = a.getChildren();
         const [bValue] = b.getChildren();
@@ -43,9 +43,6 @@ describe('Object Tests', () => {
         const parser = new Parser(lexer.getTokens());
         const ast = parser.parse();
 
-        const root = ast.getRoot();
-        const [decl] = root.getChildren();
-
         const env = new Environment(ast);
         env.evaluate();
 
@@ -53,5 +50,17 @@ describe('Object Tests', () => {
         const obj = scope.getVariable<Object>('obj');
 
         expect(obj).toStrictEqual({ attributes: { a: 1, b: 2 }, methods: {} });
+    });
+
+    it("should evaluate an object's attributes", () => {
+        const script = 'let obj = { a: 1, b: 2 };obj.a;';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+
+        const env = new Environment(ast);
+        const result = env.evaluate();
+
+        expect(result).toBe(1);
     });
 });

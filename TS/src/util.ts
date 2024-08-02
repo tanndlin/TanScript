@@ -50,6 +50,8 @@ export const valueToToken = (value: string): Token => {
             return Token.LBRACKET;
         case ']':
             return Token.RBRACKET;
+        case '.':
+            return Token.PERIOD;
 
         default:
             // Check for numbers and identifiers
