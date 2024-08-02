@@ -63,4 +63,16 @@ describe('Object Tests', () => {
 
         expect(result).toBe(1);
     });
+
+    it('math operations on object attributes', () => {
+        const script = 'let obj = { a: 1, b: 2 };obj.a + obj.b;';
+        const lexer = new Lexer(script);
+        const parser = new Parser(lexer.getTokens());
+        const ast = parser.parse();
+
+        const env = new Environment(ast);
+        const result = env.evaluate();
+
+        expect(result).toBe(3);
+    });
 });
