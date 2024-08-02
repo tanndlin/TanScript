@@ -1,7 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { RuntimeValue, Token, TokenTypeable } from '../types';
-import { tokenToValue } from '../util';
 
 export class AST {
     constructor(private root: RootASTNode) {}
@@ -35,7 +34,7 @@ export abstract class ASTNode extends RootASTNode {
     constructor(type: Token, children: ASTNode[]) {
         super(children);
         this.type = type;
-        this.value = tokenToValue(type);
+        this.value = type;
     }
 
     abstract evaluate(scope: Scope): RuntimeValue;

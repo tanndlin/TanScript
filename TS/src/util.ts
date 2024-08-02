@@ -66,55 +66,6 @@ export const valueToToken = (value: string): Token => {
     }
 };
 
-export const tokenToValue = (token: Token): string => {
-    switch (token) {
-        case Token.PLUS:
-            return '+';
-        case Token.MINUS:
-            return '-';
-        case Token.MULTIPLY:
-            return '*';
-        case Token.DIVIDE:
-            return '/';
-        case Token.LESS:
-            return '<';
-        case Token.LEQ:
-            return '<=';
-        case Token.GREATER:
-            return '>';
-        case Token.GEQ:
-            return '>=';
-        case Token.LPAREN:
-            return '(';
-        case Token.RPAREN:
-            return ')';
-        case Token.SEMI:
-            return ';';
-        case Token.ASSIGN:
-            return '=';
-        case Token.EQUAL:
-            return '==';
-        case Token.NEQ:
-            return '!=';
-        case Token.COMMA:
-            return ',';
-        case Token.LCURLY:
-            return '{';
-        case Token.RCURLY:
-            return '}';
-        case Token.WHILE:
-            return 'while';
-        case Token.FOR:
-            return 'for';
-        case Token.IF:
-            return 'if';
-        case Token.ELSE:
-            return 'else';
-        default:
-            return token;
-    }
-};
-
 export const LOWERCASE_LETTERS = Array.from({ length: 26 }, (_, i) =>
     String.fromCharCode(i + 97)
 );

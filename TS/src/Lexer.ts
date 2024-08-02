@@ -4,7 +4,6 @@ import {
     LOWERCASE_LETTERS,
     NUMBERS,
     UPPERCASE_LETTERS,
-    tokenToValue,
     valueToToken,
 } from './util';
 
@@ -208,9 +207,9 @@ class Lexer {
     ): LexerToken {
         if (this.script[this.pos + 1] === secondChar) {
             this.pos++;
-            return this.createToken(secondToken, tokenToValue(secondToken));
+            return this.createToken(secondToken, secondToken);
         } else {
-            return this.createToken(curToken, tokenToValue(curToken));
+            return this.createToken(curToken, curToken);
         }
     }
 
