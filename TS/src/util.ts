@@ -3,55 +3,16 @@ import { LexerError } from './errors';
 import { Token } from './types';
 
 export const valueToToken = (value: string): Token => {
+    // See if the value is an enum as its string component
+    if (Object.values(Token).includes(value as Token)) return value as Token;
+
     switch (value) {
-        case '+':
-            return Token.PLUS;
-        case '-':
-            return Token.MINUS;
-        case '*':
-            return Token.MULTIPLY;
-        case '/':
-            return Token.DIVIDE;
-        case '%':
-            return Token.MOD;
-        case '<':
-            return Token.LESS;
-        case '>':
-            return Token.GREATER;
-        case '(':
-            return Token.LPAREN;
-        case ')':
-            return Token.RPAREN;
-        case ';':
-            return Token.SEMI;
-        case '=':
-            return Token.ASSIGN;
-        case '{':
-            return Token.LCURLY;
-        case '}':
-            return Token.RCURLY;
-        case ',':
-            return Token.COMMA;
         case '&':
             return Token.AND;
         case '|':
             return Token.OR;
-        case '!':
-            return Token.NOT;
         case '"':
             return Token.STRING;
-        case ':':
-            return Token.COLON;
-        case '#':
-            return Token.SIGNAL;
-        case '$':
-            return Token.COMPUTE;
-        case '[':
-            return Token.LBRACKET;
-        case ']':
-            return Token.RBRACKET;
-        case '.':
-            return Token.PERIOD;
 
         default:
             // Check for numbers and identifiers
