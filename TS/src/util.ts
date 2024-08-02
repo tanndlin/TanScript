@@ -49,11 +49,8 @@ export const findSignals = (ast: ASTNode): string[] => {
     const ret: string[] = [];
 
     children.forEach((c) => {
-        if (c.isOneOf(Token.SIGNAL, Token.COMPUTE)) {
-            ret.push(c.getValue());
-        } else {
-            const found = findSignals(c).forEach((s) => ret.push(s));
-        }
+        if (c.isOneOf(Token.SIGNAL, Token.COMPUTE)) ret.push(c.getValue());
+        else findSignals(c).forEach((s) => ret.push(s));
     });
 
     return ret;
