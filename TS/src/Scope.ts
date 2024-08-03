@@ -98,6 +98,10 @@ export default class Scope {
             scope = scope.parent;
         }
 
+        if (this.globalScope && this.globalScope.variables.has(name)) {
+            return this.globalScope.variables.get(name) as FunctionDefASTNode;
+        }
+
         throw new UndeclaredFunctionError(`Function ${name} not found`);
     }
 

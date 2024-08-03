@@ -1,3 +1,10 @@
-let x = 10;
-def add(a) { x += a; }
-add(5);
+def foo() { 
+    print(x);
+}
+
+def bar() {
+    let x = 10;
+    foo();
+}
+
+bar();
