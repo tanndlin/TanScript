@@ -53,7 +53,7 @@ export class ForEachASTNode extends ControlStructureASTNode {
         }
 
         let ret;
-        while (iterator.hasNext()) {
+        while (iterator.hasNext() && !scope.isReturning()) {
             const curItem = iterator.next();
 
             // Add the current item to the scope

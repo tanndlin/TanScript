@@ -109,6 +109,8 @@ export default class Scope {
         this.returning = true;
         this.returnedValue = value;
         this.parent?.setReturnValue(value);
+
+        return value;
     }
 
     getReturnValue() {
