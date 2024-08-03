@@ -1,10 +1,27 @@
-def foo() {
-    let list = [1,2,3,4,5,6,7,8,9,10];
-    foreach (e in list){
-        if (e == 5){
-            return e;
-        }
+def collatz(n, chainLength){
+    if (n == 1){
+        return chainLength;
+    }
+
+    if (n % 2 == 0){
+        return collatz(n / 2, chainLength + 1);
+    }
+    
+    return collatz(3 * n + 1, chainLength + 1);
+}
+
+let max = 0;
+let winner = 0;
+
+for (let i = 1; i < 1000000; i++){
+    let chainLength = collatz(i, 1);
+    print(i);
+    print(chainLength);
+    if (chainLength > max){
+        max = chainLength;
+        winner = i;
     }
 }
 
-foo();
+max;
+winner;
