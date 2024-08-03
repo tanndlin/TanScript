@@ -1,0 +1,37 @@
+{
+  "name": "tanscript-lang",
+  "displayName": "TanScript Lang",
+  "description": "Syntax Highlighting for TanScript",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tanscript",
+        "aliases": [
+          "TanScript",
+          "tanscript"
+        ],
+        "extensions": [
+          ".tan"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tanscript",
+        "scopeName": "source.tan",
+        "path": "./syntaxes/tanscript.tmLanguage.json"
+      }
+    ]
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

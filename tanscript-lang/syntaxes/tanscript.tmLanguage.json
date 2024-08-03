@@ -1,0 +1,148 @@
+﻿{
+  "name": "tanscript",
+  "patterns": [
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#reserved-words"
+    },
+    {
+      "include": "#ctrl-statements"
+    },
+    {
+      "include": "#function-call"
+    },
+    {
+      "include": "#identifiers"
+    },
+    {
+      "include": "#paren-expression"
+    },
+    {
+      "include": "#expression",
+      "captures": {
+        "2": {
+          "name": "entity.name.function.tanscript"
+        }
+      }
+    }
+  ],
+  "repository": {
+    "ctrl-statements": {
+      "patterns": [
+        {
+          "name": "keyword.control.tanscript",
+          "match": "\\b(if|else|while|for|return)\\b"
+        }
+      ]
+    },
+    "reserved-words": {
+      "patterns": [
+        {
+          "name": "keyword.reserved.tanscript",
+          "match": "\\b(let|def|true|false)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.tanscript",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "name": "entity.name.function.tanscript",
+          "begin": "\\b[a-zA-Z_]\\w*\\(",
+          "end": "\\)",
+          "beginCaptures": {
+            "0": {
+              "name": "entity.name.function.tanscript"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#expression"
+            }
+          ]
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.tanscript",
+          "match": "\\b[a-zA-Z_]\\w*\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.tanscript",
+          "begin": "\"",
+          "end": "\""
+        }
+      ]
+    },
+    "expression": {
+      "patterns": [
+        {
+          "include": "#numbers"
+        },
+        {
+          "include": "#identifiers"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#ctrl-statements"
+        },
+        {
+          "include": "#operators"
+        }
+      ]
+    },
+    "paren-expression": [
+      {
+        "begin": "\\(",
+        "end": "\\)",
+        "beginCaptures": {
+          "0": {
+            "name": "punctuation.paren.open"
+          }
+        },
+        "endCaptures": {
+          "0": {
+            "name": "punctuation.paren.close"
+          }
+        },
+        "patterns": [
+          {
+            "include": "#expression"
+          }
+        ]
+      }
+    ],
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.tanscript",
+          "match": "\\+|-|\\*|/|==|!=|<|>|<=|>=|\\|\\||&&|=|\\+=|-=|\\*=|/=|%=|<<|>>|&|\\||\\^|~|!|\\."
+        }
+      ]
+    }
+  },
+  "scopeName": "source.tan"
+}
