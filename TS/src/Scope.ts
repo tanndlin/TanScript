@@ -74,6 +74,11 @@ export default class Scope {
             curScope = curScope.parent;
         }
 
+        if (this.globalScope && this.globalScope.variables.has(name)) {
+            this.globalScope.variables.set(name, value);
+            return;
+        }
+
         throw new UseBeforeDeclarationError(
             `Cannot set value for variable ${name} before declaration`
         );
