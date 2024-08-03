@@ -110,4 +110,12 @@ describe('Iterable tests', () => {
 
         expect(result).toBe(3);
     });
+
+    it('Adding 2 lists should concatenate them', () => {
+        const script = 'let x = [1,2,3]; let y = [4,5,6]; x + y;';
+        const engine = new Engine(script);
+        const result = engine.run();
+
+        expect(result).toEqual([1, 2, 3, 4, 5, 6]);
+    });
 });

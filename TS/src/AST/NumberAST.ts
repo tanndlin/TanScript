@@ -14,7 +14,7 @@ export class MathASTNode extends ASTNode implements INumberableAST {
 
         switch (this.getType()) {
             case Token.PLUS:
-                return left + right;
+                return this.handleAddition(left, right);
             case Token.MINUS:
                 return left - right;
             case Token.MULTIPLY:
@@ -28,6 +28,15 @@ export class MathASTNode extends ASTNode implements INumberableAST {
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }
+    }
+
+    handleAddition(left: any, right: any): any {
+        // Special case to handle array concatenation
+        if (left instanceof Array && right instanceof Array) {
+            return left.concat(right);
+        }
+
+        return left + right;
     }
 }
 
