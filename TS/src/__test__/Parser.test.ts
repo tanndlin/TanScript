@@ -545,13 +545,15 @@ describe('Control Structures', () => {
         const root = ast.getRoot();
 
         const [forAST] = root.getChildren();
-        expect(forAST).toBeInstanceOf(ForASTNode);
+        if (!(forAST instanceof ForASTNode)) {
+            throw new Error('Expected ForASTNode');
+        }
 
-        const [init, condition, update, body] = forAST.getChildren();
+        const { init, condition, update, block } = forAST;
         expect(init).toBeInstanceOf(AssignASTNode);
         expect(condition).toBeInstanceOf(LessThanASTNode);
         expect(update).toBeInstanceOf(AssignASTNode);
-        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(BlockASTNode);
     });
 
     it('should parser a for loop with a declaration', () => {
@@ -587,13 +589,15 @@ describe('Control Structures', () => {
         const root = ast.getRoot();
 
         const [forAST] = root.getChildren();
-        expect(forAST).toBeInstanceOf(ForASTNode);
+        if (!(forAST instanceof ForASTNode)) {
+            throw new Error('Expected ForASTNode');
+        }
 
-        const [init, condition, update, body] = forAST.getChildren();
+        const { init, condition, update, block } = forAST;
         expect(init).toBeInstanceOf(DeclarationASTNode);
         expect(condition).toBeInstanceOf(LessThanASTNode);
         expect(update).toBeInstanceOf(AssignASTNode);
-        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(BlockASTNode);
     });
 
     it('should parse a simple if statement', () => {

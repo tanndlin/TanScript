@@ -55,7 +55,7 @@ export default class Optimizer {
             return Optimizer.optimizeIf(child)!;
         }
 
-        if (child.isType(Token.FOR)) {
+        if (child instanceof ForASTNode) {
             return Optimizer.optimizeFor(child);
         }
 
@@ -80,14 +80,14 @@ export default class Optimizer {
     }
 
     private static optimizeFor(node: ForASTNode): ASTNode {
-        let [init, condition, increment, block] = node.getChildren();
+        let { init, condition, update, block } = node;
 
         init = Optimizer.optimizeNode(init);
         condition = Optimizer.optimizeNode(condition);
-        increment = Optimizer.optimizeNode(increment);
+        update = Optimizer.optimizeNode(update);
         block = Optimizer.optimizeNode(block);
 
-        return new ForASTNode(init, condition, increment, block);
+        return new ForASTNode(init, condition, update, block);
     }
 
     private static simplifyLogicalExpression(node: ASTNode): ASTNode {

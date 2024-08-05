@@ -30,25 +30,23 @@ export class WhileASTNode extends ControlStructureASTNode {
 
 export class ForASTNode extends ControlStructureASTNode {
     constructor(
-        init: ASTNode,
-        condition: ASTNode,
-        update: ASTNode,
-        block: ASTNode
+        public init: ASTNode,
+        public condition: ASTNode,
+        public update: ASTNode,
+        public block: ASTNode
     ) {
-        super(Token.FOR, [init, condition, update, block]);
+        super(Token.FOR, []);
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [init, condition, update, block] = this.getChildren();
-
         // Make a new scope for the looping variable
         const newScope = new Scope(scope.globalScope, scope);
-        init.evaluate(newScope);
+        this.init.evaluate(newScope);
 
         let ret;
-        while ((condition as BooleanOpASTNode).evaluate(newScope)) {
-            ret = block.evaluate(newScope);
-            update.evaluate(newScope);
+        while ((this.condition as BooleanOpASTNode).evaluate(newScope)) {
+            ret = this.block.evaluate(newScope);
+            this.update.evaluate(newScope);
         }
 
         return ret;

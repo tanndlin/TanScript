@@ -1,3 +1,4 @@
+import { ForASTNode } from '../AST/ControlAST';
 import Lexer from '../Lexer';
 import Optimizer from '../Optimizer';
 import Parser from '../Parser';
@@ -258,7 +259,7 @@ describe('Optimizer: Simplify for loop conditions', () => {
 
         const root = ast.getRoot();
         const [forLoop, eof] = root.getChildren();
-        const [init, condition, increment, block] = forLoop.getChildren();
+        const { init, condition, update, block } = forLoop as ForASTNode;
 
         expect(condition.getType()).toBe(Token.LESS);
         expect(condition.getChildren().length).toBe(2);
