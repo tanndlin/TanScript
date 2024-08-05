@@ -1,6 +1,6 @@
 import { AST, ASTNode } from './AST/AST';
 import { BooleanASTNode } from './AST/BoolAST';
-import { IfASTNode } from './AST/ControlAST';
+import { ForASTNode, IfASTNode } from './AST/ControlAST';
 import { NumberASTNode } from './AST/NumberAST';
 import { Maybe, Token } from './types';
 
@@ -55,6 +55,10 @@ export default class Optimizer {
             return Optimizer.optimizeIf(child)!;
         }
 
+        if (child.isType(Token.FOR)) {
+            return Optimizer.optimizeFor(child);
+        }
+
         return child;
     }
 
@@ -73,6 +77,17 @@ export default class Optimizer {
         }
 
         return new IfASTNode(condition, ifBlock, elseBlock);
+    }
+
+    private static optimizeFor(node: ForASTNode): ASTNode {
+        let [init, condition, increment, block] = node.getChildren();
+
+        init = Optimizer.optimizeNode(init);
+        condition = Optimizer.optimizeNode(condition);
+        increment = Optimizer.optimizeNode(increment);
+        block = Optimizer.optimizeNode(block);
+
+        return new ForASTNode(init, condition, increment, block);
     }
 
     private static simplifyLogicalExpression(node: ASTNode): ASTNode {

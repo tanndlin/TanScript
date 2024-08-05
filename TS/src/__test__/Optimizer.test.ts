@@ -241,3 +241,29 @@ describe('Optimizer: Simplify math expressions', () => {
         expect(+num.getValue()).toBe(expected);
     });
 });
+
+describe('Optimizer: Simplify for loop conditions', () => {
+    it('should simplify for loop with math in condition', () => {
+        const script = `
+            for (let i = 0; i < 10+10; i = i + 1) {
+                return i;
+            }
+        `;
+
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [forLoop, eof] = root.getChildren();
+        const [init, condition, increment, block] = forLoop.getChildren();
+
+        expect(condition.getType()).toBe(Token.LESS);
+        expect(condition.getChildren().length).toBe(2);
+        const [left, right] = condition.getChildren();
+        expect(right.getType()).toBe(Token.NUMBER);
+        expect(+right.getValue()).toBe(20);
+    });
+});
