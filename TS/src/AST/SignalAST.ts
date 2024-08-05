@@ -1,41 +1,43 @@
 import Scope from '../Scope';
-import { RuntimeValue, Token } from '../types';
-import { ASTNode, AssignASTNode } from './AST';
+import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
+import { ASTNode, AssignASTNode, IdentifierASTNode } from './AST';
 
-export class SignalAST extends ASTNode {
+export class SignalAST extends ASTNode implements IChildrenEnumerable {
     constructor(name: string) {
-        super(Token.SIGNAL, []);
+        super(Token.SIGNAL);
         this.value = name.replace('#', '');
     }
 
     evaluate(scope: Scope): RuntimeValue {
         return scope.getSignalValue(this.value);
     }
+
+    public getChildren(): IChildrenEnumerable[] {
+        return [];
+    }
 }
 
-export class SignalAssignmentAST extends ASTNode {
-    public identifier: string;
+export class SignalAssignmentAST extends AssignASTNode {
+    public name: string;
 
-    constructor(assign: AssignASTNode) {
-        super(Token.SIGNAL_ASSIGN, [assign]);
+    constructor(identifier: IdentifierASTNode, value: ASTNode) {
+        super(identifier, value);
+        this.type = Token.SIGNAL_ASSIGN;
 
-        const [identAST, valueAST] = assign.getChildren();
-        this.identifier = identAST.getValue().replace('#', '');
+        this.name = identifier.getValue().replace('#', '');
     }
 
     public evaluate(scope: Scope): RuntimeValue {
-        const [assign] = this.getChildren();
-        const [identAST, valueAST] = assign.getChildren();
-        const value = valueAST.evaluate(scope);
+        const value = this.valueAST.evaluate(scope);
 
-        scope.setSignal(this.identifier, value);
+        scope.setSignal(this.name, value);
         return value;
     }
 }
 
 export class SignalComputeAST extends ASTNode {
     constructor(name: string) {
-        super(Token.SIGNAL, []);
+        super(Token.SIGNAL);
         this.value = name.replace('$', '');
     }
 
@@ -44,23 +46,18 @@ export class SignalComputeAST extends ASTNode {
     }
 }
 
-export class SignalComputeAssignmentAST extends ASTNode {
-    public identifier: string;
+export class SignalComputeAssignmentAST extends AssignASTNode {
+    public name: string;
 
-    constructor(assign: AssignASTNode) {
-        super(Token.COMPUTE_ASSIGN, [assign]);
+    constructor(left: IdentifierASTNode, right: ASTNode) {
+        super(left, right);
+        this.type = Token.COMPUTE_ASSIGN;
 
-        const [identAST, valueAST] = assign.getChildren();
-        this.identifier = identAST.getValue();
-        this.identifier = identAST.getValue().replace('$', '');
+        this.name = this.identifier.getValue();
+        this.name = this.identifier.getValue().replace('$', '');
     }
 
     public evaluate(scope: Scope): RuntimeValue {
-        const [assignAST] = this.getChildren();
-
-        const [identAST, valueAST] = assignAST.getChildren();
-        const callback = () => valueAST.evaluate(scope);
-
-        scope.setSignalCompute(this.identifier, assignAST);
+        scope.setSignalCompute(this.name, this);
     }
 }

@@ -1,42 +1,26 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { RuntimeValue, Token, TokenTypeable } from '../types';
+import {
+    IChildrenEnumerable,
+    RuntimeValue,
+    Token,
+    TokenTypeable,
+} from '../types';
 
 export class AST {
-    constructor(private root: RootASTNode) {}
+    constructor(private root: BlockASTNode) {}
 
     getRoot() {
         return this.root;
     }
 }
 
-export class RootASTNode extends TokenTypeable {
-    protected children: ASTNode[];
-
-    constructor(children?: ASTNode[]) {
-        super(Token.ROOT);
-        this.children = children ?? [];
-    }
-
-    addChild(node: ASTNode) {
-        this.children.push(node);
-    }
-
-    public getChildren(): ASTNode[] {
-        return this.children;
-    }
-
-    public setChildren(children: ASTNode[]) {
-        this.children = children;
-    }
-}
-
-export abstract class ASTNode extends RootASTNode {
+export abstract class ASTNode extends TokenTypeable {
     protected type: Token;
     protected value: string;
 
-    constructor(type: Token, children: ASTNode[]) {
-        super(children);
+    constructor(type: Token) {
+        super(type);
         this.type = type;
         this.value = type;
     }
@@ -54,7 +38,7 @@ export abstract class ASTNode extends RootASTNode {
 
 export class DecoratorASTNode extends ASTNode {
     constructor(token: Token) {
-        super(token, []);
+        super(token);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -63,6 +47,10 @@ export class DecoratorASTNode extends ASTNode {
 
     addChild(node: ASTNode): void {
         throw new TannerError('Unexpected call to DecoratorASTNode.addChild');
+    }
+
+    getChildren(): ASTNode[] {
+        return [];
     }
 }
 
@@ -85,98 +73,130 @@ export class SemiASTNode extends DecoratorASTNode {
 }
 
 export class LParenASTNode extends ASTNode {
-    constructor(children: ASTNode[]) {
-        super(Token.LPAREN, children);
+    public child: IChildrenEnumerable;
+
+    constructor(child: IChildrenEnumerable) {
+        super(Token.LPAREN);
+        this.child = child;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [child] = this.getChildren();
-        return child.evaluate(scope);
+        return this.child.evaluate(scope);
+    }
+
+    getChildren(): IChildrenEnumerable[] {
+        return [this.child];
     }
 }
 
 export class DeclarationASTNode extends ASTNode {
-    constructor(assign: AssignASTNode | IdentifierASTNode) {
-        super(Token.DECLERATION, [assign]);
+    public child: AssignASTNode | IdentifierASTNode;
+
+    constructor(child: AssignASTNode | IdentifierASTNode) {
+        super(Token.DECLERATION);
+        this.child = child;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [child] = this.getChildren();
-        if (child.isType(Token.IDENTIFIER)) {
-            scope.addVariable(child.getValue(), undefined);
+        if (this.child.isType(Token.IDENTIFIER)) {
+            scope.addVariable(this.child.getValue(), undefined);
             return null;
         }
 
-        if (child instanceof AssignASTNode) {
-            const [identifier, value] = child.getChildren();
+        if (this.child.isType(Token.ASSIGN)) {
+            const { identifier, valueAST } = this.child as AssignASTNode;
 
             // Special case for lambdas
             // Yes this should be a token.lambda but I'm lazy
-            if (value.isType(Token.FUNCTION)) {
-                value.evaluate(scope);
+            if (valueAST.isType(Token.FUNCTION)) {
+                valueAST.evaluate(scope);
                 return undefined;
             }
 
-            const evaluatedValue = value.evaluate(scope);
+            const evaluatedValue = valueAST.evaluate(scope);
             scope.addVariable(identifier.getValue(), evaluatedValue);
             return evaluatedValue;
         }
 
-        if (child.isOneOf(Token.SIGNAL_ASSIGN, Token.COMPUTE_ASSIGN)) {
-            return child.evaluate(scope);
+        if (this.child.isOneOf(Token.SIGNAL_ASSIGN, Token.COMPUTE_ASSIGN)) {
+            return this.child.evaluate(scope);
         }
 
         throw new TannerError(
-            `Unexpectd AST Type as child for decl. Got: ${child.getType()}`
+            `Unexpectd AST Type as child for decl. Got: ${this.child.getType()}`
         );
+    }
+
+    getChildren(): ASTNode[] {
+        return [this.child];
     }
 }
 
 export class IdentifierASTNode extends ASTNode {
     constructor(value: string) {
-        super(Token.IDENTIFIER, []);
+        super(Token.IDENTIFIER);
         this.value = value;
     }
 
     evaluate(scope: Scope): RuntimeValue {
         return scope.getVariable(this.value);
     }
+
+    getChildren(): ASTNode[] {
+        return [];
+    }
 }
 
 export class StringASTNode extends ASTNode {
     constructor(value: string) {
-        super(Token.STRING, []);
+        super(Token.STRING);
         this.value = value;
     }
 
     evaluate(): string {
         return this.value;
     }
+
+    getChildren(): ASTNode[] {
+        return [];
+    }
 }
 
 export class AssignASTNode extends ASTNode {
+    public identifier: IdentifierASTNode;
+    public valueAST: ASTNode;
+
     constructor(left: IdentifierASTNode, right: ASTNode) {
-        super(Token.ASSIGN, [left, right]);
+        super(Token.ASSIGN);
+        this.identifier = left;
+        this.valueAST = right;
     }
 
     evaluate(scope: Scope, isSignal = false): RuntimeValue {
-        const [identifier, value] = this.getChildren();
-        const evaluatedValue = value.evaluate(scope);
-        if (!isSignal) scope.setVariable(identifier.getValue(), evaluatedValue);
+        const evaluatedValue = this.valueAST.evaluate(scope);
+        if (!isSignal)
+            scope.setVariable(this.identifier.getValue(), evaluatedValue);
         return evaluatedValue;
+    }
+
+    getChildren(): ASTNode[] {
+        return [this.identifier, this.valueAST];
     }
 }
 
 export class BlockASTNode extends ASTNode {
+    public children: ASTNode[];
+
     constructor(children: ASTNode[]) {
-        super(Token.LCURLY, children);
+        super(Token.LCURLY);
+        this.children = children;
     }
 
     evaluate(scope: Scope): RuntimeValue {
         const newScope = new Scope(scope.globalScope, scope);
         let retValue: RuntimeValue = undefined;
 
-        for (const statement of this.getChildren()) {
+        for (const statement of this.children) {
             if (scope.isReturning()) {
                 return scope.getReturnValue();
             }
@@ -184,5 +204,17 @@ export class BlockASTNode extends ASTNode {
         }
 
         return retValue;
+    }
+
+    addChild(node: ASTNode): void {
+        this.children.push(node);
+    }
+
+    getChildren(): ASTNode[] {
+        return this.children;
+    }
+
+    setChildren(children: ASTNode[]): void {
+        this.children = children;
     }
 }

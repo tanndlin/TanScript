@@ -1,41 +1,39 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
-import { RuntimeValue, Token } from '../types';
+import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
 import { ASTNode, BlockASTNode, IdentifierASTNode } from './AST';
 import { BooleanOpASTNode } from './BoolAST';
 
-export abstract class ControlStructureASTNode extends ASTNode {
-    constructor(type: Token, children: ASTNode[]) {
-        super(type, children);
-    }
-}
+export class WhileASTNode extends ASTNode {
+    public condition: ASTNode;
+    public block: ASTNode;
 
-export class WhileASTNode extends ControlStructureASTNode {
     constructor(condition: ASTNode, block: ASTNode) {
-        super(Token.WHILE, [condition, block]);
+        super(Token.WHILE);
+        this.condition = condition;
+        this.block = block;
     }
 
     evaluate(scope: Scope): RuntimeValue {
         let ret;
 
-        const [condition, block] = this.getChildren();
-        while ((condition as BooleanOpASTNode).evaluate(scope)) {
-            ret = block.evaluate(scope);
+        while ((this.condition as BooleanOpASTNode).evaluate(scope)) {
+            ret = this.block.evaluate(scope);
         }
 
         return ret;
     }
 }
 
-export class ForASTNode extends ControlStructureASTNode {
+export class ForASTNode extends ASTNode {
     constructor(
         public init: ASTNode,
         public condition: ASTNode,
         public update: ASTNode,
         public block: ASTNode
     ) {
-        super(Token.FOR, []);
+        super(Token.FOR);
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -53,34 +51,43 @@ export class ForASTNode extends ControlStructureASTNode {
     }
 }
 
-export class IfASTNode extends ControlStructureASTNode {
+export class IfASTNode extends ASTNode {
+    public condition: ASTNode;
+    public block: ASTNode;
+    public elseBlock?: ASTNode;
+
     constructor(condition: ASTNode, block: ASTNode, elseBlock?: ASTNode) {
-        super(
-            Token.IF,
-            [condition, block, elseBlock].filter(Boolean) as ASTNode[]
-        );
+        super(Token.IF);
+
+        this.condition = condition;
+        this.block = block;
+        this.elseBlock = elseBlock;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [condition, block, elseBlock] = this.getChildren();
-
-        if ((condition as BooleanOpASTNode).evaluate(scope)) {
-            const ret = block.evaluate(scope);
+        if ((this.condition as BooleanOpASTNode).evaluate(scope)) {
+            const ret = this.block.evaluate(scope);
             return ret;
-        } else if (elseBlock) {
-            return elseBlock.evaluate(scope);
+        } else if (this.elseBlock) {
+            return this.elseBlock.evaluate(scope);
         }
     }
 }
 
 export class FunctionDefASTNode extends ASTNode {
+    public block: BlockASTNode;
+    private paramList: IdentifierASTNode[];
+
     constructor(
         name: string,
-        private paramList: IdentifierASTNode[],
+        paramList: IdentifierASTNode[],
         block: BlockASTNode
     ) {
-        super(Token.FUNCTION, [block]);
+        super(Token.FUNCTION);
         this.value = name;
+
+        this.paramList = paramList;
+        this.block = block;
     }
 
     evaluate(scope: Scope): RuntimeValue {
@@ -104,7 +111,6 @@ export class FunctionDefASTNode extends ASTNode {
 
         const newScope = new Scope(callersScope.globalScope, null);
         newScope.addFunction(this.value, funcDef);
-        const [block] = this.getChildren();
 
         params.forEach((param, i) => {
             const expectedParam = this.paramList[i];
@@ -113,7 +119,7 @@ export class FunctionDefASTNode extends ASTNode {
             newScope.addVariable(name, param.evaluate(callersScope));
         });
 
-        return block.evaluate(newScope);
+        return this.block.evaluate(newScope);
     }
 
     getParamList() {
@@ -122,31 +128,40 @@ export class FunctionDefASTNode extends ASTNode {
 }
 
 export class FunctionCallASTNode extends ASTNode {
-    constructor(name: string, args: ASTNode[]) {
-        super(Token.IDENTIFIER, args);
+    public args: IChildrenEnumerable[];
+
+    constructor(name: string, args: IChildrenEnumerable[]) {
+        super(Token.IDENTIFIER);
         this.value = name;
+        this.args = args;
     }
 
     evaluate(scope: Scope): RuntimeValue {
         if (this.value in allFunctions) {
-            const args = this.getChildren().map((arg) =>
+            const args = this.args.map((arg) =>
                 arg.evaluate(scope)
             ) as RuntimeValue[];
             return allFunctions[this.value as BuiltInFuncName](...args);
         }
 
         const funcDef = scope.getFunction(this.value);
-        return funcDef.callFunction(scope, this.getChildren(), funcDef);
+        return funcDef.callFunction(scope, this.args, funcDef);
+    }
+
+    getChildren(): IChildrenEnumerable[] {
+        return this.args;
     }
 }
 
-export class ReturnASTNode extends ControlStructureASTNode {
+export class ReturnASTNode extends ASTNode {
+    public valueAST: ASTNode;
+
     constructor(value: ASTNode) {
-        super(Token.RETURN, [value]);
+        super(Token.RETURN);
+        this.valueAST = value;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [value] = this.getChildren();
-        return scope.setReturnValue(value.evaluate(scope));
+        return scope.setReturnValue(this.valueAST.evaluate(scope));
     }
 }

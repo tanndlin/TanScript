@@ -5,7 +5,6 @@ import {
     DeclarationASTNode,
     IdentifierASTNode,
     LParenASTNode,
-    RParenASTNode,
     StringASTNode,
 } from '../AST/AST';
 import {
@@ -46,12 +45,14 @@ describe('Parser Math Operators', () => {
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(AddASTNode);
+        if (!(children[0] instanceof AddASTNode)) {
+            throw new Error('Expected AddASTNode');
+        }
 
         // Left then right
-        const [left, right] = children[0].getChildren();
+        const { left, right } = children[0];
         expect(left.getType()).toBe(Token.NUMBER);
         expect(left.getValue()).toBe('1');
         expect(right.getType()).toBe(Token.NUMBER);
@@ -73,19 +74,28 @@ describe('Parser Math Operators', () => {
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(AddASTNode);
+
+        const [addAST] = children;
+        expect(addAST).toBeInstanceOf(AddASTNode);
+        if (!(addAST instanceof AddASTNode)) {
+            throw new Error('Expected AddASTNode');
+        }
 
         // Left then right
-        const [left, right] = children[0].getChildren();
+        const { left, right } = addAST;
         expect(left.getType()).toBe(Token.NUMBER);
         expect(left.getValue()).toBe('1');
         expect(right.getType()).toBe(Token.MULTIPLY);
         expect(right.getValue()).toBe('*');
+        expect(right).toBeInstanceOf(MultiplyASTNode);
+        if (!(right instanceof MultiplyASTNode)) {
+            throw new Error('Expected MultiplyASTNode');
+        }
 
         // Left then right
-        const [leftRight, rightRight] = right.getChildren();
+        const { left: leftRight, right: rightRight } = right;
         expect(leftRight.getType()).toBe(Token.NUMBER);
         expect(leftRight.getValue()).toBe('2');
         expect(rightRight.getType()).toBe(Token.NUMBER);
@@ -109,17 +119,24 @@ describe('Parser Math Operators', () => {
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(MultiplyASTNode);
+
+        const [multAST] = children;
+        expect(multAST).toBeInstanceOf(MultiplyASTNode);
+        if (!(multAST instanceof MultiplyASTNode)) {
+            throw new Error('Expected MultiplyASTNode');
+        }
 
         // Left should be an the parentheses
-        const [left, right] = children[0].getChildren();
+        const { left, right } = multAST;
         expect(left).toBeInstanceOf(LParenASTNode);
+        if (!(left instanceof LParenASTNode)) {
+            throw new Error('Expected LParenASTNode');
+        }
 
-        const [expression, rightParen] = left.getChildren();
-        expect(expression).toBeInstanceOf(AddASTNode);
-        expect(rightParen).toBeInstanceOf(RParenASTNode);
+        const { child } = left;
+        expect(child).toBeInstanceOf(AddASTNode);
 
         // Right should be a number (3)
         expect(right.getType()).toBe(Token.NUMBER);
@@ -138,12 +155,17 @@ describe('Parser Math Operators', () => {
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(AssignASTNode);
+
+        const [assignAST] = children;
+        expect(assignAST).toBeInstanceOf(AssignASTNode);
+        if (!(assignAST instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
         // Left should be an identifier
-        const [identifier, _] = children[0].getChildren();
+        const { identifier } = assignAST;
         expect(identifier.getType()).toBe(Token.IDENTIFIER);
         expect(identifier.getValue()).toBe('x');
     });
@@ -161,12 +183,17 @@ describe('Parser Math Operators', () => {
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(LessThanASTNode);
+
+        const [lessAST] = children;
+        expect(lessAST).toBeInstanceOf(LessThanASTNode);
+        if (!(lessAST instanceof LessThanASTNode)) {
+            throw new Error('Expected LessThanASTNode');
+        }
 
         // Left then right
-        const [left, right] = children[0].getChildren();
+        const { left, right } = lessAST;
         expect(left.getType()).toBe(Token.NUMBER);
         expect(left.getValue()).toBe('1');
         expect(right.getType()).toBe(Token.NUMBER);
@@ -193,12 +220,17 @@ describe.each([
         expect(ast).toBeInstanceOf(AST);
 
         const root = ast.getRoot();
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
-        expect(children[0]).toBeInstanceOf(expectedNode);
+
+        const [expectedAST] = children;
+        expect(expectedAST).toBeInstanceOf(expectedNode);
+        if (!(expectedAST instanceof expectedNode)) {
+            throw new Error(`Expected ${expectedNode}`);
+        }
 
         // Left then right
-        const [left, right] = children[0].getChildren();
+        const { left, right } = expectedAST;
         expect(left.getType()).toBe(Token.NUMBER);
         expect(left.getValue()).toBe('1');
         expect(right.getType()).toBe(Token.NUMBER);
@@ -219,21 +251,27 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [declAST] = children;
         expect(declAST).toBeInstanceOf(DeclarationASTNode);
+        if (!(declAST instanceof DeclarationASTNode)) {
+            throw new Error('Expected DeclarationASTNode');
+        }
 
-        const [assignAST] = children[0].getChildren();
-        expect(assignAST).toBeInstanceOf(AssignASTNode);
+        const { child } = declAST;
+        expect(child).toBeInstanceOf(AssignASTNode);
+        if (!(child instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [identifier, value] = assignAST.getChildren();
+        const { identifier, valueAST } = child;
         expect(identifier.getType()).toBe(Token.IDENTIFIER);
         expect(identifier.getValue()).toBe('x');
 
-        expect(value).toBeInstanceOf(NumberASTNode);
-        expect(value.getValue()).toBe('1');
+        expect(valueAST).toBeInstanceOf(NumberASTNode);
+        expect(valueAST.getValue()).toBe('1');
     });
 
     it('should parse a simple assignment with an expression', () => {
@@ -250,20 +288,26 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [declAST] = children;
         expect(declAST).toBeInstanceOf(DeclarationASTNode);
+        if (!(declAST instanceof DeclarationASTNode)) {
+            throw new Error('Expected DeclarationASTNode');
+        }
 
-        const [assignAST] = children[0].getChildren();
-        expect(assignAST).toBeInstanceOf(AssignASTNode);
+        const { child } = declAST;
+        expect(child).toBeInstanceOf(AssignASTNode);
+        if (!(child instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [identifier, expression] = assignAST.getChildren();
+        const { identifier, valueAST } = child;
         expect(identifier.getType()).toBe(Token.IDENTIFIER);
         expect(identifier.getValue()).toBe('x');
 
-        expect(expression).toBeInstanceOf(AddASTNode);
+        expect(valueAST).toBeInstanceOf(AddASTNode);
     });
 
     it('should allow shorthand add assignment', () => {
@@ -278,17 +322,20 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AssignASTNode);
+        if (!(assignAST instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [identifier, expression] = assignAST.getChildren();
+        const { identifier, valueAST } = assignAST;
         expect(identifier.getType()).toBe(Token.IDENTIFIER);
         expect(identifier.getValue()).toBe('x');
 
-        expect(expression).toBeInstanceOf(AddASTNode);
+        expect(valueAST).toBeInstanceOf(AddASTNode);
     });
 
     it('should allow shorthand minus assignment', () => {
@@ -303,14 +350,17 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AssignASTNode);
+        if (!(assignAST instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [_, expression] = assignAST.getChildren();
-        expect(expression).toBeInstanceOf(SubtractASTNode);
+        const { valueAST } = assignAST;
+        expect(valueAST).toBeInstanceOf(SubtractASTNode);
     });
 
     it('should allow shorthand multiply assignment', () => {
@@ -325,14 +375,17 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AssignASTNode);
+        if (!(assignAST instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [_, expression] = assignAST.getChildren();
-        expect(expression).toBeInstanceOf(MultiplyASTNode);
+        const { valueAST } = assignAST;
+        expect(valueAST).toBeInstanceOf(MultiplyASTNode);
     });
 
     it('should allow shorthand divide assignment', () => {
@@ -347,14 +400,17 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AssignASTNode);
+        if (!(assignAST instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [_, expression] = assignAST.getChildren();
-        expect(expression).toBeInstanceOf(DivideASTNode);
+        const { valueAST } = assignAST;
+        expect(valueAST).toBeInstanceOf(DivideASTNode);
     });
 
     it('should allow using var without assignment', () => {
@@ -368,7 +424,7 @@ describe('Parser Assignment', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const children = root.getChildren();
+        const children = root.children;
         expect(children).toHaveLength(1);
 
         const [assignAST] = children;
@@ -446,10 +502,13 @@ describe('Parser Curly Braces', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [blockAST] = root.getChildren();
+        const [blockAST] = root.children;
         expect(blockAST).toBeInstanceOf(BlockASTNode);
+        if (!(blockAST instanceof BlockASTNode)) {
+            throw new Error('Expected BlockASTNode');
+        }
 
-        const blockChildren = blockAST.getChildren();
+        const blockChildren = blockAST.children;
         expect(blockChildren).toHaveLength(1);
 
         const [numberAST] = blockChildren;
@@ -470,10 +529,13 @@ describe('Parser Curly Braces', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [blockAST] = root.getChildren();
+        const [blockAST] = root.children;
         expect(blockAST).toBeInstanceOf(BlockASTNode);
+        if (!(blockAST instanceof BlockASTNode)) {
+            throw new Error('Expected BlockASTNode');
+        }
 
-        const blockChildren = blockAST.getChildren();
+        const blockChildren = blockAST.children;
         expect(blockChildren).toHaveLength(2);
 
         const [numberAST1, numberAST2] = blockChildren;
@@ -505,12 +567,15 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [whileAST] = root.getChildren();
+        const [whileAST] = root.children;
         expect(whileAST).toBeInstanceOf(WhileASTNode);
+        if (!(whileAST instanceof WhileASTNode)) {
+            throw new Error('Expected BlockASTNode');
+        }
 
-        const [condition, body] = whileAST.getChildren();
+        const { condition, block } = whileAST;
         expect(condition).toBeInstanceOf(LessThanASTNode);
-        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(BlockASTNode);
     });
 
     it('should parse a for loop', () => {
@@ -544,7 +609,7 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [forAST] = root.getChildren();
+        const [forAST] = root.children;
         if (!(forAST instanceof ForASTNode)) {
             throw new Error('Expected ForASTNode');
         }
@@ -588,7 +653,7 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [forAST] = root.getChildren();
+        const [forAST] = root.children;
         if (!(forAST instanceof ForASTNode)) {
             throw new Error('Expected ForASTNode');
         }
@@ -622,12 +687,14 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [ifAST] = root.getChildren();
-        expect(ifAST).toBeInstanceOf(IfASTNode);
+        const [ifAST] = root.children;
+        if (!(ifAST instanceof IfASTNode)) {
+            throw new Error('Expected IfASTNode');
+        }
 
-        const [condition, body, elseBlock] = ifAST.getChildren();
+        const { condition, block, elseBlock } = ifAST;
         expect(condition).toBeInstanceOf(LessThanASTNode);
-        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(BlockASTNode);
         expect(elseBlock).toBeUndefined();
     });
 
@@ -661,12 +728,15 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [ifAST] = root.getChildren();
+        const [ifAST] = root.children;
         expect(ifAST).toBeInstanceOf(IfASTNode);
+        if (!(ifAST instanceof IfASTNode)) {
+            throw new Error('Expected IfASTNode');
+        }
 
-        const [condition, body, elseBlock] = ifAST.getChildren();
+        const { condition, block, elseBlock } = ifAST;
         expect(condition).toBeInstanceOf(LessThanASTNode);
-        expect(body).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(BlockASTNode);
         expect(elseBlock).toBeInstanceOf(BlockASTNode);
     });
 
@@ -686,10 +756,13 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionAST] = root.getChildren();
+        const [functionAST] = root.children;
         expect(functionAST).toBeInstanceOf(FunctionDefASTNode);
+        if (!(functionAST instanceof FunctionDefASTNode)) {
+            throw new Error('Expected FunctionDefASTNode');
+        }
 
-        const [block] = functionAST.getChildren();
+        const { block } = functionAST;
         expect(block).toBeInstanceOf(BlockASTNode);
     });
 
@@ -715,10 +788,13 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionDef] = root.getChildren();
+        const [functionDef] = root.children;
         expect(functionDef).toBeInstanceOf(FunctionDefASTNode);
+        if (!(functionDef instanceof FunctionDefASTNode)) {
+            throw new Error('Expected FunctionDefASTNode');
+        }
 
-        const [block] = functionDef.getChildren();
+        const { block } = functionDef;
         expect(block).toBeInstanceOf(BlockASTNode);
 
         const params = (functionDef as FunctionDefASTNode).getParamList();
@@ -743,11 +819,15 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionCall] = root.getChildren();
+        const [functionCall] = root.children;
         expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
-        expect(functionCall.getChildren()).toHaveLength(2);
+        if (!(functionCall instanceof FunctionCallASTNode)) {
+            throw new Error('Expected FunctionCallASTNode');
+        }
 
-        const [arg1, arg2] = functionCall.getChildren();
+        expect(functionCall.args).toHaveLength(2);
+
+        const [arg1, arg2] = functionCall.args;
         expect(arg1).toBeInstanceOf(NumberASTNode);
         expect(arg2).toBeInstanceOf(NumberASTNode);
     });
@@ -767,11 +847,14 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionCall] = root.getChildren();
+        const [functionCall] = root.children;
         expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
-        expect(functionCall.getChildren()).toHaveLength(1);
+        if (!(functionCall instanceof FunctionCallASTNode)) {
+            throw new Error('Expected FunctionCallASTNode');
+        }
 
-        const [expression] = functionCall.getChildren();
+        expect(functionCall.args).toHaveLength(1);
+        const [expression] = functionCall.args;
         expect(expression).toBeInstanceOf(AddASTNode);
     });
 
@@ -788,11 +871,14 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionCall] = root.getChildren();
+        const [functionCall] = root.children;
         expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
-        expect(functionCall.getChildren()).toHaveLength(1);
+        if (!(functionCall instanceof FunctionCallASTNode)) {
+            throw new Error('Expected FunctionCallASTNode');
+        }
+        expect(functionCall.args).toHaveLength(1);
 
-        const [identifier] = functionCall.getChildren();
+        const [identifier] = functionCall.args;
         expect(identifier).toBeInstanceOf(IdentifierASTNode);
     });
 
@@ -808,9 +894,13 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [functionCall] = root.getChildren();
+        const [functionCall] = root.children;
         expect(functionCall).toBeInstanceOf(FunctionCallASTNode);
-        expect(functionCall.getChildren()).toHaveLength(0);
+        if (!(functionCall instanceof FunctionCallASTNode)) {
+            throw new Error('Expected FunctionCallASTNode');
+        }
+
+        expect(functionCall.args).toHaveLength(0);
     });
 
     it('should be able to add function calls', () => {
@@ -835,12 +925,15 @@ describe('Control Structures', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [addAST] = root.getChildren();
+        const [addAST] = root.children;
         expect(addAST).toBeInstanceOf(AddASTNode);
+        if (!(addAST instanceof AddASTNode)) {
+            throw new Error('Expected AddASTNode');
+        }
 
-        const [functionCall1, functionCall2] = addAST.getChildren();
-        expect(functionCall1).toBeInstanceOf(FunctionCallASTNode);
-        expect(functionCall2).toBeInstanceOf(FunctionCallASTNode);
+        const { left, right } = addAST;
+        expect(left).toBeInstanceOf(FunctionCallASTNode);
+        expect(right).toBeInstanceOf(FunctionCallASTNode);
     });
 });
 
@@ -859,18 +952,24 @@ describe('String Parsing', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [declAST] = root.getChildren();
+        const [declAST] = root.children;
         expect(declAST).toBeInstanceOf(DeclarationASTNode);
+        if (!(declAST instanceof DeclarationASTNode)) {
+            throw new Error('Expected DeclarationASTNode');
+        }
 
-        const [assignAST] = declAST.getChildren();
-        expect(assignAST).toBeInstanceOf(AssignASTNode);
+        const { child } = declAST;
+        expect(child).toBeInstanceOf(AssignASTNode);
+        if (!(child instanceof AssignASTNode)) {
+            throw new Error('Expected AssignASTNode');
+        }
 
-        const [identifier, value] = assignAST.getChildren();
+        const { identifier, valueAST } = child;
         expect(identifier.getType()).toBe(Token.IDENTIFIER);
         expect(identifier.getValue()).toBe('x');
 
-        expect(value).toBeInstanceOf(StringASTNode);
-        expect(value.getValue()).toBe('Hello world!');
+        expect(valueAST).toBeInstanceOf(StringASTNode);
+        expect(valueAST.getValue()).toBe('Hello world!');
     });
 
     it('should parse string concatenation', () => {
@@ -885,11 +984,14 @@ describe('String Parsing', () => {
         const ast = parser.parse();
         const root = ast.getRoot();
 
-        const [addAST] = root.getChildren();
+        const [addAST] = root.children;
         expect(addAST).toBeInstanceOf(AddASTNode);
+        if (!(addAST instanceof AddASTNode)) {
+            throw new Error('Expected AddASTNode');
+        }
 
-        const [string1, string2] = addAST.getChildren();
-        expect(string1).toBeInstanceOf(StringASTNode);
-        expect(string2).toBeInstanceOf(StringASTNode);
+        const { left, right } = addAST;
+        expect(left).toBeInstanceOf(StringASTNode);
+        expect(right).toBeInstanceOf(StringASTNode);
     });
 });

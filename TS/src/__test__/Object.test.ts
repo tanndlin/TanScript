@@ -1,4 +1,4 @@
-import { DeclarationASTNode } from '../AST/AST';
+import { AssignASTNode, DeclarationASTNode } from '../AST/AST';
 import { NumberASTNode } from '../AST/NumberAST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
@@ -16,19 +16,36 @@ describe('Object Tests', () => {
         const [decl] = root.getChildren();
 
         expect(decl).toBeInstanceOf(DeclarationASTNode);
+        if (!(decl instanceof DeclarationASTNode)) {
+            throw new Error('Expected declaration');
+        }
 
-        const [assign] = decl.getChildren();
-        const [ident, obj] = assign.getChildren();
+        const { child } = decl;
+        expect(child).toBeInstanceOf(AssignASTNode);
+        if (!(child instanceof AssignASTNode)) {
+            throw new Error('Expected assign');
+        }
 
-        expect(obj).toBeInstanceOf(ObjectASTNode);
-        expect(obj.getChildren().length).toBe(2);
+        const { valueAST } = child;
+        expect(valueAST).toBeInstanceOf(ObjectASTNode);
+        if (!(valueAST instanceof ObjectASTNode)) {
+            throw new Error('Expected object');
+        }
 
-        const [a, b] = obj.getChildren();
+        expect(valueAST.attributes).toHaveLength(2);
+
+        const [a, b] = valueAST.attributes;
         expect(a).toBeInstanceOf(AttributeASTNode);
         expect(b).toBeInstanceOf(AttributeASTNode);
+        if (
+            !(a instanceof AttributeASTNode) ||
+            !(b instanceof AttributeASTNode)
+        ) {
+            throw new Error('Expected attribute');
+        }
 
-        const [aValue] = a.getChildren();
-        const [bValue] = b.getChildren();
+        const { valueAST: aValue } = a;
+        const { valueAST: bValue } = b;
 
         expect(a.getValue()).toBe('a');
         expect(aValue).toBeInstanceOf(NumberASTNode);

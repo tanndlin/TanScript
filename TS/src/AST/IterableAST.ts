@@ -6,21 +6,21 @@ import {
     DeclarationASTNode,
     IdentifierASTNode,
 } from './AST';
-import { ControlStructureASTNode } from './ControlAST';
 
 export class IterableASTNode extends ASTNode {
+    public items: ASTNode[];
+
     constructor(items: ASTNode[]) {
-        super(Token.LBRACKET, items);
+        super(Token.LBRACKET);
+        this.items = items;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        return this.children.map((child) => child.evaluate(scope));
+        return this.items.map((child) => child.evaluate(scope));
     }
 
     createIterator(scope: Scope): Iterator {
-        return new Iterator(
-            this.children.map((child) => child.evaluate(scope))
-        );
+        return new Iterator(this.items.map((child) => child.evaluate(scope)));
     }
 }
 
@@ -30,26 +30,31 @@ export class ListASTNode extends IterableASTNode {
     }
 }
 
-export class ForEachASTNode extends ControlStructureASTNode {
+export class ForEachASTNode extends ASTNode {
+    public init: DeclarationASTNode | IdentifierASTNode;
+    public iterable: IterableResolvable;
+    public block: BlockASTNode;
+
     constructor(
-        decl: DeclarationASTNode,
+        init: DeclarationASTNode | IdentifierASTNode,
         iterable: IterableResolvable,
-        block: ASTNode
+        block: BlockASTNode
     ) {
-        super(Token.FOREACH, [decl, iterable, block]);
+        super(Token.FOREACH);
+        this.init = init;
+        this.iterable = iterable;
+        this.block = block;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const ident = this.children[0] as IdentifierASTNode;
-        const iterParam = this.children[1] as IterableResolvable;
-        const block = this.children[2] as BlockASTNode;
-
         let iterator: Iterator;
-        if (iterParam instanceof IdentifierASTNode) {
-            const items = scope.getVariable(iterParam.getValue()) as Iterable;
+        if (this.iterable instanceof IdentifierASTNode) {
+            const items = scope.getVariable(
+                this.iterable.getValue()
+            ) as Iterable;
             iterator = new Iterator(items);
         } else {
-            iterator = (iterParam as IterableASTNode).createIterator(scope);
+            iterator = (this.iterable as IterableASTNode).createIterator(scope);
         }
 
         let ret;
@@ -58,8 +63,8 @@ export class ForEachASTNode extends ControlStructureASTNode {
 
             // Add the current item to the scope
             const newScope = new Scope(scope.globalScope, scope);
-            newScope.addVariable(ident.getValue(), curItem);
-            ret = block.evaluate(newScope);
+            newScope.addVariable(this.init.getValue(), curItem);
+            ret = this.block.evaluate(newScope);
         }
 
         return ret;

@@ -148,11 +148,15 @@ export type RuntimeValue = Maybe<
 export type BooleanToken = Token.TRUE | Token.FALSE;
 export type IterableResolvable = IterableASTNode | IdentifierASTNode;
 
-export interface INumberableAST extends ASTNode {
+export interface IChildrenEnumerable extends ASTNode {
+    getChildren(): IChildrenEnumerable[];
+}
+
+export interface INumberableAST extends IChildrenEnumerable {
     evaluate(scope: Scope): number;
 }
 
-export interface IBooleanableAST extends ASTNode {
+export interface IBooleanableAST extends IChildrenEnumerable {
     evaluate(scope: Scope): boolean;
 }
 

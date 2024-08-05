@@ -3,13 +3,16 @@ import { Object, RuntimeValue, Token } from '../types';
 import { ASTNode, IdentifierASTNode } from './AST';
 
 export class ObjectASTNode extends ASTNode {
-    constructor(children: AttributeASTNode[]) {
-        super(Token.LCURLY, children);
+    public attributes: AttributeASTNode[];
+
+    constructor(attributes: AttributeASTNode[]) {
+        super(Token.LCURLY);
+        this.attributes = attributes;
     }
 
     evaluate(scope: Scope): RuntimeValue {
         const obj: Object = { attributes: {}, methods: {} };
-        this.children.forEach((attribute: AttributeASTNode) => {
+        this.attributes.forEach((attribute: AttributeASTNode) => {
             obj.attributes[attribute.getValue()] = attribute.evaluate(scope);
         });
 
@@ -18,28 +21,35 @@ export class ObjectASTNode extends ASTNode {
 }
 
 export class AttributeASTNode extends ASTNode {
-    constructor(name: string, value: ASTNode) {
-        super(Token.IDENTIFIER, [value]);
+    public valueAST: ASTNode;
+
+    constructor(name: string, valueAST: ASTNode) {
+        super(Token.IDENTIFIER);
         this.value = name;
+        this.valueAST = valueAST;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        return this.children[0].evaluate(scope);
+        return this.valueAST.evaluate(scope);
     }
 }
 
 export class ObjectAccessAST extends ASTNode {
+    public objIdentifier: IdentifierASTNode;
+    public attribute: IdentifierASTNode;
+
     constructor(
         objIdentifier: IdentifierASTNode,
         attribute: IdentifierASTNode
     ) {
-        super(Token.IDENTIFIER, [objIdentifier, attribute]);
+        super(Token.IDENTIFIER);
+        this.objIdentifier = objIdentifier;
+        this.attribute = attribute;
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        const [objIdentifier, attribute] = this.children;
-        const obj = scope.getVariable<Object>(objIdentifier.getValue());
+        const obj = scope.getVariable<Object>(this.objIdentifier.getValue());
 
-        return obj.attributes[attribute.getValue()];
+        return obj.attributes[this.attribute.getValue()];
     }
 }

@@ -39,14 +39,21 @@ describe('Lambda Tests', () => {
         const [decl] = root.getChildren();
 
         expect(decl).toBeInstanceOf(DeclarationASTNode);
+        if (!(decl instanceof DeclarationASTNode)) {
+            throw new Error('Expected declaration');
+        }
 
-        const [assign] = decl.getChildren();
+        const { child: assign } = decl;
         const [ident, lambda] = assign.getChildren();
 
         expect(lambda).toBeInstanceOf(FunctionDefASTNode);
-        expect(lambda.getChildren().length).toBe(1);
+        if (!(lambda instanceof FunctionDefASTNode)) {
+            throw new Error('Expected lambda');
+        }
 
-        const [block] = lambda.getChildren();
+        expect(lambda.getParamList()).toHaveLength(0);
+
+        const { block } = lambda;
         expect(block).toBeInstanceOf(BlockASTNode);
 
         const [add] = block.getChildren();
@@ -63,8 +70,11 @@ describe('Lambda Tests', () => {
         const [decl] = root.getChildren();
 
         expect(decl).toBeInstanceOf(DeclarationASTNode);
+        if (!(decl instanceof DeclarationASTNode)) {
+            throw new Error('Expected declaration');
+        }
 
-        const [assign] = decl.getChildren();
+        const { child: assign } = decl;
         expect(assign.getChildren().length).toBe(2);
         expect(assign.getChildren()[1]).toBeInstanceOf(FunctionDefASTNode);
         const lambda = assign.getChildren()[1] as FunctionDefASTNode;
@@ -74,7 +84,7 @@ describe('Lambda Tests', () => {
         expect(params[0].getValue()).toBe('a');
         expect(params[1].getValue()).toBe('b');
 
-        const [block] = lambda.getChildren();
+        const { block } = lambda;
         expect(block).toBeInstanceOf(BlockASTNode);
 
         const [add] = block.getChildren();

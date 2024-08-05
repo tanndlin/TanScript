@@ -1,8 +1,4 @@
-import {
-    AssignASTNode,
-    DeclarationASTNode,
-    IdentifierASTNode,
-} from '../AST/AST';
+import { DeclarationASTNode, IdentifierASTNode } from '../AST/AST';
 import { NumberASTNode } from '../AST/NumberAST';
 import { SignalAssignmentAST } from '../AST/SignalAST';
 import Engine from '../Engine';
@@ -47,16 +43,19 @@ describe('Signals Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.getChildren();
         expect(decl).toBeInstanceOf(DeclarationASTNode);
+        if (!(decl instanceof DeclarationASTNode)) {
+            throw new Error('Expected declaration');
+        }
 
-        const [signalAssign] = decl.getChildren();
+        const { child: signalAssign } = decl;
         expect(signalAssign).toBeInstanceOf(SignalAssignmentAST);
+        if (!(signalAssign instanceof SignalAssignmentAST)) {
+            throw new Error('Expected signal assignment');
+        }
 
-        const [assignAST] = signalAssign.getChildren();
-        expect(assignAST).toBeInstanceOf(AssignASTNode);
-
-        const [ident, value] = assignAST.getChildren();
-        expect(ident).toBeInstanceOf(IdentifierASTNode);
-        expect(value).toBeInstanceOf(NumberASTNode);
+        const { identifier, valueAST } = signalAssign;
+        expect(identifier).toBeInstanceOf(IdentifierASTNode);
+        expect(valueAST).toBeInstanceOf(NumberASTNode);
     });
 
     it('should not update computed signals until they are accessed', () => {

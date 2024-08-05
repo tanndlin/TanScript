@@ -1,6 +1,5 @@
-import { ASTNode } from './AST/AST';
 import { LexerError } from './errors';
-import { Token } from './types';
+import { IChildrenEnumerable, Token } from './types';
 
 export const valueToToken = (value: string): Token => {
     // See if the value is an enum as its string component
@@ -39,7 +38,7 @@ export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48)
 );
 
-export const findSignals = (ast: ASTNode): string[] => {
+export const findSignals = (ast: IChildrenEnumerable): string[] => {
     const children = ast.getChildren();
 
     if (children.length == 0) {
@@ -47,7 +46,6 @@ export const findSignals = (ast: ASTNode): string[] => {
     }
 
     const ret: string[] = [];
-
     children.forEach((c) => {
         if (c.isOneOf(Token.SIGNAL, Token.COMPUTE)) ret.push(c.getValue());
         else findSignals(c).forEach((s) => ret.push(s));

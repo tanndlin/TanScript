@@ -1,6 +1,6 @@
-import { AssignASTNode } from './AST/AST';
+import { SignalComputeAssignmentAST } from './AST/SignalAST';
 import Scope from './Scope';
-import { RuntimeValue } from './types';
+import { IChildrenEnumerable, RuntimeValue } from './types';
 import { findSignals } from './util';
 
 export class Signal {
@@ -29,13 +29,17 @@ export class ComputedSignal extends Signal {
     public isDirty: boolean = false;
     private callback: () => RuntimeValue;
 
-    constructor(scope: Scope, public name: string, assignAST: AssignASTNode) {
-        super(name, assignAST.evaluate(scope, true));
+    constructor(
+        scope: Scope,
+        public name: string,
+        assignAST: SignalComputeAssignmentAST
+    ) {
+        super(name, assignAST.valueAST.evaluate(scope));
 
-        const [ident, value] = assignAST.getChildren();
+        const { valueAST } = assignAST;
 
         // Find all signals in the expression
-        const signals = findSignals(value);
+        const signals = findSignals(valueAST as IChildrenEnumerable);
         signals.forEach((signalName) => {
             const signal = scope.getSignal(signalName);
             if (signal instanceof ComputedSignal)
@@ -45,7 +49,7 @@ export class ComputedSignal extends Signal {
             signal.dependencies.push(this);
         });
 
-        this.callback = () => value.evaluate(scope);
+        this.callback = () => valueAST.evaluate(scope);
     }
 
     getValue() {

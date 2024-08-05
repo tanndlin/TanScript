@@ -1,5 +1,5 @@
-import { AssignASTNode } from './AST/AST';
 import { FunctionDefASTNode } from './AST/ControlAST';
+import { SignalComputeAssignmentAST } from './AST/SignalAST';
 import { ComputedSignal, Signal } from './Signal';
 import {
     TannerError,
@@ -154,7 +154,10 @@ export default class Scope {
         this.signals.set(identifier, signal);
     }
 
-    setSignalCompute(identifier: string, assignAST: AssignASTNode) {
+    setSignalCompute(
+        identifier: string,
+        assignAST: SignalComputeAssignmentAST
+    ) {
         let signal: Signal;
         try {
             signal = this.getSignal(identifier);

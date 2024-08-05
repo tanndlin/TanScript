@@ -1,16 +1,24 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
-import { INumberableAST, Token } from '../types';
+import { IChildrenEnumerable, INumberableAST, Token } from '../types';
 import { ASTNode } from './AST';
 
-export class MathASTNode extends ASTNode implements INumberableAST {
+export class MathASTNode
+    extends ASTNode
+    implements INumberableAST, IChildrenEnumerable
+{
+    public left: INumberableAST;
+    public right: INumberableAST;
+
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
-        super(type, [left, right]);
+        super(type);
+        this.left = left;
+        this.right = right;
     }
 
     evaluate(scope: Scope): number {
-        const left = (this.getChildren()[0] as INumberableAST).evaluate(scope);
-        const right = (this.getChildren()[1] as INumberableAST).evaluate(scope);
+        const left = (this.left as INumberableAST).evaluate(scope);
+        const right = (this.right as INumberableAST).evaluate(scope);
 
         switch (this.getType()) {
             case Token.PLUS:
@@ -37,6 +45,10 @@ export class MathASTNode extends ASTNode implements INumberableAST {
         }
 
         return left + right;
+    }
+
+    getChildren(): IChildrenEnumerable[] {
+        return [this.left, this.right];
     }
 }
 
@@ -76,13 +88,17 @@ export class ModASTNode extends MathASTNode {
     }
 }
 
-export class NumberASTNode extends ASTNode {
+export class NumberASTNode extends ASTNode implements INumberableAST {
     constructor(value: string) {
-        super(Token.NUMBER, []);
+        super(Token.NUMBER);
         this.value = value;
     }
 
-    evaluate(): number {
+    getChildren(): IChildrenEnumerable[] {
+        return [];
+    }
+
+    evaluate(sope: Scope): number {
         return +this.value;
     }
 }

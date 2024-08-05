@@ -1,4 +1,6 @@
-import { ForASTNode } from '../AST/ControlAST';
+import { BlockASTNode, EOFASTNode } from '../AST/AST';
+import { LessThanASTNode } from '../AST/BoolAST';
+import { ForASTNode, ReturnASTNode } from '../AST/ControlAST';
 import Lexer from '../Lexer';
 import Optimizer from '../Optimizer';
 import Parser from '../Parser';
@@ -21,12 +23,23 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        expect(block.getChildren().length).toBe(1);
+        const [block, eof] = root.children;
+        expect(block).toBeInstanceOf(BlockASTNode);
+        if (!(block instanceof BlockASTNode)) {
+            throw new Error('Block is not an instance of BlockASTNode');
+        }
 
-        const [retStatement] = block.getChildren();
-        expect(retStatement.getChildren().length).toBe(1);
-        expect(+retStatement.getChildren()[0].getValue()).toBe(1);
+        expect(block.children.length).toBe(1);
+
+        const [retStatement] = block.children;
+        expect(retStatement).toBeInstanceOf(ReturnASTNode);
+        if (!(retStatement instanceof ReturnASTNode)) {
+            throw new Error(
+                'Return statement is not an instance of ReturnASTNode'
+            );
+        }
+
+        expect(+retStatement.valueAST.getValue()).toBe(1);
     });
 
     it('should simplify always false', () => {
@@ -45,12 +58,23 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        expect(block.getChildren().length).toBe(1);
+        const [block, eof] = root.children;
+        expect(block).toBeInstanceOf(BlockASTNode);
+        if (!(block instanceof BlockASTNode)) {
+            throw new Error('Block is not an instance of BlockASTNode');
+        }
 
-        const [retStatement] = block.getChildren();
-        expect(retStatement.getChildren().length).toBe(1);
-        expect(+retStatement.getChildren()[0].getValue()).toBe(2);
+        expect(block.children.length).toBe(1);
+
+        const [retStatement] = block.children;
+        expect(retStatement).toBeInstanceOf(ReturnASTNode);
+        if (!(retStatement instanceof ReturnASTNode)) {
+            throw new Error(
+                'Return statement is not an instance of ReturnASTNode'
+            );
+        }
+
+        expect(+retStatement.valueAST.getValue()).toBe(2);
     });
 
     it('should simplify always true without else block', () => {
@@ -67,12 +91,23 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        expect(block.getChildren().length).toBe(1);
+        const [block, eof] = root.children;
+        expect(block).toBeInstanceOf(BlockASTNode);
+        if (!(block instanceof BlockASTNode)) {
+            throw new Error('Block is not an instance of BlockASTNode');
+        }
 
-        const [retStatement] = block.getChildren();
-        expect(retStatement.getChildren().length).toBe(1);
-        expect(+retStatement.getChildren()[0].getValue()).toBe(1);
+        expect(block.children.length).toBe(1);
+
+        const [retStatement] = block.children;
+        expect(retStatement).toBeInstanceOf(ReturnASTNode);
+        if (!(retStatement instanceof ReturnASTNode)) {
+            throw new Error(
+                'Return statement is not an instance of ReturnASTNode'
+            );
+        }
+
+        expect(+retStatement.valueAST.getValue()).toBe(1);
     });
 
     it('should simplify always false without else block', () => {
@@ -89,9 +124,10 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        console.log(block.getChildren());
-        expect(block.getChildren().length).toBe(0);
+
+        expect(root.children).toHaveLength(1);
+        const [eof] = root.children;
+        expect(eof).toBeInstanceOf(EOFASTNode);
     });
 
     it('should simplify if condition is not a boolean', () => {
@@ -110,12 +146,23 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        expect(block.getChildren().length).toBe(1);
+        const [block, eof] = root.children;
+        expect(block).toBeInstanceOf(BlockASTNode);
+        if (!(block instanceof BlockASTNode)) {
+            throw new Error('Block is not an instance of BlockASTNode');
+        }
 
-        const [retStatement] = block.getChildren();
-        expect(retStatement.getChildren().length).toBe(1);
-        expect(+retStatement.getChildren()[0].getValue()).toBe(1);
+        expect(block.children.length).toBe(1);
+
+        const [retStatement] = block.children;
+        expect(retStatement).toBeInstanceOf(ReturnASTNode);
+        if (!(retStatement instanceof ReturnASTNode)) {
+            throw new Error(
+                'Return statement is not an instance of ReturnASTNode'
+            );
+        }
+
+        expect(+retStatement.valueAST.getValue()).toBe(1);
     });
 
     it('should simplify ifs with compound expressions', () => {
@@ -134,12 +181,23 @@ describe('Optimizer: Simplify always true/false', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [block, eof] = root.getChildren();
-        expect(block.getChildren().length).toBe(1);
+        const [block, eof] = root.children;
+        expect(block).toBeInstanceOf(BlockASTNode);
+        if (!(block instanceof BlockASTNode)) {
+            throw new Error('Block is not an instance of BlockASTNode');
+        }
 
-        const [retStatement] = block.getChildren();
-        expect(retStatement.getChildren().length).toBe(1);
-        expect(+retStatement.getChildren()[0].getValue()).toBe(1);
+        expect(block.children.length).toBe(1);
+
+        const [retStatement] = block.children;
+        expect(retStatement).toBeInstanceOf(ReturnASTNode);
+        if (!(retStatement instanceof ReturnASTNode)) {
+            throw new Error(
+                'Return statement is not an instance of ReturnASTNode'
+            );
+        }
+
+        expect(+retStatement.valueAST.getValue()).toBe(1);
     });
 });
 
@@ -153,7 +211,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.TRUE);
     });
 
@@ -166,7 +224,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.FALSE);
     });
 
@@ -179,7 +237,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.TRUE);
     });
 
@@ -192,7 +250,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.TRUE);
     });
 
@@ -205,7 +263,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.FALSE);
     });
 
@@ -218,7 +276,7 @@ describe('Optimizer: Simplify compound expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [bool, eof] = root.getChildren();
+        const [bool, eof] = root.children;
         expect(bool.getType()).toBe(Token.TRUE);
     });
 });
@@ -238,7 +296,7 @@ describe('Optimizer: Simplify math expressions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [num, eof] = root.getChildren();
+        const [num, eof] = root.children;
         expect(+num.getValue()).toBe(expected);
     });
 });
@@ -258,12 +316,15 @@ describe('Optimizer: Simplify for loop conditions', () => {
         ast = Optimizer.optimize(ast);
 
         const root = ast.getRoot();
-        const [forLoop, eof] = root.getChildren();
+        const [forLoop, eof] = root.children;
         const { init, condition, update, block } = forLoop as ForASTNode;
 
-        expect(condition.getType()).toBe(Token.LESS);
-        expect(condition.getChildren().length).toBe(2);
-        const [left, right] = condition.getChildren();
+        expect(condition).toBeInstanceOf(LessThanASTNode);
+        if (!(condition instanceof LessThanASTNode)) {
+            throw new Error('Condition is not an instance of LessThanASTNode');
+        }
+
+        const { left, right } = condition;
         expect(right.getType()).toBe(Token.NUMBER);
         expect(+right.getValue()).toBe(20);
     });
