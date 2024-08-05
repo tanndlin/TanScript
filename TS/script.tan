@@ -1,27 +1,3 @@
-def collatz(n, chainLength){
-    if (n == 1){
-        return chainLength;
-    }
-
-    if (n % 2 == 0){
-        return collatz(n / 2, chainLength + 1);
-    }
-    
-    return collatz(3 * n + 1, chainLength + 1);
+if(false){
+    print("This is a test");
 }
-
-let max = 0;
-let winner = 0;
-
-for (let i = 1; i < 1000000; i++){
-    let chainLength = collatz(i, 1);
-    print(i);
-    print(chainLength);
-    if (chainLength > max){
-        max = chainLength;
-        winner = i;
-    }
-}
-
-max;
-winner;

@@ -25,6 +25,10 @@ export class RootASTNode extends TokenTypeable {
     public getChildren(): ASTNode[] {
         return this.children;
     }
+
+    public setChildren(children: ASTNode[]) {
+        this.children = children;
+    }
 }
 
 export abstract class ASTNode extends RootASTNode {
