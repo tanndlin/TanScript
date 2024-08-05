@@ -155,4 +155,89 @@ describe('Optimizer: Simplify compound expressions', () => {
         const [bool, eof] = root.getChildren();
         expect(bool.getType()).toBe(Token.TRUE);
     });
+
+    it('should simplify boolean logic and', () => {
+        const script = 'true && false';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [bool, eof] = root.getChildren();
+        expect(bool.getType()).toBe(Token.FALSE);
+    });
+
+    it('should simplify boolean logic or', () => {
+        const script = 'true || false';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [bool, eof] = root.getChildren();
+        expect(bool.getType()).toBe(Token.TRUE);
+    });
+
+    it('should simplify mulitple boolean logic', () => {
+        const script = 'true && false || true && true';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [bool, eof] = root.getChildren();
+        expect(bool.getType()).toBe(Token.TRUE);
+    });
+
+    it('should simplify boolean logic not', () => {
+        const script = '!true';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [bool, eof] = root.getChildren();
+        expect(bool.getType()).toBe(Token.FALSE);
+    });
+
+    it('should simplify nested boolean logic nots', () => {
+        const script = '!!true';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [bool, eof] = root.getChildren();
+        expect(bool.getType()).toBe(Token.TRUE);
+    });
+});
+
+describe('Optimizer: Simplify math expressions', () => {
+    it.each([
+        ['1 + 2', 3],
+        ['1 - 2', -1],
+        ['1 * 2', 2],
+        ['1 / 2', 0.5],
+        ['1 % 2', 1],
+    ])(`should simplify %s to %i`, (script, expected) => {
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const parser = new Parser(tokens);
+        let ast = parser.parse();
+        ast = Optimizer.optimize(ast);
+
+        const root = ast.getRoot();
+        const [num, eof] = root.getChildren();
+        expect(+num.getValue()).toBe(expected);
+    });
 });
