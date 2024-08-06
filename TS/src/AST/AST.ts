@@ -58,17 +58,29 @@ export class EOFASTNode extends DecoratorASTNode {
     constructor() {
         super(Token.EOF);
     }
+
+    evaluate(scope: Scope): RuntimeValue {
+        throw new TannerError('Unexpected call to EOF.evaluate');
+    }
 }
 
 export class RParenASTNode extends DecoratorASTNode {
     constructor() {
         super(Token.RPAREN);
     }
+
+    evaluate(scope: Scope): RuntimeValue {
+        throw new TannerError('Unexpected call to RParen.evaluate');
+    }
 }
 
 export class SemiASTNode extends DecoratorASTNode {
     constructor() {
         super(Token.SEMI);
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        throw new TannerError('Unexpected call to Semi.evaluate');
     }
 }
 
