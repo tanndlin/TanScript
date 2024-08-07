@@ -18,13 +18,13 @@ describe('Enviornment Basic Tests', () => {
     it('should run basic script', () => {
         const assign = new AssignASTNode(
             new IdentifierASTNode('x'),
-            new NumberASTNode('10')
+            new NumberASTNode('10'),
         );
 
         const decl = new DeclarationASTNode(assign);
         const add = new AddASTNode(
             new IdentifierASTNode('x') as INumberableAST,
-            new NumberASTNode('5')
+            new NumberASTNode('5'),
         );
 
         const root = new BlockASTNode([decl, add]);
@@ -38,7 +38,7 @@ describe('Enviornment Basic Tests', () => {
         const root = new BlockASTNode([]);
         const assign = new AssignASTNode(
             new IdentifierASTNode('x'),
-            new NumberASTNode('10')
+            new NumberASTNode('10'),
         );
 
         const decl = new DeclarationASTNode(assign);
@@ -72,7 +72,7 @@ describe('Enviornment Basic Tests', () => {
         const decl = new DeclarationASTNode(new IdentifierASTNode('x'));
         const newAssign = new AssignASTNode(
             new IdentifierASTNode('x'),
-            new NumberASTNode('20')
+            new NumberASTNode('20'),
         );
 
         root.addChild(decl);
@@ -100,7 +100,7 @@ describe.each([
             const result = engine.run();
             expect(result).toBe(expected);
         });
-    }
+    },
 );
 
 describe('Enviornment Integration Tests', () => {

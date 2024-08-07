@@ -1,4 +1,4 @@
-import { BlockASTNode, DeclarationASTNode } from '../AST/AST';
+import { AssignASTNode, BlockASTNode, DeclarationASTNode } from '../AST/AST';
 import { FunctionDefASTNode } from '../AST/ControlAST';
 import { AddASTNode } from '../AST/NumberAST';
 import Environment from '../Environment';
@@ -44,7 +44,11 @@ describe('Lambda Tests', () => {
         }
 
         const { child: assign } = decl;
-        const [ident, lambda] = assign.getChildren();
+        if (!(assign instanceof AssignASTNode)) {
+            throw new Error('Expected assignment');
+        }
+
+        const { valueAST: lambda } = assign;
 
         expect(lambda).toBeInstanceOf(FunctionDefASTNode);
         if (!(lambda instanceof FunctionDefASTNode)) {

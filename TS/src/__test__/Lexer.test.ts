@@ -29,7 +29,7 @@ describe('Lexer Tests', () => {
                 new LexerToken(tokenType as Token, word, 1),
                 new LexerToken(Token.EOF, '', 1),
             ]);
-        }
+        },
     );
 
     it('should tokenize an identifier', () => {

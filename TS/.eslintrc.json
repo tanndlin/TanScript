@@ -1,0 +1,61 @@
+{
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module",
+        "project": [
+            "./tsconfig.json"
+        ]
+    },
+    "extends": [
+        "airbnb-typescript/base",
+        "plugin:prettier/recommended",
+        "plugin:import/recommended"
+    ],
+    "plugins": [
+        "@typescript-eslint",
+        "import"
+    ],
+    "rules": {
+        "@typescript-eslint/naming-convention": "warn",
+        "@typescript-eslint/semi": "warn",
+        "curly": "warn",
+        "eqeqeq": "warn",
+        "no-throw-literal": "warn",
+        "semi": "off",
+        "no-shadow": "off",
+        "no-sparse-arrays": "off",
+        "@typescript-eslint/no-shadow": [
+            "off"
+        ],
+        "prettier/prettier": [
+            "error",
+            {
+                "tabWidth": 4,
+                "singleQuote": true,
+                "endOfLine": "auto"
+            }
+        ],
+        "quotes": [
+            2,
+            "single",
+            {
+                "avoidEscape": true
+            }
+        ],
+        "@typescript-eslint/no-use-before-define": [
+            "error",
+            {
+                "functions": false,
+                "variables": true,
+                "classes": true
+            }
+        ]
+    },
+    "ignorePatterns": [
+        "out",
+        "dist",
+        "**/*.d.ts"
+    ]
+}

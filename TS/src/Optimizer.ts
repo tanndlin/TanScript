@@ -81,7 +81,7 @@ export default class Optimizer {
             | NumberASTNode
             | BooleanOpASTNode
             | MathASTNode
-            | NotASTNode
+            | NotASTNode,
     ): ASTNode {
         const type: Token = node.getType();
         if (node instanceof BooleanASTNode) {
@@ -95,10 +95,12 @@ export default class Optimizer {
         if (node instanceof NotASTNode) {
             let { child } = node;
             child = Optimizer.optimizeNode(child);
-            if (child.isType(Token.TRUE))
+            if (child.isType(Token.TRUE)) {
                 return new BooleanASTNode(Token.FALSE);
-            if (child.isType(Token.FALSE))
+            }
+            if (child.isType(Token.FALSE)) {
                 return new BooleanASTNode(Token.TRUE);
+            }
 
             node.child = child;
             return node;
@@ -117,27 +119,27 @@ export default class Optimizer {
             switch (type) {
                 case Token.LESS:
                     return new BooleanASTNode(
-                        leftNum < rightNum ? Token.TRUE : Token.FALSE
+                        leftNum < rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.LEQ:
                     return new BooleanASTNode(
-                        leftNum <= rightNum ? Token.TRUE : Token.FALSE
+                        leftNum <= rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.GREATER:
                     return new BooleanASTNode(
-                        leftNum > rightNum ? Token.TRUE : Token.FALSE
+                        leftNum > rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.GEQ:
                     return new BooleanASTNode(
-                        leftNum >= rightNum ? Token.TRUE : Token.FALSE
+                        leftNum >= rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.EQUAL:
                     return new BooleanASTNode(
-                        leftNum === rightNum ? Token.TRUE : Token.FALSE
+                        leftNum === rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.NEQ:
                     return new BooleanASTNode(
-                        leftNum !== rightNum ? Token.TRUE : Token.FALSE
+                        leftNum !== rightNum ? Token.TRUE : Token.FALSE,
                     );
             }
         }
@@ -153,11 +155,11 @@ export default class Optimizer {
             switch (type) {
                 case Token.AND:
                     return new BooleanASTNode(
-                        leftBool && rightBool ? Token.TRUE : Token.FALSE
+                        leftBool && rightBool ? Token.TRUE : Token.FALSE,
                     );
                 case Token.OR:
                     return new BooleanASTNode(
-                        leftBool || rightBool ? Token.TRUE : Token.FALSE
+                        leftBool || rightBool ? Token.TRUE : Token.FALSE,
                     );
             }
         }

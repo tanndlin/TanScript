@@ -1,7 +1,6 @@
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import {
-    BooleanToken,
     IBooleanableAST,
     IChildrenEnumerable,
     INumberableAST,
@@ -11,6 +10,7 @@ import { ASTNode } from './AST';
 
 export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
     public left: INumberableAST;
+
     public right: INumberableAST;
 
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
@@ -44,10 +44,6 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
 }
 
 export class BooleanASTNode extends ASTNode {
-    constructor(token: BooleanToken) {
-        super(token);
-    }
-
     evaluate(): boolean {
         return this.isType(Token.TRUE);
     }
@@ -112,7 +108,9 @@ export class AndASTNode extends BooleanOpASTNode {
         const left = this.left.evaluate(scope);
 
         // Short circuit
-        if (!left) return false;
+        if (!left) {
+            return false;
+        }
 
         const right = this.right.evaluate(scope);
 
@@ -129,7 +127,9 @@ export class OrASTNode extends BooleanOpASTNode {
         const left = this.left.evaluate(scope);
 
         // Short circuit
-        if (left) return true;
+        if (left) {
+            return true;
+        }
 
         const right = this.right.evaluate(scope);
 

@@ -5,7 +5,9 @@ import Parser from './Parser';
 
 export default class Engine {
     private lexer: Lexer;
+
     private parser: Parser;
+
     private environment: Environment;
 
     constructor(private script: string) {

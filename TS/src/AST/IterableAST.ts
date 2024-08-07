@@ -7,72 +7,9 @@ import {
     IdentifierASTNode,
 } from './AST';
 
-export class IterableASTNode extends ASTNode {
-    public items: ASTNode[];
-
-    constructor(items: ASTNode[]) {
-        super(Token.LBRACKET);
-        this.items = items;
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        return this.items.map((child) => child.evaluate(scope));
-    }
-
-    createIterator(scope: Scope): Iterator {
-        return new Iterator(this.items.map((child) => child.evaluate(scope)));
-    }
-}
-
-export class ListASTNode extends IterableASTNode {
-    constructor(items: ASTNode[]) {
-        super(items);
-    }
-}
-
-export class ForEachASTNode extends ASTNode {
-    public init: DeclarationASTNode | IdentifierASTNode;
-    public iterable: IterableResolvable;
-    public block: BlockASTNode;
-
-    constructor(
-        init: DeclarationASTNode | IdentifierASTNode,
-        iterable: IterableResolvable,
-        block: BlockASTNode
-    ) {
-        super(Token.FOREACH);
-        this.init = init;
-        this.iterable = iterable;
-        this.block = block;
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        let iterator: Iterator;
-        if (this.iterable instanceof IdentifierASTNode) {
-            const items = scope.getVariable(
-                this.iterable.getValue()
-            ) as Iterable;
-            iterator = new Iterator(items);
-        } else {
-            iterator = (this.iterable as IterableASTNode).createIterator(scope);
-        }
-
-        let ret;
-        while (iterator.hasNext() && !scope.isReturning()) {
-            const curItem = iterator.next();
-
-            // Add the current item to the scope
-            const newScope = new Scope(scope.globalScope, scope);
-            newScope.addVariable(this.init.getValue(), curItem);
-            ret = this.block.evaluate(newScope);
-        }
-
-        return ret;
-    }
-}
-
 class Iterator {
     protected items: RuntimeValue[];
+
     private index: number;
 
     constructor(items: RuntimeValue[]) {
@@ -97,9 +34,64 @@ class Iterator {
     }
 }
 
-class SortedIterator extends Iterator {
-    constructor(items: RuntimeValue[]) {
-        super(items);
-        this.items.sort();
+export class IterableASTNode extends ASTNode {
+    public items: ASTNode[];
+
+    constructor(items: ASTNode[]) {
+        super(Token.LBRACKET);
+        this.items = items;
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        return this.items.map((child) => child.evaluate(scope));
+    }
+
+    createIterator(scope: Scope): Iterator {
+        return new Iterator(this.items.map((child) => child.evaluate(scope)));
+    }
+}
+
+export class ListASTNode extends IterableASTNode {}
+
+export class ForEachASTNode extends ASTNode {
+    public init: DeclarationASTNode | IdentifierASTNode;
+
+    public iterable: IterableResolvable;
+
+    public block: BlockASTNode;
+
+    constructor(
+        init: DeclarationASTNode | IdentifierASTNode,
+        iterable: IterableResolvable,
+        block: BlockASTNode,
+    ) {
+        super(Token.FOREACH);
+        this.init = init;
+        this.iterable = iterable;
+        this.block = block;
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        let iterator: Iterator;
+        if (this.iterable instanceof IdentifierASTNode) {
+            const items = scope.getVariable(
+                this.iterable.getValue(),
+            ) as Iterable;
+            iterator = new Iterator(items);
+        } else {
+            iterator = (this.iterable as IterableASTNode).createIterator(scope);
+        }
+
+        let ret;
+        while (iterator.hasNext() && !scope.isReturning()) {
+            const curItem = iterator.next();
+
+            // Add the current item to the scope
+            const newScope = new Scope(scope.globalScope, scope);
+            newScope.addVariable(this.init.getValue(), curItem);
+            ret = this.block.evaluate(newScope);
+        }
+
+        return ret;
     }
 }

@@ -5,7 +5,10 @@ import { RuntimeValue } from './types';
 export default class Environment {
     private globalScope: Scope;
 
-    constructor(private ast: AST, private debug: boolean = false) {
+    constructor(
+        private ast: AST,
+        private debug: boolean = false,
+    ) {
         this.globalScope = new Scope(null, null);
     }
 
@@ -18,13 +21,18 @@ export default class Environment {
             if (
                 statement instanceof SemiASTNode ||
                 statement instanceof EOFASTNode
-            )
+            ) {
                 return;
+            }
 
-            if (this.debug) console.log(`Statement ${i + 1}:`);
+            if (this.debug) {
+                console.log(`Statement ${i + 1}:`);
+            }
             retValue = statement.evaluate(this.globalScope);
 
-            if (this.debug) console.log(retValue);
+            if (this.debug) {
+                console.log(retValue);
+            }
         });
 
         return retValue;

@@ -17,6 +17,7 @@ export class AST {
 
 export abstract class ASTNode extends TokenTypeable {
     protected type: Token;
+
     protected value: string;
 
     constructor(type: Token) {
@@ -37,15 +38,11 @@ export abstract class ASTNode extends TokenTypeable {
 }
 
 export class DecoratorASTNode extends ASTNode {
-    constructor(token: Token) {
-        super(token);
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to DecoratorASTNode.evaluate');
     }
 
-    addChild(node: ASTNode): void {
+    addChild(): void {
         throw new TannerError('Unexpected call to DecoratorASTNode.addChild');
     }
 
@@ -59,7 +56,7 @@ export class EOFASTNode extends DecoratorASTNode {
         super(Token.EOF);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to EOF.evaluate');
     }
 }
@@ -69,7 +66,7 @@ export class RParenASTNode extends DecoratorASTNode {
         super(Token.RPAREN);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to RParen.evaluate');
     }
 }
@@ -79,7 +76,7 @@ export class SemiASTNode extends DecoratorASTNode {
         super(Token.SEMI);
     }
 
-    evaluate(scope: Scope): RuntimeValue {
+    evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to Semi.evaluate');
     }
 }
@@ -135,7 +132,7 @@ export class DeclarationASTNode extends ASTNode {
         }
 
         throw new TannerError(
-            `Unexpectd AST Type as child for decl. Got: ${this.child.getType()}`
+            `Unexpectd AST Type as child for decl. Got: ${this.child.getType()}`,
         );
     }
 
@@ -176,6 +173,7 @@ export class StringASTNode extends ASTNode {
 
 export class AssignASTNode extends ASTNode {
     public identifier: IdentifierASTNode;
+
     public valueAST: ASTNode;
 
     constructor(left: IdentifierASTNode, right: ASTNode) {
@@ -186,8 +184,9 @@ export class AssignASTNode extends ASTNode {
 
     evaluate(scope: Scope, isSignal = false): RuntimeValue {
         const evaluatedValue = this.valueAST.evaluate(scope);
-        if (!isSignal)
+        if (!isSignal) {
             scope.setVariable(this.identifier.getValue(), evaluatedValue);
+        }
         return evaluatedValue;
     }
 

@@ -9,7 +9,10 @@ export class Signal {
     // List of all computed signals that rely on this signal
     public dependencies: ComputedSignal[] = [];
 
-    constructor(public name: string, public value: RuntimeValue) {}
+    constructor(
+        public name: string,
+        public value: RuntimeValue,
+    ) {}
 
     getValue(): RuntimeValue {
         return this.value;
@@ -25,14 +28,17 @@ export class Signal {
 
 export class ComputedSignal extends Signal {
     public type = 'computed';
+
     public dependsOn: Signal[] = [];
+
     public isDirty: boolean = false;
+
     private callback: () => RuntimeValue;
 
     constructor(
         scope: Scope,
         public name: string,
-        assignAST: SignalComputeAssignmentAST
+        assignAST: SignalComputeAssignmentAST,
     ) {
         super(name, assignAST.valueAST.evaluate(scope));
 
@@ -42,8 +48,9 @@ export class ComputedSignal extends Signal {
         const signals = findSignals(valueAST as IChildrenEnumerable);
         signals.forEach((signalName) => {
             const signal = scope.getSignal(signalName);
-            if (signal instanceof ComputedSignal)
+            if (signal instanceof ComputedSignal) {
                 this.dependsOn.push(...signal.dependsOn);
+            }
 
             this.dependsOn.push(signal);
             signal.dependencies.push(this);
@@ -53,7 +60,9 @@ export class ComputedSignal extends Signal {
     }
 
     getValue() {
-        if (!this.isDirty) return this.value;
+        if (!this.isDirty) {
+            return this.value;
+        }
         // Clean all deps
         this.dependsOn.forEach((dep) => {
             dep.getValue();
@@ -67,7 +76,9 @@ export class ComputedSignal extends Signal {
 
     markChildrenDirty(): void {
         // If this signal is already dirty, then all of its dependencies are dirty
-        if (this.isDirty) return;
+        if (this.isDirty) {
+            return;
+        }
 
         super.markChildrenDirty();
     }

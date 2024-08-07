@@ -36,11 +36,12 @@ export class AttributeASTNode extends ASTNode {
 
 export class ObjectAccessAST extends ASTNode {
     public objIdentifier: IdentifierASTNode;
+
     public attribute: IdentifierASTNode;
 
     constructor(
         objIdentifier: IdentifierASTNode,
-        attribute: IdentifierASTNode
+        attribute: IdentifierASTNode,
     ) {
         super(Token.IDENTIFIER);
         this.objIdentifier = objIdentifier;

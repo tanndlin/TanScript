@@ -8,6 +8,7 @@ export class MathASTNode
     implements INumberableAST, IChildrenEnumerable
 {
     public left: INumberableAST;
+
     public right: INumberableAST;
 
     constructor(type: Token, left: INumberableAST, right: INumberableAST) {
@@ -98,7 +99,7 @@ export class NumberASTNode extends ASTNode implements INumberableAST {
         return [];
     }
 
-    evaluate(sope: Scope): number {
+    evaluate(): number {
         return +this.value;
     }
 }

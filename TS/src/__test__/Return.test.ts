@@ -2,7 +2,7 @@ import Engine from '../Engine';
 
 describe('Return', () => {
     it('should return a value explicitly', () => {
-        const script = `def foo() {return 10;}foo();`;
+        const script = 'def foo() {return 10;}foo();';
         const engine = new Engine(script);
         const result = engine.run();
 
@@ -10,7 +10,7 @@ describe('Return', () => {
     });
 
     it('should return a value implicitly', () => {
-        const script = `def foo() {10;}foo();`;
+        const script = 'def foo() {10;}foo();';
         const engine = new Engine(script);
         const result = engine.run();
 
@@ -18,7 +18,7 @@ describe('Return', () => {
     });
 
     it('should return a variable implicitly', () => {
-        const script = `def foo() {let a = 10; a;}foo();`;
+        const script = 'def foo() {let a = 10; a;}foo();';
         const engine = new Engine(script);
         const result = engine.run();
 
@@ -26,7 +26,7 @@ describe('Return', () => {
     });
 
     it('return should break early', () => {
-        const script = `def foo() {return 10; 20;}foo();`;
+        const script = 'def foo() {return 10; 20;}foo();';
         const engine = new Engine(script);
         const result = engine.run();
 

@@ -19,7 +19,7 @@ describe('Function Tests', () => {
 
         const scope = engine.getEnvironment().getGlobalScope();
         expect(() => scope.getVariable<number>('x')).toThrow(
-            UndeclaredVariableError
+            UndeclaredVariableError,
         );
     });
 

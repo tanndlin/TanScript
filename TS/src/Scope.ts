@@ -11,14 +11,19 @@ import { RuntimeValue } from './types';
 
 export default class Scope {
     public globalScope: Scope | null;
+
     private parent: Scope | null;
+
     private variables: Map<string, any>;
+
     private signals: Map<string, Signal>;
+
     private scopes: Map<string, Scope>;
 
     private isGlobalScope: boolean;
 
     private returning: boolean = false;
+
     private returnedValue: RuntimeValue | null = null;
 
     constructor(globalScope: Scope | null, parent: Scope | null) {
@@ -32,11 +37,14 @@ export default class Scope {
     }
 
     getVariable<T>(name: string): T {
-        if (this.variables.has(name)) return this.variables.get(name) as T;
+        if (this.variables.has(name)) {
+            return this.variables.get(name) as T;
+        }
         let scope: Scope | null = this.parent;
         while (scope) {
-            if (scope.variables.has(name))
+            if (scope.variables.has(name)) {
                 return scope.variables.get(name) as T;
+            }
             scope = scope.parent;
         }
 
@@ -56,7 +64,7 @@ export default class Scope {
     addVariable(name: string, value: RuntimeValue) {
         if (this.variables.has(name)) {
             throw new TannerError(
-                `Variable ${name} already declared. This should not happen unless the Engine is coded incorrectly.`
+                `Variable ${name} already declared. This should not happen unless the Engine is coded incorrectly.`,
             );
         }
 
@@ -80,7 +88,7 @@ export default class Scope {
         }
 
         throw new UseBeforeDeclarationError(
-            `Cannot set value for variable ${name} before declaration`
+            `Cannot set value for variable ${name} before declaration`,
         );
     }
 
@@ -89,12 +97,14 @@ export default class Scope {
     }
 
     getFunction(name: string): FunctionDefASTNode {
-        if (this.variables.has(name))
+        if (this.variables.has(name)) {
             return this.variables.get(name) as FunctionDefASTNode;
+        }
         let scope: Scope | null = this.parent;
         while (scope) {
-            if (scope.variables.has(name))
+            if (scope.variables.has(name)) {
                 return scope.variables.get(name) as FunctionDefASTNode;
+            }
             scope = scope.parent;
         }
 
@@ -135,8 +145,9 @@ export default class Scope {
 
     getSignalValue(name: string): RuntimeValue {
         const signal = this.getSignal(name);
-        if (!signal)
+        if (!signal) {
             throw new UndeclaredVariableError(`Signal ${name} not found`);
+        }
 
         return signal.getValue();
     }
@@ -156,7 +167,7 @@ export default class Scope {
 
     setSignalCompute(
         identifier: string,
-        assignAST: SignalComputeAssignmentAST
+        assignAST: SignalComputeAssignmentAST,
     ) {
         let signal: Signal;
         try {

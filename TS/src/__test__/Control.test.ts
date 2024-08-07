@@ -16,7 +16,7 @@ describe('Control Structure Tests', () => {
 
         // I should not be in the global scope
         expect(() => scope.getVariable<number>('i')).toThrow(
-            UndeclaredVariableError
+            UndeclaredVariableError,
         );
     });
 

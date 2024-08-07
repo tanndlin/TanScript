@@ -7,6 +7,7 @@ import { BooleanOpASTNode } from './BoolAST';
 
 export class WhileASTNode extends ASTNode {
     public condition: ASTNode;
+
     public block: ASTNode;
 
     constructor(condition: ASTNode, block: ASTNode) {
@@ -31,7 +32,7 @@ export class ForASTNode extends ASTNode {
         public init: ASTNode,
         public condition: ASTNode,
         public update: ASTNode,
-        public block: ASTNode
+        public block: ASTNode,
     ) {
         super(Token.FOR);
     }
@@ -53,7 +54,9 @@ export class ForASTNode extends ASTNode {
 
 export class IfASTNode extends ASTNode {
     public condition: ASTNode;
+
     public block: ASTNode;
+
     public elseBlock?: ASTNode;
 
     constructor(condition: ASTNode, block: ASTNode, elseBlock?: ASTNode) {
@@ -76,12 +79,13 @@ export class IfASTNode extends ASTNode {
 
 export class FunctionDefASTNode extends ASTNode {
     public block: BlockASTNode;
+
     private paramList: IdentifierASTNode[];
 
     constructor(
         name: string,
         paramList: IdentifierASTNode[],
-        block: BlockASTNode
+        block: BlockASTNode,
     ) {
         super(Token.FUNCTION);
         this.value = name;
@@ -98,14 +102,14 @@ export class FunctionDefASTNode extends ASTNode {
     callFunction(
         callersScope: Scope,
         params: ASTNode[],
-        funcDef: FunctionDefASTNode
+        funcDef: FunctionDefASTNode,
     ): RuntimeValue {
         // Make sure the number of params line up
         if (params.length !== this.paramList.length) {
             throw new RuntimeError(
                 `Function ${this.getValue()} expected ${
                     this.paramList.length
-                } params, got ${params.length}`
+                } params, got ${params.length}`,
             );
         }
 
@@ -139,7 +143,7 @@ export class FunctionCallASTNode extends ASTNode {
     evaluate(scope: Scope): RuntimeValue {
         if (this.value in allFunctions) {
             const args = this.args.map((arg) =>
-                arg.evaluate(scope)
+                arg.evaluate(scope),
             ) as RuntimeValue[];
             return allFunctions[this.value as BuiltInFuncName](...args);
         }

@@ -115,6 +115,7 @@ export abstract class TokenTypeable {
 
 export class LexerToken extends TokenTypeable {
     private value: string;
+
     private lineNumber: number;
 
     constructor(type: Token, value: string, lineNumber: number = -1) {

@@ -136,7 +136,7 @@ export default class Parser {
         }
 
         throw new ParserError(
-            `Unexpected token at line ${curToken.getLineNumber()}: ${curToken.getValue()}`
+            `Unexpected token at line ${curToken.getLineNumber()}: ${curToken.getValue()}`,
         );
     }
 
@@ -266,7 +266,7 @@ export default class Parser {
         if (
             this.tokens[this.pos].isOneOf(
                 Token.SIGNAL_ASSIGN,
-                Token.COMPUTE_ASSIGN
+                Token.COMPUTE_ASSIGN,
             )
         ) {
             return this.parseSignalAssign(identToken);
@@ -285,8 +285,8 @@ export default class Parser {
     parseIncrementDecrement<
         T extends new (
             left: INumberableAST,
-            right: INumberableAST
-        ) => MathASTNode
+            right: INumberableAST,
+        ) => MathASTNode,
     >(Ctor: T, identToken: LexerToken) {
         this.consumeOneOf([Token.INCREMENT, Token.DECREMENT]);
 
@@ -295,8 +295,8 @@ export default class Parser {
                 new IdentifierASTNode(identToken.getValue()),
                 new Ctor(
                     new SignalAST(identToken.getValue()) as INumberableAST,
-                    new NumberASTNode('1')
-                )
+                    new NumberASTNode('1'),
+                ),
             );
         }
 
@@ -305,10 +305,10 @@ export default class Parser {
                 new IdentifierASTNode(identToken.getValue()),
                 new Ctor(
                     new SignalComputeAST(
-                        identToken.getValue()
+                        identToken.getValue(),
                     ) as INumberableAST,
-                    new NumberASTNode('1')
-                )
+                    new NumberASTNode('1'),
+                ),
             );
         }
 
@@ -316,31 +316,32 @@ export default class Parser {
             new IdentifierASTNode(identToken.getValue()),
             new Ctor(
                 new IdentifierASTNode(identToken.getValue()) as INumberableAST,
-                new NumberASTNode('1')
-            )
+                new NumberASTNode('1'),
+            ),
         );
     }
 
     parseSignalAssign(
         identToken: LexerToken,
-        assignToken?: LexerToken
+        assignToken?: LexerToken,
     ): SignalAssignmentAST | SignalComputeAssignmentAST {
-        if (!assignToken)
+        if (!assignToken) {
             assignToken = this.consumeOneOf([
                 Token.SIGNAL_ASSIGN,
                 Token.COMPUTE_ASSIGN,
             ]);
+        }
 
         if (assignToken.isType(Token.SIGNAL_ASSIGN)) {
             return new SignalAssignmentAST(
                 new IdentifierASTNode(identToken.getValue()),
-                this.parseExpressionOrNumber()
+                this.parseExpressionOrNumber(),
             );
         }
 
         return new SignalComputeAssignmentAST(
             new IdentifierASTNode(identToken.getValue()),
-            this.parseExpressionOrNumber()
+            this.parseExpressionOrNumber(),
         );
     }
 
@@ -388,7 +389,7 @@ export default class Parser {
                     // TODO: Remove any casts
                     left = new ast(
                         left as any,
-                        this.parseNextPrecedence(depth - 1) as any
+                        this.parseNextPrecedence(depth - 1) as any,
                     );
                     matchFound = true;
                     break;
@@ -396,7 +397,9 @@ export default class Parser {
             }
 
             // If the next token matches none, return
-            if (!matchFound) break;
+            if (!matchFound) {
+                break;
+            }
         }
 
         return left;
@@ -483,7 +486,9 @@ export default class Parser {
     }
 
     parseArray(consumedToken?: LexerToken): ListASTNode {
-        if (!consumedToken) consumedToken = this.consumeToken(Token.LBRACKET);
+        if (!consumedToken) {
+            consumedToken = this.consumeToken(Token.LBRACKET);
+        }
 
         const elements: ASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RBRACKET) {
@@ -499,7 +504,9 @@ export default class Parser {
     }
 
     parseObject(consumedToken?: LexerToken): ASTNode {
-        if (!consumedToken) consumedToken = this.consumeToken(Token.LCURLY);
+        if (!consumedToken) {
+            consumedToken = this.consumeToken(Token.LCURLY);
+        }
 
         const attributes: AttributeASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RCURLY) {
@@ -540,7 +547,7 @@ export default class Parser {
 
     parseAssignment(
         identToken: LexerToken = this.consumeToken(Token.IDENTIFIER),
-        allowShortHand = true
+        allowShortHand = true,
     ): AssignASTNode {
         const assignToken = this.consumeOneOf([
             Token.ASSIGN,
@@ -552,10 +559,11 @@ export default class Parser {
         // +=, -=, *=, /=
         if (OPERATORS.has(assignToken.getType())) {
             // The token we consumed is an operator
-            if (!allowShortHand)
+            if (!allowShortHand) {
                 throw new ParserError(
-                    `Unexpected token ${assignToken.getValue()}. Expected an assignment operator. Cannot use shorthand assignment in this context.`
+                    `Unexpected token ${assignToken.getValue()}. Expected an assignment operator. Cannot use shorthand assignment in this context.`,
                 );
+            }
 
             return this.parseShortHandAssign(identToken, assignToken);
         }
@@ -572,7 +580,9 @@ export default class Parser {
         // If looks like a lambda
         if (this.tokens[this.pos].isType(Token.LPAREN)) {
             const ret = this.tryParseLambda(identToken.getValue());
-            if (ret) return new AssignASTNode(identAST, ret);
+            if (ret) {
+                return new AssignASTNode(identAST, ret);
+            }
         }
 
         // Already comsumed the assign token
@@ -602,7 +612,7 @@ export default class Parser {
 
     parseShortHandAssign(
         identToken: LexerToken,
-        assignToken: LexerToken
+        assignToken: LexerToken,
     ): AssignASTNode {
         this.consumeToken(Token.ASSIGN);
         const expressionAST = this.parseExpressionOrNumber();
@@ -612,7 +622,7 @@ export default class Parser {
         if (assignToken.isType(Token.PLUS)) {
             const resultExpression = new AddASTNode(
                 identAST as INumberableAST,
-                expressionAST as INumberableAST
+                expressionAST as INumberableAST,
             );
             return new AssignASTNode(identAST, resultExpression);
         }
@@ -621,7 +631,7 @@ export default class Parser {
         if (assignToken.isType(Token.MINUS)) {
             const resultExpression = new SubtractASTNode(
                 identAST as INumberableAST,
-                expressionAST as INumberableAST
+                expressionAST as INumberableAST,
             );
             return new AssignASTNode(identAST, resultExpression);
         }
@@ -630,7 +640,7 @@ export default class Parser {
         if (assignToken.isType(Token.MULTIPLY)) {
             const resultExpression = new MultiplyASTNode(
                 identAST as INumberableAST,
-                expressionAST as INumberableAST
+                expressionAST as INumberableAST,
             );
             return new AssignASTNode(identAST, resultExpression);
         }
@@ -639,7 +649,7 @@ export default class Parser {
         if (assignToken.isType(Token.DIVIDE)) {
             const resultExpression = new DivideASTNode(
                 identAST as INumberableAST,
-                expressionAST as INumberableAST
+                expressionAST as INumberableAST,
             );
             return new AssignASTNode(identAST, resultExpression);
         }
@@ -647,18 +657,20 @@ export default class Parser {
         if (assignToken.isType(Token.INT_DIVIDE)) {
             const resultExpression = new IntegerDivideASTNode(
                 identAST as INumberableAST,
-                expressionAST as INumberableAST
+                expressionAST as INumberableAST,
             );
             return new AssignASTNode(identAST, resultExpression);
         }
 
         throw new ParserError(
-            `Unexpected token ${assignToken.getValue()}. Expected an assignment operator`
+            `Unexpected token ${assignToken.getValue()}. Expected an assignment operator`,
         );
     }
 
     parseNot(notToken?: LexerToken): NotASTNode {
-        if (!notToken) this.consumeToken(Token.NOT);
+        if (!notToken) {
+            this.consumeToken(Token.NOT);
+        }
 
         // Check special case where the next token is a LPAREN
         if (this.tokens[this.pos].isType(Token.LPAREN)) {
@@ -671,33 +683,37 @@ export default class Parser {
     }
 
     consumeToken(token: Token): LexerToken {
-        if (this.pos >= this.tokens.length)
+        if (this.pos >= this.tokens.length) {
             throw new ParserError('Unexpected EOF');
+        }
 
-        if (this.tokens[this.pos].getType() !== token)
+        if (this.tokens[this.pos].getType() !== token) {
             throw new ParserError(
                 `Unexpected token at line ${this.tokens[
                     this.pos
                 ].getLineNumber()}: ${this.tokens[
                     this.pos
-                ].getValue()}. Expected ${token}`
+                ].getValue()}. Expected ${token}`,
             );
+        }
 
         return this.tokens[this.pos++];
     }
 
     consumeOneOf(tokens: Token[]): LexerToken {
-        if (this.pos >= this.tokens.length)
+        if (this.pos >= this.tokens.length) {
             throw new ParserError('Unexpected EOF');
+        }
 
-        if (!tokens.includes(this.tokens[this.pos].getType()))
+        if (!tokens.includes(this.tokens[this.pos].getType())) {
             throw new ParserError(
                 `Unexpected token at line ${this.tokens[
                     this.pos
                 ].getLineNumber()}: ${this.tokens[
                     this.pos
-                ].getValue()}. Expected one of ${tokens.join(', ')}`
+                ].getValue()}. Expected one of ${tokens.join(', ')}`,
             );
+        }
 
         return this.tokens[this.pos++];
     }
