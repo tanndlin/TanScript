@@ -1,10 +1,2 @@
-let a #= 10;
-let len $= #a;
-for (let i = 0; i < $len; #a #= #a - 1) {
-    print(i);
-    print(#a);
-
-    if(#a < 0){
-        return;
-    }
-}
+let x #= 0;
+#x++;
