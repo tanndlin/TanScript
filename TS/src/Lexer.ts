@@ -128,6 +128,10 @@ class Lexer {
                 return this.createToken(Token.COMPUTE_ASSIGN, '$=');
             }
 
+            case Token.STRING:
+                const string = this.readString();
+                return this.createToken(Token.STRING, string);
+
             case Token.OR:
                 this.pos++;
                 return this.createToken(Token.OR, '||');

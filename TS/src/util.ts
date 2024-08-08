@@ -39,7 +39,7 @@ export const UPPERCASE_LETTERS = Array.from({ length: 26 }, (_, i) =>
     String.fromCharCode(i + 65),
 );
 
-export const LETTERS = new Set(...LOWERCASE_LETTERS, ...UPPERCASE_LETTERS);
+export const LETTERS = new Set([...LOWERCASE_LETTERS, ...UPPERCASE_LETTERS]);
 
 export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48),
