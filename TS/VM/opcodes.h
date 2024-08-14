@@ -8,4 +8,6 @@ enum Opcode {
     LOAD,
     STORE,
     ALLOC,
+    FRAME,
+    JUMP,
 };

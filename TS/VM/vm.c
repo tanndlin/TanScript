@@ -86,6 +86,14 @@ void runLine() {
         case ALLOC:
             sp += instr.operands[0];
             break;
+        case FRAME:
+            stack[sp] = pc;
+            sp++;
+            break;
+        case JUMP:
+            pc = instr.operands[0];
+            break;
+
         default:
             printf("Error: Unknown opcode\n");
             exit(1);
