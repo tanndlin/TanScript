@@ -166,4 +166,23 @@ describe('Variable compilation', () => {
             new AddInstruction(),
         ]);
     });
+
+    it('should be able to use multiple variables', () => {
+        const script = 'let a = 1; let b = 2; a + b';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new AllocInstruction(2),
+            new PushInstruction(1),
+            new StoreInstruction(0),
+            new PushInstruction(2),
+            new StoreInstruction(1),
+            new LoadInstruction(0),
+            new LoadInstruction(1),
+            new AddInstruction(),
+        ]);
+    });
 });
