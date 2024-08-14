@@ -1,0 +1,1 @@
+nodemon -e c, h --exec powershell -command "& .\run.ps1"

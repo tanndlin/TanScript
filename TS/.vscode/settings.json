@@ -19,11 +19,19 @@
         {
             "splitTerminals": [
                 {
+                    "name": "VM",
+                    "commands": [
+                        "cd VM",
+                        "nodemon -e c,h --exec powershell -Command ./run.ps1",
+                    ]
+                },
+                {
                     "name": "Git",
                 },
             ]
         }
     ],
+    "restoreTerminals.runOnStartup": true,
     "eslint.validate": [
         "typescript",
     ],
