@@ -1,13 +1,6 @@
 #include <stdio.h>
 
-enum Opcode {
-    ADDI,
-    SUBI,
-    MULI,
-    DIVI,
-    PUSH,
-    POP,
-};
+#include "opcodes.h"
 
 typedef struct {
     enum Opcode opcode;
