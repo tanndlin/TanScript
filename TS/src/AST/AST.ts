@@ -1,3 +1,4 @@
+import { Instruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import {
@@ -13,6 +14,10 @@ export class AST {
     getRoot() {
         return this.root;
     }
+
+    compile() {
+        return this.root.compile();
+    }
 }
 
 export abstract class ASTNode extends TokenTypeable {
@@ -27,6 +32,7 @@ export abstract class ASTNode extends TokenTypeable {
     }
 
     abstract evaluate(scope: Scope): RuntimeValue;
+    abstract compile(): Instruction | Instruction[];
 
     public getType(): Token {
         return this.type;
@@ -47,6 +53,10 @@ export class DecoratorASTNode extends ASTNode {
     }
 
     getChildren(): ASTNode[] {
+        return [];
+    }
+
+    compile(): Instruction | Instruction[] {
         return [];
     }
 }
@@ -96,6 +106,10 @@ export class LParenASTNode extends ASTNode {
     getChildren(): IChildrenEnumerable[] {
         return [this.child];
     }
+
+    compile(): Instruction | Instruction[] {
+        return this.child.compile();
+    }
 }
 
 export class DeclarationASTNode extends ASTNode {
@@ -139,6 +153,10 @@ export class DeclarationASTNode extends ASTNode {
     getChildren(): ASTNode[] {
         return [this.child];
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new TannerError('DeclarationASTNode.compile not implemented');
+    }
 }
 
 export class IdentifierASTNode extends ASTNode {
@@ -154,6 +172,10 @@ export class IdentifierASTNode extends ASTNode {
     getChildren(): ASTNode[] {
         return [];
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new TannerError('IdentifierASTNode.compile not implemented');
+    }
 }
 
 export class StringASTNode extends ASTNode {
@@ -168,6 +190,10 @@ export class StringASTNode extends ASTNode {
 
     getChildren(): ASTNode[] {
         return [];
+    }
+
+    compile(): Instruction | Instruction[] {
+        throw new TannerError('StringASTNode.compile not implemented');
     }
 }
 
@@ -192,6 +218,10 @@ export class AssignASTNode extends ASTNode {
 
     getChildren(): ASTNode[] {
         return [this.identifier, this.valueAST];
+    }
+
+    compile(): Instruction | Instruction[] {
+        throw new TannerError('AssignASTNode.compile not implemented');
     }
 }
 
@@ -227,5 +257,12 @@ export class BlockASTNode extends ASTNode {
 
     setChildren(children: ASTNode[]): void {
         this.children = children;
+    }
+
+    compile(): Instruction | Instruction[] {
+        return this.children
+            .map((child) => child.compile())
+            .flat()
+            .filter(Boolean);
     }
 }

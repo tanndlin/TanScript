@@ -14,6 +14,7 @@ console.log('Tokens:', tokens);
 
 const parser = new Parser(tokens);
 let ast = parser.parse();
+console.log(ast.compile());
 ast = Optimizer.optimize(ast);
 
 console.log(util.inspect(ast, { showHidden: false, depth: null }));

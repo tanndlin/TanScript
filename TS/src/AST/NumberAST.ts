@@ -1,3 +1,11 @@
+import {
+    AddInstruction,
+    DivInstruction,
+    Instruction,
+    MulInstruction,
+    PushInstruction,
+    SubInstruction,
+} from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import { IChildrenEnumerable, INumberableAST, Token } from '../types';
@@ -51,6 +59,24 @@ export class MathASTNode
     getChildren(): IChildrenEnumerable[] {
         return [this.left, this.right];
     }
+
+    compile(): Instruction | Instruction[] {
+        const instructions = [this.left.compile(), this.right.compile()];
+
+        if (this.getType() === Token.PLUS) {
+            instructions.push(new AddInstruction());
+        } else if (this.getType() === Token.MINUS) {
+            instructions.push(new SubInstruction());
+        } else if (this.getType() === Token.MULTIPLY) {
+            instructions.push(new MulInstruction());
+        } else if (this.getType() === Token.DIVIDE) {
+            instructions.push(new DivInstruction());
+        } else {
+            throw new TannerError('Unexpected call to MathASTNode.compile');
+        }
+
+        return instructions.flat();
+    }
 }
 
 export class AddASTNode extends MathASTNode {
@@ -101,5 +127,9 @@ export class NumberASTNode extends ASTNode implements INumberableAST {
 
     evaluate(): number {
         return +this.value;
+    }
+
+    compile(): Instruction | Instruction[] {
+        return new PushInstruction(+this.value);
     }
 }

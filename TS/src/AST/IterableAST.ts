@@ -49,6 +49,10 @@ export class IterableASTNode extends ASTNode {
     createIterator(scope: Scope): Iterator {
         return new Iterator(this.items.map((child) => child.evaluate(scope)));
     }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
+    }
 }
 
 export class ListASTNode extends IterableASTNode {}
@@ -93,5 +97,9 @@ export class ForEachASTNode extends ASTNode {
         }
 
         return ret;
+    }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
     }
 }

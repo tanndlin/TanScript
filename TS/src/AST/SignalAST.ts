@@ -1,3 +1,4 @@
+import { Instruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
 import { ASTNode, AssignASTNode, IdentifierASTNode } from './AST';
@@ -14,6 +15,10 @@ export class SignalAST extends ASTNode implements IChildrenEnumerable {
 
     public getChildren(): IChildrenEnumerable[] {
         return [];
+    }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
     }
 }
 
@@ -43,6 +48,10 @@ export class SignalComputeAST extends ASTNode {
 
     evaluate(scope: Scope): RuntimeValue {
         return scope.getSignalValue(this.value);
+    }
+
+    compile(): Instruction | Instruction[] {
+        throw new Error('Method not implemented.');
     }
 }
 

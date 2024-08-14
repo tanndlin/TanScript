@@ -18,6 +18,10 @@ export class ObjectASTNode extends ASTNode {
 
         return obj;
     }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
+    }
 }
 
 export class AttributeASTNode extends ASTNode {
@@ -31,6 +35,10 @@ export class AttributeASTNode extends ASTNode {
 
     evaluate(scope: Scope): RuntimeValue {
         return this.valueAST.evaluate(scope);
+    }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
     }
 }
 
@@ -52,5 +60,9 @@ export class ObjectAccessAST extends ASTNode {
         const obj = scope.getVariable<Object>(this.objIdentifier.getValue());
 
         return obj.attributes[this.attribute.getValue()];
+    }
+
+    compile(): never {
+        throw new Error('Method not implemented.');
     }
 }

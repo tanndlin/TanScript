@@ -1,4 +1,5 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
+import { Instruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
 import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
@@ -25,6 +26,10 @@ export class WhileASTNode extends ASTNode {
 
         return ret;
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError('Unexpected call to WhileASTNode.compile');
+    }
 }
 
 export class ForASTNode extends ASTNode {
@@ -50,6 +55,10 @@ export class ForASTNode extends ASTNode {
 
         return ret;
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError('Unexpected call to ForASTNode.compile');
+    }
 }
 
 export class IfASTNode extends ASTNode {
@@ -74,6 +83,10 @@ export class IfASTNode extends ASTNode {
         } else if (this.elseBlock) {
             return this.elseBlock.evaluate(scope);
         }
+    }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError('Unexpected call to IfASTNode.compile');
     }
 }
 
@@ -129,6 +142,10 @@ export class FunctionDefASTNode extends ASTNode {
     getParamList() {
         return this.paramList;
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError('Unexpected call to FunctionDefASTNode.compile');
+    }
 }
 
 export class FunctionCallASTNode extends ASTNode {
@@ -155,6 +172,12 @@ export class FunctionCallASTNode extends ASTNode {
     getChildren(): IChildrenEnumerable[] {
         return this.args;
     }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError(
+            'Unexpected call to FunctionCallASTNode.compile',
+        );
+    }
 }
 
 export class ReturnASTNode extends ASTNode {
@@ -167,5 +190,9 @@ export class ReturnASTNode extends ASTNode {
 
     evaluate(scope: Scope): RuntimeValue {
         return scope.setReturnValue(this.valueAST.evaluate(scope));
+    }
+
+    compile(): Instruction | Instruction[] {
+        throw new RuntimeError('Unexpected call to ReturnASTNode.compile');
     }
 }
