@@ -1,3 +1,5 @@
+import { writeFileSync } from 'fs';
+import { Instruction } from './Compilation/Instruction';
 import { LexerError } from './errors';
 import { IChildrenEnumerable, Token } from './types';
 
@@ -62,4 +64,10 @@ export const findSignals = (ast: IChildrenEnumerable): string[] => {
     });
 
     return ret;
+};
+
+export const writeInstructions = (instructions: Instruction[]) => {
+    const fileName = 'VM/script.tsc';
+    writeFileSync(fileName, instructions.map((i) => i.toString()).join('\n'));
+    console.log(`Instructions written to ${fileName}`);
 };

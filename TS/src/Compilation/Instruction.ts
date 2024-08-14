@@ -9,6 +9,10 @@ export abstract class Instruction {
         this.opcode = opcode;
         this.operands = operands;
     }
+
+    public toString(): string {
+        return `${this.opcode} ${this.operands.join(' ')}`;
+    }
 }
 
 export class AddInstruction extends Instruction {
