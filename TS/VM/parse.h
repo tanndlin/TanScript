@@ -2,18 +2,40 @@
 
 #include "instructions.h"
 
+int opcodeToNumOperands(enum Opcode opcode) {
+    switch (opcode) {
+        case ADDI:
+        case SUBI:
+        case MULI:
+        case DIVI:
+        case POP:
+            return 0;
+        case PUSH:
+            return 1;
+    }
+
+    printf("Error: Unknown opcode\n");
+    exit(1);
+}
+
 Instruction* parseInstruction(FILE* file, enum Opcode opcode) {
     Instruction* ret = malloc(sizeof(Instruction));
     ret->opcode = opcode;
 
-    if (opcode == POP) {
+    int numOperands = opcodeToNumOperands(opcode);
+    ret->numOperands = numOperands;
+    if (numOperands == 0) {
         ret->operands = NULL;
-    } else {
-        ret->numOperands = 2;
-        ret->operands = malloc(sizeof(int) * ret->numOperands);
-        fscanf(file, "%d %d", &ret->operands[0], &ret->operands[1]);
+        return ret;
     }
 
+    ret->operands = malloc(sizeof(int) * numOperands);
+    for (int i = 0; i < numOperands; i++) {
+        if (fscanf(file, "%d", &ret->operands[i]) == EOF) {
+            printf("Error: Unexpected EOF\n");
+            exit(1);
+        }
+    }
     return ret;
 }
 

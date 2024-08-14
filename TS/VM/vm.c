@@ -4,7 +4,7 @@
 
 #include "parse.h"
 
-Instruction* parse(char* fileName, int* size);
+void runLine();
 
 Instruction* instructions;
 int pc = 0;
@@ -26,25 +26,40 @@ int main(int argc, char* argv[]) {
 
     stack = malloc(sizeof(int) * 100);
 
+    while (pc < numInstructions) {
+        runLine();
+    }
+
     return 0;
+}
+
+void validateStackSize(int n) {
+    if (sp < n) {
+        printf("Error: Not enough operands on stack\n");
+        exit(1);
+    }
 }
 
 void runLine() {
     Instruction instr = instructions[pc];
     switch (instr.opcode) {
         case ADDI:
+            validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] + stack[sp - 1];
             sp--;
             break;
         case SUBI:
+            validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] - stack[sp - 1];
             sp--;
             break;
         case MULI:
+            validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] * stack[sp - 1];
             sp--;
             break;
         case DIVI:
+            validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] / stack[sp - 1];
             sp--;
             break;
@@ -58,4 +73,9 @@ void runLine() {
     }
 
     pc++;
+    printf("Stack: ");
+    for (int i = 0; i < sp; i++) {
+        printf("%d ", stack[i]);
+    }
+    printf("\n");
 }

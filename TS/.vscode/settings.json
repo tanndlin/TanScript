@@ -22,7 +22,7 @@
                     "name": "VM",
                     "commands": [
                         "cd VM",
-                        "nodemon -e c,h --exec powershell -Command ./run.ps1",
+                        "nodemon -e c,h,tsc --exec powershell -Command ./run.ps1",
                     ]
                 },
                 {

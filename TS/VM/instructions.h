@@ -35,8 +35,12 @@ char* opcodeToString(enum Opcode opcode) {
 
 void printInstruction(Instruction* instr) {
     printf("Instruction: %s", opcodeToString(instr->opcode));
-    if (instr->operands != NULL)
-        printf(" -> %d %d", instr->operands[0], instr->operands[1]);
+    if (instr->operands != NULL) {
+        printf(" -> ");
+        for (int i = 0; i < instr->numOperands; i++) {
+            printf("%d ", instr->operands[i]);
+        }
+    }
 
     printf("\n");
 }
