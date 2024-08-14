@@ -1,3 +1,4 @@
+import { CompileScope } from '../Compilation/CompileScope';
 import Scope from '../Scope';
 import { Iterable, IterableResolvable, RuntimeValue, Token } from '../types';
 import {
@@ -50,7 +51,7 @@ export class IterableASTNode extends ASTNode {
         return new Iterator(this.items.map((child) => child.evaluate(scope)));
     }
 
-    compile(): never {
+    compile(scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -99,7 +100,7 @@ export class ForEachASTNode extends ASTNode {
         return ret;
     }
 
-    compile(): never {
+    compile(scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }

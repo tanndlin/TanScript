@@ -1,4 +1,10 @@
-import { Instruction } from '../Compilation/Instruction';
+import { CompileScope } from '../Compilation/CompileScope';
+import {
+    AllocInstruction,
+    Instruction,
+    LoadInstruction,
+    StoreInstruction,
+} from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import {
@@ -15,8 +21,9 @@ export class AST {
         return this.root;
     }
 
-    compile() {
-        return this.root.compile();
+    compile(): Instruction[] {
+        const globalScope = new CompileScope();
+        return [this.root.compile(globalScope)].flat();
     }
 }
 
@@ -32,7 +39,7 @@ export abstract class ASTNode extends TokenTypeable {
     }
 
     abstract evaluate(scope: Scope): RuntimeValue;
-    abstract compile(): Instruction | Instruction[];
+    abstract compile(scope: CompileScope): Instruction | Instruction[];
 
     public getType(): Token {
         return this.type;
@@ -56,7 +63,7 @@ export class DecoratorASTNode extends ASTNode {
         return [];
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         return [];
     }
 }
@@ -107,8 +114,59 @@ export class LParenASTNode extends ASTNode {
         return [this.child];
     }
 
-    compile(): Instruction | Instruction[] {
-        return this.child.compile();
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        return this.child.compile(scope);
+    }
+}
+
+export class IdentifierASTNode extends ASTNode {
+    constructor(value: string) {
+        super(Token.IDENTIFIER);
+        this.value = value;
+    }
+
+    evaluate(scope: Scope): RuntimeValue {
+        return scope.getVariable(this.value);
+    }
+
+    getChildren(): ASTNode[] {
+        return [];
+    }
+
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        const address = scope.getVariableAddress(this.value);
+        return new LoadInstruction(address);
+    }
+}
+
+export class AssignASTNode extends ASTNode {
+    public identifier: IdentifierASTNode;
+
+    public valueAST: ASTNode;
+
+    constructor(left: IdentifierASTNode, right: ASTNode) {
+        super(Token.ASSIGN);
+        this.identifier = left;
+        this.valueAST = right;
+    }
+
+    evaluate(scope: Scope, isSignal = false): RuntimeValue {
+        const evaluatedValue = this.valueAST.evaluate(scope);
+        if (!isSignal) {
+            scope.setVariable(this.identifier.getValue(), evaluatedValue);
+        }
+        return evaluatedValue;
+    }
+
+    getChildren(): ASTNode[] {
+        return [this.identifier, this.valueAST];
+    }
+
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        const address = scope.getVariableAddress(this.identifier.getValue());
+        const valueInstructions = [this.valueAST.compile(scope)].flat();
+
+        return valueInstructions.concat(new StoreInstruction(address));
     }
 }
 
@@ -154,27 +212,20 @@ export class DeclarationASTNode extends ASTNode {
         return [this.child];
     }
 
-    compile(): Instruction | Instruction[] {
-        throw new TannerError('DeclarationASTNode.compile not implemented');
-    }
-}
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        // The allocation is already handled by hoisting in the block scope
 
-export class IdentifierASTNode extends ASTNode {
-    constructor(value: string) {
-        super(Token.IDENTIFIER);
-        this.value = value;
-    }
+        if (this.child instanceof IdentifierASTNode) {
+            scope.addVariable(this.child.getValue());
+        } else {
+            scope.addVariable(this.child.identifier.getValue());
+        }
 
-    evaluate(scope: Scope): RuntimeValue {
-        return scope.getVariable(this.value);
-    }
+        if (this.child instanceof AssignASTNode) {
+            return this.child.compile(scope);
+        }
 
-    getChildren(): ASTNode[] {
         return [];
-    }
-
-    compile(): Instruction | Instruction[] {
-        throw new TannerError('IdentifierASTNode.compile not implemented');
     }
 }
 
@@ -192,36 +243,8 @@ export class StringASTNode extends ASTNode {
         return [];
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new TannerError('StringASTNode.compile not implemented');
-    }
-}
-
-export class AssignASTNode extends ASTNode {
-    public identifier: IdentifierASTNode;
-
-    public valueAST: ASTNode;
-
-    constructor(left: IdentifierASTNode, right: ASTNode) {
-        super(Token.ASSIGN);
-        this.identifier = left;
-        this.valueAST = right;
-    }
-
-    evaluate(scope: Scope, isSignal = false): RuntimeValue {
-        const evaluatedValue = this.valueAST.evaluate(scope);
-        if (!isSignal) {
-            scope.setVariable(this.identifier.getValue(), evaluatedValue);
-        }
-        return evaluatedValue;
-    }
-
-    getChildren(): ASTNode[] {
-        return [this.identifier, this.valueAST];
-    }
-
-    compile(): Instruction | Instruction[] {
-        throw new TannerError('AssignASTNode.compile not implemented');
     }
 }
 
@@ -259,10 +282,18 @@ export class BlockASTNode extends ASTNode {
         this.children = children;
     }
 
-    compile(): Instruction | Instruction[] {
-        return this.children
-            .map((child) => child.compile())
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        const instructions = this.children
+            .map((child) => child.compile(scope))
             .flat()
             .filter(Boolean);
+
+        const numVars = scope.getNumVariables();
+        if (numVars === 0) {
+            return instructions;
+        }
+
+        const allocs = new AllocInstruction(numVars);
+        return [allocs, ...instructions];
     }
 }

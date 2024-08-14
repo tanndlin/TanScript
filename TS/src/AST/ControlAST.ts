@@ -1,4 +1,5 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
+import { CompileScope } from '../Compilation/CompileScope';
 import { Instruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
@@ -27,7 +28,7 @@ export class WhileASTNode extends ASTNode {
         return ret;
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError('Unexpected call to WhileASTNode.compile');
     }
 }
@@ -56,7 +57,7 @@ export class ForASTNode extends ASTNode {
         return ret;
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError('Unexpected call to ForASTNode.compile');
     }
 }
@@ -85,7 +86,7 @@ export class IfASTNode extends ASTNode {
         }
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError('Unexpected call to IfASTNode.compile');
     }
 }
@@ -143,7 +144,7 @@ export class FunctionDefASTNode extends ASTNode {
         return this.paramList;
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError('Unexpected call to FunctionDefASTNode.compile');
     }
 }
@@ -173,7 +174,7 @@ export class FunctionCallASTNode extends ASTNode {
         return this.args;
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError(
             'Unexpected call to FunctionCallASTNode.compile',
         );
@@ -192,7 +193,7 @@ export class ReturnASTNode extends ASTNode {
         return scope.setReturnValue(this.valueAST.evaluate(scope));
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new RuntimeError('Unexpected call to ReturnASTNode.compile');
     }
 }

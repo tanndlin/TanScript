@@ -11,6 +11,7 @@ int pc = 0;
 
 int* stack;
 int sp = 0;
+int bp = 0;
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -70,6 +71,24 @@ void runLine() {
         case POP:
             sp--;
             break;
+        case LOAD: {
+            int address = instr.operands[0];
+            stack[sp] = stack[address];
+            sp++;
+            break;
+        }
+        case STORE: {
+            int address = instr.operands[0];
+            stack[address] = stack[sp - 1];
+            sp--;
+            break;
+        }
+        case ALLOC:
+            sp += instr.operands[0];
+            break;
+        default:
+            printf("Error: Unknown opcode\n");
+            exit(1);
     }
 
     pc++;

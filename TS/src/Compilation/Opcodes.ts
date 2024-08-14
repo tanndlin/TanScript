@@ -5,4 +5,7 @@ export enum Opcode {
     DIVI,
     PUSH,
     POP,
+    LOAD,
+    STORE,
+    ALLOC,
 }

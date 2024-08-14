@@ -1,8 +1,11 @@
 import {
     AddInstruction,
+    AllocInstruction,
     DivInstruction,
+    LoadInstruction,
     MulInstruction,
     PushInstruction,
+    StoreInstruction,
     SubInstruction,
 } from '../Compilation/Instruction';
 import Lexer from '../Lexer';
@@ -128,6 +131,39 @@ describe('Complex Math Compilation', () => {
             new PushInstruction(2),
             new AddInstruction(),
             new MulInstruction(),
+        ]);
+    });
+});
+
+describe('Variable compilation', () => {
+    it('should compile variable assignment', () => {
+        const script = 'let a = 1';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new AllocInstruction(1),
+            new PushInstruction(1),
+            new StoreInstruction(0),
+        ]);
+    });
+
+    it('should be able to use variables', () => {
+        const script = 'let a = 1; a + 2';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new AllocInstruction(1),
+            new PushInstruction(1),
+            new StoreInstruction(0),
+            new LoadInstruction(0),
+            new PushInstruction(2),
+            new AddInstruction(),
         ]);
     });
 });

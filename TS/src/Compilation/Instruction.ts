@@ -46,3 +46,21 @@ export class PopInstruction extends Instruction {
         super(Opcode.POP, []);
     }
 }
+
+export class LoadInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.LOAD, [number]);
+    }
+}
+
+export class StoreInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.STORE, [number]);
+    }
+}
+
+export class AllocInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.ALLOC, [number]);
+    }
+}

@@ -1,3 +1,4 @@
+import { CompileScope } from '../Compilation/CompileScope';
 import Scope from '../Scope';
 import { Object, RuntimeValue, Token } from '../types';
 import { ASTNode, IdentifierASTNode } from './AST';
@@ -19,7 +20,7 @@ export class ObjectASTNode extends ASTNode {
         return obj;
     }
 
-    compile(): never {
+    compile(scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -37,7 +38,7 @@ export class AttributeASTNode extends ASTNode {
         return this.valueAST.evaluate(scope);
     }
 
-    compile(): never {
+    compile(scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -62,7 +63,7 @@ export class ObjectAccessAST extends ASTNode {
         return obj.attributes[this.attribute.getValue()];
     }
 
-    compile(): never {
+    compile(scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }

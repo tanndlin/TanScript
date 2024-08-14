@@ -1,3 +1,4 @@
+import { CompileScope } from '../Compilation/CompileScope';
 import { Instruction, PushInstruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { TannerError } from '../errors';
@@ -43,7 +44,7 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
         return [];
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new TannerError('Unexpected call to BooleanOpASTNode.compile');
     }
 }
@@ -53,7 +54,7 @@ export class BooleanASTNode extends ASTNode {
         return this.isType(Token.TRUE);
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         return new PushInstruction(this.isType(Token.TRUE) ? 1 : 0);
     }
 }
@@ -158,7 +159,7 @@ export class NotASTNode extends ASTNode {
         return !this.child.evaluate(scope);
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         throw new TannerError('NotASTNode.compile not implemented');
     }
 }

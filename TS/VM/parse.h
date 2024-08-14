@@ -12,6 +12,11 @@ int opcodeToNumOperands(enum Opcode opcode) {
             return 0;
         case PUSH:
             return 1;
+        case LOAD:
+        case STORE:
+            return 1;
+        case ALLOC:
+            return 1;
     }
 
     printf("Error: Unknown opcode\n");

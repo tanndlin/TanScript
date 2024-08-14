@@ -1,3 +1,4 @@
+import { CompileScope } from '../Compilation/CompileScope';
 import {
     AddInstruction,
     DivInstruction,
@@ -60,8 +61,11 @@ export class MathASTNode
         return [this.left, this.right];
     }
 
-    compile(): Instruction | Instruction[] {
-        const instructions = [this.left.compile(), this.right.compile()];
+    compile(scope: CompileScope): Instruction | Instruction[] {
+        const instructions = [
+            this.left.compile(scope),
+            this.right.compile(scope),
+        ];
 
         if (this.getType() === Token.PLUS) {
             instructions.push(new AddInstruction());
@@ -129,7 +133,7 @@ export class NumberASTNode extends ASTNode implements INumberableAST {
         return +this.value;
     }
 
-    compile(): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction | Instruction[] {
         return new PushInstruction(+this.value);
     }
 }
