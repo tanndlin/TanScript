@@ -3,6 +3,7 @@ import {
     AllocInstruction,
     Instruction,
     LoadInstruction,
+    PushInstruction,
     StoreInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
@@ -244,7 +245,10 @@ export class StringASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new TannerError('StringASTNode.compile not implemented');
+        return this.value.split('').map((char) => {
+            const asciiValue = char.charCodeAt(0);
+            return new PushInstruction(asciiValue);
+        });
     }
 }
 
@@ -295,6 +299,7 @@ export class BlockASTNode extends ASTNode {
         }
 
         const allocs = new AllocInstruction(numVars);
-        return [allocs, ...instructions];
+        const unallocs = new AllocInstruction(-numVars);
+        return [allocs, ...instructions, unallocs];
     }
 }

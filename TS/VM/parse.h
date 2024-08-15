@@ -15,6 +15,7 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case GREATER:
         case POP:
         case FRAME:
+        case PRINT:
             return 0;
         case PUSH:
             return 1;

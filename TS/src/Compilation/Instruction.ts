@@ -128,3 +128,9 @@ export class JumpFalseInstruction extends Instruction {
         super(Opcode.JMPF, [number]);
     }
 }
+
+export class PrintInstruction extends Instruction {
+    constructor() {
+        super(Opcode.PRINT, []);
+    }
+}

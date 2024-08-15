@@ -4,6 +4,7 @@ import {
     Instruction,
     JumpFalseInstruction,
     JumpInstruction,
+    PrintInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
@@ -39,7 +40,7 @@ export class WhileASTNode extends ASTNode {
 
         instructions.push(...condition);
         // Jump out of block if condition is false
-        instructions.push(new JumpFalseInstruction(block.length + 2));
+        instructions.push(new JumpFalseInstruction(block.length + 1));
         instructions.push(...block);
         // Jump back to condition
         instructions.push(new JumpInstruction(-instructions.length - 1));
@@ -190,6 +191,19 @@ export class FunctionCallASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
+        // Check if this is a built in function
+        if (this.value === 'print') {
+            const instructions = [];
+            // Assume there is only one argument
+            const arg = [this.args[0].compile(scope)].flat();
+            instructions.push(...arg.reverse());
+            arg.forEach((_, i) => {
+                instructions.push(new PrintInstruction());
+            });
+
+            return instructions;
+        }
+
         throw new RuntimeError(
             'Unexpected call to FunctionCallASTNode.compile',
         );

@@ -136,6 +136,11 @@ void runLine() {
                 pc += instr.operands[0];
             sp--;
             break;
+        case PRINT:
+            validateStackSize(1);
+            printf("%c", stack[sp - 1]);
+            sp--;
+            break;
         default:
             printf("Error: Unknown opcode: %d\n", instr.opcode);
             exit(1);
