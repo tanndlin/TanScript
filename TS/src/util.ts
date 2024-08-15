@@ -1,7 +1,18 @@
-import { writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { Instruction } from './Compilation/Instruction';
 import { LexerError } from './errors';
 import { IChildrenEnumerable, Token } from './types';
+
+export const readScript = (fileName: string): string => {
+    const script = readFileSync(fileName, 'utf8');
+    // preserve \n as \n instead of \\n
+    const scriptLines = script.split('\n');
+    const replaced = scriptLines.map((line) => {
+        return line.replace(/\\n/g, '\n');
+    });
+
+    return replaced.join('\n');
+};
 
 export const valueToToken = (value: string): Token => {
     // See if the value is an enum as its string component

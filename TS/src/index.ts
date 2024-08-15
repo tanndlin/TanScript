@@ -1,13 +1,11 @@
-import * as fs from 'fs';
 import util from 'util';
 import Environment from './Environment';
 import Lexer from './Lexer';
 import Optimizer from './Optimizer';
 import Parser from './Parser';
-import { writeInstructions } from './util';
+import { readScript, writeInstructions } from './util';
 
-const script = fs.readFileSync('script.tan', 'utf8');
-
+const script = readScript('script.tan');
 const lexer = new Lexer(script);
 const tokens = lexer.getTokens();
 
