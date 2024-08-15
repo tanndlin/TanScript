@@ -4,6 +4,8 @@
 
 #include "parse.h"
 
+#define DEBUG false
+
 void runLine();
 
 Instruction* instructions;
@@ -22,8 +24,9 @@ int main(int argc, char* argv[]) {
     int numInstructions;
     instructions = parse(argv[1], &numInstructions);
     // print all instructions
-    for (int i = 0; i < numInstructions; i++)
-        printInstruction(&instructions[i]);
+    if (DEBUG)
+        for (int i = 0; i < numInstructions; i++)
+            printInstruction(&instructions[i]);
 
     stack = malloc(sizeof(int) * 100);
 
@@ -43,8 +46,10 @@ void validateStackSize(int n) {
 
 void runLine() {
     Instruction instr = instructions[pc];
-    printf("Running: ");
-    printInstruction(&instr);
+    if (DEBUG) {
+        printf("Running: ");
+        printInstruction(&instr);
+    }
 
     switch (instr.opcode) {
         case ADDI:
@@ -147,9 +152,12 @@ void runLine() {
     }
 
     pc++;
-    printf("Stack: ");
-    for (int i = 0; i < sp; i++) {
-        printf("%d ", stack[i]);
+
+    if (DEBUG) {
+        printf("Stack: ");
+        for (int i = 0; i < sp; i++) {
+            printf("%d ", stack[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 }
