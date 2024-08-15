@@ -8,12 +8,12 @@ typedef struct {
     int numOperands;
 } Instruction;
 
-void printInstruction(Instruction* instr) {
-    printf("Instruction: %s", opcodeToString(instr->opcode));
-    if (instr->operands != NULL) {
-        printf(" -> ");
-        for (int i = 0; i < instr->numOperands; i++) {
-            printf("%d ", instr->operands[i]);
+void printInstruction(Instruction instr) {
+    printf("Instruction: %s", opcodeToString(instr.opcode));
+    if (instr.operands != NULL) {
+        printf(" . ");
+        for (int i = 0; i < instr.numOperands; i++) {
+            printf("%d ", instr.operands[i]);
         }
     }
 

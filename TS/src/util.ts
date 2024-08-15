@@ -79,6 +79,8 @@ export const findSignals = (ast: IChildrenEnumerable): string[] => {
 
 export const writeInstructions = (instructions: Instruction[]) => {
     const fileName = 'VM/script.tsc';
-    writeFileSync(fileName, instructions.map((i) => i.toString()).join('\n'));
+    const tsc = instructions.map((i) => i.toString()).join('\n');
+    const numInstructions = instructions.length;
+    writeFileSync(fileName, `${numInstructions}\n${tsc}`);
     console.log(`Instructions written to ${fileName}`);
 };

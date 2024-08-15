@@ -5,8 +5,11 @@
 #include "parse.h"
 
 #define DEBUG false
+#define MAX_STACK_SIZE 2048
 
+void validateStackSize(int n);
 void runLine();
+void freeAll();
 
 Instruction* instructions;
 int pc = 0;
@@ -21,19 +24,18 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    int numInstructions;
-    instructions = parse(argv[1], &numInstructions);
+    instructions = parse(argv[1]);
     // print all instructions
     if (DEBUG)
         for (int i = 0; i < numInstructions; i++)
-            printInstruction(&instructions[i]);
+            printInstruction(instructions[i]);
 
-    stack = malloc(sizeof(int) * 100);
-
+    stack = malloc(sizeof(int) * MAX_STACK_SIZE);
     while (pc < numInstructions) {
         runLine();
     }
 
+    freeAll();
     return 0;
 }
 
@@ -48,7 +50,7 @@ void runLine() {
     Instruction instr = instructions[pc];
     if (DEBUG) {
         printf("Running: ");
-        printInstruction(&instr);
+        printInstruction(instr);
     }
 
     switch (instr.opcode) {
@@ -160,4 +162,14 @@ void runLine() {
         }
         printf("\n");
     }
+}
+
+void freeAll() {
+    for (int i = 0; i < numInstructions; i++) {
+        if (instructions[i].operands != NULL)
+            free(instructions[i].operands);
+    }
+
+    free(instructions);
+    free(stack);
 }

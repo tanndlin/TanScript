@@ -2,6 +2,10 @@
 
 #include "instructions.h"
 
+#define MAX_INSTRUCTIONS 1024
+
+int numInstructions;
+
 int opcodeToNumOperands(enum Opcode opcode) {
     switch (opcode) {
         case ADDI:
@@ -33,20 +37,20 @@ int opcodeToNumOperands(enum Opcode opcode) {
     exit(1);
 }
 
-Instruction* parseInstruction(FILE* file, enum Opcode opcode) {
-    Instruction* ret = malloc(sizeof(Instruction));
-    ret->opcode = opcode;
+Instruction parseInstruction(FILE* file, enum Opcode opcode) {
+    Instruction ret;
+    ret.opcode = opcode;
 
     int numOperands = opcodeToNumOperands(opcode);
-    ret->numOperands = numOperands;
+    ret.numOperands = numOperands;
     if (numOperands == 0) {
-        ret->operands = NULL;
+        ret.operands = NULL;
         return ret;
     }
 
-    ret->operands = malloc(sizeof(int) * numOperands);
+    ret.operands = malloc(sizeof(int) * numOperands);
     for (int i = 0; i < numOperands; i++) {
-        if (fscanf(file, "%d", &ret->operands[i]) == EOF) {
+        if (fscanf(file, "%d", &ret.operands[i]) == EOF) {
             printf("Error: Unexpected EOF\n");
             exit(1);
         }
@@ -54,25 +58,34 @@ Instruction* parseInstruction(FILE* file, enum Opcode opcode) {
     return ret;
 }
 
-Instruction* parse(char* fileName, int* size) {
+Instruction* parse(char* fileName) {
     FILE* file = fopen(fileName, "r");
     if (file == NULL) {
         printf("Error: File not found\n");
         exit(1);
     }
 
-    Instruction* instructions = malloc(sizeof(Instruction) * 100);
-    *size = 0;
-    while (true) {
+    fscanf(file, "%d", &numInstructions);
+    if (numInstructions <= 0) {
+        printf("Error: Invalid number of instructions: %d\n", numInstructions);
+        exit(1);
+    }
+
+    if (numInstructions >= MAX_INSTRUCTIONS) {
+        printf("Error: Too many instructions: %d\n", numInstructions);
+        exit(1);
+    }
+
+    Instruction* instructions = malloc(sizeof(Instruction) * numInstructions);
+    for (int i = 0; i < numInstructions; i++) {
         int opcode;
         if (fscanf(file, "%d", &opcode) == EOF) {
             break;
         }
 
-        Instruction* instr = parseInstruction(file, opcode);
-        instructions[*size] = *instr;
-        (*size)++;
+        instructions[i] = parseInstruction(file, opcode);
     }
+
     fclose(file);
     return instructions;
 }
