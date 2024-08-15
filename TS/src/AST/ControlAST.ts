@@ -1,6 +1,10 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import { CompileScope } from '../Compilation/CompileScope';
-import { Instruction } from '../Compilation/Instruction';
+import {
+    Instruction,
+    JumpFalseInstruction,
+    JumpInstruction,
+} from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
 import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
@@ -29,7 +33,18 @@ export class WhileASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new RuntimeError('Unexpected call to WhileASTNode.compile');
+        const instructions = [];
+        const condition = [this.condition.compile(scope)].flat();
+        const block = [this.block.compile(scope)].flat();
+
+        instructions.push(...condition);
+        // Jump out of block if condition is false
+        instructions.push(new JumpFalseInstruction(block.length + 2));
+        instructions.push(...block);
+        // Jump back to condition
+        instructions.push(new JumpInstruction(-instructions.length - 1));
+
+        return instructions;
     }
 }
 

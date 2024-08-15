@@ -1,5 +1,4 @@
 import { CompileScope } from '../Compilation/CompileScope';
-import { Instruction, PushInstruction } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { TannerError } from '../errors';
 import {
@@ -8,6 +7,14 @@ import {
     INumberableAST,
     Token,
 } from '../types';
+import {
+    GeqInstruction,
+    GreaterInstruction,
+    Instruction,
+    LeqInstruction,
+    LessInstruction,
+    PushInstruction,
+} from './../Compilation/Instruction';
 import { ASTNode } from './AST';
 
 export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
@@ -45,7 +52,28 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new TannerError('Unexpected call to BooleanOpASTNode.compile');
+        const left = [this.left.compile(scope)].flat();
+        const right = [this.right.compile(scope)].flat();
+
+        const instructions = [...left, ...right];
+        switch (this.getType()) {
+            case Token.LESS:
+                instructions.push(new LessInstruction());
+                break;
+            case Token.LEQ:
+                instructions.push(new LeqInstruction());
+                break;
+            case Token.GREATER:
+                instructions.push(new GreaterInstruction());
+                break;
+            case Token.GEQ:
+                instructions.push(new GeqInstruction());
+                break;
+            default:
+                throw new TannerError(`Unexpected token: ${this.getType()}`);
+        }
+
+        return instructions;
     }
 }
 

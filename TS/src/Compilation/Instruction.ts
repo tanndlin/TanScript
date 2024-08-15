@@ -39,6 +39,36 @@ export class DivInstruction extends Instruction {
     }
 }
 
+export class LessInstruction extends Instruction {
+    constructor() {
+        super(Opcode.LESS, []);
+    }
+}
+
+export class LeqInstruction extends Instruction {
+    constructor() {
+        super(Opcode.LEQ, []);
+    }
+}
+
+export class EqInstruction extends Instruction {
+    constructor() {
+        super(Opcode.EQ, []);
+    }
+}
+
+export class GeqInstruction extends Instruction {
+    constructor() {
+        super(Opcode.GEQ, []);
+    }
+}
+
+export class GreaterInstruction extends Instruction {
+    constructor() {
+        super(Opcode.GREATER, []);
+    }
+}
+
 export class PushInstruction extends Instruction {
     constructor(number: number) {
         super(Opcode.PUSH, [number]);
@@ -66,5 +96,35 @@ export class StoreInstruction extends Instruction {
 export class AllocInstruction extends Instruction {
     constructor(number: number) {
         super(Opcode.ALLOC, [number]);
+    }
+}
+
+export class FrameInstruction extends Instruction {
+    constructor() {
+        super(Opcode.FRAME, []);
+    }
+}
+
+export class GotoInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.GOTO, [number]);
+    }
+}
+
+export class JumpInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.JUMP, [number]);
+    }
+}
+
+export class JumpTrueInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.JMPT, [number]);
+    }
+}
+
+export class JumpFalseInstruction extends Instruction {
+    constructor(number: number) {
+        super(Opcode.JMPF, [number]);
     }
 }

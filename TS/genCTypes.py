@@ -13,3 +13,14 @@ with open("src/Compilation/Opcodes.ts", "r") as f:
             f.write(f"    {e},\n")
 
         f.write("};\n")
+
+        f.write("\n")
+        f.write("char* opcodeToString(enum Opcode opcode) {\n")
+        f.write("    switch (opcode) {\n")
+        for e in enums:
+            f.write(f"        case {e}:\n")
+            f.write(f'            return "{e}";\n')
+        f.write("    }\n")
+        f.write('    return "UNKNOWN";\n')
+
+        f.write("}\n")

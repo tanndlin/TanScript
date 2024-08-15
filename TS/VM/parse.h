@@ -8,18 +8,27 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case SUBI:
         case MULI:
         case DIVI:
+        case LESS:
+        case LEQ:
+        case EQ:
+        case GEQ:
+        case GREATER:
         case POP:
+        case FRAME:
             return 0;
         case PUSH:
             return 1;
         case LOAD:
         case STORE:
-            return 1;
         case ALLOC:
+        case GOTO:
+        case JUMP:
+        case JMPT:
+        case JMPF:
             return 1;
     }
 
-    printf("Error: Unknown opcode\n");
+    printf("Parse Error: Unknown amount of operands for opcode: {%d (%s)}\n", opcode, opcodeToString(opcode));
     exit(1);
 }
 

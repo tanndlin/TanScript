@@ -43,6 +43,9 @@ void validateStackSize(int n) {
 
 void runLine() {
     Instruction instr = instructions[pc];
+    printf("Running: ");
+    printInstruction(&instr);
+
     switch (instr.opcode) {
         case ADDI:
             validateStackSize(2);
@@ -62,6 +65,31 @@ void runLine() {
         case DIVI:
             validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] / stack[sp - 1];
+            sp--;
+            break;
+        case LESS:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] < stack[sp - 1];
+            sp--;
+            break;
+        case LEQ:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] <= stack[sp - 1];
+            sp--;
+            break;
+        case EQ:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] == stack[sp - 1];
+            sp--;
+            break;
+        case GEQ:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] >= stack[sp - 1];
+            sp--;
+            break;
+        case GREATER:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] > stack[sp - 1];
             sp--;
             break;
         case PUSH:
@@ -90,12 +118,26 @@ void runLine() {
             stack[sp] = pc;
             sp++;
             break;
-        case JUMP:
+        case GOTO:
             pc = instr.operands[0];
             break;
-
+        case JUMP:
+            pc += instr.operands[0];
+            break;
+        case JMPT:
+            validateStackSize(1);
+            if (stack[sp - 1] != 0)
+                pc += instr.operands[0];
+            sp--;
+            break;
+        case JMPF:
+            validateStackSize(1);
+            if (stack[sp - 1] == 0)
+                pc += instr.operands[0];
+            sp--;
+            break;
         default:
-            printf("Error: Unknown opcode\n");
+            printf("Error: Unknown opcode: %d\n", instr.opcode);
             exit(1);
     }
 

@@ -283,12 +283,13 @@ export class BlockASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
+        const blockScope = new CompileScope(scope);
         const instructions = this.children
-            .map((child) => child.compile(scope))
+            .map((child) => child.compile(blockScope))
             .flat()
             .filter(Boolean);
 
-        const numVars = scope.getNumVariables();
+        const numVars = blockScope.getNumVariables(true);
         if (numVars === 0) {
             return instructions;
         }
