@@ -39,7 +39,7 @@ export class CompileScope {
             throw new Error(`Variable ${name} already exists`);
         }
 
-        const address = this.getNumVariables(true);
+        const address = this.getNumVariables(false);
         this.variables.set(name, address);
         return address;
     }
