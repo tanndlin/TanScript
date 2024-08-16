@@ -9,6 +9,7 @@
 
 void validateStackSize(int n);
 void runLine();
+void handleToString();
 void freeAll();
 
 Instruction* instructions;
@@ -143,11 +144,17 @@ void runLine() {
                 pc += instr.operands[0];
             sp--;
             break;
-        case PRINT:
+        case PRINTC:
             validateStackSize(1);
             printf("%c", stack[sp - 1]);
             sp--;
             break;
+        case PRINTINT:
+            validateStackSize(1);
+            printf("%d", stack[sp - 1]);
+            sp--;
+            break;
+
         default:
             printf("Error: Unknown opcode: %d\n", instr.opcode);
             exit(1);

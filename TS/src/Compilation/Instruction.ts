@@ -129,8 +129,14 @@ export class JumpFalseInstruction extends Instruction {
     }
 }
 
-export class PrintInstruction extends Instruction {
+export class PrintCInstruction extends Instruction {
     constructor() {
-        super(Opcode.PRINT, []);
+        super(Opcode.PRINTC, []);
+    }
+}
+
+export class PrintIntInstruction extends Instruction {
+    constructor() {
+        super(Opcode.PRINTINT, []);
     }
 }

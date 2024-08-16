@@ -1,5 +1,5 @@
-let a = 0;
-while(a < 10){
-    print("Hello World!\n");
-    a += 1;
-} 
+let i = 0;
+while (i < 10) {
+  print(i);
+  i += 1;
+}

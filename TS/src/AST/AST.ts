@@ -245,10 +245,13 @@ export class StringASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        return this.value.split('').map((char) => {
-            const asciiValue = char.charCodeAt(0);
-            return new PushInstruction(asciiValue);
-        });
+        return this.value
+            .split('')
+            .map((char) => {
+                const asciiValue = char.charCodeAt(0);
+                return new PushInstruction(asciiValue);
+            })
+            .reverse();
     }
 }
 

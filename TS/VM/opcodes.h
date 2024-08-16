@@ -18,7 +18,8 @@ enum Opcode {
     JUMP,
     JMPT,
     JMPF,
-    PRINT,
+    PRINTC,
+    PRINTINT,
 };
 
 char* opcodeToString(enum Opcode opcode) {
@@ -61,8 +62,10 @@ char* opcodeToString(enum Opcode opcode) {
             return "JMPT";
         case JMPF:
             return "JMPF";
-        case PRINT:
-            return "PRINT";
+        case PRINTC:
+            return "PRINTC";
+        case PRINTINT:
+            return "PRINTINT";
     }
     return "UNKNOWN";
 }

@@ -18,5 +18,6 @@ export enum Opcode {
     JUMP,
     JMPT,
     JMPF,
-    PRINT,
+    PRINTC,
+    PRINTINT,
 }

@@ -4,12 +4,13 @@ import {
     Instruction,
     JumpFalseInstruction,
     JumpInstruction,
-    PrintInstruction,
+    PrintCInstruction,
+    PrintIntInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
 import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
-import { ASTNode, BlockASTNode, IdentifierASTNode } from './AST';
+import { ASTNode, BlockASTNode, IdentifierASTNode, StringASTNode } from './AST';
 import { BooleanOpASTNode } from './BoolAST';
 
 export class WhileASTNode extends ASTNode {
@@ -196,10 +197,16 @@ export class FunctionCallASTNode extends ASTNode {
             const instructions = [];
             // Assume there is only one argument
             const arg = [this.args[0].compile(scope)].flat();
+            const isString = arg instanceof StringASTNode;
+
             instructions.push(...arg.reverse());
-            arg.forEach((_, i) => {
-                instructions.push(new PrintInstruction());
-            });
+            if (isString) {
+                arg.forEach((_, i) => {
+                    instructions.push(new PrintCInstruction());
+                });
+            } else {
+                instructions.push(new PrintIntInstruction());
+            }
 
             return instructions;
         }
