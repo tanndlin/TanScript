@@ -18,12 +18,14 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case GEQ:
         case GREATER:
         case POP:
-        case FRAME:
+        case UNFRAME:
         case PRINTC:
         case PRINTINT:
+        case PUSHSTACK:
+        case POPSTACK:
             return 0;
+        case FRAME:
         case PUSH:
-            return 1;
         case LOAD:
         case STORE:
         case ALLOC:

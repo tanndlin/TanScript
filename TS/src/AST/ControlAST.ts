@@ -1,11 +1,18 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import { CompileScope } from '../Compilation/CompileScope';
 import {
+    AllocInstruction,
+    FrameInstruction,
+    GotoInstruction,
     Instruction,
     JumpFalseInstruction,
     JumpInstruction,
+    PopStackInstruction,
     PrintCInstruction,
     PrintIntInstruction,
+    PushStackInstruction,
+    StoreInstruction,
+    UnframeInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
 import { RuntimeError } from '../errors';
@@ -162,7 +169,17 @@ export class FunctionDefASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new RuntimeError('Unexpected call to FunctionDefASTNode.compile');
+        const instructions = [new AllocInstruction(this.paramList.length)];
+        this.paramList.forEach((param) => {
+            scope.addVariable(param.getValue());
+        });
+
+        instructions.push(...[this.block.compile(scope)].flat());
+        instructions.push(new PopStackInstruction());
+        instructions.push(new UnframeInstruction());
+
+        scope.addFunction(this.value, instructions.length);
+        return instructions;
     }
 }
 
@@ -193,15 +210,12 @@ export class FunctionCallASTNode extends ASTNode {
 
     compile(scope: CompileScope): Instruction | Instruction[] {
         // Check if this is a built in function
+        // TODO: Make built in functions compile
         if (this.value === 'print') {
             const instructions = [];
             // Assume there is only one argument
             const isString = this.args[0] instanceof StringASTNode;
             const arg = [this.args[0].compile(scope)].flat();
-            if (isString) {
-                arg.reverse();
-            }
-
             instructions.push(...arg);
             if (!isString) {
                 return [...instructions, new PrintIntInstruction()];
@@ -213,9 +227,23 @@ export class FunctionCallASTNode extends ASTNode {
             return instructions;
         }
 
-        throw new RuntimeError(
-            'Unexpected call to FunctionCallASTNode.compile',
-        );
+        const { lineNumber } = scope.getFunction(this.value);
+        // Set the parameters
+        const instructions = [];
+        this.args.forEach((arg, i) => {
+            // Push the arguments onto the stack
+            instructions.push(...[arg.compile(scope)].flat());
+
+            // Store the arguments in the correct place
+            instructions.push(new StoreInstruction(lineNumber + i));
+        });
+
+        // 2 to offset for the next 2 instructions
+        instructions.push(new FrameInstruction(2));
+        instructions.push(new PushStackInstruction());
+        instructions.push(new GotoInstruction(lineNumber));
+
+        return instructions;
     }
 }
 

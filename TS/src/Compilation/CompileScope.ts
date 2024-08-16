@@ -4,6 +4,9 @@ export class CompileScope {
 
     private variables: Map<string, number> = new Map();
 
+    private functions: Map<string, { lineNumber: number; length: number }> =
+        new Map();
+
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
     }
@@ -39,5 +42,35 @@ export class CompileScope {
         const address = this.getNumVariables(true);
         this.variables.set(name, address);
         return address;
+    }
+
+    public addFunction(name: string, length: number): void {
+        if (this.functions.has(name)) {
+            throw new Error(`Function ${name} already exists`);
+        }
+
+        const currentNumberOfLines = this.getTotalFunctionSize();
+        this.functions.set(name, { lineNumber: currentNumberOfLines, length });
+    }
+
+    public getFunction(value: string): { lineNumber: any; length: any } {
+        if (this.functions.has(value)) {
+            return this.functions.get(value)!;
+        }
+
+        if (this.parent) {
+            return this.parent.getFunction(value);
+        }
+
+        throw new Error(`Function ${value} not found`);
+    }
+
+    public getTotalFunctionSize() {
+        let sum = 0;
+        for (const { length } of this.functions.values()) {
+            sum += length;
+        }
+
+        return sum;
     }
 }

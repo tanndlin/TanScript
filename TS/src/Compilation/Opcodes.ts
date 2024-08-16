@@ -14,10 +14,13 @@ export enum Opcode {
     STORE,
     ALLOC,
     FRAME,
+    UNFRAME,
     GOTO,
     JUMP,
     JMPT,
     JMPF,
     PRINTC,
     PRINTINT,
+    PUSHSTACK,
+    POPSTACK,
 }

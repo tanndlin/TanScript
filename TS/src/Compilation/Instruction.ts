@@ -100,8 +100,14 @@ export class AllocInstruction extends Instruction {
 }
 
 export class FrameInstruction extends Instruction {
+    constructor(offset = 0) {
+        super(Opcode.FRAME, [offset]);
+    }
+}
+
+export class UnframeInstruction extends Instruction {
     constructor() {
-        super(Opcode.FRAME, []);
+        super(Opcode.UNFRAME, []);
     }
 }
 
@@ -138,5 +144,17 @@ export class PrintCInstruction extends Instruction {
 export class PrintIntInstruction extends Instruction {
     constructor() {
         super(Opcode.PRINTINT, []);
+    }
+}
+
+export class PushStackInstruction extends Instruction {
+    constructor() {
+        super(Opcode.PUSHSTACK, []);
+    }
+}
+
+export class PopStackInstruction extends Instruction {
+    constructor() {
+        super(Opcode.POPSTACK, []);
     }
 }

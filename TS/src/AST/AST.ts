@@ -2,6 +2,7 @@ import { CompileScope } from '../Compilation/CompileScope';
 import {
     AllocInstruction,
     Instruction,
+    JumpInstruction,
     LoadInstruction,
     PushInstruction,
     StoreInstruction,
@@ -291,10 +292,14 @@ export class BlockASTNode extends ASTNode {
 
     compile(scope: CompileScope): Instruction | Instruction[] {
         const blockScope = new CompileScope(scope);
-        const instructions = this.children
+        let instructions = this.children
             .map((child) => child.compile(blockScope))
             .flat()
             .filter(Boolean);
+
+        const totalFunctionLengths = blockScope.getTotalFunctionSize();
+        const jumpOverFunctions = new JumpInstruction(totalFunctionLengths);
+        instructions = [jumpOverFunctions, ...instructions];
 
         const numVars = blockScope.getNumVariables(true);
         if (numVars === 0) {
@@ -303,6 +308,7 @@ export class BlockASTNode extends ASTNode {
 
         const allocs = new AllocInstruction(numVars);
         const unallocs = new AllocInstruction(-numVars);
+
         return [allocs, ...instructions, unallocs];
     }
 }

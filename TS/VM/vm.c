@@ -1,15 +1,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "parse.h"
 
 #define DEBUG false
-#define MAX_STACK_SIZE 2048
+#define MAX_STACK_SIZE 20
 
 void validateStackSize(int n);
+bool checkInvariants();
 void runLine();
-void handleToString();
 void freeAll();
 
 Instruction* instructions;
@@ -49,7 +50,35 @@ void validateStackSize(int n) {
     }
 }
 
+bool checkInvariants() {
+    if (sp < 0 || sp > MAX_STACK_SIZE) {
+        printf("Error: Stack pointer out of bounds: %d\n", sp);
+        return false;
+    }
+
+    if (bp < 0 || bp > MAX_STACK_SIZE) {
+        printf("Error: Base pointer out of bounds: %d\n", bp);
+        return false;
+    }
+
+    if (bp > sp) {
+        printf("Error: Base pointer above stack pointer\n");
+        return false;
+    }
+
+    if (pc < 0 || pc >= numInstructions) {
+        printf("Error: Program counter out of bounds\n");
+        return false;
+    }
+
+    return true;
+}
+
 void runLine() {
+    if (!checkInvariants()) {
+        exit(1);
+    }
+
     Instruction instr = instructions[pc];
     if (DEBUG) {
         printf("Running: ");
@@ -125,8 +154,13 @@ void runLine() {
             sp += instr.operands[0];
             break;
         case FRAME:
-            stack[sp] = pc;
+            stack[sp] = pc + instr.operands[0];
             sp++;
+            break;
+        case UNFRAME:
+            validateStackSize(1);
+            pc = stack[sp - 1];
+            sp--;
             break;
         case GOTO:
             pc = instr.operands[0];
@@ -154,6 +188,19 @@ void runLine() {
         case PRINTINT:
             validateStackSize(1);
             printf("%d", stack[sp - 1]);
+            sp--;
+            break;
+        case PUSHSTACK:
+            // Store previous base pointer
+            stack[sp] = bp;
+            sp++;
+            bp = sp;
+            break;
+        case POPSTACK:
+            validateStackSize(1);
+            // Restore previous base pointer
+            sp = bp;
+            bp = stack[sp - 1];
             sp--;
             break;
 

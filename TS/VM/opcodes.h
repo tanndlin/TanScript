@@ -14,12 +14,15 @@ enum Opcode {
     STORE,
     ALLOC,
     FRAME,
+    UNFRAME,
     GOTO,
     JUMP,
     JMPT,
     JMPF,
     PRINTC,
     PRINTINT,
+    PUSHSTACK,
+    POPSTACK,
 };
 
 char* opcodeToString(enum Opcode opcode) {
@@ -54,6 +57,8 @@ char* opcodeToString(enum Opcode opcode) {
             return "ALLOC";
         case FRAME:
             return "FRAME";
+        case UNFRAME:
+            return "UNFRAME";
         case GOTO:
             return "GOTO";
         case JUMP:
@@ -66,6 +71,10 @@ char* opcodeToString(enum Opcode opcode) {
             return "PRINTC";
         case PRINTINT:
             return "PRINTINT";
+        case PUSHSTACK:
+            return "PUSHSTACK";
+        case POPSTACK:
+            return "POPSTACK";
     }
     return "UNKNOWN";
 }
