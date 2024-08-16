@@ -196,8 +196,8 @@ export class FunctionCallASTNode extends ASTNode {
         if (this.value === 'print') {
             const instructions = [];
             // Assume there is only one argument
+            const isString = this.args[0] instanceof StringASTNode;
             const arg = [this.args[0].compile(scope)].flat();
-            const isString = arg instanceof StringASTNode;
             if (isString) {
                 arg.reverse();
             }

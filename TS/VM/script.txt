@@ -4,14 +4,16 @@ STORE -> 0
 LOAD -> 0 
 PUSH -> 10 
 LESS
-JMPF -> 9 
+JMPF -> 11 
 LOAD -> 0 
 PUSH -> 2 
 MULI
 PRINTINT
+PUSH -> 10 
+PRINTC
 LOAD -> 0 
 PUSH -> 1 
 ADDI
 STORE -> 0 
-JUMP -> -13 
+JUMP -> -15 
 ALLOC -> -1 
