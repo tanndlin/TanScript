@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 }
 
 void validateStackSize(int n) {
-    if (sp < n) {
+    if (sp - bp < n) {
         printf("Error: Not enough operands on stack\n");
         exit(1);
     }

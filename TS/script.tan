@@ -1,9 +1,9 @@
 def printFunc(n){
-    print(n);
+    let i = 0;
+    while(i*2 < n){
+        print(i*3);
+        i++;
+    }
 }
 
-printFunc(1*2);
-printFunc(2*2);
-printFunc(3*2);
-printFunc(4*2);
-printFunc(5*2);
+printFunc(10);

@@ -1,32 +1,21 @@
-JUMP -> 4 
+JUMP -> 17 
+ALLOC -> 1 
+PUSH -> 0 
+STORE -> 1 
+LOAD -> 1 
 LOAD -> 0 
+LESS
+JMPF -> 7 
+LOAD -> 1 
 PRINTINT
+LOAD -> 1 
+PUSH -> 1 
+ADDI
+STORE -> 1 
+JUMP -> -11 
+ALLOC -> -1 
 POPSTACK
 UNFRAME
-FRAME -> 5 
-PUSHSTACK
-ALLOC -> 1 
-PUSH -> 1 
-STORE -> 0 
-GOTO -> 0 
-FRAME -> 5 
-PUSHSTACK
-ALLOC -> 1 
-PUSH -> 2 
-STORE -> 0 
-GOTO -> 0 
-FRAME -> 5 
-PUSHSTACK
-ALLOC -> 1 
-PUSH -> 3 
-STORE -> 0 
-GOTO -> 0 
-FRAME -> 5 
-PUSHSTACK
-ALLOC -> 1 
-PUSH -> 4 
-STORE -> 0 
-GOTO -> 0 
 FRAME -> 5 
 PUSHSTACK
 ALLOC -> 1 
