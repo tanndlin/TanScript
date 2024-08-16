@@ -8,14 +8,15 @@ typedef struct {
     int numOperands;
 } Instruction;
 
-void printInstruction(Instruction instr) {
-    printf("Instruction: %s", opcodeToString(instr.opcode));
+void printInstruction(Instruction instr, FILE* f) {
+    fprintf(f, "%s", opcodeToString(instr.opcode));
     if (instr.operands != NULL) {
-        printf(" . ");
+        fprintf(f, " -> ");
         for (int i = 0; i < instr.numOperands; i++) {
             printf("%d ", instr.operands[i]);
+            fprintf(f, "%d ", instr.operands[i]);
         }
     }
 
-    printf("\n");
+    fprintf(f, "\n");
 }

@@ -27,9 +27,11 @@ int main(int argc, char* argv[]) {
 
     instructions = parse(argv[1]);
     // print all instructions
-    if (DEBUG)
+    if (DEBUG) {
+        FILE* f = fopen("script.txt", "w");
         for (int i = 0; i < numInstructions; i++)
-            printInstruction(instructions[i]);
+            printInstruction(instructions[i], f);
+    }
 
     stack = malloc(sizeof(int) * MAX_STACK_SIZE);
     while (pc < numInstructions) {
@@ -51,7 +53,7 @@ void runLine() {
     Instruction instr = instructions[pc];
     if (DEBUG) {
         printf("Running: ");
-        printInstruction(instr);
+        printInstruction(instr, stdout);
     }
 
     switch (instr.opcode) {

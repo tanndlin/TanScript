@@ -198,16 +198,18 @@ export class FunctionCallASTNode extends ASTNode {
             // Assume there is only one argument
             const arg = [this.args[0].compile(scope)].flat();
             const isString = arg instanceof StringASTNode;
-
-            instructions.push(...arg.reverse());
             if (isString) {
-                arg.forEach((_, i) => {
-                    instructions.push(new PrintCInstruction());
-                });
-            } else {
-                instructions.push(new PrintIntInstruction());
+                arg.reverse();
             }
 
+            instructions.push(...arg);
+            if (!isString) {
+                return [...instructions, new PrintIntInstruction()];
+            }
+
+            arg.forEach((_) => {
+                instructions.push(new PrintCInstruction());
+            });
             return instructions;
         }
 

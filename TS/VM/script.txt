@@ -1,0 +1,17 @@
+ALLOC -> 1 
+PUSH -> 0 
+STORE -> 0 
+LOAD -> 0 
+PUSH -> 10 
+LESS
+JMPF -> 9 
+LOAD -> 0 
+PUSH -> 2 
+MULI
+PRINTINT
+LOAD -> 0 
+PUSH -> 1 
+ADDI
+STORE -> 0 
+JUMP -> -13 
+ALLOC -> -1 
