@@ -1,9 +1,9 @@
-def printFunc(){
-    print("Hello World!\n");
+def printFunc(n){
+    print(n);
 }
 
-printFunc();
-printFunc();
-printFunc();
-printFunc();
-printFunc();
+printFunc(1*2);
+printFunc(2*2);
+printFunc(3*2);
+printFunc(4*2);
+printFunc(5*2);

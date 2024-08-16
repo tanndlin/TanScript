@@ -298,17 +298,20 @@ export class BlockASTNode extends ASTNode {
             .filter(Boolean);
 
         const totalFunctionLengths = blockScope.getTotalFunctionSize();
-        const jumpOverFunctions = new JumpInstruction(totalFunctionLengths);
-        instructions = [jumpOverFunctions, ...instructions];
-
-        const numVars = blockScope.getNumVariables(true);
-        if (numVars === 0) {
-            return instructions;
+        if (totalFunctionLengths > 0) {
+            instructions = [
+                new JumpInstruction(totalFunctionLengths),
+                ...instructions,
+            ];
         }
 
-        const allocs = new AllocInstruction(numVars);
-        const unallocs = new AllocInstruction(-numVars);
+        const numVars = blockScope.getNumVariables(true);
+        if (numVars !== 0) {
+            const allocs = new AllocInstruction(numVars);
+            const unallocs = new AllocInstruction(-numVars);
+            instructions = [allocs, ...instructions, unallocs];
+        }
 
-        return [allocs, ...instructions, unallocs];
+        return instructions;
     }
 }

@@ -169,12 +169,13 @@ export class FunctionDefASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        const instructions = [new AllocInstruction(this.paramList.length)];
+        const funcScope = new CompileScope(scope);
         this.paramList.forEach((param) => {
-            scope.addVariable(param.getValue());
+            funcScope.addVariable(param.getValue());
         });
 
-        instructions.push(...[this.block.compile(scope)].flat());
+        const instructions = [];
+        instructions.push(...[this.block.compile(funcScope)].flat());
         instructions.push(new PopStackInstruction());
         instructions.push(new UnframeInstruction());
 
@@ -229,21 +230,21 @@ export class FunctionCallASTNode extends ASTNode {
 
         const { lineNumber } = scope.getFunction(this.value);
         // Set the parameters
-        const instructions = [];
-        this.args.forEach((arg, i) => {
-            // Push the arguments onto the stack
-            instructions.push(...[arg.compile(scope)].flat());
-
-            // Store the arguments in the correct place
-            instructions.push(new StoreInstruction(lineNumber + i));
+        const argSetup = this.args.flatMap((arg, i) => {
+            return [
+                arg.compile(scope), // Push the arguments onto the stack
+                new StoreInstruction(lineNumber + i), // Store the arguments in the function's scope
+            ].flat();
         });
 
-        // 2 to offset for the next 2 instructions
-        instructions.push(new FrameInstruction(2));
-        instructions.push(new PushStackInstruction());
-        instructions.push(new GotoInstruction(lineNumber));
-
-        return instructions;
+        // Offset to account for setting the arguments
+        return [
+            new FrameInstruction(3 + argSetup.length),
+            new PushStackInstruction(),
+            new AllocInstruction(this.args.length),
+            ...argSetup,
+            new GotoInstruction(lineNumber),
+        ];
     }
 }
 

@@ -13,7 +13,6 @@ void printInstruction(Instruction instr, FILE* f) {
     if (instr.operands != NULL) {
         fprintf(f, " -> ");
         for (int i = 0; i < instr.numOperands; i++) {
-            printf("%d ", instr.operands[i]);
             fprintf(f, "%d ", instr.operands[i]);
         }
     }

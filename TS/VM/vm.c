@@ -6,7 +6,7 @@
 #include "parse.h"
 
 #define DEBUG false
-#define MAX_STACK_SIZE 20
+#define MAX_STACK_SIZE 2048
 
 void validateStackSize(int n);
 bool checkInvariants();
@@ -139,13 +139,13 @@ void runLine() {
             sp--;
             break;
         case LOAD: {
-            int address = instr.operands[0];
+            int address = instr.operands[0] + bp;
             stack[sp] = stack[address];
             sp++;
             break;
         }
         case STORE: {
-            int address = instr.operands[0];
+            int address = instr.operands[0] + bp;
             stack[address] = stack[sp - 1];
             sp--;
             break;
@@ -214,9 +214,11 @@ void runLine() {
     if (DEBUG) {
         printf("Stack: ");
         for (int i = 0; i < sp; i++) {
+            if (i == bp)
+                printf("| ");
             printf("%d ", stack[i]);
         }
-        printf("\n");
+        printf("\n\n");
     }
 }
 
