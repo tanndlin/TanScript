@@ -1,5 +1,5 @@
-if(2*69 < 200){
-    print("true");
-} else {
-    print("false");
+def ret(a, b){
+    return a + b;
 }
+
+print(ret(6, 9));

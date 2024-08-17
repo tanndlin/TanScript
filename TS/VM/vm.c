@@ -20,6 +20,8 @@ int* stack;
 int sp = 0;
 int bp = 0;
 
+int returnValue = 0;
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         printf("Usage: %s <file>\n", argv[0]);
@@ -146,12 +148,12 @@ void runLine() {
         }
         case STORE: {
             int address = instr.operands[0] + bp;
-            stack[address] = stack[sp - 1];
-            sp--;
+            stack[address] = stack[--sp];
             break;
         }
         case ALLOC:
-            sp += instr.operands[0];
+            for (int i = 0; i < instr.operands[0]; i++)
+                stack[sp++] = 0;
             break;
         case FRAME:
             stack[sp] = pc + instr.operands[0];
@@ -160,7 +162,8 @@ void runLine() {
         case UNFRAME:
             validateStackSize(1);
             pc = stack[sp - 1];
-            sp--;
+            stack[sp - 1] = returnValue;
+            returnValue = 0;
             break;
         case GOTO:
             pc = instr.operands[0];
@@ -197,10 +200,13 @@ void runLine() {
             bp = sp;
             break;
         case POPSTACK:
-            validateStackSize(1);
             // Restore previous base pointer
             sp = bp;
             bp = stack[sp - 1];
+            sp--;
+            break;
+        case RETURN:
+            returnValue = stack[sp - 1];
             sp--;
             break;
 

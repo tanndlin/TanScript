@@ -158,3 +158,9 @@ export class PopStackInstruction extends Instruction {
         super(Opcode.POPSTACK, []);
     }
 }
+
+export class ReturnInstruction extends Instruction {
+    constructor() {
+        super(Opcode.RETURN, []);
+    }
+}

@@ -23,6 +23,7 @@ enum Opcode {
     PRINTINT,
     PUSHSTACK,
     POPSTACK,
+    RETURN,
 };
 
 char* opcodeToString(enum Opcode opcode) {
@@ -75,6 +76,8 @@ char* opcodeToString(enum Opcode opcode) {
             return "PUSHSTACK";
         case POPSTACK:
             return "POPSTACK";
+        case RETURN:
+            return "RETURN";
     }
     return "UNKNOWN";
 }

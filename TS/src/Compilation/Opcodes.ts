@@ -23,4 +23,5 @@ export enum Opcode {
     PRINTINT,
     PUSHSTACK,
     POPSTACK,
+    RETURN,
 }

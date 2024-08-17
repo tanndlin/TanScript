@@ -11,6 +11,7 @@ import {
     PrintCInstruction,
     PrintIntInstruction,
     PushStackInstruction,
+    ReturnInstruction,
     StoreInstruction,
     UnframeInstruction,
 } from '../Compilation/Instruction';
@@ -123,7 +124,10 @@ export class IfASTNode extends ASTNode {
         instructions.push(new JumpFalseInstruction(block.length + 1));
         instructions.push(...block);
         // Jump to end of if statement
-        instructions.push(new JumpInstruction(elseBlock.length + 1));
+        if (elseBlock.length) {
+            instructions.push(new JumpInstruction(elseBlock.length));
+        }
+
         instructions.push(...elseBlock);
 
         return instructions;
@@ -276,6 +280,6 @@ export class ReturnASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new RuntimeError('Unexpected call to ReturnASTNode.compile');
+        return [this.valueAST.compile(scope), new ReturnInstruction()].flat();
     }
 }
