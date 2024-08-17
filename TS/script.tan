@@ -1,9 +1,5 @@
-def printFunc(n){
-    let i = 0;
-    while(i*2 < n){
-        print(i*3);
-        i++;
-    }
+if(2*69 < 200){
+    print("true");
+} else {
+    print("false");
 }
-
-printFunc(10);

@@ -111,7 +111,22 @@ export class IfASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new RuntimeError('Unexpected call to IfASTNode.compile');
+        const instructions = [];
+        const condition = [this.condition.compile(scope)].flat();
+        const block = [this.block.compile(scope)].flat();
+        const elseBlock = this.elseBlock
+            ? [this.elseBlock.compile(scope)].flat()
+            : [];
+
+        instructions.push(...condition);
+        // Jump to else block if condition is false
+        instructions.push(new JumpFalseInstruction(block.length + 1));
+        instructions.push(...block);
+        // Jump to end of if statement
+        instructions.push(new JumpInstruction(elseBlock.length + 1));
+        instructions.push(...elseBlock);
+
+        return instructions;
     }
 }
 
