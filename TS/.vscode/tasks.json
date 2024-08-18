@@ -9,6 +9,25 @@
             ],
             "label": "npm: lint",
             "detail": "eslint . --ext .ts"
+        },
+        //gcc
+        {
+            "type": "shell",
+            "label": "gcc",
+            "command": "gcc",
+            "args": [
+                "-g",
+                "${workspaceFolder}/VM/vm.c",
+                "-o",
+                "${workspaceFolder}/a.exe"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
-    ]
+    ],
 }

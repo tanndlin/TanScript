@@ -11,6 +11,30 @@
             "args": [
                 "${workspaceFolder}/src/index.ts"
             ],
+        },
+        // gdb
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Debug VM",
+            "program": "${workspaceFolder}\\a.exe",
+            "args": [
+                "${workspaceFolder}\\VM\\script.tsc"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+            ],
+            "preLaunchTask": "gcc",
+            "miDebuggerPath": "C:\\MinGW\\bin\\gdb.exe",
         }
     ],
 }
