@@ -45,9 +45,9 @@ export class CompileScope {
     }
 
     public addFunction(name: string, length: number): void {
-        if (this.functions.has(name)) {
-            throw new Error(`Function ${name} already exists`);
-        }
+        // if (this.functions.has(name)) {
+        //     throw new Error(`Function ${name} already exists`);
+        // }
 
         const currentNumberOfLines = this.getTotalFunctionSize();
         this.functions.set(name, { lineNumber: currentNumberOfLines, length });

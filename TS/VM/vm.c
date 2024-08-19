@@ -5,8 +5,8 @@
 
 #include "parse.h"
 
-#define DEBUG false
-#define MAX_STACK_SIZE 2048
+#define DEBUG true
+#define MAX_STACK_SIZE 20
 
 void validateStackSize(int n);
 bool checkInvariants();
@@ -23,7 +23,7 @@ int bp = 0;
 int returnValue = 0;
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         printf("Usage: %s <file>\n", argv[0]);
         exit(1);
     }
@@ -152,8 +152,9 @@ void runLine() {
             break;
         }
         case ALLOC:
-            for (int i = 0; i < instr.operands[0]; i++)
-                stack[sp++] = 0;
+            // for (int i = 0; i < instr.operands[0]; i++)
+            // stack[sp++] = 0;
+            sp += instr.operands[0];
             break;
         case FRAME:
             stack[sp] = pc + instr.operands[0];
@@ -165,6 +166,22 @@ void runLine() {
             stack[sp - 1] = returnValue;
             returnValue = 0;
             break;
+        case STORESP:
+            stack[sp] = sp;
+            sp++;
+            break;
+        case STORESPOFFSET:
+            stack[sp] = sp - bp;
+            sp++;
+            break;
+        case STORESTACK: {
+            validateStackSize(2);
+            int address = stack[sp - 1] + bp;
+            int value = stack[sp - 2];
+            stack[address] = value;
+            sp -= 2;
+            break;
+        }
         case GOTO:
             pc = instr.operands[0];
             break;
@@ -224,7 +241,7 @@ void runLine() {
                 printf("| ");
             printf("%d ", stack[i]);
         }
-        printf("\n\n");
+        printf("\nPC: %d\n\n", pc);
     }
 }
 

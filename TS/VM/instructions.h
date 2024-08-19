@@ -18,4 +18,5 @@ void printInstruction(Instruction instr, FILE* f) {
     }
 
     fprintf(f, "\n");
+    fflush(f);
 }

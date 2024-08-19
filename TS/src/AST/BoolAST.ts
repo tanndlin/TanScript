@@ -8,6 +8,7 @@ import {
     Token,
 } from '../types';
 import {
+    EqInstruction,
     GeqInstruction,
     GreaterInstruction,
     Instruction,
@@ -68,6 +69,9 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
                 break;
             case Token.GEQ:
                 instructions.push(new GeqInstruction());
+                break;
+            case Token.EQUAL:
+                instructions.push(new EqInstruction());
                 break;
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);

@@ -1,6 +1,7 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import { CompileScope } from '../Compilation/CompileScope';
 import {
+    AddInstruction,
     AllocInstruction,
     FrameInstruction,
     GotoInstruction,
@@ -10,9 +11,11 @@ import {
     PopStackInstruction,
     PrintCInstruction,
     PrintIntInstruction,
+    PushInstruction,
     PushStackInstruction,
     ReturnInstruction,
-    StoreInstruction,
+    StoreSPOffsetInstruction,
+    StoreStackInstruction,
     UnframeInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
@@ -43,7 +46,7 @@ export class WhileASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        const instructions = [];
+        const instructions: Instruction[] = [];
         const condition = [this.condition.compile(scope)].flat();
         const block = [this.block.compile(scope)].flat();
 
@@ -112,7 +115,7 @@ export class IfASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        const instructions = [];
+        const instructions: Instruction[] = [];
         const condition = [this.condition.compile(scope)].flat();
         const block = [this.block.compile(scope)].flat();
         const elseBlock = this.elseBlock
@@ -193,11 +196,15 @@ export class FunctionDefASTNode extends ASTNode {
             funcScope.addVariable(param.getValue());
         });
 
-        const instructions = [];
+        // Add the scope to allow recusion, we will update the length after compilation of the body
+        scope.addFunction(this.value, 0);
+
+        const instructions: Instruction[] = [];
         instructions.push(...[this.block.compile(funcScope)].flat());
         instructions.push(new PopStackInstruction());
         instructions.push(new UnframeInstruction());
 
+        // Update the length of the function
         scope.addFunction(this.value, instructions.length);
         return instructions;
     }
@@ -232,7 +239,7 @@ export class FunctionCallASTNode extends ASTNode {
         // Check if this is a built in function
         // TODO: Make built in functions compile
         if (this.value === 'print') {
-            const instructions = [];
+            const instructions: Instruction[] = [];
             // Assume there is only one argument
             const isString = this.args[0] instanceof StringASTNode;
             const arg = [this.args[0].compile(scope)].flat();
@@ -252,17 +259,21 @@ export class FunctionCallASTNode extends ASTNode {
         const argSetup = this.args.flatMap((arg, i) => {
             return [
                 arg.compile(scope), // Push the arguments onto the stack
-                new StoreInstruction(lineNumber + i), // Store the arguments in the function's scope
+                new StoreSPOffsetInstruction(), // Store the stack pointer
+                new PushInstruction(i + 1),
+                new AddInstruction(),
+                new StoreStackInstruction(), // Store the arguments in the function's scope
             ].flat();
         });
 
         // Offset to account for setting the arguments
         return [
-            new FrameInstruction(3 + argSetup.length),
-            new PushStackInstruction(),
-            new AllocInstruction(this.args.length),
+            new FrameInstruction(3 + argSetup.length), // Set the return point for the pc
             ...argSetup,
-            new GotoInstruction(lineNumber),
+            new AllocInstruction(1),
+            new PushStackInstruction(), // Offset stack for new frame
+            new AllocInstruction(this.args.length), // Move stack pointer so you cannot overwrite the args
+            new GotoInstruction(lineNumber), // Goto function
         ];
     }
 }

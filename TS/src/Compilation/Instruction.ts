@@ -111,6 +111,24 @@ export class UnframeInstruction extends Instruction {
     }
 }
 
+export class StoreSPInstruction extends Instruction {
+    constructor() {
+        super(Opcode.STORESP, []);
+    }
+}
+
+export class StoreSPOffsetInstruction extends Instruction {
+    constructor() {
+        super(Opcode.STORESPOFFSET, []);
+    }
+}
+
+export class StoreStackInstruction extends Instruction {
+    constructor() {
+        super(Opcode.STORESTACK, []);
+    }
+}
+
 export class GotoInstruction extends Instruction {
     constructor(number: number) {
         super(Opcode.GOTO, [number]);

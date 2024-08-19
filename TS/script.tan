@@ -1,5 +1,17 @@
-def ret(a, b){
-    return a + b;
+def mult(a,b){
+    return a*b;
 }
 
-print(ret(6, 9));
+def add(a,b){
+    return a+b;
+}
+
+def sub(a,b){
+    return a-b;
+}
+
+def div(a,b){
+    return a/b;
+}
+
+print(sub(div(add(mult(2,3), 4),2),1));

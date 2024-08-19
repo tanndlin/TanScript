@@ -15,6 +15,9 @@ enum Opcode {
     ALLOC,
     FRAME,
     UNFRAME,
+    STORESP,
+    STORESPOFFSET,
+    STORESTACK,
     GOTO,
     JUMP,
     JMPT,
@@ -60,6 +63,12 @@ char* opcodeToString(enum Opcode opcode) {
             return "FRAME";
         case UNFRAME:
             return "UNFRAME";
+        case STORESP:
+            return "STORESP";
+        case STORESPOFFSET:
+            return "STORESPOFFSET";
+        case STORESTACK:
+            return "STORESTACK";
         case GOTO:
             return "GOTO";
         case JUMP:
