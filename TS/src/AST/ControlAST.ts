@@ -1,7 +1,6 @@
 import { BuiltInFuncName, allFunctions } from '../BuiltInFunctions';
 import { CompileScope } from '../Compilation/CompileScope';
 import {
-    AddInstruction,
     AllocInstruction,
     FrameInstruction,
     GotoInstruction,
@@ -11,11 +10,8 @@ import {
     PopStackInstruction,
     PrintCInstruction,
     PrintIntInstruction,
-    PushInstruction,
     PushStackInstruction,
     ReturnInstruction,
-    StoreSPOffsetInstruction,
-    StoreStackInstruction,
     UnframeInstruction,
 } from '../Compilation/Instruction';
 import Scope from '../Scope';
@@ -259,18 +255,15 @@ export class FunctionCallASTNode extends ASTNode {
         const argSetup = this.args.flatMap((arg, i) => {
             return [
                 arg.compile(scope), // Push the arguments onto the stack
-                new StoreSPOffsetInstruction(), // Store the stack pointer
-                new PushInstruction(i + 1),
-                new AddInstruction(),
-                new StoreStackInstruction(), // Store the arguments in the function's scope
             ].flat();
         });
 
-        // Offset to account for setting the arguments
         return [
-            new FrameInstruction(3 + argSetup.length), // Set the return point for the pc
+            new FrameInstruction(5 + argSetup.length), // Set the return point for the pc
+            new AllocInstruction(1), // Skip over the push and alloc
+            // Create the args in place
             ...argSetup,
-            new AllocInstruction(1),
+            new AllocInstruction(-(1 + this.args.length)), // Go back to push the BP
             new PushStackInstruction(), // Offset stack for new frame
             new AllocInstruction(this.args.length), // Move stack pointer so you cannot overwrite the args
             new GotoInstruction(lineNumber), // Goto function

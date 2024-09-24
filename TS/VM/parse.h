@@ -22,6 +22,7 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case PRINTC:
         case PRINTINT:
         case STORESP:
+        case STORESPOFFSET:
         case STORESTACK:
         case PUSHSTACK:
         case POPSTACK:
