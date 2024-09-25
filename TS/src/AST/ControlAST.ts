@@ -120,7 +120,9 @@ export class IfASTNode extends ASTNode {
 
         instructions.push(...condition);
         // Jump to else block if condition is false
-        instructions.push(new JumpFalseInstruction(block.length + 1));
+        instructions.push(
+            new JumpFalseInstruction(block.length + (elseBlock.length ? 1 : 0)),
+        );
         instructions.push(...block);
         // Jump to end of if statement
         if (elseBlock.length) {
@@ -252,11 +254,7 @@ export class FunctionCallASTNode extends ASTNode {
 
         const { lineNumber } = scope.getFunction(this.value);
         // Set the parameters
-        const argSetup = this.args.flatMap((arg, i) => {
-            return [
-                arg.compile(scope), // Push the arguments onto the stack
-            ].flat();
-        });
+        const argSetup = this.args.flatMap((arg) => arg.compile(scope));
 
         return [
             new FrameInstruction(5 + argSetup.length), // Set the return point for the pc
@@ -284,6 +282,11 @@ export class ReturnASTNode extends ASTNode {
     }
 
     compile(scope: CompileScope): Instruction | Instruction[] {
-        return [this.valueAST.compile(scope), new ReturnInstruction()].flat();
+        return [
+            this.valueAST.compile(scope),
+            new ReturnInstruction(),
+            new PopStackInstruction(),
+            new UnframeInstruction(),
+        ].flat();
     }
 }

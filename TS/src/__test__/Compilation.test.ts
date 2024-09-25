@@ -2,9 +2,12 @@ import {
     AddInstruction,
     AllocInstruction,
     DivInstruction,
+    JumpFalseInstruction,
+    JumpInstruction,
     LoadInstruction,
     MulInstruction,
     PushInstruction,
+    ReturnInstruction,
     StoreInstruction,
     SubInstruction,
 } from '../Compilation/Instruction';
@@ -183,6 +186,56 @@ describe('Variable compilation', () => {
             new LoadInstruction(0),
             new LoadInstruction(1),
             new AddInstruction(),
+        ]);
+    });
+});
+
+describe('Control flow compilation', () => {
+    it('should compile if statements', () => {
+        const script = 'if (1) { 2 }';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpFalseInstruction(1),
+            new PushInstruction(2),
+        ]);
+    });
+
+    it('should compile if else statements', () => {
+        const script = 'if (1) { 2 } else { 3 }';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpFalseInstruction(1),
+            new PushInstruction(2),
+            new JumpInstruction(1),
+            new PushInstruction(3),
+        ]);
+    });
+
+    it('if should jump over longer blocks', () => {
+        const script = 'if (1) { return 2; } else { return 3; }';
+        const lexer = new Lexer(script);
+        const tokens = lexer.getTokens();
+        const ast = new Parser(tokens).parse();
+
+        const instructions = ast.compile();
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpFalseInstruction(2),
+            new PushInstruction(2),
+            new ReturnInstruction(),
+            new JumpInstruction(2),
+            new PushInstruction(3),
+            new ReturnInstruction(),
         ]);
     });
 });
