@@ -41,7 +41,7 @@ export abstract class ASTNode extends TokenTypeable {
     }
 
     abstract evaluate(scope: Scope): RuntimeValue;
-    abstract compile(scope: CompileScope): Instruction | Instruction[];
+    abstract compile(scope: CompileScope): Instruction[];
 
     public getType(): Token {
         return this.type;
@@ -65,7 +65,7 @@ export class DecoratorASTNode extends ASTNode {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         return [];
     }
 }
@@ -116,7 +116,7 @@ export class LParenASTNode extends ASTNode {
         return [this.child];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         return this.child.compile(scope);
     }
 }
@@ -135,9 +135,9 @@ export class IdentifierASTNode extends ASTNode {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const address = scope.getVariableAddress(this.value);
-        return new LoadInstruction(address);
+        return [new LoadInstruction(address)];
     }
 }
 
@@ -164,7 +164,7 @@ export class AssignASTNode extends ASTNode {
         return [this.identifier, this.valueAST];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const address = scope.getVariableAddress(this.identifier.getValue());
         const valueInstructions = [this.valueAST.compile(scope)].flat();
 
@@ -214,7 +214,7 @@ export class DeclarationASTNode extends ASTNode {
         return [this.child];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         // The allocation is already handled by hoisting in the block scope
 
         if (this.child instanceof IdentifierASTNode) {
@@ -245,7 +245,7 @@ export class StringASTNode extends ASTNode {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         return this.value
             .split('')
             .map((char) => {
@@ -290,7 +290,7 @@ export class BlockASTNode extends ASTNode {
         this.children = children;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const blockScope = new CompileScope(scope);
         let instructions = this.children
             .map((child) => child.compile(blockScope))

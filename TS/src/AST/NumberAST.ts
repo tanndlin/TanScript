@@ -62,11 +62,10 @@ export class MathASTNode
         return [this.left, this.right];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
-        const instructions = [
-            this.left.compile(scope),
-            this.right.compile(scope),
-        ];
+    compile(scope: CompileScope): Instruction[] {
+        const instructions = this.left
+            .compile(scope)
+            .concat(this.right.compile(scope));
 
         if (this.getType() === Token.PLUS) {
             instructions.push(new AddInstruction());
@@ -136,7 +135,7 @@ export class NumberASTNode extends ASTNode implements INumberableAST {
         return +this.value;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
-        return new PushInstruction(+this.value);
+    compile(scope: CompileScope): Instruction[] {
+        return [new PushInstruction(+this.value)];
     }
 }

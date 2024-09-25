@@ -6,7 +6,7 @@
 #include "parse.h"
 
 #define DEBUG false
-#define MAX_STACK_SIZE 100
+#define MAX_STACK_SIZE 1024
 
 void validateStackSize(int n);
 bool checkInvariants();

@@ -41,7 +41,7 @@ export class WhileASTNode extends ASTNode {
         return ret;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const instructions: Instruction[] = [];
         const condition = [this.condition.compile(scope)].flat();
         const block = [this.block.compile(scope)].flat();
@@ -81,8 +81,27 @@ export class ForASTNode extends ASTNode {
         return ret;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
-        throw new RuntimeError('Unexpected call to ForASTNode.compile');
+    compile(scope: CompileScope): Instruction[] {
+        const instructions: Instruction[] = [];
+        const init = this.init.compile(scope);
+        const condition = this.condition.compile(scope);
+        const update = this.update.compile(scope);
+        const block = this.block.compile(scope);
+
+        instructions.push(...init);
+        instructions.push(...condition);
+        // Jump out of block if condition is false
+        instructions.push(
+            new JumpFalseInstruction(block.length + update.length + 1),
+        );
+        instructions.push(...block);
+        instructions.push(...update);
+        // Jump back to condition
+        instructions.push(
+            new JumpInstruction(-(instructions.length - init.length + 1)),
+        );
+
+        return instructions;
     }
 }
 
@@ -110,7 +129,7 @@ export class IfASTNode extends ASTNode {
         }
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const instructions: Instruction[] = [];
         const condition = [this.condition.compile(scope)].flat();
         const block = [this.block.compile(scope)].flat();
@@ -188,7 +207,7 @@ export class FunctionDefASTNode extends ASTNode {
         return this.paramList;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const funcScope = new CompileScope(scope);
         this.paramList.forEach((param) => {
             funcScope.addVariable(param.getValue());
@@ -233,7 +252,7 @@ export class FunctionCallASTNode extends ASTNode {
         return this.args;
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         // Check if this is a built in function
         // TODO: Make built in functions compile
         if (this.value === 'print') {
@@ -281,7 +300,7 @@ export class ReturnASTNode extends ASTNode {
         return scope.setReturnValue(this.valueAST.evaluate(scope));
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         return [
             this.valueAST.compile(scope),
             new ReturnInstruction(),

@@ -52,7 +52,7 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         const left = [this.left.compile(scope)].flat();
         const right = [this.right.compile(scope)].flat();
 
@@ -86,8 +86,8 @@ export class BooleanASTNode extends ASTNode {
         return this.isType(Token.TRUE);
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
-        return new PushInstruction(this.isType(Token.TRUE) ? 1 : 0);
+    compile(scope: CompileScope): Instruction[] {
+        return [new PushInstruction(this.isType(Token.TRUE) ? 1 : 0)];
     }
 }
 
@@ -191,7 +191,7 @@ export class NotASTNode extends ASTNode {
         return !this.child.evaluate(scope);
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         throw new TannerError('NotASTNode.compile not implemented');
     }
 }

@@ -5,7 +5,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$ms = Measure-Command { ./a.exe script.tsc > out.txt} | Select-Object -ExpandProperty TotalMilliseconds
+$ms = Measure-Command { ./a.exe script.tsc > out.txt } | Select-Object -ExpandProperty TotalMilliseconds
 Get-Content out.txt
 
 Write-Output "Runtime: $ms ms"

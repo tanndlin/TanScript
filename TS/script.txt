@@ -1,49 +1,15 @@
-JUMP -> 41 
+ALLOC -> 1 
+PUSH -> 0 
+STORE -> 0 
+LOAD -> 0 
+PUSH -> 10 
+LESS
+JMPF -> 7 
 LOAD -> 0 
 PRINTINT
-PUSH -> 10 
-PRINTC
 LOAD -> 0 
-PUSH -> 1 
-EQ
-JMPF -> 3 
-PUSH -> 1 
-RETURN
-LOAD -> 0 
-PUSH -> 2 
-MODI
-PUSH -> 0 
-EQ
-JMPF -> 11 
-FRAME -> 8 
-ALLOC -> 1 
-LOAD -> 0 
-PUSH -> 2 
-DIVI
-ALLOC -> -2 
-PUSHSTACK
-ALLOC -> 1 
-GOTO -> 0 
-RETURN
-JUMP -> 12 
-FRAME -> 10 
-ALLOC -> 1 
-PUSH -> 3 
-LOAD -> 0 
-MULI
 PUSH -> 1 
 ADDI
-ALLOC -> -2 
-PUSHSTACK
-ALLOC -> 1 
-GOTO -> 0 
-RETURN
-POPSTACK
-UNFRAME
-FRAME -> 6 
-ALLOC -> 1 
-PUSH -> 10 
-ALLOC -> -2 
-PUSHSTACK
-ALLOC -> 1 
-GOTO -> 0 
+STORE -> 0 
+JUMP -> -13 
+ALLOC -> -1 

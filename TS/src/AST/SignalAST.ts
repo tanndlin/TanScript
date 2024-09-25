@@ -51,7 +51,7 @@ export class SignalComputeAST extends ASTNode {
         return scope.getSignalValue(this.value);
     }
 
-    compile(scope: CompileScope): Instruction | Instruction[] {
+    compile(scope: CompileScope): Instruction[] {
         throw new Error('Method not implemented.');
     }
 }
