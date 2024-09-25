@@ -3,6 +3,7 @@ enum Opcode {
     SUBI,
     MULI,
     DIVI,
+    MODI,
     LESS,
     LEQ,
     EQ,
@@ -39,6 +40,8 @@ char* opcodeToString(enum Opcode opcode) {
             return "MULI";
         case DIVI:
             return "DIVI";
+        case MODI:
+            return "MODI";
         case LESS:
             return "LESS";
         case LEQ:

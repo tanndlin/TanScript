@@ -5,7 +5,7 @@
 
 #include "parse.h"
 
-#define DEBUG true
+#define DEBUG false
 #define MAX_STACK_SIZE 100
 
 void validateStackSize(int n);
@@ -106,6 +106,11 @@ void runLine() {
         case DIVI:
             validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] / stack[sp - 1];
+            sp--;
+            break;
+        case MODI:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] % stack[sp - 1];
             sp--;
             break;
         case LESS:

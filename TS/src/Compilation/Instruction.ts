@@ -39,6 +39,12 @@ export class DivInstruction extends Instruction {
     }
 }
 
+export class ModInstruction extends Instruction {
+    constructor() {
+        super(Opcode.MODI, []);
+    }
+}
+
 export class LessInstruction extends Instruction {
     constructor() {
         super(Opcode.LESS, []);

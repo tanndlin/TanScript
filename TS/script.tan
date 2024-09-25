@@ -1,17 +1,15 @@
-def mult(a,b){
-    return a*b;
+def collatz(n){
+    print(n);
+    print("\n");
+    if (n == 1) {
+        return 1;
+    }
+    
+    if (n % 2 == 0) {
+        return collatz(n / 2);
+    } else {
+        return collatz(3 * n + 1);
+    }
 }
 
-def add(a,b){
-    return a+b;
-}
-
-def sub(a,b){
-    return a-b;
-}
-
-def div(a,b){
-    return a/b;
-}
-
-print(sub(div(add(mult(2,3), 4),2),1));
+collatz(10);

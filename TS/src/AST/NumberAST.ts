@@ -3,6 +3,7 @@ import {
     AddInstruction,
     DivInstruction,
     Instruction,
+    ModInstruction,
     MulInstruction,
     PushInstruction,
     SubInstruction,
@@ -75,6 +76,8 @@ export class MathASTNode
             instructions.push(new MulInstruction());
         } else if (this.getType() === Token.DIVIDE) {
             instructions.push(new DivInstruction());
+        } else if (this.getType() === Token.MOD) {
+            instructions.push(new ModInstruction());
         } else {
             throw new TannerError('Unexpected call to MathASTNode.compile');
         }

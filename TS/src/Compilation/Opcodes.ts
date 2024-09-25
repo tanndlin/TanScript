@@ -3,6 +3,7 @@ export enum Opcode {
     SUBI,
     MULI,
     DIVI,
+    MODI,
     LESS,
     LEQ,
     EQ,

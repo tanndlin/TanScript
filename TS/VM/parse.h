@@ -12,6 +12,7 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case SUBI:
         case MULI:
         case DIVI:
+        case MODI:
         case LESS:
         case LEQ:
         case EQ:
