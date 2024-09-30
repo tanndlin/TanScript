@@ -1,6 +1,6 @@
 import { AST, ASTNode, LParenASTNode } from './AST/AST';
 import { BooleanASTNode, BooleanOpASTNode, NotASTNode } from './AST/BoolAST';
-import { ForASTNode, IfASTNode } from './AST/ControlAST';
+import { ForASTNode, FunctionCallASTNode, IfASTNode } from './AST/ControlAST';
 import { MathASTNode, NumberASTNode } from './AST/NumberAST';
 import { IChildrenEnumerable, INumberableAST, Maybe, Token } from './types';
 
@@ -44,6 +44,10 @@ export default class Optimizer {
             return Optimizer.optimizeFor(child);
         }
 
+        if (child instanceof FunctionCallASTNode) {
+            return Optimizer.optimizeFunctionCallArgs(child);
+        }
+
         return child;
     }
 
@@ -73,6 +77,17 @@ export default class Optimizer {
         block = Optimizer.optimizeNode(block);
 
         return new ForASTNode(init, condition, update, block);
+    }
+
+    private static optimizeFunctionCallArgs(
+        node: FunctionCallASTNode,
+    ): ASTNode {
+        const { args } = node;
+        const newArgs = args.map((arg) => {
+            return Optimizer.optimizeNode(arg);
+        }) as IChildrenEnumerable[];
+
+        return new FunctionCallASTNode(node.getValue(), newArgs);
     }
 
     private static simplifyLogicalExpression(

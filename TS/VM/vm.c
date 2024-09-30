@@ -5,7 +5,7 @@
 
 #include "parse.h"
 
-#define DEBUG false
+#define DEBUG true
 #define MAX_STACK_SIZE 1024
 
 void validateStackSize(int n);

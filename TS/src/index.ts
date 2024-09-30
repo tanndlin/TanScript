@@ -6,6 +6,7 @@ import Parser from './Parser';
 import { readScript, writeInstructions } from './util';
 
 const DEBUG = false;
+const OPTIMIZE = true;
 
 const script = readScript('script.tan');
 const lexer = new Lexer(script);
@@ -16,6 +17,7 @@ if (DEBUG) {
 
 const parser = new Parser(tokens);
 let ast = parser.parse();
+ast = OPTIMIZE ? Optimizer.optimize(ast) : ast;
 
 const instructions = ast.compile();
 if (DEBUG) {
@@ -24,12 +26,11 @@ if (DEBUG) {
 
 writeInstructions(instructions);
 
-ast = Optimizer.optimize(ast);
 if (DEBUG) {
     console.log(util.inspect(ast, { showHidden: false, depth: null }));
 }
 
-const env = new Environment(ast, true);
+const env = new Environment(ast, DEBUG);
 
 console.time('Execution time');
 env.evaluate();
