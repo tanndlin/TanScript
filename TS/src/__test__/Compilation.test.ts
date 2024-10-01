@@ -9,10 +9,12 @@ import {
     LoadInstruction,
     MulInstruction,
     OrInstruction,
+    PopStackInstruction,
     PushInstruction,
     ReturnInstruction,
     StoreInstruction,
     SubInstruction,
+    UnframeInstruction,
 } from '../Compilation/Instruction';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
@@ -116,6 +118,7 @@ describe('Variable compilation', () => {
             new AllocInstruction(1),
             new PushInstruction(1),
             new StoreInstruction(0),
+            new AllocInstruction(-1),
         ]);
     });
 
@@ -128,6 +131,7 @@ describe('Variable compilation', () => {
             new LoadInstruction(0),
             new PushInstruction(2),
             new AddInstruction(),
+            new AllocInstruction(-1),
         ]);
     });
 
@@ -144,6 +148,7 @@ describe('Variable compilation', () => {
             new LoadInstruction(0),
             new LoadInstruction(1),
             new AddInstruction(),
+            new AllocInstruction(-2),
         ]);
     });
 });
@@ -162,7 +167,7 @@ describe('Control flow compilation', () => {
         const instructions = instructionsFromScript('if (1) { 2 } else { 3 }');
         expect(instructions).toEqual([
             new PushInstruction(1),
-            new JumpFalseInstruction(1),
+            new JumpFalseInstruction(2),
             new PushInstruction(2),
             new JumpInstruction(1),
             new PushInstruction(3),
@@ -175,12 +180,16 @@ describe('Control flow compilation', () => {
         );
         expect(instructions).toEqual([
             new PushInstruction(1),
-            new JumpFalseInstruction(2),
+            new JumpFalseInstruction(5),
             new PushInstruction(2),
             new ReturnInstruction(),
-            new JumpInstruction(2),
+            new PopStackInstruction(),
+            new UnframeInstruction(),
+            new JumpInstruction(4),
             new PushInstruction(3),
             new ReturnInstruction(),
+            new PopStackInstruction(),
+            new UnframeInstruction(),
         ]);
     });
 });
