@@ -34,6 +34,7 @@ int main(int argc, char* argv[]) {
         FILE* f = fopen("script.txt", "w");
         for (int i = 0; i < numInstructions; i++)
             printInstruction(instructions[i], f);
+        fclose(f);
     }
 
     stack = malloc(sizeof(int) * MAX_STACK_SIZE);

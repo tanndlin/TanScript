@@ -5,7 +5,7 @@ import Optimizer from './Optimizer';
 import Parser from './Parser';
 import { readScript, writeInstructions } from './util';
 
-const DEBUG = false;
+const DEBUG = true;
 const OPTIMIZE = true;
 
 const script = readScript('script.tan');
