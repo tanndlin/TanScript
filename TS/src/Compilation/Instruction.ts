@@ -75,6 +75,24 @@ export class GreaterInstruction extends Instruction {
     }
 }
 
+export class AndInstruction extends Instruction {
+    constructor() {
+        super(Opcode.AND, []);
+    }
+}
+
+export class OrInstruction extends Instruction {
+    constructor() {
+        super(Opcode.OR, []);
+    }
+}
+
+export class NotInstruction extends Instruction {
+    constructor() {
+        super(Opcode.NOT, []);
+    }
+}
+
 export class PushInstruction extends Instruction {
     constructor(number: number) {
         super(Opcode.PUSH, [number]);

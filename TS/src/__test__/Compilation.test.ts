@@ -1,11 +1,14 @@
 import {
     AddInstruction,
     AllocInstruction,
+    AndInstruction,
     DivInstruction,
     JumpFalseInstruction,
     JumpInstruction,
+    JumpTrueInstruction,
     LoadInstruction,
     MulInstruction,
+    OrInstruction,
     PushInstruction,
     ReturnInstruction,
     StoreInstruction,
@@ -14,14 +17,17 @@ import {
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 
+const instructionsFromScript = (script: string) => {
+    const lexer = new Lexer(script);
+    const tokens = lexer.getTokens();
+    const ast = new Parser(tokens).parse();
+
+    return ast.compile();
+};
+
 describe('Basic Math Compilation', () => {
     it('Should compile addition', () => {
-        const script = '1 + 1';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 + 1');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(1),
@@ -30,12 +36,7 @@ describe('Basic Math Compilation', () => {
     });
 
     it('Should compile subtraction', () => {
-        const script = '1 - 1';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 - 1');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(1),
@@ -44,12 +45,7 @@ describe('Basic Math Compilation', () => {
     });
 
     it('Should compile multiplication', () => {
-        const script = '1 * 1';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 * 1');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(1),
@@ -58,12 +54,7 @@ describe('Basic Math Compilation', () => {
     });
 
     it('Should compile division', () => {
-        const script = '1 / 1';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 / 1');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(1),
@@ -74,12 +65,7 @@ describe('Basic Math Compilation', () => {
 
 describe('Complex Math Compilation', () => {
     it('should compile chained addition', () => {
-        const script = '1 + 2 + 3';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 + 2 + 3');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(2),
@@ -90,12 +76,7 @@ describe('Complex Math Compilation', () => {
     });
 
     it('should respect pemdas', () => {
-        const script = '1 + 2 * 3';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('1 + 2 * 3');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(2),
@@ -106,12 +87,7 @@ describe('Complex Math Compilation', () => {
     });
 
     it('should respect parentheses first', () => {
-        const script = '(1 + 2) * 3';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('(1 + 2) * 3');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new PushInstruction(2),
@@ -122,12 +98,7 @@ describe('Complex Math Compilation', () => {
     });
 
     it('should respect parentheses second', () => {
-        const script = '3 * (1 + 2)';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('3 * (1 + 2)');
         expect(instructions).toEqual([
             new PushInstruction(3),
             new PushInstruction(1),
@@ -140,12 +111,7 @@ describe('Complex Math Compilation', () => {
 
 describe('Variable compilation', () => {
     it('should compile variable assignment', () => {
-        const script = 'let a = 1';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('let a = 1');
         expect(instructions).toEqual([
             new AllocInstruction(1),
             new PushInstruction(1),
@@ -154,12 +120,7 @@ describe('Variable compilation', () => {
     });
 
     it('should be able to use variables', () => {
-        const script = 'let a = 1; a + 2';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('let a = 1; a + 2');
         expect(instructions).toEqual([
             new AllocInstruction(1),
             new PushInstruction(1),
@@ -171,12 +132,9 @@ describe('Variable compilation', () => {
     });
 
     it('should be able to use multiple variables', () => {
-        const script = 'let a = 1; let b = 2; a + b';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript(
+            'let a = 1; let b = 2; a + b',
+        );
         expect(instructions).toEqual([
             new AllocInstruction(2),
             new PushInstruction(1),
@@ -192,12 +150,7 @@ describe('Variable compilation', () => {
 
 describe('Control flow compilation', () => {
     it('should compile if statements', () => {
-        const script = 'if (1) { 2 }';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('if (1) { 2 }');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new JumpFalseInstruction(1),
@@ -206,12 +159,7 @@ describe('Control flow compilation', () => {
     });
 
     it('should compile if else statements', () => {
-        const script = 'if (1) { 2 } else { 3 }';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript('if (1) { 2 } else { 3 }');
         expect(instructions).toEqual([
             new PushInstruction(1),
             new JumpFalseInstruction(1),
@@ -222,12 +170,9 @@ describe('Control flow compilation', () => {
     });
 
     it('if should jump over longer blocks', () => {
-        const script = 'if (1) { return 2; } else { return 3; }';
-        const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
-        const ast = new Parser(tokens).parse();
-
-        const instructions = ast.compile();
+        const instructions = instructionsFromScript(
+            'if (1) { return 2; } else { return 3; }',
+        );
         expect(instructions).toEqual([
             new PushInstruction(1),
             new JumpFalseInstruction(2),
@@ -236,6 +181,56 @@ describe('Control flow compilation', () => {
             new JumpInstruction(2),
             new PushInstruction(3),
             new ReturnInstruction(),
+        ]);
+    });
+});
+
+describe('Should short circuit boolean operations', () => {
+    it('should short circuit and', () => {
+        const instructions = instructionsFromScript('1 && 2');
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpFalseInstruction(2),
+            new PushInstruction(2),
+            new AndInstruction(),
+        ]);
+    });
+
+    it('should short circuit or', () => {
+        const instructions = instructionsFromScript('1 || 2');
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpTrueInstruction(2),
+            new PushInstruction(2),
+            new OrInstruction(),
+        ]);
+    });
+
+    it('should short circuit and with variables', () => {
+        const instructions = instructionsFromScript('let a = 1; a && 2');
+        expect(instructions).toEqual([
+            new AllocInstruction(1),
+            new PushInstruction(1),
+            new StoreInstruction(0),
+            new LoadInstruction(0),
+            new JumpFalseInstruction(2),
+            new PushInstruction(2),
+            new AndInstruction(),
+            new AllocInstruction(-1),
+        ]);
+    });
+
+    it('should short circuit or with variables', () => {
+        const instructions = instructionsFromScript('let a = 1; a || 2');
+        expect(instructions).toEqual([
+            new AllocInstruction(1),
+            new PushInstruction(1),
+            new StoreInstruction(0),
+            new LoadInstruction(0),
+            new JumpTrueInstruction(2),
+            new PushInstruction(2),
+            new OrInstruction(),
+            new AllocInstruction(-1),
         ]);
     });
 });

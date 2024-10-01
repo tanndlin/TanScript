@@ -9,6 +9,9 @@ enum Opcode {
     EQ,
     GEQ,
     GREATER,
+    AND,
+    OR,
+    NOT,
     PUSH,
     POP,
     LOAD,
@@ -52,6 +55,12 @@ char* opcodeToString(enum Opcode opcode) {
             return "GEQ";
         case GREATER:
             return "GREATER";
+        case AND:
+            return "AND";
+        case OR:
+            return "OR";
+        case NOT:
+            return "NOT";
         case PUSH:
             return "PUSH";
         case POP:

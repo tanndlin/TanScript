@@ -1,4 +1,0 @@
-Instruction: MULI
- 9 
-
-

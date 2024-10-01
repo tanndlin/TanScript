@@ -138,6 +138,20 @@ void runLine() {
             stack[sp - 2] = stack[sp - 2] > stack[sp - 1];
             sp--;
             break;
+        case AND:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] && stack[sp - 1];
+            sp--;
+            break;
+        case OR:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] || stack[sp - 1];
+            sp--;
+            break;
+        case NOT:
+            validateStackSize(1);
+            stack[sp - 1] = !stack[sp - 1];
+            break;
         case PUSH:
             stack[sp] = instr.operands[0];
             sp++;

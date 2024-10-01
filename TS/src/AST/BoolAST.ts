@@ -8,12 +8,17 @@ import {
     Token,
 } from '../types';
 import {
+    AndInstruction,
     EqInstruction,
     GeqInstruction,
     GreaterInstruction,
     Instruction,
+    JumpFalseInstruction,
+    JumpTrueInstruction,
     LeqInstruction,
     LessInstruction,
+    NotInstruction,
+    OrInstruction,
     PushInstruction,
 } from './../Compilation/Instruction';
 import { ASTNode } from './AST';
@@ -73,6 +78,14 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
             case Token.EQUAL:
                 instructions.push(new EqInstruction());
                 break;
+            case Token.AND:
+                throw new TannerError(
+                    'Compile called to BooleanOpASTNode for overriding AndASTNode',
+                );
+            case Token.OR:
+                throw new TannerError(
+                    'Compile called to BooleanOpASTNode for overriding OrASTNode',
+                );
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }
@@ -158,6 +171,18 @@ export class AndASTNode extends BooleanOpASTNode {
 
         return !!left && !!right;
     }
+
+    compile(scope: CompileScope): Instruction[] {
+        const left = this.left.compile(scope);
+        const right = this.right.compile(scope);
+
+        return [
+            ...left,
+            new JumpFalseInstruction(right.length + 1), // Short circuit
+            ...right,
+            new AndInstruction(),
+        ];
+    }
 }
 
 export class OrASTNode extends BooleanOpASTNode {
@@ -177,6 +202,18 @@ export class OrASTNode extends BooleanOpASTNode {
 
         return !!left || !!right;
     }
+
+    compile(scope: CompileScope): Instruction[] {
+        const left = this.left.compile(scope);
+        const right = this.right.compile(scope);
+
+        return [
+            ...left,
+            new JumpTrueInstruction(right.length + 1), // Short circuit
+            ...right,
+            new OrInstruction(),
+        ];
+    }
 }
 
 export class NotASTNode extends ASTNode {
@@ -191,7 +228,7 @@ export class NotASTNode extends ASTNode {
         return !this.child.evaluate(scope);
     }
 
-    compile(_scope: CompileScope): Instruction[] {
-        throw new TannerError('NotASTNode.compile not implemented');
+    compile(scope: CompileScope): Instruction[] {
+        return [...this.child.compile(scope), new NotInstruction()];
     }
 }
