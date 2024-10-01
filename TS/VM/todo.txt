@@ -1,2 +1,0 @@
-How can I pass args to the next function call If i need to pop the stack before calling the next function?
-Moving the base point makes the previous arguments unaccessible.
