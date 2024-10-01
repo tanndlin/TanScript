@@ -65,7 +65,7 @@ export class DecoratorASTNode extends ASTNode {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         return [];
     }
 }
@@ -245,7 +245,7 @@ export class StringASTNode extends ASTNode {
         return [];
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         return this.value
             .split('')
             .map((char) => {

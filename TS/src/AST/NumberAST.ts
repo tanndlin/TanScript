@@ -135,7 +135,7 @@ export class NumberASTNode extends ASTNode implements INumberableAST {
         return +this.value;
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         return [new PushInstruction(+this.value)];
     }
 }

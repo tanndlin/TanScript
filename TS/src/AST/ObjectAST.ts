@@ -20,7 +20,7 @@ export class ObjectASTNode extends ASTNode {
         return obj;
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -38,7 +38,7 @@ export class AttributeASTNode extends ASTNode {
         return this.valueAST.evaluate(scope);
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -63,7 +63,7 @@ export class ObjectAccessAST extends ASTNode {
         return obj.attributes[this.attribute.getValue()];
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }

@@ -86,7 +86,7 @@ export class BooleanASTNode extends ASTNode {
         return this.isType(Token.TRUE);
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         return [new PushInstruction(this.isType(Token.TRUE) ? 1 : 0)];
     }
 }
@@ -191,7 +191,7 @@ export class NotASTNode extends ASTNode {
         return !this.child.evaluate(scope);
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         throw new TannerError('NotASTNode.compile not implemented');
     }
 }

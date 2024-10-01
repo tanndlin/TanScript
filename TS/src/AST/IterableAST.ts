@@ -51,7 +51,7 @@ export class IterableASTNode extends ASTNode {
         return new Iterator(this.items.map((child) => child.evaluate(scope)));
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -100,7 +100,7 @@ export class ForEachASTNode extends ASTNode {
         return ret;
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }

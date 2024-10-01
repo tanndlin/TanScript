@@ -18,7 +18,7 @@ export class SignalAST extends ASTNode implements IChildrenEnumerable {
         return [];
     }
 
-    compile(scope: CompileScope): never {
+    compile(_scope: CompileScope): never {
         throw new Error('Method not implemented.');
     }
 }
@@ -51,7 +51,7 @@ export class SignalComputeAST extends ASTNode {
         return scope.getSignalValue(this.value);
     }
 
-    compile(scope: CompileScope): Instruction[] {
+    compile(_scope: CompileScope): Instruction[] {
         throw new Error('Method not implemented.');
     }
 }
