@@ -1,5 +1,5 @@
 {
-  "name": "pl",
+  "name": "tanscript",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,7 +10,7 @@
     "watch": "nodemon -e ts,tan -w . -x npm run watch:serve",
     "watch:serve": "node -r ts-node/register --inspect src/index.ts"
   },
-  "author": "",
+  "author": "tanndlin",
   "license": "ISC",
   "dependencies": {},
   "devDependencies": {
