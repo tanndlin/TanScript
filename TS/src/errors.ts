@@ -53,3 +53,10 @@ export class TannerError extends Error {
         this.name = 'TannerError';
     }
 }
+
+export class NotImplementedError extends TannerError {
+    constructor(message: string) {
+        super(message);
+        this.name = 'NotImplementedError';
+    }
+}

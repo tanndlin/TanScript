@@ -1,5 +1,6 @@
 import { CompileScope } from '../Compilation/CompileScope';
 import { Instruction } from '../Compilation/Instruction';
+import { NotImplementedError } from '../errors';
 import Scope from '../Scope';
 import { IChildrenEnumerable, RuntimeValue, Token } from '../types';
 import { ASTNode, AssignASTNode, IdentifierASTNode } from './AST';
@@ -19,7 +20,7 @@ export class SignalAST extends ASTNode implements IChildrenEnumerable {
     }
 
     compile(_scope: CompileScope): never {
-        throw new Error('Method not implemented.');
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -52,7 +53,7 @@ export class SignalComputeAST extends ASTNode {
     }
 
     compile(_scope: CompileScope): Instruction[] {
-        throw new Error('Method not implemented.');
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 

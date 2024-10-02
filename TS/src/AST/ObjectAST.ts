@@ -1,4 +1,5 @@
 import { CompileScope } from '../Compilation/CompileScope';
+import { NotImplementedError } from '../errors';
 import Scope from '../Scope';
 import { Object, RuntimeValue, Token } from '../types';
 import { ASTNode, IdentifierASTNode } from './AST';
@@ -21,7 +22,7 @@ export class ObjectASTNode extends ASTNode {
     }
 
     compile(_scope: CompileScope): never {
-        throw new Error('Method not implemented.');
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -39,7 +40,7 @@ export class AttributeASTNode extends ASTNode {
     }
 
     compile(_scope: CompileScope): never {
-        throw new Error('Method not implemented.');
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -64,6 +65,6 @@ export class ObjectAccessAST extends ASTNode {
     }
 
     compile(_scope: CompileScope): never {
-        throw new Error('Method not implemented.');
+        throw new NotImplementedError('Method not implemented.');
     }
 }
