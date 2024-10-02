@@ -16,6 +16,7 @@ int opcodeToNumOperands(enum Opcode opcode) {
         case LESS:
         case LEQ:
         case EQ:
+        case NEQ:
         case GEQ:
         case GREATER:
         case AND:

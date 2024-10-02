@@ -7,6 +7,7 @@ export enum Opcode {
     LESS,
     LEQ,
     EQ,
+    NEQ,
     GEQ,
     GREATER,
     AND,

@@ -63,6 +63,12 @@ export class EqInstruction extends Instruction {
     }
 }
 
+export class NeqInstruction extends Instruction {
+    constructor() {
+        super(Opcode.NEQ, []);
+    }
+}
+
 export class GeqInstruction extends Instruction {
     constructor() {
         super(Opcode.GEQ, []);

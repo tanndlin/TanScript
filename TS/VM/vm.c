@@ -129,6 +129,11 @@ void runLine() {
             stack[sp - 2] = stack[sp - 2] == stack[sp - 1];
             sp--;
             break;
+        case NEQ:
+            validateStackSize(2);
+            stack[sp - 2] = stack[sp - 2] != stack[sp - 1];
+            sp--;
+            break;
         case GEQ:
             validateStackSize(2);
             stack[sp - 2] = stack[sp - 2] >= stack[sp - 1];

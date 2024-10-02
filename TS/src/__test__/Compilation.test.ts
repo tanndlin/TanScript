@@ -3,11 +3,18 @@ import {
     AllocInstruction,
     AndInstruction,
     DivInstruction,
+    EqInstruction,
+    GeqInstruction,
+    GreaterInstruction,
     JumpFalseInstruction,
     JumpInstruction,
     JumpTrueInstruction,
+    LeqInstruction,
+    LessInstruction,
     LoadInstruction,
+    ModInstruction,
     MulInstruction,
+    NeqInstruction,
     OrInstruction,
     PopStackInstruction,
     PushInstruction,
@@ -28,39 +35,18 @@ const instructionsFromScript = (script: string) => {
 };
 
 describe('Basic Math Compilation', () => {
-    it('Should compile addition', () => {
-        const instructions = instructionsFromScript('1 + 1');
+    it.each([
+        ['1 + 2', new AddInstruction()],
+        ['1 - 2', new SubInstruction()],
+        ['1 * 2', new MulInstruction()],
+        ['1 / 2', new DivInstruction()],
+        ['1 % 2', new ModInstruction()],
+    ])('should compile %s', (script, expectedInstruction) => {
+        const instructions = instructionsFromScript(script);
         expect(instructions).toEqual([
             new PushInstruction(1),
-            new PushInstruction(1),
-            new AddInstruction(),
-        ]);
-    });
-
-    it('Should compile subtraction', () => {
-        const instructions = instructionsFromScript('1 - 1');
-        expect(instructions).toEqual([
-            new PushInstruction(1),
-            new PushInstruction(1),
-            new SubInstruction(),
-        ]);
-    });
-
-    it('Should compile multiplication', () => {
-        const instructions = instructionsFromScript('1 * 1');
-        expect(instructions).toEqual([
-            new PushInstruction(1),
-            new PushInstruction(1),
-            new MulInstruction(),
-        ]);
-    });
-
-    it('Should compile division', () => {
-        const instructions = instructionsFromScript('1 / 1');
-        expect(instructions).toEqual([
-            new PushInstruction(1),
-            new PushInstruction(1),
-            new DivInstruction(),
+            new PushInstruction(2),
+            expectedInstruction,
         ]);
     });
 });
@@ -241,5 +227,24 @@ describe('Should short circuit boolean operations', () => {
             new OrInstruction(),
             new AllocInstruction(-1),
         ]);
+    });
+});
+
+describe('Comparison operators', () => {
+    it.each([
+        ['1 == 1', new EqInstruction()],
+        ['1 != 1', new NeqInstruction()],
+        ['1 > 1', new GreaterInstruction()],
+        ['1 >= 1', new GeqInstruction()],
+        ['1 < 1', new LessInstruction()],
+        ['1 <= 1', new LeqInstruction()],
+    ])('should compile %s', (script, ...expectedInstruction) => {
+        const instructions = instructionsFromScript(script);
+        const expectedInstructions = [
+            new PushInstruction(1),
+            new PushInstruction(1),
+            ...expectedInstruction,
+        ];
+        expect(instructions).toEqual(expectedInstructions);
     });
 });

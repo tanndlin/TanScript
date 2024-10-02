@@ -17,6 +17,7 @@ import {
     JumpTrueInstruction,
     LeqInstruction,
     LessInstruction,
+    NeqInstruction,
     NotInstruction,
     OrInstruction,
     PushInstruction,
@@ -77,6 +78,9 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
                 break;
             case Token.EQUAL:
                 instructions.push(new EqInstruction());
+                break;
+            case Token.NEQ:
+                instructions.push(new NeqInstruction());
                 break;
             case Token.AND:
                 throw new TannerError(

@@ -7,6 +7,7 @@ enum Opcode {
     LESS,
     LEQ,
     EQ,
+    NEQ,
     GEQ,
     GREATER,
     AND,
@@ -51,6 +52,8 @@ char* opcodeToString(enum Opcode opcode) {
             return "LEQ";
         case EQ:
             return "EQ";
+        case NEQ:
+            return "NEQ";
         case GEQ:
             return "GEQ";
         case GREATER:
