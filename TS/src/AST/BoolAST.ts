@@ -13,8 +13,6 @@ import {
     GeqInstruction,
     GreaterInstruction,
     Instruction,
-    JumpFalseInstruction,
-    JumpTrueInstruction,
     LeqInstruction,
     LessInstruction,
     NeqInstruction,
@@ -83,13 +81,11 @@ export class BooleanOpASTNode extends ASTNode implements IBooleanableAST {
                 instructions.push(new NeqInstruction());
                 break;
             case Token.AND:
-                throw new TannerError(
-                    'Compile called to BooleanOpASTNode for overriding AndASTNode',
-                );
+                instructions.push(new AndInstruction());
+                break;
             case Token.OR:
-                throw new TannerError(
-                    'Compile called to BooleanOpASTNode for overriding OrASTNode',
-                );
+                instructions.push(new OrInstruction());
+                break;
             default:
                 throw new TannerError(`Unexpected token: ${this.getType()}`);
         }
@@ -175,18 +171,6 @@ export class AndASTNode extends BooleanOpASTNode {
 
         return !!left && !!right;
     }
-
-    compile(scope: CompileScope): Instruction[] {
-        const left = this.left.compile(scope);
-        const right = this.right.compile(scope);
-
-        return [
-            ...left,
-            new JumpFalseInstruction(right.length + 1), // Short circuit
-            ...right,
-            new AndInstruction(),
-        ];
-    }
 }
 
 export class OrASTNode extends BooleanOpASTNode {
@@ -205,18 +189,6 @@ export class OrASTNode extends BooleanOpASTNode {
         const right = this.right.evaluate(scope);
 
         return !!left || !!right;
-    }
-
-    compile(scope: CompileScope): Instruction[] {
-        const left = this.left.compile(scope);
-        const right = this.right.compile(scope);
-
-        return [
-            ...left,
-            new JumpTrueInstruction(right.length + 1), // Short circuit
-            ...right,
-            new OrInstruction(),
-        ];
     }
 }
 

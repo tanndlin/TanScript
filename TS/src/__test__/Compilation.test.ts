@@ -1,21 +1,18 @@
 import {
     AddInstruction,
     AllocInstruction,
-    AndInstruction,
     DivInstruction,
     EqInstruction,
     GeqInstruction,
     GreaterInstruction,
     JumpFalseInstruction,
     JumpInstruction,
-    JumpTrueInstruction,
     LeqInstruction,
     LessInstruction,
     LoadInstruction,
     ModInstruction,
     MulInstruction,
     NeqInstruction,
-    OrInstruction,
     PopStackInstruction,
     PushInstruction,
     ReturnInstruction,
@@ -176,56 +173,6 @@ describe('Control flow compilation', () => {
             new ReturnInstruction(),
             new PopStackInstruction(),
             new UnframeInstruction(),
-        ]);
-    });
-});
-
-describe('Should short circuit boolean operations', () => {
-    it('should short circuit and', () => {
-        const instructions = instructionsFromScript('1 && 2');
-        expect(instructions).toEqual([
-            new PushInstruction(1),
-            new JumpFalseInstruction(2),
-            new PushInstruction(2),
-            new AndInstruction(),
-        ]);
-    });
-
-    it('should short circuit or', () => {
-        const instructions = instructionsFromScript('1 || 2');
-        expect(instructions).toEqual([
-            new PushInstruction(1),
-            new JumpTrueInstruction(2),
-            new PushInstruction(2),
-            new OrInstruction(),
-        ]);
-    });
-
-    it('should short circuit and with variables', () => {
-        const instructions = instructionsFromScript('let a = 1; a && 2');
-        expect(instructions).toEqual([
-            new AllocInstruction(1),
-            new PushInstruction(1),
-            new StoreInstruction(0),
-            new LoadInstruction(0),
-            new JumpFalseInstruction(2),
-            new PushInstruction(2),
-            new AndInstruction(),
-            new AllocInstruction(-1),
-        ]);
-    });
-
-    it('should short circuit or with variables', () => {
-        const instructions = instructionsFromScript('let a = 1; a || 2');
-        expect(instructions).toEqual([
-            new AllocInstruction(1),
-            new PushInstruction(1),
-            new StoreInstruction(0),
-            new LoadInstruction(0),
-            new JumpTrueInstruction(2),
-            new PushInstruction(2),
-            new OrInstruction(),
-            new AllocInstruction(-1),
         ]);
     });
 });
