@@ -103,4 +103,8 @@ describe('Lexer Tests', () => {
             new LexerToken(Token.EOF, '', 1),
         ]);
     });
+
+    it('should throw without closing strings quote', () => {
+        expect(() => new Lexer('"Hello World!')).toThrow();
+    });
 });

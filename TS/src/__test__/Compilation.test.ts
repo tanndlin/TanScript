@@ -3,7 +3,9 @@ import {
     AllocInstruction,
     DivInstruction,
     EqInstruction,
+    FrameInstruction,
     GeqInstruction,
+    GotoInstruction,
     GreaterInstruction,
     JumpFalseInstruction,
     JumpInstruction,
@@ -14,12 +16,16 @@ import {
     MulInstruction,
     NeqInstruction,
     PopStackInstruction,
+    PrintCInstruction,
+    PrintIntInstruction,
     PushInstruction,
+    PushStackInstruction,
     ReturnInstruction,
     StoreInstruction,
     SubInstruction,
     UnframeInstruction,
-} from '../Compilation/Instruction';
+} from './../Compilation/Instruction';
+
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 
@@ -134,6 +140,18 @@ describe('Variable compilation', () => {
             new AllocInstruction(-2),
         ]);
     });
+
+    it('should throw when variable already declared', () => {
+        expect(() => instructionsFromScript('let a = 0; let a = 1')).toThrow();
+    });
+
+    it('should throw when variable not declared', () => {
+        expect(() => instructionsFromScript('a = 0;')).toThrow();
+    });
+
+    it('should throw when function does not exist not declared', () => {
+        expect(() => instructionsFromScript('foo()')).toThrow();
+    });
 });
 
 describe('Control flow compilation', () => {
@@ -175,6 +193,52 @@ describe('Control flow compilation', () => {
             new UnframeInstruction(),
         ]);
     });
+
+    it('should compile while loops', () => {
+        const instructions = instructionsFromScript(
+            'while (1) { print(1); } ;',
+        );
+
+        expect(instructions).toEqual([
+            new PushInstruction(1),
+            new JumpFalseInstruction(3),
+            new PushInstruction(1),
+            new PrintIntInstruction(),
+            new JumpInstruction(-5),
+        ]);
+    });
+
+    it('should compile a function', () => {
+        const instructions = instructionsFromScript('def foo() {print(1);}');
+
+        expect(instructions).toEqual([
+            new JumpInstruction(4),
+            new PushInstruction(1),
+            new PrintIntInstruction(),
+            new PopStackInstruction(),
+            new UnframeInstruction(),
+        ]);
+    });
+
+    it('should compile  calling a function', () => {
+        const instructions = instructionsFromScript(
+            'def foo() {print(1);} foo();',
+        );
+
+        expect(instructions).toEqual([
+            new JumpInstruction(4),
+            new PushInstruction(1),
+            new PrintIntInstruction(),
+            new PopStackInstruction(),
+            new UnframeInstruction(),
+            new FrameInstruction(5),
+            new AllocInstruction(1),
+            new AllocInstruction(-1),
+            new PushStackInstruction(),
+            new AllocInstruction(0),
+            new GotoInstruction(0),
+        ]);
+    });
 });
 
 describe('Comparison operators', () => {
@@ -193,5 +257,23 @@ describe('Comparison operators', () => {
             ...expectedInstruction,
         ];
         expect(instructions).toEqual(expectedInstructions);
+    });
+});
+
+describe('Misc Tests', () => {
+    it('should compile printing a string', () => {
+        // Puts the string in backwards, then prints each character
+        expect(instructionsFromScript('print("Hello");')).toEqual([
+            new PushInstruction(111),
+            new PushInstruction(108),
+            new PushInstruction(108),
+            new PushInstruction(101),
+            new PushInstruction(72),
+            new PrintCInstruction(),
+            new PrintCInstruction(),
+            new PrintCInstruction(),
+            new PrintCInstruction(),
+            new PrintCInstruction(),
+        ]);
     });
 });

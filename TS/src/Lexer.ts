@@ -198,6 +198,10 @@ class Lexer {
         this.pos++;
         while (this.script[this.pos] !== '"') {
             this.pos++;
+
+            if (this.pos >= this.script.length) {
+                throw new Error('No closing quote for string found');
+            }
         }
 
         return this.script.substring(start + 1, this.pos);
