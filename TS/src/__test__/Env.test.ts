@@ -1,11 +1,4 @@
-import {
-    AST,
-    AssignASTNode,
-    BlockASTNode,
-    DeclarationASTNode,
-    IdentifierASTNode,
-} from '../AST/AST';
-import { AddASTNode, NumberASTNode } from '../AST/NumberAST';
+import * as AST from '../AST';
 import Engine from '../Engine';
 import Environment from '../Environment';
 import {
@@ -16,35 +9,35 @@ import { INumberableAST } from '../types';
 
 describe('Enviornment Basic Tests', () => {
     it('should run basic script', () => {
-        const assign = new AssignASTNode(
-            new IdentifierASTNode('x'),
-            new NumberASTNode('10'),
+        const assign = new AST.AssignASTNode(
+            new AST.IdentifierASTNode('x'),
+            new AST.NumberASTNode(10),
         );
 
-        const decl = new DeclarationASTNode(assign);
-        const add = new AddASTNode(
-            new IdentifierASTNode('x') as INumberableAST,
-            new NumberASTNode('5'),
+        const decl = new AST.DeclarationASTNode(assign);
+        const add = new AST.AddASTNode(
+            new AST.IdentifierASTNode('x') as INumberableAST,
+            new AST.NumberASTNode(5),
         );
 
-        const root = new BlockASTNode([decl, add]);
-        const ast = new AST(root);
+        const root = new AST.BlockASTNode([decl, add]);
+        const ast = new AST.AST(root);
         const env = new Environment(ast);
         const result = env.evaluate();
         expect(result).toBe(15);
     });
 
     it('should store variables in scope', () => {
-        const root = new BlockASTNode([]);
-        const assign = new AssignASTNode(
-            new IdentifierASTNode('x'),
-            new NumberASTNode('10'),
+        const root = new AST.BlockASTNode([]);
+        const assign = new AST.AssignASTNode(
+            new AST.IdentifierASTNode('x'),
+            new AST.NumberASTNode(10),
         );
 
-        const decl = new DeclarationASTNode(assign);
+        const decl = new AST.DeclarationASTNode(assign);
 
         root.addChild(decl);
-        const ast = new AST(root);
+        const ast = new AST.AST(root);
         const env = new Environment(ast);
         env.evaluate();
 
@@ -54,11 +47,11 @@ describe('Enviornment Basic Tests', () => {
     });
 
     it('should allow declaration with no assignment', () => {
-        const root = new BlockASTNode([]);
-        const decl = new DeclarationASTNode(new IdentifierASTNode('x'));
+        const root = new AST.BlockASTNode([]);
+        const decl = new AST.DeclarationASTNode(new AST.IdentifierASTNode('x'));
 
         root.addChild(decl);
-        const ast = new AST(root);
+        const ast = new AST.AST(root);
         const env = new Environment(ast);
         env.evaluate();
 
@@ -68,16 +61,16 @@ describe('Enviornment Basic Tests', () => {
     });
 
     it('should allow reassignment', () => {
-        const root = new BlockASTNode([]);
-        const decl = new DeclarationASTNode(new IdentifierASTNode('x'));
-        const newAssign = new AssignASTNode(
-            new IdentifierASTNode('x'),
-            new NumberASTNode('20'),
+        const root = new AST.BlockASTNode([]);
+        const decl = new AST.DeclarationASTNode(new AST.IdentifierASTNode('x'));
+        const newAssign = new AST.AssignASTNode(
+            new AST.IdentifierASTNode('x'),
+            new AST.NumberASTNode(20),
         );
 
         root.addChild(decl);
         root.addChild(newAssign);
-        const ast = new AST(root);
+        const ast = new AST.AST(root);
         const env = new Environment(ast);
         env.evaluate();
 

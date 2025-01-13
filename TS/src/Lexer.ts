@@ -23,6 +23,8 @@ class Lexer {
 
     private readonly validChars = new Set([
         '_',
+        '$',
+        '#',
         ...LOWERCASE_LETTERS,
         ...UPPERCASE_LETTERS,
         ...NUMBERS,

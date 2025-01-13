@@ -1,30 +1,29 @@
-import * as BoolAST from './AST/BoolAST';
-import * as NumberAST from './AST/NumberAST';
+import * as AST from './AST';
 import { ITokenConstructorPair, Token } from './types';
 
 export const PRECEDENCE: ITokenConstructorPair[][] = [
     [
-        { token: Token.MULTIPLY, ast: NumberAST.MultiplyASTNode },
-        { token: Token.DIVIDE, ast: NumberAST.DivideASTNode },
-        { token: Token.INT_DIVIDE, ast: NumberAST.IntegerDivideASTNode },
-        { token: Token.MOD, ast: NumberAST.ModASTNode },
+        { token: Token.MULTIPLY, ast: AST.MultiplyASTNode },
+        { token: Token.DIVIDE, ast: AST.DivideASTNode },
+        { token: Token.INT_DIVIDE, ast: AST.IntegerDivideASTNode },
+        { token: Token.MOD, ast: AST.ModASTNode },
     ],
     [
-        { token: Token.PLUS, ast: NumberAST.AddASTNode },
-        { token: Token.MINUS, ast: NumberAST.SubtractASTNode },
+        { token: Token.PLUS, ast: AST.AddASTNode },
+        { token: Token.MINUS, ast: AST.SubtractASTNode },
     ],
     [
-        { token: Token.LESS, ast: BoolAST.LessThanASTNode },
-        { token: Token.GREATER, ast: BoolAST.GreaterThanASTNode },
-        { token: Token.LEQ, ast: BoolAST.LessEqASTNode },
-        { token: Token.GEQ, ast: BoolAST.GreaterEqASTNode },
+        { token: Token.LESS, ast: AST.LessThanASTNode },
+        { token: Token.GREATER, ast: AST.GreaterThanASTNode },
+        { token: Token.LEQ, ast: AST.LessEqASTNode },
+        { token: Token.GEQ, ast: AST.GreaterEqASTNode },
     ],
     [
-        { token: Token.EQUAL, ast: BoolAST.EqualASTNode },
-        { token: Token.NEQ, ast: BoolAST.NotEqualASTNode },
+        { token: Token.EQUAL, ast: AST.EqualASTNode },
+        { token: Token.NEQ, ast: AST.NotEqualASTNode },
     ],
     [
-        { token: Token.AND, ast: BoolAST.AndASTNode },
-        { token: Token.OR, ast: BoolAST.OrASTNode },
+        { token: Token.AND, ast: AST.AndASTNode },
+        { token: Token.OR, ast: AST.OrASTNode },
     ],
 ];

@@ -2,7 +2,6 @@ import { Opcode } from './Opcodes';
 
 export abstract class Instruction {
     public opcode: Opcode;
-
     public operands: number[];
 
     constructor(opcode: Opcode, operands: number[]) {

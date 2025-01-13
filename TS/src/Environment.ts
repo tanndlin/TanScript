@@ -1,4 +1,4 @@
-import { AST, EOFASTNode, SemiASTNode } from './AST/AST';
+import { AST, EOFASTNode, SemiASTNode } from './AST';
 import Scope from './Scope';
 import { RuntimeValue } from './types';
 

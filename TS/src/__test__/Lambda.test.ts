@@ -1,6 +1,4 @@
-import { AssignASTNode, BlockASTNode, DeclarationASTNode } from '../AST/AST';
-import { FunctionDefASTNode } from '../AST/ControlAST';
-import { AddASTNode } from '../AST/NumberAST';
+import * as AST from '../AST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
@@ -38,30 +36,30 @@ describe('Lambda Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.getChildren();
 
-        expect(decl).toBeInstanceOf(DeclarationASTNode);
-        if (!(decl instanceof DeclarationASTNode)) {
+        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        if (!(decl instanceof AST.DeclarationASTNode)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
-        if (!(assign instanceof AssignASTNode)) {
+        if (!(assign instanceof AST.AssignASTNode)) {
             throw new Error('Expected assignment');
         }
 
         const { valueAST: lambda } = assign;
 
-        expect(lambda).toBeInstanceOf(FunctionDefASTNode);
-        if (!(lambda instanceof FunctionDefASTNode)) {
+        expect(lambda).toBeInstanceOf(AST.FunctionDefASTNode);
+        if (!(lambda instanceof AST.FunctionDefASTNode)) {
             throw new Error('Expected lambda');
         }
 
         expect(lambda.getParamList()).toHaveLength(0);
 
         const { block } = lambda;
-        expect(block).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(AST.BlockASTNode);
 
         const [add] = block.getChildren();
-        expect(add).toBeInstanceOf(AddASTNode);
+        expect(add).toBeInstanceOf(AST.AddASTNode);
     });
 
     it('should parse a lambda with params', () => {
@@ -73,26 +71,30 @@ describe('Lambda Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.getChildren();
 
-        expect(decl).toBeInstanceOf(DeclarationASTNode);
-        if (!(decl instanceof DeclarationASTNode)) {
+        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        if (!(decl instanceof AST.DeclarationASTNode)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
+        expect(assign).toBeInstanceOf(AST.AssignASTNode);
+        if (!(assign instanceof AST.AssignASTNode)) {
+            return;
+        }
         expect(assign.getChildren().length).toBe(2);
-        expect(assign.getChildren()[1]).toBeInstanceOf(FunctionDefASTNode);
-        const lambda = assign.getChildren()[1] as FunctionDefASTNode;
+        expect(assign.getChildren()[1]).toBeInstanceOf(AST.FunctionDefASTNode);
+        const lambda = assign.getChildren()[1] as AST.FunctionDefASTNode;
 
         const params = lambda.getParamList();
         expect(params.length).toBe(2);
-        expect(params[0].getValue()).toBe('a');
-        expect(params[1].getValue()).toBe('b');
+        expect(params[0].getName()).toBe('a');
+        expect(params[1].getName()).toBe('b');
 
         const { block } = lambda;
-        expect(block).toBeInstanceOf(BlockASTNode);
+        expect(block).toBeInstanceOf(AST.BlockASTNode);
 
         const [add] = block.getChildren();
-        expect(add).toBeInstanceOf(AddASTNode);
+        expect(add).toBeInstanceOf(AST.AddASTNode);
     });
 
     it('should run a lambda successfully', () => {
@@ -107,7 +109,7 @@ describe('Lambda Tests', () => {
         const scope = env.getGlobalScope();
         const f = scope.getFunction('f');
 
-        expect(f).toBeInstanceOf(FunctionDefASTNode);
+        expect(f).toBeInstanceOf(AST.FunctionDefASTNode);
     });
 
     it('lambda should have access to outer scope', () => {

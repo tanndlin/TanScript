@@ -1,11 +1,5 @@
-import {
-    AssignASTNode,
-    BlockASTNode,
-    DeclarationASTNode,
-    IdentifierASTNode,
-} from '../AST/AST';
-import { ForEachASTNode, ListASTNode } from '../AST/IterableAST';
-import { NumberASTNode } from '../AST/NumberAST';
+import * as AST from '../AST';
+
 import Engine from '../Engine';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
@@ -42,30 +36,30 @@ describe('Iterable tests', () => {
         const root = ast.getRoot();
 
         const [decl] = root.getChildren();
-        expect(decl).toBeInstanceOf(DeclarationASTNode);
-        if (!(decl instanceof DeclarationASTNode)) {
+        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        if (!(decl instanceof AST.DeclarationASTNode)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
-        expect(assign).toBeInstanceOf(AssignASTNode);
-        if (!(assign instanceof AssignASTNode)) {
+        expect(assign).toBeInstanceOf(AST.AssignASTNode);
+        if (!(assign instanceof AST.AssignASTNode)) {
             throw new Error('Expected assign');
         }
 
         expect(assign.getChildren()).toHaveLength(2);
-        expect(assign.getChildren()[0]).toBeInstanceOf(IdentifierASTNode);
-        expect(assign.getChildren()[1]).toBeInstanceOf(ListASTNode);
+        expect(assign.getChildren()[0]).toBeInstanceOf(AST.IdentifierASTNode);
+        expect(assign.getChildren()[1]).toBeInstanceOf(AST.ListASTNode);
 
-        const list = assign.getChildren()[1] as ListASTNode;
+        const list = assign.getChildren()[1] as AST.ListASTNode;
 
         const { items } = list;
         expect(items).toHaveLength(3);
 
         const [one, two, three] = items;
-        expect(one).toBeInstanceOf(NumberASTNode);
-        expect(two).toBeInstanceOf(NumberASTNode);
-        expect(three).toBeInstanceOf(NumberASTNode);
+        expect(one).toBeInstanceOf(AST.NumberASTNode);
+        expect(two).toBeInstanceOf(AST.NumberASTNode);
+        expect(three).toBeInstanceOf(AST.NumberASTNode);
     });
 
     it('should parse a for in loop', () => {
@@ -78,18 +72,18 @@ describe('Iterable tests', () => {
         const root = ast.getRoot();
 
         const [decl, forLoop] = root.getChildren();
-        expect(decl).toBeInstanceOf(DeclarationASTNode);
-        expect(forLoop).toBeInstanceOf(ForEachASTNode);
-        if (!(forLoop instanceof ForEachASTNode)) {
+        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        expect(forLoop).toBeInstanceOf(AST.ForEachASTNode);
+        if (!(forLoop instanceof AST.ForEachASTNode)) {
             throw new Error('Expected for loop');
         }
 
         const { init, iterable, block } = forLoop;
-        expect(init).toBeInstanceOf(IdentifierASTNode);
-        expect(iterable).toBeInstanceOf(IdentifierASTNode);
-        expect(block).toBeInstanceOf(BlockASTNode);
+        expect(init).toBeInstanceOf(AST.IdentifierASTNode);
+        expect(iterable).toBeInstanceOf(AST.IdentifierASTNode);
+        expect(block).toBeInstanceOf(AST.BlockASTNode);
 
-        expect(block.getChildren()[0]).toBeInstanceOf(IdentifierASTNode);
+        expect(block.getChildren()[0]).toBeInstanceOf(AST.IdentifierASTNode);
     });
 
     it('should allow inline array foreach', () => {
@@ -102,17 +96,17 @@ describe('Iterable tests', () => {
         const root = ast.getRoot();
 
         const [forLoop] = root.getChildren();
-        expect(forLoop).toBeInstanceOf(ForEachASTNode);
-        if (!(forLoop instanceof ForEachASTNode)) {
+        expect(forLoop).toBeInstanceOf(AST.ForEachASTNode);
+        if (!(forLoop instanceof AST.ForEachASTNode)) {
             throw new Error('Expected for loop');
         }
 
         const { init, iterable, block } = forLoop;
-        expect(init).toBeInstanceOf(IdentifierASTNode);
-        expect(iterable).toBeInstanceOf(ListASTNode);
-        expect(block).toBeInstanceOf(BlockASTNode);
+        expect(init).toBeInstanceOf(AST.IdentifierASTNode);
+        expect(iterable).toBeInstanceOf(AST.ListASTNode);
+        expect(block).toBeInstanceOf(AST.BlockASTNode);
 
-        expect(block.getChildren()[0]).toBeInstanceOf(IdentifierASTNode);
+        expect(block.getChildren()[0]).toBeInstanceOf(AST.IdentifierASTNode);
     });
 
     it('should execute a foreach loop', () => {

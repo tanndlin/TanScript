@@ -1,6 +1,6 @@
-import { SignalComputeAssignmentAST } from './AST/SignalAST';
+import { SignalComputeAssignmentAST } from './AST';
 import Scope from './Scope';
-import { IChildrenEnumerable, RuntimeValue } from './types';
+import { IHasChildren, RuntimeValue } from './types';
 import { findSignals } from './util';
 
 export class Signal {
@@ -28,9 +28,7 @@ export class Signal {
 
 export class ComputedSignal extends Signal {
     public type = 'computed';
-
     public dependsOn: Signal[] = [];
-
     public isDirty: boolean = false;
 
     private callback: () => RuntimeValue;
@@ -45,7 +43,7 @@ export class ComputedSignal extends Signal {
         const { valueAST } = assignAST;
 
         // Find all signals in the expression
-        const signals = findSignals(valueAST as IChildrenEnumerable);
+        const signals = findSignals(valueAST as IHasChildren);
         signals.forEach((signalName) => {
             const signal = scope.getSignal(signalName);
             if (signal instanceof ComputedSignal) {

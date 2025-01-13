@@ -1,7 +1,4 @@
-import { ASTNode, IdentifierASTNode } from './AST/AST';
-import * as BoolAST from './AST/BoolAST';
-import { IterableASTNode } from './AST/IterableAST';
-import * as NumberAST from './AST/NumberAST';
+import * as AST from './AST';
 import Scope from './Scope';
 
 export enum Token {
@@ -57,6 +54,18 @@ export enum Token {
     PERIOD = '.',
 }
 
+export type ComparisonToken =
+    | Token.LESS
+    | Token.GREATER
+    | Token.LEQ
+    | Token.GEQ
+    | Token.EQUAL
+    | Token.NEQ
+    | Token.AND
+    | Token.OR;
+
+export type BooleanToken = Token.TRUE | Token.FALSE;
+
 export const OPERATORS = new Set([
     Token.PLUS,
     Token.MINUS,
@@ -101,28 +110,17 @@ export const RESERVED_WORDS = {
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
 
-export abstract class TokenTypeable {
-    constructor(protected type: Token) {}
-
-    public isType(type: Token): boolean {
-        return this.type === type;
-    }
-
-    public isOneOf(...types: Token[]): boolean {
-        return types.includes(this.type);
-    }
+export interface TokenTypeable {
+    isType(type: Token): boolean;
+    isOneOf(...types: Token[]): boolean;
 }
 
-export class LexerToken extends TokenTypeable {
-    private value: string;
-
-    private lineNumber: number;
-
-    constructor(type: Token, value: string, lineNumber: number = -1) {
-        super(type);
-        this.value = value;
-        this.lineNumber = lineNumber;
-    }
+export class LexerToken implements TokenTypeable {
+    constructor(
+        private type: Token,
+        private value: string,
+        private lineNumber: number = -1,
+    ) {}
 
     getType(): Token {
         return this.type;
@@ -135,6 +133,14 @@ export class LexerToken extends TokenTypeable {
     getLineNumber(): number {
         return this.lineNumber;
     }
+
+    public isType<T extends Token>(type: Token): type is T {
+        return this.type === type;
+    }
+
+    public isOneOf(...types: Token[]): boolean {
+        return types.includes(this.type);
+    }
 }
 
 export type Maybe<T> = T | null | undefined;
@@ -146,18 +152,21 @@ export type Object = {
 export type RuntimeValue = Maybe<
     number | string | boolean | Iterable | void | Object
 >;
-export type BooleanToken = Token.TRUE | Token.FALSE;
-export type IterableResolvable = IterableASTNode | IdentifierASTNode;
+export type IterableResolvable = AST.IterableASTNode | AST.IdentifierASTNode;
 
-export interface IChildrenEnumerable extends ASTNode {
-    getChildren(): IChildrenEnumerable[];
+export interface IHasChildren extends AST.BaseASTNode {
+    getChildren(): AST.BaseASTNode[];
 }
 
-export interface INumberableAST extends IChildrenEnumerable {
+export function hasChildren(ast: AST.BaseASTNode): ast is IHasChildren {
+    return 'getChildren' in ast;
+}
+
+export interface INumberableAST extends AST.BaseASTNode {
     evaluate(scope: Scope): number;
 }
 
-export interface IBooleanableAST extends IChildrenEnumerable {
+export interface IBooleanableAST extends AST.BaseASTNode {
     evaluate(scope: Scope): boolean;
 }
 
@@ -169,13 +178,13 @@ export interface ITokenConstructorPair {
 }
 
 export interface IMathOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): NumberAST.MathASTNode;
+    new (left: INumberableAST, right: INumberableAST): AST.MathASTNode;
 }
 export interface IRelationalOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): BoolAST.BooleanOpASTNode;
+    new (left: INumberableAST, right: INumberableAST): AST.BooleanOpASTNode;
 }
 export interface IEqualityOperatorConstructor {
-    new (left: ASTNode, right: ASTNode): BoolAST.BooleanOpASTNode;
+    new (left: AST.ASTNode, right: AST.ASTNode): AST.BooleanOpASTNode;
 }
 
 export type AnyOperatorConstructor =

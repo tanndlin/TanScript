@@ -1,74 +1,72 @@
-import { AST, ASTNode, LParenASTNode } from './AST/AST';
-import { BooleanASTNode, BooleanOpASTNode, NotASTNode } from './AST/BoolAST';
-import { ForASTNode, FunctionCallASTNode, IfASTNode } from './AST/ControlAST';
-import { MathASTNode, NumberASTNode } from './AST/NumberAST';
-import { IChildrenEnumerable, INumberableAST, Maybe, Token } from './types';
+import * as AST from './AST';
+import { IHasChildren, INumberableAST, Maybe, Token } from './types';
 
 export default class Optimizer {
-    public static optimize(ast: AST): AST {
+    public static optimize(ast: AST.AST): AST.AST {
         const root = ast.getRoot();
         const children = root.getChildren();
         const newChildren = children
             .map((child) => {
                 return Optimizer.optimizeNode(child);
             })
-            .filter(Boolean) as ASTNode[];
+            .filter(Boolean) as AST.ASTNode[];
 
         root.setChildren(newChildren);
         return ast;
     }
 
-    private static optimizeNode(child: ASTNode): ASTNode {
-        if (child instanceof LParenASTNode) {
+    private static optimizeNode(child: AST.ASTNode): AST.ASTNode {
+        if (child instanceof AST.LParenASTNode) {
             child = Optimizer.simplifyParenthesis(child);
         }
 
-        if (child instanceof MathASTNode) {
+        if (child instanceof AST.MathASTNode) {
             child = Optimizer.simplifyMathExpression(child);
         }
 
         if (
-            child instanceof BooleanASTNode ||
-            child instanceof NumberASTNode ||
-            child instanceof BooleanOpASTNode ||
-            child instanceof NotASTNode
+            child instanceof AST.BooleanASTNode ||
+            child instanceof AST.NumberASTNode ||
+            child instanceof AST.BooleanOpASTNode ||
+            child instanceof AST.NotASTNode
         ) {
             child = Optimizer.simplifyLogicalExpression(child);
         }
 
-        if (child instanceof IfASTNode) {
+        if (child instanceof AST.IfASTNode) {
             return Optimizer.optimizeIf(child)!;
         }
 
-        if (child instanceof ForASTNode) {
+        if (child instanceof AST.ForASTNode) {
             return Optimizer.optimizeFor(child);
         }
 
-        if (child instanceof FunctionCallASTNode) {
+        if (child instanceof AST.FunctionCallASTNode) {
             return Optimizer.optimizeFunctionCallArgs(child);
         }
 
         return child;
     }
 
-    private static optimizeIf(node: IfASTNode): Maybe<ASTNode> {
+    private static optimizeIf(node: AST.IfASTNode): Maybe<AST.ASTNode> {
         let { condition, block, elseBlock } = node;
 
         condition = Optimizer.optimizeNode(condition);
 
         if (
-            condition.isType(Token.TRUE) ||
-            (condition.isType(Token.NUMBER) && +condition.getValue() !== 0)
+            condition.type === Token.TRUE ||
+            (condition.type === Token.NUMBER &&
+                +(condition as AST.NumberASTNode).getValue() !== 0)
         ) {
             return block;
         } else if (condition.isType(Token.FALSE)) {
             return elseBlock;
         }
 
-        return new IfASTNode(condition, block, elseBlock);
+        return new AST.IfASTNode(condition, block, elseBlock);
     }
 
-    private static optimizeFor(node: ForASTNode): ASTNode {
+    private static optimizeFor(node: AST.ForASTNode): AST.ASTNode {
         let { init, condition, update, block } = node;
 
         init = Optimizer.optimizeNode(init);
@@ -76,45 +74,44 @@ export default class Optimizer {
         update = Optimizer.optimizeNode(update);
         block = Optimizer.optimizeNode(block);
 
-        return new ForASTNode(init, condition, update, block);
+        return new AST.ForASTNode(init, condition, update, block);
     }
 
     private static optimizeFunctionCallArgs(
-        node: FunctionCallASTNode,
-    ): ASTNode {
+        node: AST.FunctionCallASTNode,
+    ): AST.ASTNode {
         const { args } = node;
-        const newArgs = args.map((arg) => {
-            return Optimizer.optimizeNode(arg);
-        }) as IChildrenEnumerable[];
-
-        return new FunctionCallASTNode(node.getValue(), newArgs);
+        return new AST.FunctionCallASTNode(
+            node.getName(),
+            args.map(Optimizer.optimizeNode),
+        );
     }
 
     private static simplifyLogicalExpression(
         node:
-            | BooleanASTNode
-            | NumberASTNode
-            | BooleanOpASTNode
-            | MathASTNode
-            | NotASTNode,
-    ): ASTNode {
-        const type: Token = node.getType();
-        if (node instanceof BooleanASTNode) {
+            | AST.BooleanASTNode
+            | AST.NumberASTNode
+            | AST.BooleanOpASTNode
+            | AST.MathASTNode
+            | AST.NotASTNode,
+    ): AST.ASTNode {
+        const type: Token = node.type;
+        if (node instanceof AST.BooleanASTNode) {
             return node;
         }
 
-        if (node instanceof NumberASTNode) {
+        if (node instanceof AST.NumberASTNode) {
             return node;
         }
 
-        if (node instanceof NotASTNode) {
+        if (node instanceof AST.NotASTNode) {
             let { child } = node;
             child = Optimizer.optimizeNode(child);
             if (child.isType(Token.TRUE)) {
-                return new BooleanASTNode(Token.FALSE);
+                return new AST.BooleanASTNode(Token.FALSE);
             }
             if (child.isType(Token.FALSE)) {
-                return new BooleanASTNode(Token.TRUE);
+                return new AST.BooleanASTNode(Token.TRUE);
             }
 
             node.child = child;
@@ -127,33 +124,36 @@ export default class Optimizer {
         const rightValue = Optimizer.optimizeNode(right);
 
         // If both are numbers, evaluate the expression
-        if (leftValue.isType(Token.NUMBER) && rightValue.isType(Token.NUMBER)) {
-            const leftNum = +leftValue.getValue();
-            const rightNum = +rightValue.getValue();
+        if (
+            leftValue.type === Token.NUMBER &&
+            rightValue.type === Token.NUMBER
+        ) {
+            const leftNum = (leftValue as AST.NumberASTNode).getValue();
+            const rightNum = (rightValue as AST.NumberASTNode).getValue();
 
             switch (type) {
                 case Token.LESS:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum < rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.LEQ:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum <= rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.GREATER:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum > rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.GEQ:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum >= rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.EQUAL:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum === rightNum ? Token.TRUE : Token.FALSE,
                     );
                 case Token.NEQ:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftNum !== rightNum ? Token.TRUE : Token.FALSE,
                     );
             }
@@ -169,11 +169,11 @@ export default class Optimizer {
 
             switch (type) {
                 case Token.AND:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftBool && rightBool ? Token.TRUE : Token.FALSE,
                     );
                 case Token.OR:
-                    return new BooleanASTNode(
+                    return new AST.BooleanASTNode(
                         leftBool || rightBool ? Token.TRUE : Token.FALSE,
                     );
             }
@@ -184,50 +184,54 @@ export default class Optimizer {
         return node;
     }
 
-    private static simplifyMathExpression(node: MathASTNode): ASTNode {
-        if (node instanceof NumberASTNode) {
+    private static simplifyMathExpression(node: AST.MathASTNode): AST.ASTNode {
+        if (node instanceof AST.NumberASTNode) {
             return node;
         }
 
         const { left, right } = node;
-        const leftValue = Optimizer.optimizeNode(left);
-        const rightValue = Optimizer.optimizeNode(right);
+        const leftValue = Optimizer.optimizeNode(left) as INumberableAST;
+        const rightValue = Optimizer.optimizeNode(right) as INumberableAST;
 
-        const leftIsNumber = leftValue.isType(Token.NUMBER);
-        const rightIsNumber = rightValue.isType(Token.NUMBER);
-        if (!leftIsNumber && !rightIsNumber) {
-            node.left = leftValue as INumberableAST;
-            node.right = rightValue as INumberableAST;
+        if (
+            !AST.NumberASTNode.isNumberAST(leftValue) &&
+            !AST.NumberASTNode.isNumberAST(rightValue)
+        ) {
+            node.left = leftValue;
+            node.right = rightValue;
             return node;
         }
 
-        if (leftValue.isType(Token.NUMBER) && rightValue.isType(Token.NUMBER)) {
-            const leftNum = +leftValue.getValue();
-            const rightNum = +rightValue.getValue();
+        if (
+            AST.NumberASTNode.isNumberAST(leftValue) &&
+            AST.NumberASTNode.isNumberAST(rightValue)
+        ) {
+            const leftNum = leftValue.getValue();
+            const rightNum = rightValue.getValue();
 
-            switch (node.getType()) {
+            switch (node.type) {
                 case Token.PLUS:
-                    return new NumberASTNode(leftNum + rightNum + '');
+                    return new AST.NumberASTNode(leftNum + rightNum);
                 case Token.MINUS:
-                    return new NumberASTNode(leftNum - rightNum + '');
+                    return new AST.NumberASTNode(leftNum - rightNum);
                 case Token.MULTIPLY:
-                    return new NumberASTNode(leftNum * rightNum + '');
+                    return new AST.NumberASTNode(leftNum * rightNum);
                 case Token.DIVIDE:
-                    return new NumberASTNode(leftNum / rightNum + '');
+                    return new AST.NumberASTNode(leftNum / rightNum);
                 case Token.MOD:
-                    return new NumberASTNode((leftNum % rightNum) + '');
+                    return new AST.NumberASTNode(leftNum % rightNum);
             }
         }
 
-        node.left = leftValue as INumberableAST;
-        node.right = rightValue as INumberableAST;
+        node.left = leftValue;
+        node.right = rightValue;
         return node;
     }
 
-    private static simplifyParenthesis(node: LParenASTNode): ASTNode {
+    private static simplifyParenthesis(node: AST.LParenASTNode): AST.ASTNode {
         let { child } = node;
-        child = this.optimizeNode(child) as IChildrenEnumerable;
-        child = this.optimizeNode(child) as IChildrenEnumerable;
+        child = this.optimizeNode(child) as IHasChildren;
+        child = this.optimizeNode(child) as IHasChildren;
 
         if (child.isOneOf(Token.TRUE, Token.FALSE, Token.NUMBER)) {
             return child;

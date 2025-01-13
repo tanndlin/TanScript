@@ -1,5 +1,4 @@
-import { FunctionDefASTNode } from './AST/ControlAST';
-import { SignalComputeAssignmentAST } from './AST/SignalAST';
+import { FunctionDefASTNode, SignalComputeAssignmentAST } from './AST';
 import { ComputedSignal, Signal } from './Signal';
 import {
     TannerError,

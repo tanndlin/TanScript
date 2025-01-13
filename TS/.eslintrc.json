@@ -20,15 +20,14 @@
     "rules": {
         "@typescript-eslint/naming-convention": "warn",
         "@typescript-eslint/semi": "warn",
+        "@typescript-eslint/lines-between-class-members": "off",
         "curly": "warn",
         "eqeqeq": "warn",
         "no-throw-literal": "warn",
         "semi": "off",
         "no-shadow": "off",
         "no-sparse-arrays": "off",
-        "@typescript-eslint/no-shadow": [
-            "off"
-        ],
+        "@typescript-eslint/no-shadow": "off",
         "@typescript-eslint/no-unused-vars": [
             "warn", // or "error"
             {

@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'fs';
+import { SignalAST } from './AST';
 import { Instruction } from './Compilation/Instruction';
 import { LexerError } from './errors';
-import { IChildrenEnumerable, Token } from './types';
+import { hasChildren, IHasChildren, Token } from './types';
 
 export const readScript = (fileName: string): string => {
     const script = readFileSync(fileName, 'utf8');
@@ -58,23 +59,17 @@ export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48),
 );
 
-export const findSignals = (ast: IChildrenEnumerable): string[] => {
-    const children = ast.getChildren();
+export const findSignals = (ast: IHasChildren | SignalAST): string[] => {
+    if (ast instanceof SignalAST) {
+        return [ast.getName()];
+    }
 
+    const children = ast.getChildren();
     if (children.length === 0) {
         return [];
     }
 
-    const ret: string[] = [];
-    children.forEach((c) => {
-        if (c.isOneOf(Token.SIGNAL, Token.COMPUTE)) {
-            ret.push(c.getValue());
-        } else {
-            findSignals(c).forEach((s) => ret.push(s));
-        }
-    });
-
-    return ret;
+    return children.filter(hasChildren).flatMap((c) => findSignals(c));
 };
 
 export const writeInstructions = (instructions: Instruction[]) => {
