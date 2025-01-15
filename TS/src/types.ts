@@ -181,10 +181,10 @@ export interface IMathOperatorConstructor {
     new (left: INumberableAST, right: INumberableAST): AST.MathASTNode;
 }
 export interface IRelationalOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): AST.BooleanOpASTNode;
+    new (left: INumberableAST, right: INumberableAST): AST.ComparisonASTNode;
 }
 export interface IEqualityOperatorConstructor {
-    new (left: AST.ASTNode, right: AST.ASTNode): AST.BooleanOpASTNode;
+    new (left: AST.ASTNode, right: AST.ASTNode): AST.ComparisonASTNode;
 }
 
 export type AnyOperatorConstructor =

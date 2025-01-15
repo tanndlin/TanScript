@@ -41,7 +41,7 @@ export type ASTNode =
     | DeclarationASTNode
     | StringASTNode
     | BlockASTNode
-    | BooleanOpASTNode
+    | ComparisonASTNode
     | BooleanASTNode
     | LessThanASTNode
     | LessEqASTNode
@@ -264,18 +264,13 @@ export class DeclarationASTNode extends BaseASTNode {
 
     compile(scope: CompileScope): Instruction.Instruction[] {
         // The allocation is already handled by hoisting in the block scope
-
         if (this.child instanceof IdentifierASTNode) {
             scope.addVariable(this.child.getName());
-        } else {
-            scope.addVariable(this.child.identifier.getName());
+            return [];
         }
 
-        if (this.child instanceof AssignASTNode) {
-            return this.child.compile(scope);
-        }
-
-        return [];
+        scope.addVariable(this.child.identifier.getName());
+        return this.child.compile(scope);
     }
 
     public getName(): string {
@@ -301,10 +296,7 @@ export class StringASTNode extends BaseASTNode {
     compile(_scope: CompileScope): Instruction.Instruction[] {
         return this.value
             .split('')
-            .map((char) => {
-                const asciiValue = char.charCodeAt(0);
-                return new Instruction.PushInstruction(asciiValue);
-            })
+            .map((char) => new Instruction.PushInstruction(char.charCodeAt(0)))
             .reverse();
     }
 
@@ -374,7 +366,7 @@ export class BlockASTNode extends BaseASTNode {
     }
 }
 
-export class BooleanOpASTNode extends BaseASTNode implements IBooleanableAST {
+export class ComparisonASTNode extends BaseASTNode implements IBooleanableAST {
     constructor(
         public type: ComparisonToken,
         public left: INumberableAST,
@@ -396,6 +388,15 @@ export class BooleanOpASTNode extends BaseASTNode implements IBooleanableAST {
                 return left > right;
             case Token.GEQ:
                 return left >= right;
+            case Token.AND:
+                return !!left && !!right;
+            case Token.OR:
+                return !!left || !!right;
+            case Token.EQUAL:
+                return left === right;
+            case Token.NEQ:
+                return left !== right;
+
             default:
                 throw new TannerError(`Unexpected token: ${this.type}`);
         }
@@ -462,7 +463,7 @@ export class BooleanASTNode extends BaseASTNode {
     }
 }
 
-export class LessThanASTNode extends BooleanOpASTNode {
+export class LessThanASTNode extends ComparisonASTNode {
     public type: Token.LESS = Token.LESS;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -470,7 +471,7 @@ export class LessThanASTNode extends BooleanOpASTNode {
     }
 }
 
-export class LessEqASTNode extends BooleanOpASTNode {
+export class LessEqASTNode extends ComparisonASTNode {
     public type: Token.LEQ = Token.LEQ;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -478,7 +479,7 @@ export class LessEqASTNode extends BooleanOpASTNode {
     }
 }
 
-export class GreaterThanASTNode extends BooleanOpASTNode {
+export class GreaterThanASTNode extends ComparisonASTNode {
     public type: Token.GREATER = Token.GREATER;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -486,7 +487,7 @@ export class GreaterThanASTNode extends BooleanOpASTNode {
     }
 }
 
-export class GreaterEqASTNode extends BooleanOpASTNode {
+export class GreaterEqASTNode extends ComparisonASTNode {
     public type: Token.GEQ = Token.GEQ;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -494,7 +495,7 @@ export class GreaterEqASTNode extends BooleanOpASTNode {
     }
 }
 
-export class NotEqualASTNode extends BooleanOpASTNode {
+export class NotEqualASTNode extends ComparisonASTNode {
     public type: Token.NEQ = Token.NEQ;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -509,7 +510,7 @@ export class NotEqualASTNode extends BooleanOpASTNode {
     }
 }
 
-export class EqualASTNode extends BooleanOpASTNode {
+export class EqualASTNode extends ComparisonASTNode {
     public type: Token.EQUAL = Token.EQUAL;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -524,7 +525,7 @@ export class EqualASTNode extends BooleanOpASTNode {
     }
 }
 
-export class AndASTNode extends BooleanOpASTNode {
+export class AndASTNode extends ComparisonASTNode {
     public type: Token.AND = Token.AND;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -545,7 +546,7 @@ export class AndASTNode extends BooleanOpASTNode {
     }
 }
 
-export class OrASTNode extends BooleanOpASTNode {
+export class OrASTNode extends ComparisonASTNode {
     public type: Token.OR = Token.OR;
 
     constructor(left: INumberableAST, right: INumberableAST) {
@@ -596,7 +597,7 @@ export class WhileASTNode extends BaseASTNode {
     evaluate(scope: Scope): RuntimeValue {
         let ret;
 
-        while ((this.condition as BooleanOpASTNode).evaluate(scope)) {
+        while ((this.condition as ComparisonASTNode).evaluate(scope)) {
             ret = this.block.evaluate(scope);
         }
 
@@ -641,7 +642,7 @@ export class ForASTNode extends BaseASTNode {
         this.init.evaluate(newScope);
 
         let ret;
-        while ((this.condition as BooleanOpASTNode).evaluate(newScope)) {
+        while ((this.condition as ComparisonASTNode).evaluate(newScope)) {
             ret = this.block.evaluate(newScope);
             this.update.evaluate(newScope);
         }
@@ -693,7 +694,7 @@ export class IfASTNode extends BaseASTNode {
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        if ((this.condition as BooleanOpASTNode).evaluate(scope)) {
+        if ((this.condition as ComparisonASTNode).evaluate(scope)) {
             const ret = this.block.evaluate(scope);
             return ret;
         } else if (this.elseBlock) {

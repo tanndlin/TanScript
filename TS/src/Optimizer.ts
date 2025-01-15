@@ -27,7 +27,7 @@ export default class Optimizer {
         if (
             child instanceof AST.BooleanASTNode ||
             child instanceof AST.NumberASTNode ||
-            child instanceof AST.BooleanOpASTNode ||
+            child instanceof AST.ComparisonASTNode ||
             child instanceof AST.NotASTNode
         ) {
             child = Optimizer.simplifyLogicalExpression(child);
@@ -91,7 +91,7 @@ export default class Optimizer {
         node:
             | AST.BooleanASTNode
             | AST.NumberASTNode
-            | AST.BooleanOpASTNode
+            | AST.ComparisonASTNode
             | AST.MathASTNode
             | AST.NotASTNode,
     ): AST.ASTNode {
