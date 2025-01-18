@@ -1,11 +1,5 @@
-import { LexerError } from './errors';
-import {
-    LexerToken,
-    Maybe,
-    RESERVED_WORDS,
-    ReservedWordsKey,
-    Token,
-} from './types';
+import { Err, Ok, Result } from './Result';
+import { LexerToken, RESERVED_WORDS, ReservedWordsKey, Token } from './types';
 import {
     LETTERS,
     LOWERCASE_LETTERS,
@@ -15,10 +9,7 @@ import {
 } from './util';
 
 class Lexer {
-    private tokens: LexerToken[];
-
     private pos = 0;
-
     private lineNumber = 1;
 
     private readonly validChars = new Set([
@@ -30,25 +21,27 @@ class Lexer {
         ...NUMBERS,
     ]);
 
-    constructor(private script: string) {
-        this.tokens = [];
-        this.tokenize();
-    }
+    constructor(private script: string) {}
 
-    tokenize() {
+    public tokenize(): Result<LexerToken[], string> {
+        const tokens: LexerToken[] = [];
         while (this.pos < this.script.length) {
-            const token = this.getNextToken();
-            if (token) {
-                this.tokens.push(token);
+            const result = this.getNextToken();
+            if (!result.ok) {
+                return result;
             }
+
+            tokens.push(result.val);
         }
 
-        this.tokens.push(this.createToken(Token.EOF, ''));
+        tokens.push(this.createToken(Token.EOF, ''));
+
+        return new Ok(tokens);
     }
 
-    private getNextToken(): Maybe<LexerToken> {
+    private getNextToken(): Result<LexerToken, string> {
         if (this.pos >= this.script.length) {
-            return null;
+            return new Err('no more tokens');
         }
 
         const char = this.script[this.pos];
@@ -66,29 +59,31 @@ class Lexer {
         switch (tokenType) {
             case Token.NUMBER:
                 const number = this.readNumber();
-                return this.createToken(tokenType, number.toString());
+                return new Ok(this.createToken(tokenType, number.toString()));
             case Token.IDENTIFIER:
                 const identifier = this.readIdentifier();
                 // if is a reserved word
                 if (Object.keys(RESERVED_WORDS).includes(identifier)) {
-                    return this.createToken(
-                        RESERVED_WORDS[identifier as ReservedWordsKey],
-                        identifier,
+                    return new Ok(
+                        this.createToken(
+                            RESERVED_WORDS[identifier as ReservedWordsKey],
+                            identifier,
+                        ),
                     );
                 }
-                return this.createToken(Token.IDENTIFIER, identifier);
+                return new Ok(this.createToken(Token.IDENTIFIER, identifier));
 
             case Token.ASSIGN:
                 const nextToken = this.script[this.pos + 1];
                 switch (nextToken) {
                     case Token.ASSIGN:
                         this.pos++;
-                        return this.createToken(Token.EQUAL, '==');
+                        return new Ok(this.createToken(Token.EQUAL, '=='));
                     case Token.GREATER:
                         this.pos++;
-                        return this.createToken(Token.LAMBDA, '=>');
+                        return new Ok(this.createToken(Token.LAMBDA, '=>'));
                     default:
-                        return this.createToken(tokenType, char);
+                        return new Ok(this.createToken(tokenType, char));
                 }
 
             case Token.SIGNAL: {
@@ -97,18 +92,20 @@ class Lexer {
                 if (LETTERS.has(nextChar)) {
                     this.pos++;
                     const identifier = this.readIdentifier();
-                    return this.createToken(Token.SIGNAL, `#${identifier}`);
+                    return new Ok(
+                        this.createToken(Token.SIGNAL, `#${identifier}`),
+                    );
                 }
 
                 // Otherwise it must be a signal assignment
                 if (nextChar !== '=') {
-                    throw new LexerError(
+                    return new Err(
                         `Unexpected token after #: ${nextChar}. Expected an assignment`,
                     );
                 }
 
                 this.pos++;
-                return this.createToken(Token.SIGNAL_ASSIGN, '#=');
+                return new Ok(this.createToken(Token.SIGNAL_ASSIGN, '#='));
             }
 
             case Token.COMPUTE: {
@@ -116,45 +113,57 @@ class Lexer {
                 const nextChar = this.script[this.pos + 1];
                 if (LETTERS.has(nextChar)) {
                     const identifier = this.readIdentifier();
-                    return this.createToken(Token.COMPUTE, `$${identifier}`);
+                    return new Ok(
+                        this.createToken(Token.COMPUTE, `$${identifier}`),
+                    );
                 }
 
                 // Otherwise it must be a COMPUTE assignment
                 if (nextChar !== '=') {
-                    throw new LexerError(
+                    return new Err(
                         `Unexpected token after $: ${nextChar}. Expected an assignment`,
                     );
                 }
 
                 this.pos++;
-                return this.createToken(Token.COMPUTE_ASSIGN, '$=');
+                return new Ok(this.createToken(Token.COMPUTE_ASSIGN, '$='));
             }
 
             case Token.STRING:
-                const string = this.readString();
-                return this.createToken(Token.STRING, string);
+                const result = this.readString();
+                if (result.ok) {
+                    return new Ok(this.createToken(Token.STRING, result.val));
+                }
+
+                return result;
 
             case Token.OR:
                 this.pos++;
-                return this.createToken(Token.OR, '||');
+                return new Ok(this.createToken(Token.OR, '||'));
             case Token.AND:
                 this.pos++;
-                return this.createToken(Token.AND, '&&');
+                return new Ok(this.createToken(Token.AND, '&&'));
 
             case Token.GREATER:
-                return this.tryParsePair(tokenType, '=', Token.GEQ);
+                return new Ok(this.tryParsePair(tokenType, '=', Token.GEQ));
             case Token.LESS:
-                return this.tryParsePair(tokenType, '=', Token.LEQ);
+                return new Ok(this.tryParsePair(tokenType, '=', Token.LEQ));
             case Token.NOT:
-                return this.tryParsePair(tokenType, '=', Token.NEQ);
+                return new Ok(this.tryParsePair(tokenType, '=', Token.NEQ));
             case Token.PLUS:
-                return this.tryParsePair(tokenType, '+', Token.INCREMENT);
+                return new Ok(
+                    this.tryParsePair(tokenType, '+', Token.INCREMENT),
+                );
             case Token.MINUS:
-                return this.tryParsePair(tokenType, '-', Token.DECREMENT);
+                return new Ok(
+                    this.tryParsePair(tokenType, '-', Token.DECREMENT),
+                );
             case Token.DIVIDE:
-                return this.tryParsePair(tokenType, '/', Token.INT_DIVIDE);
+                return new Ok(
+                    this.tryParsePair(tokenType, '/', Token.INT_DIVIDE),
+                );
             default:
-                return this.createToken(tokenType, char);
+                return new Ok(this.createToken(tokenType, char));
         }
     }
 
@@ -195,22 +204,18 @@ class Lexer {
         return this.script.substring(start, this.pos + 1);
     }
 
-    readString() {
+    readString(): Result<string, string> {
         const start = this.pos;
         this.pos++;
         while (this.script[this.pos] !== '"') {
             this.pos++;
 
             if (this.pos >= this.script.length) {
-                throw new Error('No closing quote for string found');
+                return new Err('No closing quote for string found');
             }
         }
 
-        return this.script.substring(start + 1, this.pos);
-    }
-
-    getTokens(): LexerToken[] {
-        return this.tokens;
+        return new Ok(this.script.substring(start + 1, this.pos));
     }
 
     createToken(type: Token, value: string): LexerToken {

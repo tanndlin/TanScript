@@ -1,10 +1,21 @@
 import Lexer from '../Lexer';
 import { LexerToken, RESERVED_WORDS, Token } from '../types';
 
+export const getTokens = (lexer: Lexer): LexerToken[] => {
+    const { ok, val: tokens } = lexer.tokenize();
+    expect(ok).toBe(true);
+    if (!ok) {
+        throw new Error();
+    }
+
+    return tokens;
+};
+
 describe('Lexer Tests', () => {
     it('should tokenize a number', () => {
         const lexer = new Lexer('10');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
+
         expect(tokens).toEqual([
             new LexerToken(Token.NUMBER, '10', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -24,7 +35,7 @@ describe('Lexer Tests', () => {
         'should tokenize reserved word %s',
         (tokenType, word) => {
             const lexer = new Lexer(word);
-            const tokens = lexer.getTokens();
+            const tokens = getTokens(lexer);
             expect(tokens).toEqual([
                 new LexerToken(tokenType as Token, word, 1),
                 new LexerToken(Token.EOF, '', 1),
@@ -34,7 +45,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize an identifier', () => {
         const lexer = new Lexer('x');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.IDENTIFIER, 'x', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -43,7 +54,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize an identifier with a reserved keyword', () => {
         const lexer = new Lexer('letx');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.IDENTIFIER, 'letx', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -52,7 +63,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize an identifier with a number', () => {
         const lexer = new Lexer('x10');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.IDENTIFIER, 'x10', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -61,7 +72,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize math operators', () => {
         const lexer = new Lexer('+-*/%');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.PLUS, '+', 1),
             new LexerToken(Token.MINUS, '-', 1),
@@ -74,7 +85,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize leq', () => {
         const lexer = new Lexer('<=');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.LEQ, '<=', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -83,7 +94,7 @@ describe('Lexer Tests', () => {
 
     it('should tokenize geq', () => {
         const lexer = new Lexer('>=');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         expect(tokens).toEqual([
             new LexerToken(Token.GEQ, '>=', 1),
             new LexerToken(Token.EOF, '', 1),
@@ -92,7 +103,7 @@ describe('Lexer Tests', () => {
 
     it('should lex a simple string', () => {
         const lexer = new Lexer('let x = "Hello world!";');
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
 
         expect(tokens).toEqual([
             new LexerToken(Token.DECLERATION, 'let', 1),
@@ -105,6 +116,8 @@ describe('Lexer Tests', () => {
     });
 
     it('should throw without closing strings quote', () => {
-        expect(() => new Lexer('"Hello World!')).toThrow();
+        const lexer = new Lexer('"Hello World!');
+        const { ok } = lexer.tokenize();
+        expect(ok).toBe(false);
     });
 });

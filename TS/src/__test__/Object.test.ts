@@ -2,12 +2,13 @@ import * as AST from '../AST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
+import { getTokens } from './Lexer.test';
 
 describe('Object Tests', () => {
     it('should parse an object', () => {
         const script = 'let obj = { a: 1, b: 2 };';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const root = ast.getRoot();
@@ -55,7 +56,7 @@ describe('Object Tests', () => {
     it('should evaluate an object', () => {
         const script = 'let obj = { a: 1, b: 2 };';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const env = new Environment(ast);
@@ -70,7 +71,7 @@ describe('Object Tests', () => {
     it("should evaluate an object's attributes", () => {
         const script = 'let obj = { a: 1, b: 2 };obj.a;';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const env = new Environment(ast);
@@ -82,7 +83,7 @@ describe('Object Tests', () => {
     it('math operations on object attributes', () => {
         const script = 'let obj = { a: 1, b: 2 };obj.a + obj.b;';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const env = new Environment(ast);

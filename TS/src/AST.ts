@@ -711,18 +711,16 @@ export class IfASTNode extends BaseASTNode {
             : [];
 
         instructions.push(...condition);
-        // Jump to else block if condition is false
-        instructions.push(
-            new Instruction.JumpFalseInstruction(
-                block.length + (elseBlock.length ? 1 : 0),
-            ),
+        const jumpToElse = new Instruction.JumpFalseInstruction(
+            block.length + (elseBlock.length ? 1 : 0),
         );
+        instructions.push(jumpToElse);
         instructions.push(...block);
-        // Jump to end of if statement
         if (elseBlock.length) {
-            instructions.push(
-                new Instruction.JumpInstruction(elseBlock.length),
+            const jumpOverElse = new Instruction.JumpInstruction(
+                elseBlock.length,
             );
+            instructions.push(jumpOverElse);
         }
 
         instructions.push(...elseBlock);

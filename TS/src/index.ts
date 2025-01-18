@@ -1,3 +1,4 @@
+import { exit } from 'process';
 import util from 'util';
 import Environment from './Environment';
 import Lexer from './Lexer';
@@ -10,7 +11,13 @@ const OPTIMIZE = true;
 
 const script = readScript('script.tan');
 const lexer = new Lexer(script);
-const tokens = lexer.getTokens();
+const result = lexer.tokenize();
+if (!result.ok) {
+    console.error(result.val);
+    exit(1);
+}
+
+const { val: tokens } = result;
 if (DEBUG) {
     console.log('Tokens:', tokens);
 }

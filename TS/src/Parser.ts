@@ -28,7 +28,7 @@ export default class Parser {
         return new AST.AST(root);
     }
 
-    private parseNext(): AST.BaseASTNode {
+    private parseNext(): AST.ASTNode {
         const curToken = this.tokens[this.pos];
         switch (curToken.getType()) {
             case Token.EOF:
@@ -98,7 +98,7 @@ export default class Parser {
         );
     }
 
-    parseWhile(): AST.BaseASTNode {
+    parseWhile(): AST.ASTNode {
         this.consumeToken(Token.WHILE);
         this.consumeToken(Token.LPAREN);
 
@@ -199,7 +199,7 @@ export default class Parser {
         return new AST.FunctionCallASTNode(identToken.getValue(), args);
     }
 
-    parseAssignmentOrExpression(): AST.BaseASTNode {
+    parseAssignmentOrExpression(): AST.ASTNode {
         const identToken = this.consumeOneOf([
             Token.IDENTIFIER,
             Token.SIGNAL,
@@ -311,7 +311,7 @@ export default class Parser {
     parseBlock(): AST.BlockASTNode {
         this.consumeToken(Token.LCURLY);
 
-        const children: AST.BaseASTNode[] = [];
+        const children: AST.ASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RCURLY) {
             children.push(this.parseNext());
         }
@@ -368,7 +368,7 @@ export default class Parser {
         return left;
     }
 
-    private parseFactor(): AST.BaseASTNode {
+    private parseFactor(): AST.ASTNode {
         const token = this.consumeOneOf([
             Token.IDENTIFIER,
             Token.LPAREN,
@@ -382,7 +382,7 @@ export default class Parser {
         return this.getLeftASTFromToken(token);
     }
 
-    private getLeftASTFromToken(consumedToken: LexerToken): AST.BaseASTNode {
+    private getLeftASTFromToken(consumedToken: LexerToken): AST.ASTNode {
         if (consumedToken.isType(Token.LPAREN)) {
             return this.parseLParen() as INumberableAST;
         }
@@ -433,7 +433,7 @@ export default class Parser {
         return new AST.NumberASTNode(+consumedToken.getValue());
     }
 
-    parseObjectAccess(identToken: LexerToken): AST.BaseASTNode {
+    parseObjectAccess(identToken: LexerToken): AST.ASTNode {
         const identAST = new AST.IdentifierASTNode(identToken.getValue());
         this.consumeToken(Token.PERIOD);
 
@@ -447,7 +447,7 @@ export default class Parser {
             consumedToken = this.consumeToken(Token.LBRACKET);
         }
 
-        const elements: AST.BaseASTNode[] = [];
+        const elements: AST.ASTNode[] = [];
         while (this.tokens[this.pos].getType() !== Token.RBRACKET) {
             elements.push(this.parseNext());
 
@@ -460,7 +460,7 @@ export default class Parser {
         return new AST.ListASTNode(elements);
     }
 
-    parseObject(consumedToken?: LexerToken): AST.BaseASTNode {
+    parseObject(consumedToken?: LexerToken): AST.ASTNode {
         if (!consumedToken) {
             consumedToken = this.consumeToken(Token.LCURLY);
         }

@@ -4,6 +4,7 @@ import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { ComputedSignal } from '../Signal';
 import { LexerToken, Token } from '../types';
+import { getTokens } from './Lexer.test';
 
 describe('Signals Tests', () => {
     it('should lex signal operators', () => {
@@ -11,7 +12,7 @@ describe('Signals Tests', () => {
         const lexer = new Lexer(script);
 
         lexer.tokenize();
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
 
         expect(tokens).toStrictEqual([
             new LexerToken(Token.DECLERATION, 'let', 1),
@@ -35,7 +36,7 @@ describe('Signals Tests', () => {
         const lexer = new Lexer(script);
         lexer.tokenize();
 
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const root = ast.getRoot();

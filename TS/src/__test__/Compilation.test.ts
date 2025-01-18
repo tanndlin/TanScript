@@ -28,10 +28,11 @@ import {
 
 import Lexer from '../Lexer';
 import Parser from '../Parser';
+import { getTokens } from './Lexer.test';
 
 const instructionsFromScript = (script: string) => {
     const lexer = new Lexer(script);
-    const tokens = lexer.getTokens();
+    const tokens = getTokens(lexer);
     const ast = new Parser(tokens).parse();
 
     return ast.compile();

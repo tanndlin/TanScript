@@ -11,9 +11,12 @@ export default class Engine {
 
     constructor(private script: string) {
         this.lexer = new Lexer(script);
-        const tokens = this.lexer.getTokens();
+        const { ok, val } = this.lexer.tokenize();
+        if (!ok) {
+            throw new Error(val);
+        }
 
-        this.parser = new Parser(tokens);
+        this.parser = new Parser(val);
         let ast = this.parser.parse();
         ast = Optimizer.optimize(ast);
 

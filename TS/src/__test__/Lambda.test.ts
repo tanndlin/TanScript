@@ -3,12 +3,13 @@ import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { LexerToken, Token } from '../types';
+import { getTokens } from './Lexer.test';
 
 describe('Lambda Tests', () => {
     it('should lex a lambda properly', () => {
         const script = 'let f = () => {1 + 1;}';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
 
         expect(tokens).toStrictEqual([
             new LexerToken(Token.DECLERATION, 'let', 1),
@@ -30,7 +31,7 @@ describe('Lambda Tests', () => {
     it('should parse a lambda with no params', () => {
         const script = 'let f = () => {1 + 1;}';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const root = ast.getRoot();
@@ -65,7 +66,7 @@ describe('Lambda Tests', () => {
     it('should parse a lambda with params', () => {
         const script = 'let f = (a, b) => {a + b;}';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
 
         const root = ast.getRoot();
@@ -100,7 +101,7 @@ describe('Lambda Tests', () => {
     it('should run a lambda successfully', () => {
         const script = 'let f = (a, b) => {a + b;}; f(1, 2);';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
         const env = new Environment(ast, true);
         const result = env.evaluate();
@@ -115,7 +116,7 @@ describe('Lambda Tests', () => {
     it('lambda should have access to outer scope', () => {
         const script = 'let a = 1; let f = () => {a + 1;}; f();';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
         const env = new Environment(ast, true);
         const result = env.evaluate();
@@ -126,7 +127,7 @@ describe('Lambda Tests', () => {
         const script =
             'let double = (a) => {a * 2;}; let do = (f, a) => {f(a);}; do(double, 5);';
         const lexer = new Lexer(script);
-        const parser = new Parser(lexer.getTokens());
+        const parser = new Parser(getTokens(lexer));
         const ast = parser.parse();
         const env = new Environment(ast, true);
         const result = env.evaluate();

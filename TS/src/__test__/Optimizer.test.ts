@@ -3,6 +3,7 @@ import Lexer from '../Lexer';
 import Optimizer from '../Optimizer';
 import Parser from '../Parser';
 import { Token } from '../types';
+import { getTokens } from './Lexer.test';
 
 describe('Optimizer: Simplify always true/false', () => {
     it('should simplify always true', () => {
@@ -15,7 +16,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -52,7 +53,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -87,7 +88,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -122,7 +123,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -144,7 +145,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -181,7 +182,7 @@ describe('Optimizer: Simplify always true/false', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -213,7 +214,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplifiy constant number comparisons', () => {
         const script = '0 < 1';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -226,7 +227,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplify boolean logic and', () => {
         const script = 'true && false';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -239,7 +240,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplify boolean logic or', () => {
         const script = 'true || false';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -252,7 +253,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplify mulitple boolean logic', () => {
         const script = 'true && false || true && true';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -265,7 +266,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplify boolean logic not', () => {
         const script = '!true';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -278,7 +279,7 @@ describe('Optimizer: Simplify compound expressions', () => {
     it('should simplify nested boolean logic nots', () => {
         const script = '!!true';
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -298,7 +299,7 @@ describe('Optimizer: Simplify math expressions', () => {
         ['1 % 2', 1],
     ])('should simplify %s to %i', (script, expected) => {
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
@@ -322,7 +323,7 @@ describe('Optimizer: Simplify for loop conditions', () => {
         `;
 
         const lexer = new Lexer(script);
-        const tokens = lexer.getTokens();
+        const tokens = getTokens(lexer);
         const parser = new Parser(tokens);
         let ast = parser.parse();
         ast = Optimizer.optimize(ast);
