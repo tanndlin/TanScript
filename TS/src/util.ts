@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { SignalAST } from './AST';
 import { Instruction } from './Compilation/Instruction';
 import { LexerError } from './errors';
-import { hasChildren, IHasChildren, Token } from './types';
+import { Token } from './types';
 
 export const readScript = (fileName: string): string => {
     const script = readFileSync(fileName, 'utf8');
@@ -58,19 +57,6 @@ export const LETTERS = new Set([...LOWERCASE_LETTERS, ...UPPERCASE_LETTERS]);
 export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48),
 );
-
-export const findSignals = (ast: IHasChildren | SignalAST): string[] => {
-    if (ast instanceof SignalAST) {
-        return [ast.getName()];
-    }
-
-    const children = ast.getChildren();
-    if (children.length === 0) {
-        return [];
-    }
-
-    return children.filter(hasChildren).flatMap((c) => findSignals(c));
-};
 
 export const writeInstructions = (instructions: Instruction[]) => {
     const fileName = 'VM/script.tsc';

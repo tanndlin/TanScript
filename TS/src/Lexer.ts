@@ -1,7 +1,6 @@
 import { Err, Ok, Result } from './Result';
 import { LexerToken, RESERVED_WORDS, ReservedWordsKey, Token } from './types';
 import {
-    LETTERS,
     LOWERCASE_LETTERS,
     NUMBERS,
     UPPERCASE_LETTERS,
@@ -34,14 +33,16 @@ class Lexer {
             tokens.push(result.val);
         }
 
-        tokens.push(this.createToken(Token.EOF, ''));
+        if (tokens[tokens.length - 1].getType() !== Token.EOF) {
+            tokens.push(this.createToken(Token.EOF, ''));
+        }
 
         return new Ok(tokens);
     }
 
     private getNextToken(): Result<LexerToken, string> {
         if (this.pos >= this.script.length) {
-            return new Err('no more tokens');
+            return new Ok(this.createToken(Token.EOF, ''));
         }
 
         const char = this.script[this.pos];
@@ -85,49 +86,6 @@ class Lexer {
                     default:
                         return new Ok(this.createToken(tokenType, char));
                 }
-
-            case Token.SIGNAL: {
-                // If next char is a letter this is a signal
-                const nextChar = this.script[this.pos + 1];
-                if (LETTERS.has(nextChar)) {
-                    this.pos++;
-                    const identifier = this.readIdentifier();
-                    return new Ok(
-                        this.createToken(Token.SIGNAL, `#${identifier}`),
-                    );
-                }
-
-                // Otherwise it must be a signal assignment
-                if (nextChar !== '=') {
-                    return new Err(
-                        `Unexpected token after #: ${nextChar}. Expected an assignment`,
-                    );
-                }
-
-                this.pos++;
-                return new Ok(this.createToken(Token.SIGNAL_ASSIGN, '#='));
-            }
-
-            case Token.COMPUTE: {
-                // If next char is a letter this is a signal
-                const nextChar = this.script[this.pos + 1];
-                if (LETTERS.has(nextChar)) {
-                    const identifier = this.readIdentifier();
-                    return new Ok(
-                        this.createToken(Token.COMPUTE, `$${identifier}`),
-                    );
-                }
-
-                // Otherwise it must be a COMPUTE assignment
-                if (nextChar !== '=') {
-                    return new Err(
-                        `Unexpected token after $: ${nextChar}. Expected an assignment`,
-                    );
-                }
-
-                this.pos++;
-                return new Ok(this.createToken(Token.COMPUTE_ASSIGN, '$='));
-            }
 
             case Token.STRING:
                 const result = this.readString();

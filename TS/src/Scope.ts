@@ -1,5 +1,4 @@
-import { FunctionDefASTNode, SignalComputeAssignmentAST } from './AST';
-import { ComputedSignal, Signal } from './Signal';
+import { FunctionDefASTNode } from './AST';
 import {
     TannerError,
     UndeclaredFunctionError,
@@ -10,19 +9,11 @@ import { RuntimeValue } from './types';
 
 export default class Scope {
     public globalScope: Scope | null;
-
     private parent: Scope | null;
-
     private variables: Map<string, any>;
-
-    private signals: Map<string, Signal>;
-
     private scopes: Map<string, Scope>;
-
     private isGlobalScope: boolean;
-
     private returning: boolean = false;
-
     private returnedValue: RuntimeValue | null = null;
 
     constructor(globalScope: Scope | null, parent: Scope | null) {
@@ -30,7 +21,6 @@ export default class Scope {
         this.parent = parent;
         this.variables = new Map();
         this.scopes = new Map();
-        this.signals = new Map();
 
         this.isGlobalScope = !globalScope;
     }
@@ -128,55 +118,5 @@ export default class Scope {
 
     isReturning() {
         return this.returning;
-    }
-
-    getSignal(name: string): Signal {
-        if (this.signals.has(name)) {
-            return this.signals.get(name)!;
-        }
-
-        if (!this.parent) {
-            throw new UndeclaredVariableError(`Signal ${name} not found`);
-        }
-
-        return this.parent.getSignal(name);
-    }
-
-    getSignalValue(name: string): RuntimeValue {
-        const signal = this.getSignal(name);
-        if (!signal) {
-            throw new UndeclaredVariableError(`Signal ${name} not found`);
-        }
-
-        return signal.getValue();
-    }
-
-    setSignal(identifier: string, value: RuntimeValue) {
-        let signal: Signal;
-        try {
-            signal = this.getSignal(identifier);
-            signal.value = value;
-            signal.markChildrenDirty();
-        } catch (e) {
-            signal = new Signal(identifier, value);
-        }
-
-        this.signals.set(identifier, signal);
-    }
-
-    setSignalCompute(
-        identifier: string,
-        assignAST: SignalComputeAssignmentAST,
-    ) {
-        let signal: Signal;
-        try {
-            signal = this.getSignal(identifier);
-        } catch (e) {
-            signal = new ComputedSignal(this, identifier, assignAST);
-        }
-
-        signal.markChildrenDirty();
-
-        this.signals.set(identifier, signal);
     }
 }

@@ -35,7 +35,7 @@ describe('Lambda Tests', () => {
         const ast = parser.parse();
 
         const root = ast.getRoot();
-        const [decl] = root.getChildren();
+        const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
         if (!(decl instanceof AST.DeclarationASTNode)) {
@@ -59,7 +59,7 @@ describe('Lambda Tests', () => {
         const { block } = lambda;
         expect(block).toBeInstanceOf(AST.BlockASTNode);
 
-        const [add] = block.getChildren();
+        const [add] = block.children;
         expect(add).toBeInstanceOf(AST.AddASTNode);
     });
 
@@ -70,7 +70,7 @@ describe('Lambda Tests', () => {
         const ast = parser.parse();
 
         const root = ast.getRoot();
-        const [decl] = root.getChildren();
+        const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
         if (!(decl instanceof AST.DeclarationASTNode)) {
@@ -82,9 +82,8 @@ describe('Lambda Tests', () => {
         if (!(assign instanceof AST.AssignASTNode)) {
             return;
         }
-        expect(assign.getChildren().length).toBe(2);
-        expect(assign.getChildren()[1]).toBeInstanceOf(AST.FunctionDefASTNode);
-        const lambda = assign.getChildren()[1] as AST.FunctionDefASTNode;
+        expect(assign.valueAST).toBeInstanceOf(AST.FunctionDefASTNode);
+        const lambda = assign.valueAST as AST.FunctionDefASTNode;
 
         const params = lambda.getParamList();
         expect(params.length).toBe(2);
@@ -94,7 +93,7 @@ describe('Lambda Tests', () => {
         const { block } = lambda;
         expect(block).toBeInstanceOf(AST.BlockASTNode);
 
-        const [add] = block.getChildren();
+        const [add] = block.children;
         expect(add).toBeInstanceOf(AST.AddASTNode);
     });
 

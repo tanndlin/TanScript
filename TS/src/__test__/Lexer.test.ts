@@ -3,6 +3,10 @@ import { LexerToken, RESERVED_WORDS, Token } from '../types';
 
 export const getTokens = (lexer: Lexer): LexerToken[] => {
     const { ok, val: tokens } = lexer.tokenize();
+
+    if (!ok) {
+        console.error(tokens);
+    }
     expect(ok).toBe(true);
     if (!ok) {
         throw new Error();

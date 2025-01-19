@@ -14,7 +14,7 @@ describe('Parser Math Operators', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;
@@ -53,7 +53,7 @@ describe('Parser Math Operators', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;
@@ -112,7 +112,7 @@ describe('Parser Math Operators', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;
@@ -153,7 +153,7 @@ describe('Parser Math Operators', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;
@@ -181,7 +181,7 @@ describe('Parser Math Operators', () => {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;
@@ -228,7 +228,7 @@ describe.each([
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        expect(ast).toBeInstanceOf(AST.AST);
+        expect(ast).toBeInstanceOf(AST.Program);
 
         const root = ast.getRoot();
         const children = root.children;

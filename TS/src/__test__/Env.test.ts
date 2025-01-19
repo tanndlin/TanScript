@@ -21,14 +21,13 @@ describe('Enviornment Basic Tests', () => {
         );
 
         const root = new AST.BlockASTNode([decl, add]);
-        const ast = new AST.AST(root);
+        const ast = new AST.Program(root);
         const env = new Environment(ast);
         const result = env.evaluate();
         expect(result).toBe(15);
     });
 
     it('should store variables in scope', () => {
-        const root = new AST.BlockASTNode([]);
         const assign = new AST.AssignASTNode(
             new AST.IdentifierASTNode('x'),
             new AST.NumberASTNode(10),
@@ -36,8 +35,8 @@ describe('Enviornment Basic Tests', () => {
 
         const decl = new AST.DeclarationASTNode(assign);
 
-        root.addChild(decl);
-        const ast = new AST.AST(root);
+        const root = new AST.BlockASTNode([decl]);
+        const ast = new AST.Program(root);
         const env = new Environment(ast);
         env.evaluate();
 
@@ -47,11 +46,10 @@ describe('Enviornment Basic Tests', () => {
     });
 
     it('should allow declaration with no assignment', () => {
-        const root = new AST.BlockASTNode([]);
         const decl = new AST.DeclarationASTNode(new AST.IdentifierASTNode('x'));
 
-        root.addChild(decl);
-        const ast = new AST.AST(root);
+        const root = new AST.BlockASTNode([decl]);
+        const ast = new AST.Program(root);
         const env = new Environment(ast);
         env.evaluate();
 
@@ -61,16 +59,14 @@ describe('Enviornment Basic Tests', () => {
     });
 
     it('should allow reassignment', () => {
-        const root = new AST.BlockASTNode([]);
         const decl = new AST.DeclarationASTNode(new AST.IdentifierASTNode('x'));
         const newAssign = new AST.AssignASTNode(
             new AST.IdentifierASTNode('x'),
             new AST.NumberASTNode(20),
         );
 
-        root.addChild(decl);
-        root.addChild(newAssign);
-        const ast = new AST.AST(root);
+        const root = new AST.BlockASTNode([decl, newAssign]);
+        const ast = new AST.Program(root);
         const env = new Environment(ast);
         env.evaluate();
 

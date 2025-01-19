@@ -12,7 +12,7 @@ describe('Object Tests', () => {
         const ast = parser.parse();
 
         const root = ast.getRoot();
-        const [decl] = root.getChildren();
+        const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
         if (!(decl instanceof AST.DeclarationASTNode)) {

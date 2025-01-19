@@ -42,16 +42,13 @@ export enum Token {
     OR = '||',
     COMMA = ',',
     COLON = ':',
-    SIGNAL = '#',
-    COMPUTE = '$',
-    COMPUTE_ASSIGN = '$=',
-    SIGNAL_ASSIGN = 'SIGNAL_ASSIGN',
     LBRACKET = '[',
     RBRACKET = ']',
     INT_DIVIDE = '//',
     INCREMENT = '++',
     DECREMENT = '--',
     PERIOD = '.',
+    PROGRAM = 'PROGRAM',
 }
 
 export type ComparisonToken =
@@ -91,8 +88,6 @@ export const PrimitiveValues = new Set([
     Token.TRUE,
     Token.FALSE,
 ]);
-
-export const SIGNAL_OPERATORS = new Set([Token.SIGNAL, Token.COMPUTE]);
 
 export const RESERVED_WORDS = {
     let: Token.DECLERATION,
@@ -134,7 +129,7 @@ export class LexerToken implements TokenTypeable {
         return this.lineNumber;
     }
 
-    public isType<T extends Token>(type: Token): type is T {
+    public isType(type: Token) {
         return this.type === type;
     }
 
@@ -154,19 +149,11 @@ export type RuntimeValue = Maybe<
 >;
 export type IterableResolvable = AST.IterableASTNode | AST.IdentifierASTNode;
 
-export interface IHasChildren extends AST.BaseASTNode {
-    getChildren(): AST.BaseASTNode[];
-}
-
-export function hasChildren(ast: AST.BaseASTNode): ast is IHasChildren {
-    return 'getChildren' in ast;
-}
-
-export interface INumberableAST extends AST.BaseASTNode {
+export interface INumberableAST extends AST.Expr {
     evaluate(scope: Scope): number;
 }
 
-export interface IBooleanableAST extends AST.BaseASTNode {
+export interface IBooleanableAST extends AST.Expr {
     evaluate(scope: Scope): boolean;
 }
 
@@ -184,7 +171,7 @@ export interface IRelationalOperatorConstructor {
     new (left: INumberableAST, right: INumberableAST): AST.ComparisonASTNode;
 }
 export interface IEqualityOperatorConstructor {
-    new (left: AST.ASTNode, right: AST.ASTNode): AST.ComparisonASTNode;
+    new (left: AST.Expr, right: AST.Expr): AST.ComparisonASTNode;
 }
 
 export type AnyOperatorConstructor =
