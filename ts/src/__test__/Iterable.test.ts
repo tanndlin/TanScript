@@ -13,7 +13,7 @@ describe('Iterable tests', () => {
         const tokens = getTokens(lexer);
 
         expect(tokens).toHaveLength(12);
-        expect(tokens[0].getType()).toBe(Token.DECLERATION);
+        expect(tokens[0].getType()).toBe(Token.DECLARATION);
         expect(tokens[1].getType()).toBe(Token.IDENTIFIER);
         expect(tokens[2].getType()).toBe(Token.ASSIGN);
         expect(tokens[3].getType()).toBe(Token.LBRACKET);
@@ -38,13 +38,13 @@ describe('Iterable tests', () => {
 
         const [decl] = root.children;
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(decl instanceof AST.DeclarationASTNode)) {
+        if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
         expect(assign).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assign instanceof AST.AssignASTNode)) {
+        if (!(assign.type === Token.ASSIGN)) {
             throw new Error('Expected assign');
         }
 
@@ -72,7 +72,7 @@ describe('Iterable tests', () => {
         const [decl, forLoop] = root.children;
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
         expect(forLoop).toBeInstanceOf(AST.ForEachASTNode);
-        if (!(forLoop instanceof AST.ForEachASTNode)) {
+        if (!(forLoop.type === Token.FOREACH)) {
             throw new Error('Expected for loop');
         }
 
@@ -95,7 +95,7 @@ describe('Iterable tests', () => {
 
         const [forLoop] = root.children;
         expect(forLoop).toBeInstanceOf(AST.ForEachASTNode);
-        if (!(forLoop instanceof AST.ForEachASTNode)) {
+        if (!(forLoop.type === Token.FOREACH)) {
             throw new Error('Expected for loop');
         }
 

@@ -1,6 +1,6 @@
-import { EOFASTNode, Program, SemiASTNode } from './AST';
+import { Program } from './AST';
 import Scope from './Scope';
-import { RuntimeValue } from './types';
+import { RuntimeValue, Token } from './types';
 
 export default class Environment {
     private globalScope: Scope;
@@ -18,10 +18,7 @@ export default class Environment {
         const root = this.ast.getRoot();
         const statements = root.children;
         statements.forEach((statement, i) => {
-            if (
-                statement instanceof SemiASTNode ||
-                statement instanceof EOFASTNode
-            ) {
+            if (statement.type === Token.SEMI || statement.type === Token.EOF) {
                 return;
             }
 

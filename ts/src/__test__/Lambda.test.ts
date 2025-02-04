@@ -12,7 +12,7 @@ describe('Lambda Tests', () => {
         const tokens = getTokens(lexer);
 
         expect(tokens).toStrictEqual([
-            new LexerToken(Token.DECLERATION, 'let', 1),
+            new LexerToken(Token.DECLARATION, 'let', 1),
             new LexerToken(Token.IDENTIFIER, 'f', 1),
             new LexerToken(Token.ASSIGN, '=', 1),
             new LexerToken(Token.LPAREN, '(', 1),
@@ -38,12 +38,12 @@ describe('Lambda Tests', () => {
         const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(decl instanceof AST.DeclarationASTNode)) {
+        if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
-        if (!(assign instanceof AST.AssignASTNode)) {
+        if (!(assign.type === Token.ASSIGN)) {
             throw new Error('Expected assignment');
         }
 
@@ -73,13 +73,13 @@ describe('Lambda Tests', () => {
         const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(decl instanceof AST.DeclarationASTNode)) {
+        if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
         expect(assign).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assign instanceof AST.AssignASTNode)) {
+        if (!(assign.type === Token.ASSIGN)) {
             return;
         }
         expect(assign.valueAST).toBeInstanceOf(AST.FunctionDefASTNode);

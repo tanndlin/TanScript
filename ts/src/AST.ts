@@ -10,56 +10,19 @@ import {
     INumberableAST,
     Iterable,
     IterableResolvable,
+    MathToken,
     Object,
     RuntimeValue,
     Token,
-    TokenTypeable,
 } from './types';
 
-export interface IAST extends TokenTypeable {
-    type: Token;
-    isType(type: Token): boolean;
-    isOneOf(...types: Token[]): boolean;
-    evaluate(scope: Scope): RuntimeValue;
-    compile(scope: CompileScope): Instruction.Instruction[];
-}
-
-export abstract class Stmt implements IAST {
+export abstract class IAST {
     type!: Token;
     abstract evaluate(scope: Scope): RuntimeValue;
     abstract compile(scope: CompileScope): Instruction.Instruction[];
-
-    public isType(type: Token): boolean {
-        return this.type === type;
-    }
-
-    public isOneOf(...types: Token[]): boolean {
-        if (!this.type) {
-            return false;
-        }
-
-        return types.includes(this.type);
-    }
 }
 
-export abstract class Expr extends Stmt {
-    abstract evaluate(scope: Scope): RuntimeValue;
-    abstract compile(scope: CompileScope): Instruction.Instruction[];
-
-    public isType(type: Token): boolean {
-        return this.type === type;
-    }
-
-    public isOneOf(...types: Token[]): boolean {
-        if (!this.type) {
-            return false;
-        }
-
-        return types.includes(this.type);
-    }
-}
-
-export class Program extends Stmt {
+export class Program extends IAST {
     type: Token.PROGRAM = Token.PROGRAM;
 
     constructor(private root: BlockASTNode) {
@@ -92,61 +55,47 @@ export class Program extends Stmt {
     }
 }
 
-// export type ASTNode =
-//     | DecoratorASTNode
-//     | EOFASTNode
-//     | RParenASTNode
-//     | SemiASTNode
-//     | LParenASTNode
-//     | IdentifierASTNode
-//     | AssignASTNode
-//     | DeclarationASTNode
-//     | StringASTNode
-//     | BlockASTNode
-//     | ComparisonASTNode
-//     | BooleanASTNode
-//     | LessThanASTNode
-//     | LessEqASTNode
-//     | GreaterThanASTNode
-//     | GreaterEqASTNode
-//     | NotEqualASTNode
-//     | EqualASTNode
-//     | AndASTNode
-//     | OrASTNode
-//     | NotASTNode
-//     | WhileASTNode
-//     | ForASTNode
-//     | IfASTNode
-//     | FunctionDefASTNode
-//     | FunctionCallASTNode
-//     | ReturnASTNode
-//     | IterableASTNode
-//     | ListASTNode
-//     | ForEachASTNode
-//     | MathASTNode
-//     | AddASTNode
-//     | SubtractASTNode
-//     | MultiplyASTNode
-//     | DivideASTNode
-//     | IntegerDivideASTNode
-//     | ModASTNode
-//     | NumberASTNode
-//     | ObjectASTNode
-//     | AttributeASTNode
-//     | ObjectAccessAST
-//     | SignalAST
-//     | SignalAssignmentAST
-//     | SignalComputeAST
-//     | SignalComputeAssignmentAST;
+export type Stmt =
+    | Program
+    | AssignASTNode
+    | DeclarationASTNode
+    | BlockASTNode
+    | WhileASTNode
+    | ForASTNode
+    | IfASTNode
+    | ReturnASTNode
+    | ForEachASTNode;
 
-export abstract class DecoratorASTNode extends Expr {
+export type Expr =
+    | Stmt
+    | LParenASTNode
+    | IdentifierASTNode
+    | StringASTNode
+    | MathASTNode
+    | ComparisonASTNode
+    | BooleanASTNode
+    | NotASTNode
+    | FunctionDefASTNode
+    | FunctionCallASTNode
+    | IterableASTNode
+    | NumberASTNode
+    | ObjectASTNode
+    | AttributeASTNode
+    | ObjectAccessAST
+    | EOFASTNode
+    | RParenASTNode
+    | SemiASTNode;
+
+export type AnyAST = Stmt | Expr;
+
+export abstract class DecoratorASTNode extends IAST {
     compile(_scope: CompileScope): Instruction.Instruction[] {
         return [];
     }
 }
 
 export class EOFASTNode extends DecoratorASTNode {
-    public type = Token.EOF;
+    type: Token.EOF = Token.EOF;
 
     evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to EOF.evaluate');
@@ -154,7 +103,7 @@ export class EOFASTNode extends DecoratorASTNode {
 }
 
 export class RParenASTNode extends DecoratorASTNode {
-    public type = Token.RPAREN;
+    type: Token.RPAREN = Token.RPAREN;
 
     evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to RParen.evaluate');
@@ -162,15 +111,15 @@ export class RParenASTNode extends DecoratorASTNode {
 }
 
 export class SemiASTNode extends DecoratorASTNode {
-    public type = Token.SEMI;
+    type: Token.SEMI = Token.SEMI;
 
     evaluate(): RuntimeValue {
         throw new TannerError('Unexpected call to Semi.evaluate');
     }
 }
 
-export class LParenASTNode extends Expr {
-    public type = Token.LPAREN;
+export class LParenASTNode extends IAST {
+    type: Token.LPAREN = Token.LPAREN;
 
     constructor(public child: Expr) {
         super();
@@ -185,8 +134,8 @@ export class LParenASTNode extends Expr {
     }
 }
 
-export class IdentifierASTNode extends Expr {
-    public type = Token.IDENTIFIER;
+export class IdentifierASTNode extends IAST {
+    type: Token.IDENTIFIER = Token.IDENTIFIER;
 
     constructor(private name: string) {
         super();
@@ -206,8 +155,8 @@ export class IdentifierASTNode extends Expr {
     }
 }
 
-export class AssignASTNode extends Stmt {
-    public type = Token.ASSIGN;
+export class AssignASTNode extends IAST {
+    type: Token.ASSIGN = Token.ASSIGN;
 
     constructor(
         public identifier: IdentifierASTNode,
@@ -238,42 +187,36 @@ export class AssignASTNode extends Stmt {
     }
 }
 
-export class DeclarationASTNode extends Stmt {
-    public type = Token.DECLERATION;
+export class DeclarationASTNode extends IAST {
+    type: Token.DECLARATION = Token.DECLARATION;
 
     constructor(public child: AssignASTNode | IdentifierASTNode) {
         super();
     }
 
     evaluate(scope: Scope): RuntimeValue {
-        if (this.child.isType(Token.IDENTIFIER)) {
+        if (this.child.type === Token.IDENTIFIER) {
             scope.addVariable(this.child.getName(), undefined);
             return null;
         }
 
-        if (this.child.isType(Token.ASSIGN)) {
-            const { identifier, valueAST } = this.child as AssignASTNode;
+        const { identifier, valueAST } = this.child as AssignASTNode;
 
-            // Special case for lambdas
-            // Yes this should be a token.lambda but I'm lazy
-            if (valueAST.isType(Token.FUNCTION)) {
-                valueAST.evaluate(scope);
-                return undefined;
-            }
-
-            const evaluatedValue = valueAST.evaluate(scope);
-            scope.addVariable(identifier.getName(), evaluatedValue);
-            return evaluatedValue;
+        // Special case for lambdas
+        // Yes this should be a token.lambda but I'm lazy
+        if (valueAST.type === Token.FUNCTION) {
+            valueAST.evaluate(scope);
+            return undefined;
         }
 
-        throw new TannerError(
-            `Unexpectd AST Type as child for decl. Got: ${this.child.type}`,
-        );
+        const evaluatedValue = valueAST.evaluate(scope);
+        scope.addVariable(identifier.getName(), evaluatedValue);
+        return evaluatedValue;
     }
 
     compile(scope: CompileScope): Instruction.Instruction[] {
         // The allocation is already handled by hoisting in the block scope
-        if (this.child instanceof IdentifierASTNode) {
+        if (this.child.type === Token.IDENTIFIER) {
             scope.addVariable(this.child.getName());
             return [];
         }
@@ -287,8 +230,8 @@ export class DeclarationASTNode extends Stmt {
     }
 }
 
-export class StringASTNode extends Expr {
-    public type = Token.STRING;
+export class StringASTNode extends IAST {
+    type: Token.STRING = Token.STRING;
 
     constructor(private value: string) {
         super();
@@ -310,10 +253,10 @@ export class StringASTNode extends Expr {
     }
 }
 
-export class BlockASTNode extends Stmt {
-    public type = Token.LCURLY;
+export class BlockASTNode extends IAST {
+    type: Token.LCURLY = Token.LCURLY;
 
-    constructor(public children: Stmt[]) {
+    constructor(public children: (Stmt | Expr)[]) {
         super();
     }
 
@@ -361,7 +304,7 @@ export class BlockASTNode extends Stmt {
     }
 }
 
-export class ComparisonASTNode extends Expr implements IBooleanableAST {
+export class ComparisonASTNode extends IAST implements IBooleanableAST {
     constructor(
         public type: ComparisonToken,
         public left: INumberableAST,
@@ -435,7 +378,7 @@ export class ComparisonASTNode extends Expr implements IBooleanableAST {
     }
 }
 
-export class BooleanASTNode extends Expr {
+export class BooleanASTNode extends IAST {
     public type: BooleanToken;
 
     constructor(type: BooleanToken) {
@@ -444,12 +387,12 @@ export class BooleanASTNode extends Expr {
     }
 
     evaluate(): boolean {
-        return this.isType(Token.TRUE);
+        return this.type === Token.TRUE;
     }
 
     compile(_scope: CompileScope): Instruction.Instruction[] {
         return [
-            new Instruction.PushInstruction(this.isType(Token.TRUE) ? 1 : 0),
+            new Instruction.PushInstruction(this.type === Token.TRUE ? 1 : 0),
         ];
     }
 }
@@ -558,7 +501,7 @@ export class OrASTNode extends ComparisonASTNode {
     }
 }
 
-export class NotASTNode extends Expr {
+export class NotASTNode extends IAST {
     public type: Token.NOT = Token.NOT;
     constructor(public child: Expr) {
         super();
@@ -573,7 +516,7 @@ export class NotASTNode extends Expr {
     }
 }
 
-export class WhileASTNode extends Stmt {
+export class WhileASTNode extends IAST {
     public type: Token.WHILE = Token.WHILE;
 
     constructor(
@@ -613,7 +556,7 @@ export class WhileASTNode extends Stmt {
     }
 }
 
-export class ForASTNode extends Stmt {
+export class ForASTNode extends IAST {
     public type: Token.FOR = Token.FOR;
 
     constructor(
@@ -667,7 +610,7 @@ export class ForASTNode extends Stmt {
     }
 }
 
-export class IfASTNode extends Stmt {
+export class IfASTNode extends IAST {
     public type: Token.IF = Token.IF;
 
     constructor(
@@ -718,7 +661,7 @@ export class IfASTNode extends Stmt {
     }
 }
 
-export class FunctionDefASTNode extends Expr {
+export class FunctionDefASTNode extends IAST {
     public type: Token.FUNCTION = Token.FUNCTION;
 
     constructor(
@@ -787,7 +730,7 @@ export class FunctionDefASTNode extends Expr {
     }
 }
 
-export class FunctionCallASTNode extends Expr {
+export class FunctionCallASTNode extends IAST {
     public type: Token.IDENTIFIER = Token.IDENTIFIER;
 
     constructor(
@@ -815,7 +758,7 @@ export class FunctionCallASTNode extends Expr {
         if (this.name === 'print') {
             const instructions: Instruction.Instruction[] = [];
             // Assume there is only one argument
-            const isString = this.args[0] instanceof StringASTNode;
+            const isString = this.args[0].type === Token.STRING;
             const arg = [this.args[0].compile(scope)].flat();
             instructions.push(...arg);
             if (!isString) {
@@ -849,7 +792,7 @@ export class FunctionCallASTNode extends Expr {
     }
 }
 
-export class ReturnASTNode extends Stmt {
+export class ReturnASTNode extends IAST {
     public type: Token.RETURN = Token.RETURN;
 
     constructor(public valueAST: Expr) {
@@ -896,7 +839,7 @@ class Iterator {
     }
 }
 
-export class IterableASTNode extends Expr {
+export class IterableASTNode extends IAST {
     public type: Token.LBRACKET = Token.LBRACKET;
 
     constructor(public items: Expr[]) {
@@ -918,7 +861,7 @@ export class IterableASTNode extends Expr {
 
 export class ListASTNode extends IterableASTNode {}
 
-export class ForEachASTNode extends Stmt {
+export class ForEachASTNode extends IAST {
     public init: DeclarationASTNode | IdentifierASTNode;
     public iterable: IterableResolvable;
     public block: BlockASTNode;
@@ -937,7 +880,7 @@ export class ForEachASTNode extends Stmt {
 
     evaluate(scope: Scope): RuntimeValue {
         let iterator: Iterator;
-        if (this.iterable instanceof IdentifierASTNode) {
+        if (this.iterable.type === Token.IDENTIFIER) {
             const items = scope.getVariable(
                 this.iterable.getName(),
             ) as Iterable;
@@ -964,9 +907,17 @@ export class ForEachASTNode extends Stmt {
     }
 }
 
-export class MathASTNode extends Expr implements INumberableAST {
+export type MathASTNodeType =
+    | AddASTNode
+    | SubtractASTNode
+    | MultiplyASTNode
+    | DivideASTNode
+    | IntegerDivideASTNode
+    | ModASTNode;
+
+export class MathASTNode extends IAST {
     constructor(
-        public type: Token,
+        public type: MathToken,
         public left: INumberableAST,
         public right: INumberableAST,
     ) {
@@ -1030,42 +981,54 @@ export class MathASTNode extends Expr implements INumberableAST {
 }
 
 export class AddASTNode extends MathASTNode {
+    type: Token.PLUS = Token.PLUS;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.PLUS, left, right);
     }
 }
 
 export class SubtractASTNode extends MathASTNode {
+    type: Token.MINUS = Token.MINUS;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.MINUS, left, right);
     }
 }
 
 export class MultiplyASTNode extends MathASTNode {
+    type: Token.MULTIPLY = Token.MULTIPLY;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.MULTIPLY, left, right);
     }
 }
 
 export class DivideASTNode extends MathASTNode {
+    type: Token.DIVIDE = Token.DIVIDE;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.DIVIDE, left, right);
     }
 }
 
 export class IntegerDivideASTNode extends MathASTNode {
+    type: Token.INT_DIVIDE = Token.INT_DIVIDE;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.INT_DIVIDE, left, right);
     }
 }
 
 export class ModASTNode extends MathASTNode {
+    type: Token.MOD = Token.MOD;
+
     constructor(left: INumberableAST, right: INumberableAST) {
         super(Token.MOD, left, right);
     }
 }
 
-export class NumberASTNode extends Expr implements INumberableAST {
+export class NumberASTNode extends IAST {
     public type: Token.NUMBER = Token.NUMBER;
 
     constructor(private value: number) {
@@ -1085,7 +1048,7 @@ export class NumberASTNode extends Expr implements INumberableAST {
     }
 }
 
-export class ObjectASTNode extends Expr {
+export class ObjectASTNode extends IAST {
     public type: Token.LCURLY = Token.LCURLY;
 
     constructor(public attributes: AttributeASTNode[]) {
@@ -1106,7 +1069,9 @@ export class ObjectASTNode extends Expr {
     }
 }
 
-export class AttributeASTNode extends Expr {
+export class AttributeASTNode extends IAST {
+    type: Token.PERIOD = Token.PERIOD;
+
     constructor(
         private name: string,
         public valueAST: Expr,
@@ -1127,7 +1092,7 @@ export class AttributeASTNode extends Expr {
     }
 }
 
-export class ObjectAccessAST extends Expr {
+export class ObjectAccessAST extends IAST {
     public type: Token.IDENTIFIER = Token.IDENTIFIER;
     constructor(
         public objIdentifier: IdentifierASTNode,

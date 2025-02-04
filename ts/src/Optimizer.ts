@@ -7,7 +7,7 @@ export default class Optimizer {
         const children = root.children;
         const newChildren = children
             .map((child) => {
-                return Optimizer.optimizeStatement(child);
+                return Optimizer.optimizeAny(child);
             })
             .filter(Boolean) as AST.Stmt[];
 
@@ -15,24 +15,20 @@ export default class Optimizer {
         return ast;
     }
 
-    private static optimizeStatement(child: AST.Stmt): AST.Stmt {
-        if (child instanceof AST.IfASTNode) {
-            child = Optimizer.optimizeIf(child)!;
+    private static optimizeAny<T extends AST.AnyAST>(child: T): T {
+        if (child.type === Token.IF) {
+            return Optimizer.optimizeIf(child)! as T;
         }
 
-        if (child instanceof AST.ForASTNode) {
-            child = Optimizer.optimizeFor(child);
+        if (child.type === Token.FOR) {
+            return Optimizer.optimizeFor(child) as T;
         }
 
-        if (child instanceof AST.Expr) {
-            child = Optimizer.optimizeExpression(child);
-        }
-
-        return child;
+        return Optimizer.optimizeExpression(child) as T;
     }
 
     private static optimizeExpression(child: AST.Expr): AST.Expr {
-        if (child instanceof AST.LParenASTNode) {
+        if (child.type === Token.LPAREN) {
             child = Optimizer.simplifyParenthesis(child);
         }
 
@@ -41,10 +37,11 @@ export default class Optimizer {
         }
 
         if (
-            child instanceof AST.BooleanASTNode ||
-            child instanceof AST.NumberASTNode ||
-            child instanceof AST.ComparisonASTNode ||
-            child instanceof AST.NotASTNode
+            child.type === Token.TRUE ||
+            child.type === Token.FALSE ||
+            child.type === Token.NUMBER ||
+            child.type === Token.NOT ||
+            child instanceof AST.ComparisonASTNode
         ) {
             child = Optimizer.simplifyLogicalExpression(child);
         }
@@ -63,13 +60,17 @@ export default class Optimizer {
 
         condition = Optimizer.optimizeExpression(condition);
 
+        if (condition.type === Token.TRUE) {
+            console.log(condition);
+        }
+
         if (
             condition.type === Token.TRUE ||
             (condition.type === Token.NUMBER &&
                 +(condition as AST.NumberASTNode).getValue() !== 0)
         ) {
             return block;
-        } else if (condition.isType(Token.FALSE)) {
+        } else if (condition.type === Token.FALSE) {
             return elseBlock;
         }
 
@@ -79,10 +80,10 @@ export default class Optimizer {
     private static optimizeFor(node: AST.ForASTNode): AST.ForASTNode {
         let { init, condition, update, block } = node;
 
-        init = Optimizer.optimizeStatement(init);
+        init = Optimizer.optimizeAny(init);
         condition = Optimizer.optimizeExpression(condition);
-        update = Optimizer.optimizeStatement(update);
-        block = Optimizer.optimizeStatement(block) as AST.BlockASTNode;
+        update = Optimizer.optimizeAny(update);
+        block = Optimizer.optimizeAny(block) as AST.BlockASTNode;
 
         return new AST.ForASTNode(init, condition, update, block);
     }
@@ -110,17 +111,17 @@ export default class Optimizer {
             return node;
         }
 
-        if (node instanceof AST.NumberASTNode) {
+        if (node.type === Token.NUMBER) {
             return node;
         }
 
         if (node instanceof AST.NotASTNode) {
             let { child } = node;
             child = Optimizer.optimizeExpression(child);
-            if (child.isType(Token.TRUE)) {
+            if (child.type === Token.TRUE) {
                 return new AST.BooleanASTNode(Token.FALSE);
             }
-            if (child.isType(Token.FALSE)) {
+            if (child.type === Token.FALSE) {
                 return new AST.BooleanASTNode(Token.TRUE);
             }
 
@@ -130,8 +131,8 @@ export default class Optimizer {
 
         // Simplify left and right nodes
         const { left, right } = node;
-        const leftValue = Optimizer.optimizeExpression(left);
-        const rightValue = Optimizer.optimizeExpression(right);
+        const leftValue = Optimizer.optimizeExpression(left as AST.Expr);
+        const rightValue = Optimizer.optimizeExpression(right as AST.Expr);
 
         // If both are numbers, evaluate the expression
         if (
@@ -170,12 +171,12 @@ export default class Optimizer {
         }
 
         const leftisBool =
-            leftValue.isType(Token.TRUE) || leftValue.isType(Token.FALSE);
+            leftValue.type === Token.TRUE || leftValue.type === Token.FALSE;
         const rightisBool =
-            rightValue.isType(Token.TRUE) || rightValue.isType(Token.FALSE);
+            rightValue.type === Token.TRUE || rightValue.type === Token.FALSE;
         if (leftisBool && rightisBool) {
-            const leftBool = leftValue.isType(Token.TRUE);
-            const rightBool = rightValue.isType(Token.TRUE);
+            const leftBool = leftValue.type === Token.TRUE;
+            const rightBool = rightValue.type === Token.TRUE;
 
             switch (type) {
                 case Token.AND:
@@ -195,16 +196,18 @@ export default class Optimizer {
     }
 
     private static simplifyMathExpression(
-        node: AST.MathASTNode,
-    ): INumberableAST {
-        if (node instanceof AST.NumberASTNode) {
+        node: AST.MathASTNodeType | AST.NumberASTNode,
+    ): AST.MathASTNodeType | AST.NumberASTNode {
+        if (node.type === Token.NUMBER) {
             return node;
         }
 
         const { left, right } = node;
-        const leftValue = Optimizer.optimizeExpression(left) as INumberableAST;
+        const leftValue = Optimizer.optimizeExpression(
+            left as AST.Expr,
+        ) as INumberableAST;
         const rightValue = Optimizer.optimizeExpression(
-            right,
+            right as AST.Expr,
         ) as INumberableAST;
 
         if (
@@ -246,7 +249,11 @@ export default class Optimizer {
         let { child } = node;
         child = this.optimizeExpression(child);
 
-        if (child.isOneOf(Token.TRUE, Token.FALSE, Token.NUMBER)) {
+        if (
+            child.type === Token.TRUE ||
+            child.type === Token.FALSE ||
+            child.type === Token.NUMBER
+        ) {
             return child;
         }
 

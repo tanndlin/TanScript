@@ -110,7 +110,7 @@ describe('Lexer Tests', () => {
         const tokens = getTokens(lexer);
 
         expect(tokens).toEqual([
-            new LexerToken(Token.DECLERATION, 'let', 1),
+            new LexerToken(Token.DECLARATION, 'let', 1),
             new LexerToken(Token.IDENTIFIER, 'x', 1),
             new LexerToken(Token.ASSIGN, '=', 1),
             new LexerToken(Token.STRING, 'Hello world!', 1),

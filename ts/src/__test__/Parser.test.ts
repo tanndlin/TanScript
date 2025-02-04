@@ -3,6 +3,12 @@ import { ParserError } from '../errors';
 import Parser from '../Parser';
 import { LexerToken, Token } from '../types';
 
+const expectNumber = (node: AST.IAST): node is AST.NumberASTNode => {
+    expect(node.type).toBe(Token.NUMBER);
+    expect(node).toBeInstanceOf(AST.NumberASTNode);
+    return node.type === Token.NUMBER;
+};
+
 describe('Parser Math Operators', () => {
     it('should parse a simple expression', () => {
         const tokens = [
@@ -19,24 +25,20 @@ describe('Parser Math Operators', () => {
         const root = ast.getRoot();
         const children = root.children;
         expect(children).toHaveLength(1);
-        if (!(children[0] instanceof AST.AddASTNode)) {
+        if (!(children[0].type === Token.PLUS)) {
             throw new Error('Expected AddASTNode');
         }
 
         // Left then right
         const { left, right } = children[0];
         expect(left.type).toBe(Token.NUMBER);
-        if (!(left instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Left AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(left)) {
+            return;
         }
         expect(left.getValue()).toBe(1);
         expect(right.type).toBe(Token.NUMBER);
-        if (!(right instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(right)) {
+            return;
         }
         expect(right.getValue()).toBe(2);
     });
@@ -61,17 +63,15 @@ describe('Parser Math Operators', () => {
 
         const [addAST] = children;
         expect(addAST).toBeInstanceOf(AST.AddASTNode);
-        if (!(addAST instanceof AST.AddASTNode)) {
+        if (!(addAST.type === Token.PLUS)) {
             throw new Error('Expected AddASTNode');
         }
 
         // Left then right
         const { left, right } = addAST;
         expect(left.type).toBe(Token.NUMBER);
-        if (!(left instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(left)) {
+            return;
         }
         expect(left.getValue()).toBe(1);
         expect(right.type).toBe(Token.MULTIPLY);
@@ -83,17 +83,13 @@ describe('Parser Math Operators', () => {
         // Left then right
         const { left: leftRight, right: rightRight } = right;
         expect(leftRight.type).toBe(Token.NUMBER);
-        if (!(leftRight instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Left right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(leftRight)) {
+            return;
         }
         expect(leftRight.getValue()).toBe(2);
         expect(rightRight.type).toBe(Token.NUMBER);
-        if (!(rightRight instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(rightRight)) {
+            return;
         }
         expect(rightRight.getValue()).toBe(3);
     });
@@ -136,10 +132,8 @@ describe('Parser Math Operators', () => {
 
         // Right should be a number (3)
         expect(right.type).toBe(Token.NUMBER);
-        if (!(right instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(right)) {
+            return;
         }
         expect(right.getValue()).toBe(3);
     });
@@ -161,7 +155,7 @@ describe('Parser Math Operators', () => {
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assignAST instanceof AST.AssignASTNode)) {
+        if (!(assignAST.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -196,17 +190,13 @@ describe('Parser Math Operators', () => {
         // Left then right
         const { left, right } = lessAST;
         expect(left.type).toBe(Token.NUMBER);
-        if (!(left instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(left)) {
+            return;
         }
         expect(left.getValue()).toBe(1);
         expect(right.type).toBe(Token.NUMBER);
-        if (!(right instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(right)) {
+            return;
         }
         expect(right.getValue()).toBe(2);
     });
@@ -243,17 +233,13 @@ describe.each([
         // Left then right
         const { left, right } = expectedAST;
         expect(left.type).toBe(Token.NUMBER);
-        if (!(left instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(left)) {
+            return;
         }
         expect(left.getValue()).toBe(1);
         expect(right.type).toBe(Token.NUMBER);
-        if (!(right instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(right)) {
+            return;
         }
         expect(right.getValue()).toBe(2);
     });
@@ -262,7 +248,7 @@ describe.each([
 describe('Parser Assignment', () => {
     it('should parse a simple assignment', () => {
         const tokens = [
-            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.DECLARATION, 'let'),
             new LexerToken(Token.IDENTIFIER, 'x'),
             new LexerToken(Token.ASSIGN, '='),
             new LexerToken(Token.NUMBER, '1'),
@@ -277,13 +263,13 @@ describe('Parser Assignment', () => {
 
         const [declAST] = children;
         expect(declAST).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(declAST instanceof AST.DeclarationASTNode)) {
+        if (!(declAST.type === Token.DECLARATION)) {
             throw new Error('Expected DeclarationASTNode');
         }
 
         const { child } = declAST;
         expect(child).toBeInstanceOf(AST.AssignASTNode);
-        if (!(child instanceof AST.AssignASTNode)) {
+        if (!(child.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -292,17 +278,15 @@ describe('Parser Assignment', () => {
         expect(identifier.getName()).toBe('x');
 
         expect(valueAST).toBeInstanceOf(AST.NumberASTNode);
-        if (!(valueAST instanceof AST.NumberASTNode)) {
-            throw new Error(
-                'Right AST node is not an instance of NumberASTNode',
-            );
+        if (!expectNumber(valueAST)) {
+            return;
         }
         expect(valueAST.getValue()).toBe(1);
     });
 
     it('should parse a simple assignment with an expression', () => {
         const tokens = [
-            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.DECLARATION, 'let'),
             new LexerToken(Token.IDENTIFIER, 'x'),
             new LexerToken(Token.ASSIGN, '='),
             new LexerToken(Token.NUMBER, '1'),
@@ -319,13 +303,13 @@ describe('Parser Assignment', () => {
 
         const [declAST] = children;
         expect(declAST).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(declAST instanceof AST.DeclarationASTNode)) {
+        if (!(declAST.type === Token.DECLARATION)) {
             throw new Error('Expected DeclarationASTNode');
         }
 
         const { child } = declAST;
         expect(child).toBeInstanceOf(AST.AssignASTNode);
-        if (!(child instanceof AST.AssignASTNode)) {
+        if (!(child.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -353,7 +337,7 @@ describe('Parser Assignment', () => {
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assignAST instanceof AST.AssignASTNode)) {
+        if (!(assignAST.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -381,7 +365,7 @@ describe('Parser Assignment', () => {
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assignAST instanceof AST.AssignASTNode)) {
+        if (!(assignAST.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -406,7 +390,7 @@ describe('Parser Assignment', () => {
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assignAST instanceof AST.AssignASTNode)) {
+        if (!(assignAST.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -431,7 +415,7 @@ describe('Parser Assignment', () => {
 
         const [assignAST] = children;
         expect(assignAST).toBeInstanceOf(AST.AssignASTNode);
-        if (!(assignAST instanceof AST.AssignASTNode)) {
+        if (!(assignAST.type === Token.ASSIGN)) {
             throw new Error('Expected AssignASTNode');
         }
 
@@ -459,7 +443,7 @@ describe('Parser Assignment', () => {
 
     it('should not allow shorthand assignment during declaration', () => {
         const tokens = [
-            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.DECLARATION, 'let'),
             new LexerToken(Token.IDENTIFIER, 'x'),
             new LexerToken(Token.PLUS, '+'),
             new LexerToken(Token.ASSIGN, '='),
@@ -531,7 +515,7 @@ describe('Parser Curly Braces', () => {
         const [blockAST] = root.children;
         expect(blockAST).toBeInstanceOf(AST.BlockASTNode);
         if (!(blockAST instanceof AST.BlockASTNode)) {
-            throw new Error('Expected BlockASTNode');
+            return;
         }
 
         const blockChildren = blockAST.children;
@@ -558,7 +542,7 @@ describe('Parser Curly Braces', () => {
         const [blockAST] = root.children;
         expect(blockAST).toBeInstanceOf(AST.BlockASTNode);
         if (!(blockAST instanceof AST.BlockASTNode)) {
-            throw new Error('Expected BlockASTNode');
+            return;
         }
 
         const blockChildren = blockAST.children;
@@ -651,7 +635,7 @@ describe('Control Structures', () => {
         const tokens = [
             new LexerToken(Token.FOR, 'for'),
             new LexerToken(Token.LPAREN, '('),
-            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.DECLARATION, 'let'),
             new LexerToken(Token.IDENTIFIER, 'x'),
             new LexerToken(Token.ASSIGN, '='),
             new LexerToken(Token.NUMBER, '0'),
@@ -953,7 +937,7 @@ describe('Control Structures', () => {
 
         const [addAST] = root.children;
         expect(addAST).toBeInstanceOf(AST.AddASTNode);
-        if (!(addAST instanceof AST.AddASTNode)) {
+        if (!(addAST.type === Token.PLUS)) {
             throw new Error('Expected AddASTNode');
         }
 
@@ -966,7 +950,7 @@ describe('Control Structures', () => {
 describe('String Parsing', () => {
     it('should parse a simgple string', () => {
         const tokens = [
-            new LexerToken(Token.DECLERATION, 'let'),
+            new LexerToken(Token.DECLARATION, 'let'),
             new LexerToken(Token.IDENTIFIER, 'x'),
             new LexerToken(Token.ASSIGN, '='),
             new LexerToken(Token.STRING, 'Hello world!'),
@@ -980,13 +964,13 @@ describe('String Parsing', () => {
 
         const [declAST] = root.children;
         expect(declAST).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(declAST instanceof AST.DeclarationASTNode)) {
+        if (!(declAST.type === Token.DECLARATION)) {
             return;
         }
 
         const { child } = declAST;
         expect(child).toBeInstanceOf(AST.AssignASTNode);
-        if (!(child instanceof AST.AssignASTNode)) {
+        if (!(child.type === Token.ASSIGN)) {
             return;
         }
 
@@ -1016,7 +1000,7 @@ describe('String Parsing', () => {
 
         const [addAST] = root.children;
         expect(addAST).toBeInstanceOf(AST.AddASTNode);
-        if (!(addAST instanceof AST.AddASTNode)) {
+        if (!(addAST.type === Token.PLUS)) {
             throw new Error('Expected AddASTNode');
         }
 

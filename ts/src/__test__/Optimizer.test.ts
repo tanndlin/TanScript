@@ -32,11 +32,11 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const [retStatement] = block.children;
         expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
-        if (!(retStatement instanceof AST.ReturnASTNode)) {
+        if (!(retStatement.type === Token.RETURN)) {
             return;
         }
 
-        if (!(retStatement.valueAST instanceof AST.NumberASTNode)) {
+        if (!(retStatement.valueAST.type === Token.NUMBER)) {
             return;
         }
 
@@ -69,11 +69,11 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const [retStatement] = block.children;
         expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
-        if (!(retStatement instanceof AST.ReturnASTNode)) {
+        if (!(retStatement.type === Token.RETURN)) {
             return;
         }
 
-        if (!(retStatement.valueAST instanceof AST.NumberASTNode)) {
+        if (!(retStatement.valueAST.type === Token.NUMBER)) {
             return;
         }
 
@@ -104,11 +104,11 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const [retStatement] = block.children;
         expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
-        if (!(retStatement instanceof AST.ReturnASTNode)) {
+        if (!(retStatement.type === Token.RETURN)) {
             return;
         }
 
-        if (!(retStatement.valueAST instanceof AST.NumberASTNode)) {
+        if (!(retStatement.valueAST.type === Token.NUMBER)) {
             return;
         }
 
@@ -161,11 +161,11 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const [retStatement] = block.children;
         expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
-        if (!(retStatement instanceof AST.ReturnASTNode)) {
+        if (!(retStatement.type === Token.RETURN)) {
             return;
         }
 
-        if (!(retStatement.valueAST instanceof AST.NumberASTNode)) {
+        if (!(retStatement.valueAST.type === Token.NUMBER)) {
             return;
         }
 
@@ -198,11 +198,11 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const [retStatement] = block.children;
         expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
-        if (!(retStatement instanceof AST.ReturnASTNode)) {
+        if (!(retStatement.type === Token.RETURN)) {
             return;
         }
 
-        if (!(retStatement.valueAST instanceof AST.NumberASTNode)) {
+        if (!(retStatement.valueAST.type === Token.NUMBER)) {
             return;
         }
 
@@ -307,9 +307,10 @@ describe('Optimizer: Simplify math expressions', () => {
         const root = ast.getRoot();
         const [num] = root.children;
         expect(num.type).toBe(Token.NUMBER);
-        if (!(num instanceof AST.NumberASTNode)) {
+        if (!(num.type === Token.NUMBER)) {
             return;
         }
+
         expect(+num.getValue()).toBe(expected);
     });
 });

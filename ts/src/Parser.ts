@@ -2,7 +2,6 @@ import * as AST from './AST';
 import { ParserError } from './errors';
 import { PRECEDENCE } from './precedence';
 import {
-    ExpressionableAST,
     INumberableAST,
     IterableResolvable,
     LexerToken,
@@ -44,7 +43,7 @@ export default class Parser {
             case Token.NOT:
                 return this.parseExpressionOrNumber();
 
-            case Token.DECLERATION:
+            case Token.DECLARATION:
                 return this.parseDecleration();
 
             case Token.WHILE:
@@ -257,7 +256,7 @@ export default class Parser {
         return new AST.BlockASTNode(children);
     }
 
-    private parseExpressionOrNumber(): ExpressionableAST {
+    private parseExpressionOrNumber(): AST.Expr {
         // logical expression is the least priority
         const expr = this.parseNextPrecedence(PRECEDENCE.length - 1);
 
@@ -270,9 +269,9 @@ export default class Parser {
 
     // Goes bottom up, starting with the lowest precedence
     // This is because each level calls the next higher precedence
-    private parseNextPrecedence(depth: number): ExpressionableAST {
+    private parseNextPrecedence(depth: number): AST.Expr {
         if (depth === -1) {
-            return this.parseFactor() as ExpressionableAST;
+            return this.parseFactor() as AST.Expr;
         }
 
         let left = this.parseNextPrecedence(depth - 1);
@@ -419,7 +418,7 @@ export default class Parser {
     }
 
     parseDecleration(): AST.DeclarationASTNode {
-        this.consumeToken(Token.DECLERATION);
+        this.consumeToken(Token.DECLARATION);
 
         const assignASTNode = this.parseAssignment(undefined, false);
         const declAST = new AST.DeclarationASTNode(assignASTNode);

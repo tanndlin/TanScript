@@ -8,7 +8,7 @@ export enum Token {
     IF = 'if',
     ELSE = 'else',
     FUNCTION = 'def',
-    DECLERATION = 'let',
+    DECLARATION = 'let',
     TRUE = 'true',
     FALSE = 'false',
     IN = 'in',
@@ -49,7 +49,16 @@ export enum Token {
     DECREMENT = '--',
     PERIOD = '.',
     PROGRAM = 'PROGRAM',
+    Other = 'Other',
 }
+
+export type MathToken =
+    | Token.PLUS
+    | Token.MINUS
+    | Token.MULTIPLY
+    | Token.DIVIDE
+    | Token.INT_DIVIDE
+    | Token.MOD;
 
 export type ComparisonToken =
     | Token.LESS
@@ -90,7 +99,7 @@ export const PrimitiveValues = new Set([
 ]);
 
 export const RESERVED_WORDS = {
-    let: Token.DECLERATION,
+    let: Token.DECLARATION,
     while: Token.WHILE,
     for: Token.FOR,
     foreach: Token.FOREACH,
@@ -149,15 +158,13 @@ export type RuntimeValue = Maybe<
 >;
 export type IterableResolvable = AST.IterableASTNode | AST.IdentifierASTNode;
 
-export interface INumberableAST extends AST.Expr {
+export interface INumberableAST extends AST.IAST {
     evaluate(scope: Scope): number;
 }
 
-export interface IBooleanableAST extends AST.Expr {
+export interface IBooleanableAST extends AST.IAST {
     evaluate(scope: Scope): boolean;
 }
-
-export type ExpressionableAST = INumberableAST | IBooleanableAST;
 
 export interface ITokenConstructorPair {
     token: Token;

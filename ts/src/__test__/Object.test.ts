@@ -2,6 +2,7 @@ import * as AST from '../AST';
 import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
+import { Token } from '../types';
 import { getTokens } from './Lexer.test';
 
 describe('Object Tests', () => {
@@ -15,13 +16,13 @@ describe('Object Tests', () => {
         const [decl] = root.children;
 
         expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
-        if (!(decl instanceof AST.DeclarationASTNode)) {
+        if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child } = decl;
         expect(child).toBeInstanceOf(AST.AssignASTNode);
-        if (!(child instanceof AST.AssignASTNode)) {
+        if (!(child.type === Token.ASSIGN)) {
             throw new Error('Expected assign');
         }
 
