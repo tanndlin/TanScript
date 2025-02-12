@@ -1,4 +1,4 @@
-import { FunctionDefASTNode } from './AST';
+import { ASTFunctionDef } from './AST';
 import {
     TannerError,
     UndeclaredFunctionError,
@@ -81,24 +81,24 @@ export default class Scope {
         );
     }
 
-    addFunction(name: string, f: FunctionDefASTNode) {
+    addFunction(name: string, f: ASTFunctionDef) {
         this.variables.set(name, f);
     }
 
-    getFunction(name: string): FunctionDefASTNode {
+    getFunction(name: string): ASTFunctionDef {
         if (this.variables.has(name)) {
-            return this.variables.get(name) as FunctionDefASTNode;
+            return this.variables.get(name) as ASTFunctionDef;
         }
         let scope: Scope | null = this.parent;
         while (scope) {
             if (scope.variables.has(name)) {
-                return scope.variables.get(name) as FunctionDefASTNode;
+                return scope.variables.get(name) as ASTFunctionDef;
             }
             scope = scope.parent;
         }
 
         if (this.globalScope && this.globalScope.variables.has(name)) {
-            return this.globalScope.variables.get(name) as FunctionDefASTNode;
+            return this.globalScope.variables.get(name) as ASTFunctionDef;
         }
 
         throw new UndeclaredFunctionError(`Function ${name} not found`);

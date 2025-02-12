@@ -15,31 +15,31 @@ describe('Object Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.children;
 
-        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        expect(decl).toBeInstanceOf(AST.ASTDeclaration);
         if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child } = decl;
-        expect(child).toBeInstanceOf(AST.AssignASTNode);
+        expect(child).toBeInstanceOf(AST.ASTAssign);
         if (!(child.type === Token.ASSIGN)) {
             throw new Error('Expected assign');
         }
 
         const { valueAST } = child;
-        expect(valueAST).toBeInstanceOf(AST.ObjectASTNode);
-        if (!(valueAST instanceof AST.ObjectASTNode)) {
+        expect(valueAST).toBeInstanceOf(AST.ASTObject);
+        if (!(valueAST instanceof AST.ASTObject)) {
             throw new Error('Expected object');
         }
 
         expect(valueAST.attributes).toHaveLength(2);
 
         const [a, b] = valueAST.attributes;
-        expect(a).toBeInstanceOf(AST.AttributeASTNode);
-        expect(b).toBeInstanceOf(AST.AttributeASTNode);
+        expect(a).toBeInstanceOf(AST.ASTAttribute);
+        expect(b).toBeInstanceOf(AST.ASTAttribute);
         if (
-            !(a instanceof AST.AttributeASTNode) ||
-            !(b instanceof AST.AttributeASTNode)
+            !(a instanceof AST.ASTAttribute) ||
+            !(b instanceof AST.ASTAttribute)
         ) {
             throw new Error('Expected attribute');
         }
@@ -48,10 +48,10 @@ describe('Object Tests', () => {
         const { valueAST: bValue } = b;
 
         expect(a.getName()).toBe('a');
-        expect(aValue).toBeInstanceOf(AST.NumberASTNode);
+        expect(aValue).toBeInstanceOf(AST.ASTNumber);
 
         expect(b.getName()).toBe('b');
-        expect(bValue).toBeInstanceOf(AST.NumberASTNode);
+        expect(bValue).toBeInstanceOf(AST.ASTNumber);
     });
 
     it('should evaluate an object', () => {

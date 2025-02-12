@@ -19,21 +19,25 @@ export default class Parser {
         // parse the tokens
         const children = [];
         while (this.pos < this.tokens.length) {
-            children.push(this.parseNext() as AST.Stmt);
+            const next = this.parseNext();
+            if (next) {
+                children.push(this.parseNext() as AST.Stmt);
+            }
         }
 
-        return new AST.Program(new AST.BlockASTNode(children));
+        return new AST.Program(new AST.ASTBlock(children));
     }
 
-    private parseNext(): AST.Stmt | AST.Expr {
+    private parseNext(): AST.Stmt | AST.Expr | null {
         const curToken = this.tokens[this.pos];
         switch (curToken.getType()) {
             case Token.EOF:
                 this.pos++;
-                return new AST.EOFASTNode();
+                return null;
+
             case Token.SEMI:
                 this.pos++;
-                return new AST.SemiASTNode();
+                return null;
 
             case Token.NUMBER:
             case Token.LPAREN:
@@ -60,10 +64,7 @@ export default class Parser {
 
             case Token.IDENTIFIER: {
                 let ret = this.parseAssignmentOrExpression();
-                if (
-                    this.tokens[this.pos] &&
-                    this.tokens[this.pos].isType(Token.SEMI)
-                ) {
+                if (this.tokens[this.pos]?.isType(Token.SEMI)) {
                     this.consumeToken(Token.SEMI);
                 }
 
@@ -80,7 +81,7 @@ export default class Parser {
                 return this.parseFunctionDef();
             case Token.RETURN:
                 this.consumeToken(Token.RETURN);
-                return new AST.ReturnASTNode(this.parseNext() as AST.Expr);
+                return new AST.ASTReturn(this.parseNext() as AST.Expr);
         }
 
         if (OPERATORS.has(curToken.getType())) {
@@ -102,10 +103,10 @@ export default class Parser {
 
         const block = this.parseBlock();
 
-        return new AST.WhileASTNode(condition, block);
+        return new AST.ASTWhile(condition, block);
     }
 
-    parseFor(): AST.ForASTNode {
+    parseFor(): AST.ASTFor {
         this.consumeToken(Token.FOR);
         this.consumeToken(Token.LPAREN);
 
@@ -116,15 +117,15 @@ export default class Parser {
 
         const block = this.parseBlock();
 
-        return new AST.ForASTNode(init, condition, update, block);
+        return new AST.ASTFor(init, condition, update, block);
     }
 
-    parseForEach(): AST.ForEachASTNode {
+    parseForEach(): AST.ASTForEach {
         this.consumeToken(Token.FOREACH);
         this.consumeToken(Token.LPAREN);
 
         const ident = this.consumeToken(Token.IDENTIFIER);
-        const identAST = new AST.IdentifierASTNode(ident.getValue());
+        const identAST = new AST.ASTIdentifier(ident.getValue());
         this.consumeToken(Token.IN);
 
         const iterable = this.parseNext() as IterableResolvable;
@@ -132,10 +133,10 @@ export default class Parser {
 
         const block = this.parseBlock();
 
-        return new AST.ForEachASTNode(identAST, iterable, block);
+        return new AST.ASTForEach(identAST, iterable, block);
     }
 
-    parseIf(): AST.IfASTNode {
+    parseIf(): AST.ASTIf {
         this.consumeToken(Token.IF);
         this.consumeToken(Token.LPAREN);
 
@@ -147,27 +148,27 @@ export default class Parser {
         // Check if there is an else block
         if (this.tokens[this.pos].isType(Token.ELSE)) {
             this.consumeToken(Token.ELSE);
-            return new AST.IfASTNode(condition, block, this.parseBlock());
+            return new AST.ASTIf(condition, block, this.parseBlock());
         }
 
-        return new AST.IfASTNode(condition, block);
+        return new AST.ASTIf(condition, block);
     }
 
-    parseFunctionDef(): AST.FunctionDefASTNode {
+    parseFunctionDef(): AST.ASTFunctionDef {
         this.consumeToken(Token.FUNCTION);
         const identToken = this.consumeToken(Token.IDENTIFIER);
 
-        const args: AST.IdentifierASTNode[] = this.parseParameters();
+        const args: AST.ASTIdentifier[] = this.parseParameters();
         const block = this.parseBlock();
-        return new AST.FunctionDefASTNode(identToken.getValue(), args, block);
+        return new AST.ASTFunctionDef(identToken.getValue(), args, block);
     }
 
     private parseParameters() {
         this.consumeToken(Token.LPAREN);
-        const args: AST.IdentifierASTNode[] = [];
+        const args: AST.ASTIdentifier[] = [];
         while (this.tokens[this.pos].getType() !== Token.RPAREN) {
             const argToken = this.consumeToken(Token.IDENTIFIER);
-            args.push(new AST.IdentifierASTNode(argToken.getValue()));
+            args.push(new AST.ASTIdentifier(argToken.getValue()));
 
             if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
@@ -178,7 +179,7 @@ export default class Parser {
         return args;
     }
 
-    parseFunctionCall(identToken: LexerToken): AST.FunctionCallASTNode {
+    parseFunctionCall(identToken: LexerToken): AST.ASTFunctionCall {
         this.consumeToken(Token.LPAREN);
 
         const args: AST.Expr[] = [];
@@ -191,21 +192,18 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RPAREN);
-        return new AST.FunctionCallASTNode(identToken.getValue(), args);
+        return new AST.ASTFunctionCall(identToken.getValue(), args);
     }
 
     parseAssignmentOrExpression(): AST.Stmt | AST.Expr {
         const identToken = this.consumeToken(Token.IDENTIFIER);
 
         if (this.tokens[this.pos].isType(Token.INCREMENT)) {
-            return this.parseIncrementDecrement(AST.AddASTNode, identToken);
+            return this.parseIncrementDecrement(AST.ASTAdd, identToken);
         }
 
         if (this.tokens[this.pos].isType(Token.DECREMENT)) {
-            return this.parseIncrementDecrement(
-                AST.SubtractASTNode,
-                identToken,
-            );
+            return this.parseIncrementDecrement(AST.ASTSubtract, identToken);
         }
 
         // Check if the next token is a shorhand assign
@@ -229,22 +227,20 @@ export default class Parser {
         T extends new (
             left: INumberableAST,
             right: INumberableAST,
-        ) => AST.MathASTNode,
-    >(Ctor: T, identToken: LexerToken): AST.AssignASTNode {
+        ) => AST.ASTMath,
+    >(Ctor: T, identToken: LexerToken): AST.ASTAssign {
         this.consumeToken(Token.INCREMENT, Token.DECREMENT);
 
-        return new AST.AssignASTNode(
-            new AST.IdentifierASTNode(identToken.getValue()),
+        return new AST.ASTAssign(
+            new AST.ASTIdentifier(identToken.getValue()),
             new Ctor(
-                new AST.IdentifierASTNode(
-                    identToken.getValue(),
-                ) as INumberableAST,
-                new AST.NumberASTNode(1),
+                new AST.ASTIdentifier(identToken.getValue()) as INumberableAST,
+                new AST.ASTNumber(1),
             ),
         );
     }
 
-    parseBlock(): AST.BlockASTNode {
+    parseBlock(): AST.ASTBlock {
         this.consumeToken(Token.LCURLY);
 
         const children: AST.Stmt[] = [];
@@ -253,7 +249,7 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RCURLY);
-        return new AST.BlockASTNode(children);
+        return new AST.ASTBlock(children);
     }
 
     private parseExpressionOrNumber(): AST.Expr {
@@ -333,12 +329,12 @@ export default class Parser {
                 return this.parseObjectAccess(consumedToken);
             }
 
-            return new AST.IdentifierASTNode(consumedToken.getValue());
+            return new AST.ASTIdentifier(consumedToken.getValue());
         }
 
         const tokenType = consumedToken.getType();
         if (tokenType === Token.TRUE || tokenType === Token.FALSE) {
-            return new AST.BooleanASTNode(tokenType);
+            return new AST.ASTBoolean(tokenType);
         }
 
         if (consumedToken.isType(Token.NOT)) {
@@ -354,22 +350,22 @@ export default class Parser {
         }
 
         if (consumedToken.isType(Token.STRING)) {
-            return new AST.StringASTNode(consumedToken.getValue());
+            return new AST.ASTString(consumedToken.getValue());
         }
 
-        return new AST.NumberASTNode(+consumedToken.getValue());
+        return new AST.ASTNumber(+consumedToken.getValue());
     }
 
     parseObjectAccess(identToken: LexerToken) {
-        const identAST = new AST.IdentifierASTNode(identToken.getValue());
+        const identAST = new AST.ASTIdentifier(identToken.getValue());
         this.consumeToken(Token.PERIOD);
 
         const key = this.consumeToken(Token.IDENTIFIER);
-        const attributeIdent = new AST.IdentifierASTNode(key.getValue());
+        const attributeIdent = new AST.ASTIdentifier(key.getValue());
         return new AST.ObjectAccessAST(identAST, attributeIdent);
     }
 
-    parseArray(consumedToken?: LexerToken): AST.ListASTNode {
+    parseArray(consumedToken?: LexerToken): AST.ASTList {
         if (!consumedToken) {
             consumedToken = this.consumeToken(Token.LBRACKET);
         }
@@ -384,7 +380,7 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RBRACKET);
-        return new AST.ListASTNode(elements);
+        return new AST.ASTList(elements);
     }
 
     parseObject(consumedToken?: LexerToken) {
@@ -392,13 +388,13 @@ export default class Parser {
             consumedToken = this.consumeToken(Token.LCURLY);
         }
 
-        const attributes: AST.AttributeASTNode[] = [];
+        const attributes: AST.ASTAttribute[] = [];
         while (this.tokens[this.pos].getType() !== Token.RCURLY) {
             const key = this.consumeToken(Token.IDENTIFIER);
             this.consumeToken(Token.COLON);
 
             const value = this.parseNext() as AST.Expr;
-            attributes.push(new AST.AttributeASTNode(key.getValue(), value));
+            attributes.push(new AST.ASTAttribute(key.getValue(), value));
 
             if (this.tokens[this.pos].isType(Token.COMMA)) {
                 this.consumeToken(Token.COMMA);
@@ -406,22 +402,22 @@ export default class Parser {
         }
 
         this.consumeToken(Token.RCURLY);
-        return new AST.ObjectASTNode(attributes);
+        return new AST.ASTObject(attributes);
     }
 
-    parseLParen(): AST.LParenASTNode {
+    parseLParen(): AST.ASTLParen {
         const expression = this.parseExpressionOrNumber();
         this.consumeToken(Token.RPAREN);
 
-        const lParenNode = new AST.LParenASTNode(expression);
+        const lParenNode = new AST.ASTLParen(expression);
         return lParenNode;
     }
 
-    parseDecleration(): AST.DeclarationASTNode {
+    parseDecleration(): AST.ASTDeclaration {
         this.consumeToken(Token.DECLARATION);
 
-        const assignASTNode = this.parseAssignment(undefined, false);
-        const declAST = new AST.DeclarationASTNode(assignASTNode);
+        const ASTassign = this.parseAssignment(undefined, false);
+        const declAST = new AST.ASTDeclaration(ASTassign);
 
         if (this.tokens[this.pos] && this.tokens[this.pos].isType(Token.SEMI)) {
             this.consumeToken(Token.SEMI);
@@ -432,7 +428,7 @@ export default class Parser {
     parseAssignment(
         identToken: LexerToken = this.consumeToken(Token.IDENTIFIER),
         allowShortHand = true,
-    ): AST.AssignASTNode {
+    ): AST.ASTAssign {
         const assignToken = this.consumeToken(
             Token.ASSIGN,
             ...OPERATORS.values(),
@@ -450,20 +446,20 @@ export default class Parser {
             return this.parseShortHandAssign(identToken, assignToken);
         }
 
-        const identAST = new AST.IdentifierASTNode(identToken.getValue());
+        const identAST = new AST.ASTIdentifier(identToken.getValue());
 
         // If looks like a lambda
         if (this.tokens[this.pos].isType(Token.LPAREN)) {
             const ret = this.tryParseLambda(identToken.getValue());
             if (ret) {
-                return new AST.AssignASTNode(identAST, ret);
+                return new AST.ASTAssign(identAST, ret);
             }
         }
 
         // Already comsumed the assign token
         const expressionAST = this.parseExpressionOrNumber();
 
-        return new AST.AssignASTNode(identAST, expressionAST);
+        return new AST.ASTAssign(identAST, expressionAST);
     }
 
     tryParseLambda(name: string) {
@@ -472,7 +468,7 @@ export default class Parser {
             this.consumeToken(Token.LAMBDA);
 
             const block = this.parseBlock();
-            return new AST.FunctionDefASTNode(name, args, block);
+            return new AST.ASTFunctionDef(name, args, block);
         };
 
         let counter = this.pos;
@@ -488,53 +484,53 @@ export default class Parser {
     parseShortHandAssign(
         identToken: LexerToken,
         assignToken: LexerToken,
-    ): AST.AssignASTNode {
+    ): AST.ASTAssign {
         this.consumeToken(Token.ASSIGN);
         const expressionAST = this.parseExpressionOrNumber();
-        const identAST = new AST.IdentifierASTNode(identToken.getValue());
+        const identAST = new AST.ASTIdentifier(identToken.getValue());
 
         // +=
         if (assignToken.isType(Token.PLUS)) {
-            const resultExpression = new AST.AddASTNode(
+            const resultExpression = new AST.ASTAdd(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST,
             );
-            return new AST.AssignASTNode(identAST, resultExpression);
+            return new AST.ASTAssign(identAST, resultExpression);
         }
 
         // -=
         if (assignToken.isType(Token.MINUS)) {
-            const resultExpression = new AST.SubtractASTNode(
+            const resultExpression = new AST.ASTSubtract(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST,
             );
-            return new AST.AssignASTNode(identAST, resultExpression);
+            return new AST.ASTAssign(identAST, resultExpression);
         }
 
         // *=
         if (assignToken.isType(Token.MULTIPLY)) {
-            const resultExpression = new AST.MultiplyASTNode(
+            const resultExpression = new AST.ASTMultiply(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST,
             );
-            return new AST.AssignASTNode(identAST, resultExpression);
+            return new AST.ASTAssign(identAST, resultExpression);
         }
 
         // /=
         if (assignToken.isType(Token.DIVIDE)) {
-            const resultExpression = new AST.DivideASTNode(
+            const resultExpression = new AST.ASTDivide(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST,
             );
-            return new AST.AssignASTNode(identAST, resultExpression);
+            return new AST.ASTAssign(identAST, resultExpression);
         }
 
         if (assignToken.isType(Token.INT_DIVIDE)) {
-            const resultExpression = new AST.IntegerDivideASTNode(
+            const resultExpression = new AST.ASTIntegerDivide(
                 identAST as INumberableAST,
                 expressionAST as INumberableAST,
             );
-            return new AST.AssignASTNode(identAST, resultExpression);
+            return new AST.ASTAssign(identAST, resultExpression);
         }
 
         throw new ParserError(
@@ -542,7 +538,7 @@ export default class Parser {
         );
     }
 
-    parseNot(notToken?: LexerToken): AST.NotASTNode {
+    parseNot(notToken?: LexerToken): AST.ASTNot {
         if (!notToken) {
             this.consumeToken(Token.NOT);
         }
@@ -550,11 +546,11 @@ export default class Parser {
         // Check special case where the next token is a LPAREN
         if (this.tokens[this.pos].isType(Token.LPAREN)) {
             this.consumeToken(Token.LPAREN);
-            return new AST.NotASTNode(this.parseLParen());
+            return new AST.ASTNot(this.parseLParen());
         }
 
         const expression = this.parseExpressionOrNumber();
-        return new AST.NotASTNode(expression);
+        return new AST.ASTNot(expression);
     }
 
     consumeToken(...tokens: Token[]): LexerToken {

@@ -156,7 +156,7 @@ export type Object = {
 export type RuntimeValue = Maybe<
     number | string | boolean | Iterable | void | Object
 >;
-export type IterableResolvable = AST.IterableASTNode | AST.IdentifierASTNode;
+export type IterableResolvable = AST.ASTIterable | AST.ASTIdentifier;
 
 export interface INumberableAST extends AST.IAST {
     evaluate(scope: Scope): number;
@@ -172,13 +172,13 @@ export interface ITokenConstructorPair {
 }
 
 export interface IMathOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): AST.MathASTNode;
+    new (left: INumberableAST, right: INumberableAST): AST.ASTMath;
 }
 export interface IRelationalOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): AST.ComparisonASTNode;
+    new (left: INumberableAST, right: INumberableAST): AST.ASTComparison;
 }
 export interface IEqualityOperatorConstructor {
-    new (left: AST.Expr, right: AST.Expr): AST.ComparisonASTNode;
+    new (left: AST.Expr, right: AST.Expr): AST.ASTComparison;
 }
 
 export type AnyOperatorConstructor =

@@ -23,15 +23,15 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
         const [block] = root.children;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
-        if (!(block instanceof AST.BlockASTNode)) {
+        expect(block).toBeInstanceOf(AST.ASTBlock);
+        if (!(block instanceof AST.ASTBlock)) {
             return;
         }
 
         expect(block.children.length).toBe(1);
 
         const [retStatement] = block.children;
-        expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
+        expect(retStatement).toBeInstanceOf(AST.ASTReturn);
         if (!(retStatement.type === Token.RETURN)) {
             return;
         }
@@ -60,15 +60,15 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
         const [block] = root.children;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
-        if (!(block instanceof AST.BlockASTNode)) {
+        expect(block).toBeInstanceOf(AST.ASTBlock);
+        if (!(block instanceof AST.ASTBlock)) {
             return;
         }
 
         expect(block.children.length).toBe(1);
 
         const [retStatement] = block.children;
-        expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
+        expect(retStatement).toBeInstanceOf(AST.ASTReturn);
         if (!(retStatement.type === Token.RETURN)) {
             return;
         }
@@ -95,15 +95,15 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
         const [block] = root.children;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
-        if (!(block instanceof AST.BlockASTNode)) {
+        expect(block).toBeInstanceOf(AST.ASTBlock);
+        if (!(block instanceof AST.ASTBlock)) {
             return;
         }
 
         expect(block.children.length).toBe(1);
 
         const [retStatement] = block.children;
-        expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
+        expect(retStatement).toBeInstanceOf(AST.ASTReturn);
         if (!(retStatement.type === Token.RETURN)) {
             return;
         }
@@ -132,7 +132,7 @@ describe('Optimizer: Simplify always true/false', () => {
 
         expect(root.children).toHaveLength(1);
         const [eof] = root.children;
-        expect(eof).toBeInstanceOf(AST.EOFASTNode);
+        expect(eof).toBeInstanceOf(AST.ASTEOF);
     });
 
     it('should simplify if condition is not a boolean', () => {
@@ -152,15 +152,15 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
         const [block] = root.children;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
-        if (!(block instanceof AST.BlockASTNode)) {
+        expect(block).toBeInstanceOf(AST.ASTBlock);
+        if (!(block instanceof AST.ASTBlock)) {
             return;
         }
 
         expect(block.children.length).toBe(1);
 
         const [retStatement] = block.children;
-        expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
+        expect(retStatement).toBeInstanceOf(AST.ASTReturn);
         if (!(retStatement.type === Token.RETURN)) {
             return;
         }
@@ -189,15 +189,15 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
         const [block] = root.children;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
-        if (!(block instanceof AST.BlockASTNode)) {
+        expect(block).toBeInstanceOf(AST.ASTBlock);
+        if (!(block instanceof AST.ASTBlock)) {
             return;
         }
 
         expect(block.children.length).toBe(1);
 
         const [retStatement] = block.children;
-        expect(retStatement).toBeInstanceOf(AST.ReturnASTNode);
+        expect(retStatement).toBeInstanceOf(AST.ASTReturn);
         if (!(retStatement.type === Token.RETURN)) {
             return;
         }
@@ -331,16 +331,16 @@ describe('Optimizer: Simplify for loop conditions', () => {
 
         const root = ast.getRoot();
         const [forLoop] = root.children;
-        const { condition } = forLoop as AST.ForASTNode;
+        const { condition } = forLoop as AST.ASTFor;
 
-        expect(condition).toBeInstanceOf(AST.LessThanASTNode);
-        if (!(condition instanceof AST.LessThanASTNode)) {
+        expect(condition).toBeInstanceOf(AST.ASTLessThan);
+        if (!(condition instanceof AST.ASTLessThan)) {
             return;
         }
 
         const { right } = condition;
         expect(right.type).toBe(Token.NUMBER);
-        if (!(right instanceof AST.NumberASTNode)) {
+        if (!(right instanceof AST.ASTNumber)) {
             return;
         }
         expect(+right.getValue()).toBe(20);

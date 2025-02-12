@@ -37,7 +37,7 @@ describe('Lambda Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.children;
 
-        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        expect(decl).toBeInstanceOf(AST.ASTDeclaration);
         if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
@@ -49,18 +49,18 @@ describe('Lambda Tests', () => {
 
         const { valueAST: lambda } = assign;
 
-        expect(lambda).toBeInstanceOf(AST.FunctionDefASTNode);
-        if (!(lambda instanceof AST.FunctionDefASTNode)) {
+        expect(lambda).toBeInstanceOf(AST.ASTFunctionDef);
+        if (!(lambda instanceof AST.ASTFunctionDef)) {
             throw new Error('Expected lambda');
         }
 
         expect(lambda.getParamList()).toHaveLength(0);
 
         const { block } = lambda;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
+        expect(block).toBeInstanceOf(AST.ASTBlock);
 
         const [add] = block.children;
-        expect(add).toBeInstanceOf(AST.AddASTNode);
+        expect(add).toBeInstanceOf(AST.ASTAdd);
     });
 
     it('should parse a lambda with params', () => {
@@ -72,18 +72,18 @@ describe('Lambda Tests', () => {
         const root = ast.getRoot();
         const [decl] = root.children;
 
-        expect(decl).toBeInstanceOf(AST.DeclarationASTNode);
+        expect(decl).toBeInstanceOf(AST.ASTDeclaration);
         if (!(decl.type === Token.DECLARATION)) {
             throw new Error('Expected declaration');
         }
 
         const { child: assign } = decl;
-        expect(assign).toBeInstanceOf(AST.AssignASTNode);
+        expect(assign).toBeInstanceOf(AST.ASTAssign);
         if (!(assign.type === Token.ASSIGN)) {
             return;
         }
-        expect(assign.valueAST).toBeInstanceOf(AST.FunctionDefASTNode);
-        const lambda = assign.valueAST as AST.FunctionDefASTNode;
+        expect(assign.valueAST).toBeInstanceOf(AST.ASTFunctionDef);
+        const lambda = assign.valueAST as AST.ASTFunctionDef;
 
         const params = lambda.getParamList();
         expect(params.length).toBe(2);
@@ -91,10 +91,10 @@ describe('Lambda Tests', () => {
         expect(params[1].getName()).toBe('b');
 
         const { block } = lambda;
-        expect(block).toBeInstanceOf(AST.BlockASTNode);
+        expect(block).toBeInstanceOf(AST.ASTBlock);
 
         const [add] = block.children;
-        expect(add).toBeInstanceOf(AST.AddASTNode);
+        expect(add).toBeInstanceOf(AST.ASTAdd);
     });
 
     it('should run a lambda successfully', () => {
@@ -109,7 +109,7 @@ describe('Lambda Tests', () => {
         const scope = env.getGlobalScope();
         const f = scope.getFunction('f');
 
-        expect(f).toBeInstanceOf(AST.FunctionDefASTNode);
+        expect(f).toBeInstanceOf(AST.ASTFunctionDef);
     });
 
     it('lambda should have access to outer scope', () => {
