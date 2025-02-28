@@ -21,7 +21,7 @@ export default class Parser {
         while (this.pos < this.tokens.length) {
             const next = this.parseNext();
             if (next) {
-                children.push(this.parseNext() as AST.Stmt);
+                children.push(next as AST.Stmt);
             }
         }
 

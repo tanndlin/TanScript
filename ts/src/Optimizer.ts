@@ -60,10 +60,6 @@ export default class Optimizer {
 
         condition = Optimizer.optimizeExpression(condition);
 
-        if (condition.type === Token.TRUE) {
-            console.log(condition);
-        }
-
         if (
             condition.type === Token.TRUE ||
             (condition.type === Token.NUMBER &&

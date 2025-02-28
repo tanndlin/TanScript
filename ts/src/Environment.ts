@@ -1,6 +1,6 @@
 import { Program } from './AST';
 import Scope from './Scope';
-import { RuntimeValue, Token } from './types';
+import { RuntimeValue } from './types';
 
 export default class Environment {
     private globalScope: Scope;
@@ -18,10 +18,6 @@ export default class Environment {
         const root = this.ast.getRoot();
         const statements = root.children;
         statements.forEach((statement, i) => {
-            if (statement.type === Token.SEMI || statement.type === Token.EOF) {
-                return;
-            }
-
             if (this.debug) {
                 console.log(`Statement ${i + 1}:`);
             }
