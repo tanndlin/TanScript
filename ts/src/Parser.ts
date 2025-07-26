@@ -223,7 +223,7 @@ export default class Parser {
     }
 
     parseIncrementDecrement<
-        T extends new (left: AST.Expr, right: AST.Expr) => AST.ASTMath,
+        T extends new (left: AST.Expr, right: AST.Expr) => AST.ASTMathType,
     >(Ctor: T, identToken: LexerToken): AST.ASTAssign {
         this.consumeToken(Token.INCREMENT, Token.DECREMENT);
 

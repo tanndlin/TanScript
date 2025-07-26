@@ -1,5 +1,6 @@
 import * as AST from './AST';
 import { Token } from './types';
+import { isMathType } from './util';
 
 export default class Optimizer {
     public static optimize(ast: AST.Program): AST.Program {
@@ -36,7 +37,7 @@ export default class Optimizer {
             child = Optimizer.simplifyParenthesis(child) as AST.Expr;
         }
 
-        if (child instanceof AST.ASTMath) {
+        if (isMathType(child)) {
             child = Optimizer.simplifyMathExpression(child);
         }
 
@@ -103,7 +104,7 @@ export default class Optimizer {
             | AST.ASTBoolean
             | AST.ASTNumber
             | AST.ASTComparison
-            | AST.ASTMath
+            | AST.ASTMathType
             | AST.ASTNot,
     ) {
         const type: Token = node.type;

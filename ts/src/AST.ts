@@ -5,12 +5,11 @@ import {
     BooleanToken,
     ComparisonToken,
     IterableResolvable,
-    MathToken,
     Register,
     Token,
 } from './types';
 
-export abstract class ASTStmt {
+abstract class ASTStmt {
     type!: Token;
     abstract compile(scope: CompileScope): string[];
 }
@@ -35,7 +34,7 @@ export type Expr =
     | ASTLParen
     | ASTIdentifier
     | ASTString
-    | ASTMath
+    | ASTMathType
     | ASTComparison
     | ASTBoolean
     | ASTNot
@@ -82,6 +81,7 @@ export class Program extends ASTStmt {
             '',
             'global main',
             'extern printf',
+            'extern ExitProcess',
             'SECTION .data',
             CompileScope.data.join('\n'),
             'SECTION .text',
@@ -89,8 +89,8 @@ export class Program extends ASTStmt {
             '\tsub rsp, 40',
             ...instructions.flatMap((i) => `\t${i}`),
             '\tadd rsp, 40',
-            '\txor eax, eax',
-            '\tret',
+            '\txor rcx, rcx',
+            '\tcall ExitProcess',
         ];
     }
 }
@@ -121,8 +121,8 @@ export class ASTIdentifier extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const address = scope.getVariableAddress(this.name);
-        return [];
+        const address = scope.getVariableAddress(this.name) + 8;
+        return [`mov ${dst}, [rbp - ${address}]`];
     }
 
     public getName(): string {
@@ -141,7 +141,7 @@ export class ASTAssign extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        return [];
+        return this.valueAST.compile(scope, dst);
     }
 
     public getName(): string {
@@ -163,14 +163,11 @@ export class ASTDeclaration extends ASTStmt {
             return [];
         }
 
-        const address = scope.addVariable(this.child.identifier.getName());
-        const valueReg = CompileScope.LeaseRegister();
-        const instructions = [
-            ...this.child.compile(scope, valueReg),
-            `mov ${address}, ${valueReg}`,
-        ];
-
-        CompileScope.ReleaseRegister(valueReg);
+        const address = scope.addVariable(this.child.getName()) + 8;
+        const reg = CompileScope.LeaseRegister();
+        const instructions = this.child.compile(scope, reg);
+        instructions.push(`mov [rbp - ${address}], ${reg}`);
+        CompileScope.ReleaseRegister(reg);
         return instructions;
     }
 
@@ -207,7 +204,21 @@ export class ASTBlock extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        return this.children.flatMap((child) => child.compile(scope));
+        // Alloc stack space for local variables
+        let instructions: string[] = this.children.flatMap((child) =>
+            child.compile(scope),
+        );
+
+        const numVariables = scope.getNumVariables();
+        if (numVariables) {
+            instructions = [
+                `sub rsp, ${numVariables * 8}`,
+                ...instructions,
+                `add rsp, ${numVariables * 8}`,
+            ];
+        }
+
+        return instructions;
     }
 }
 
@@ -502,97 +513,131 @@ export type ASTMathType =
     | ASTIntegerDivide
     | ASTMod;
 
-export class ASTMath extends ASTExpr {
+export class ASTAdd extends ASTExpr {
+    type: Token.PLUS = Token.PLUS;
+
     constructor(
-        public type: MathToken,
         public left: Expr,
         public right: Expr,
     ) {
         super();
-        this.left = left;
-        this.right = right;
-    }
-
-    handleAddition(left: any, right: any): any {
-        // Special case to handle array concatenation
-        if (left instanceof Array && right instanceof Array) {
-            return left.concat(right);
-        }
-
-        return left + right;
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const instructions = this.left
-            .compile(scope, Register.RAX)
-            .concat(this.right.compile(scope, Register.RBX));
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
 
-        if (this.type === Token.PLUS) {
-            instructions.push('ADD rax, rbx');
-            instructions.push(`mov ${dst}, rax`);
-        } else if (this.type === Token.MINUS) {
-            instructions.push('SUB rax, rbx');
-        } else if (this.type === Token.MULTIPLY) {
-            instructions.push('MUL rax, rbx');
-        } else if (this.type === Token.DIVIDE) {
-            instructions.push('DIV rax, rbx');
-        } else if (this.type === Token.MOD) {
-            throw new NotImplementedError(
-                'Modulus operation not implemented in compile',
-            );
-        } else {
-            throw new TannerError('Unexpected call to ASTMath.compile');
-        }
+        const instructions = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `add ${lReg}, ${rReg}`,
+            `mov ${dst}, ${lReg}`,
+        ];
 
-        return instructions.flat();
+        CompileScope.ReleaseRegister(lReg, rReg);
+        return instructions;
     }
 }
 
-export class ASTAdd extends ASTMath {
-    type: Token.PLUS = Token.PLUS;
-
-    constructor(left: Expr, right: Expr) {
-        super(Token.PLUS, left, right);
-    }
-}
-
-export class ASTSubtract extends ASTMath {
+export class ASTSubtract extends ASTExpr {
     type: Token.MINUS = Token.MINUS;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.MINUS, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
+
+        const instructions = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `sub ${lReg}, ${rReg}`,
+            `mov ${dst}, ${lReg}`,
+        ];
+
+        CompileScope.ReleaseRegister(lReg, rReg);
+        return instructions;
     }
 }
 
-export class ASTMultiply extends ASTMath {
+export class ASTMultiply extends ASTExpr {
     type: Token.MULTIPLY = Token.MULTIPLY;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.MULTIPLY, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
+
+        const rax = CompileScope.LeaseRegister(Register.RAX);
+        const instructions: string[] = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `mov ${rax}, ${lReg}`,
+            `mul ${rReg}`,
+            `mov ${dst}, ${rax}`,
+        ];
+
+        CompileScope.ReleaseRegister(lReg, rReg, rax);
+        return instructions;
     }
 }
 
-export class ASTDivide extends ASTMath {
+export class ASTDivide extends ASTExpr {
     type: Token.DIVIDE = Token.DIVIDE;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.DIVIDE, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        throw new NotImplementedError('Division not implemented yet.');
     }
 }
 
-export class ASTIntegerDivide extends ASTMath {
+export class ASTIntegerDivide extends ASTExpr {
     type: Token.INT_DIVIDE = Token.INT_DIVIDE;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.INT_DIVIDE, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        throw new NotImplementedError('Integer division not implemented yet.');
     }
 }
 
-export class ASTMod extends ASTMath {
+export class ASTMod extends ASTExpr {
     type: Token.MOD = Token.MOD;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.MOD, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        throw new NotImplementedError('Modulus not implemented yet.');
     }
 }
 

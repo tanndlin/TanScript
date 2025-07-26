@@ -1,4 +1,14 @@
 import { readFileSync, writeFileSync } from 'fs';
+import {
+    ASTAdd,
+    ASTDivide,
+    ASTExpr,
+    ASTIntegerDivide,
+    ASTMathType,
+    ASTMod,
+    ASTMultiply,
+    ASTSubtract,
+} from './AST';
 import { LexerError } from './errors';
 import { Register, Token } from './types';
 
@@ -65,10 +75,10 @@ export const writeInstructions = (instructions: string[]) => {
 };
 
 export const registerOrder = [
-    Register.RAX,
-    Register.RBX,
-    Register.RCX,
-    Register.RDX,
+    // Register.RAX,
+    // Register.RBX,
+    // Register.RCX,
+    // Register.RDX,
     Register.R8,
     Register.R9,
     Register.R10,
@@ -77,4 +87,15 @@ export const registerOrder = [
     Register.R13,
     Register.R14,
     Register.R15,
-] as const;
+];
+
+export function isMathType(ast: ASTExpr): ast is ASTMathType {
+    return (
+        ast instanceof ASTAdd ||
+        ast instanceof ASTSubtract ||
+        ast instanceof ASTMultiply ||
+        ast instanceof ASTDivide ||
+        ast instanceof ASTIntegerDivide ||
+        ast instanceof ASTMod
+    );
+}

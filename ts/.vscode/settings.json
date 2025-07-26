@@ -9,9 +9,9 @@
                     ]
                 },
                 {
-                    "name": "Test",
+                    "name": "ASM",
                     "commands": [
-                        "npm test",
+                        "nodemon -e asm -x 'just asm'",
                     ]
                 }
             ]
@@ -19,9 +19,9 @@
         {
             "splitTerminals": [
                 {
-                    "name": "ASM",
+                    "name": "Test",
                     "commands": [
-                        "nodemon -e asm -x 'just asm'",
+                        "npm test",
                     ]
                 },
                 {

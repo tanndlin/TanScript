@@ -12,6 +12,7 @@ export enum Token {
     FALSE = 'false',
     IN = 'in',
     RETURN = 'return',
+    INT = 'int',
 
     NUMBER = 'number',
     STRING = 'string',
@@ -166,5 +167,5 @@ export type Maybe<T> = T | null | undefined;
 export type IterableResolvable = AST.ASTIterable | AST.ASTIdentifier;
 
 export interface IEqualityOperatorConstructor {
-    new (left: AST.ASTExpr, right: AST.ASTExpr): AST.ASTComparison;
+    new (left: AST.Expr, right: AST.Expr): AST.ASTComparison;
 }

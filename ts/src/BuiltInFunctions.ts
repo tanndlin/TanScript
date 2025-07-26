@@ -1,6 +1,7 @@
-import { ASTNumber, ASTString, Expr } from './AST';
+import { ASTIdentifier, ASTNumber, ASTString, Expr } from './AST';
 import { CompileScope } from './Compilation/CompileScope';
 import { Register } from './types';
+import { isMathType } from './util';
 
 export function printf(scope: CompileScope, args: Expr[]): string[] {
     if (args.length === 0) {
@@ -34,7 +35,7 @@ function compileFormatPrint(
     ];
 
     CompileScope.ReleaseRegister(Register.RCX);
-    regs.forEach(CompileScope.ReleaseRegister);
+    CompileScope.ReleaseRegister(...regs);
 
     return instructions;
 }
@@ -43,7 +44,11 @@ function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
     CompileScope.LeaseRegister(Register.RCX);
     CompileScope.LeaseRegister(Register.RDX);
 
-    if (arg instanceof ASTNumber) {
+    if (
+        arg instanceof ASTNumber ||
+        arg instanceof ASTIdentifier ||
+        isMathType(arg)
+    ) {
         const dataName = CompileScope.addData('"%d", 10');
         const instructions: string[] = [
             `mov rcx, ${dataName}`,
@@ -56,5 +61,5 @@ function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
         return instructions;
     }
 
-    throw new Error(`Unsupported argument type for print: ${arg}`);
+    throw new Error(`Unsupported argument type for print: ${arg.type}`);
 }

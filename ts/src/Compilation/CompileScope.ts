@@ -4,19 +4,22 @@ import { registerOrder } from '../util';
 export class CompileScope {
     // Map of name to address
     private parent: CompileScope | null = null;
-    private variables: Map<string, Register> = new Map();
-    private static readonly registers: Register[] = [];
+    private variables: Map<string, number> = new Map();
+    private static readonly registersUsed: Set<Register> = new Set();
+    private static readonly leaseableRegisters: Register[] = [];
     public static readonly data: string[] = [];
 
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
         if (!parent) {
-            CompileScope.registers.push(...registerOrder);
-            console.log(`Registers: ${CompileScope.registers.join(', ')}`);
+            CompileScope.leaseableRegisters.push(...registerOrder);
+            console.log(
+                `Registers: ${CompileScope.leaseableRegisters.join(', ')}`,
+            );
         }
     }
 
-    public getVariableAddress(name: string): Register {
+    public getVariableAddress(name: string): number {
         if (this.variables.has(name)) {
             return this.variables.get(name)!;
         }
@@ -28,32 +31,43 @@ export class CompileScope {
         throw new Error(`Variable ${name} not found`);
     }
 
-    public addVariable(name: string): Register {
+    public addVariable(name: string): number {
         if (this.variables.has(name)) {
             throw new Error(`Variable ${name} already exists`);
         }
 
-        const address = CompileScope.LeaseRegister();
+        const address = this.variables.size * 8; // Assuming 64-bit addressing
         this.variables.set(name, address);
         return address;
     }
 
-    public static LeaseRegister(req?: Register): Register {
-        if (CompileScope.registers.length === 0) {
-            throw new Error('No registers available');
-        }
+    public getNumVariables(): number {
+        return this.variables.size;
+    }
 
+    public static LeaseRegister(req?: Register): Register {
         if (req) {
-            if (!CompileScope.registers.includes(req)) {
-                throw new Error(`Register ${req} is not available`);
+            if (CompileScope.registersUsed.has(req)) {
+                throw new Error(
+                    `Attempted to lease allocated register (reg: ${req})`,
+                );
             }
 
-            const index = CompileScope.registers.indexOf(req);
-            CompileScope.registers.splice(index, 1);
+            CompileScope.registersUsed.add(req);
+            const index = CompileScope.leaseableRegisters.indexOf(req);
+            if (index !== -1) {
+                CompileScope.leaseableRegisters.splice(index, 1);
+            }
             return req;
         }
 
-        return CompileScope.registers.shift()!;
+        if (CompileScope.leaseableRegisters.length === 0) {
+            throw new Error('All registers leased');
+        }
+
+        const reg = CompileScope.leaseableRegisters.shift()!;
+        CompileScope.registersUsed.add(reg);
+        return reg;
     }
 
     public static LeaseRegisters(numRegs: number): Register[] {
@@ -62,8 +76,14 @@ export class CompileScope {
         );
     }
 
-    public static ReleaseRegister(register: Register): void {
-        CompileScope.registers.push(register);
+    public static ReleaseRegister(...registers: Register[]): void {
+        for (const reg of registers) {
+            if (registerOrder.includes(reg)) {
+                CompileScope.leaseableRegisters.push(reg);
+            }
+
+            CompileScope.registersUsed.delete(reg);
+        }
     }
 
     public static addData(fmt: string) {
