@@ -3,7 +3,7 @@ import { ParserError } from '../errors';
 import Parser from '../Parser';
 import { LexerToken, Token } from '../types';
 
-const expectNumber = (node: AST.IAST): node is AST.ASTNumber => {
+const expectNumber = (node: AST.AnyAST): node is AST.ASTNumber => {
     expect(node.type).toBe(Token.NUMBER);
     expect(node).toBeInstanceOf(AST.ASTNumber);
     return node.type === Token.NUMBER;
@@ -1000,11 +1000,11 @@ describe('String Parsing', () => {
 
         const [addAST] = root.children;
         expect(addAST).toBeInstanceOf(AST.ASTAdd);
-        if (!(addAST.type === Token.PLUS)) {
+        if (!((addAST as unknown as AST.AnyAST).type === Token.PLUS)) {
             throw new Error('Expected ASTAdd');
         }
 
-        const { left, right } = addAST;
+        const { left, right } = addAST as unknown as AST.ASTAdd;
         expect(left).toBeInstanceOf(AST.ASTString);
         expect(right).toBeInstanceOf(AST.ASTString);
     });

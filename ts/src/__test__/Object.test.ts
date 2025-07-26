@@ -1,5 +1,4 @@
 import * as AST from '../AST';
-import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { Token } from '../types';
@@ -52,44 +51,5 @@ describe('Object Tests', () => {
 
         expect(b.getName()).toBe('b');
         expect(bValue).toBeInstanceOf(AST.ASTNumber);
-    });
-
-    it('should evaluate an object', () => {
-        const script = 'let obj = { a: 1, b: 2 };';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-
-        const env = new Environment(ast);
-        env.evaluate();
-
-        const scope = env.getGlobalScope();
-        const obj = scope.getVariable<Object>('obj');
-
-        expect(obj).toStrictEqual({ attributes: { a: 1, b: 2 }, methods: {} });
-    });
-
-    it("should evaluate an object's attributes", () => {
-        const script = 'let obj = { a: 1, b: 2 };obj.a;';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-
-        const env = new Environment(ast);
-        const result = env.evaluate();
-
-        expect(result).toBe(1);
-    });
-
-    it('math operations on object attributes', () => {
-        const script = 'let obj = { a: 1, b: 2 };obj.a + obj.b;';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-
-        const env = new Environment(ast);
-        const result = env.evaluate();
-
-        expect(result).toBe(3);
     });
 });

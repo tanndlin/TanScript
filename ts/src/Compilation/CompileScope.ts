@@ -13,9 +13,6 @@ export class CompileScope {
         this.parent = parent;
         if (!parent) {
             CompileScope.leaseableRegisters.push(...registerOrder);
-            console.log(
-                `Registers: ${CompileScope.leaseableRegisters.join(', ')}`,
-            );
         }
     }
 

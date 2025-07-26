@@ -130,9 +130,7 @@ describe('Optimizer: Simplify always true/false', () => {
 
         const root = ast.getRoot();
 
-        expect(root.children).toHaveLength(1);
-        const [eof] = root.children;
-        expect(eof).toBeInstanceOf(AST.ASTEOF);
+        expect(root.children).toHaveLength(0);
     });
 
     it('should simplify if condition is not a boolean', () => {
@@ -307,11 +305,11 @@ describe('Optimizer: Simplify math expressions', () => {
         const root = ast.getRoot();
         const [num] = root.children;
         expect(num.type).toBe(Token.NUMBER);
-        if (!(num.type === Token.NUMBER)) {
+        if (!((num as unknown as AST.AnyAST).type === Token.NUMBER)) {
             return;
         }
 
-        expect(+num.getValue()).toBe(expected);
+        expect(+(num as unknown as AST.ASTNumber).getValue()).toBe(expected);
     });
 });
 

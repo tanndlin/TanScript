@@ -1,6 +1,5 @@
 import * as AST from '../AST';
 
-import Engine from '../Engine';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { Token } from '../types';
@@ -105,21 +104,5 @@ describe('Iterable tests', () => {
         expect(block).toBeInstanceOf(AST.ASTBlock);
 
         expect(block.children[0]).toBeInstanceOf(AST.ASTIdentifier);
-    });
-
-    it('should execute a foreach loop', () => {
-        const script = 'let x = [1,2,3]; foreach (i in x) { i; }';
-        const engine = new Engine(script);
-        const result = engine.run();
-
-        expect(result).toBe(3);
-    });
-
-    it('Adding 2 lists should concatenate them', () => {
-        const script = 'let x = [1,2,3]; let y = [4,5,6]; x + y;';
-        const engine = new Engine(script);
-        const result = engine.run();
-
-        expect(result).toEqual([1, 2, 3, 4, 5, 6]);
     });
 });

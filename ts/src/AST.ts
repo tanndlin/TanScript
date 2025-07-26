@@ -195,19 +195,23 @@ export class ASTString extends ASTExpr {
 export class ASTBlock extends ASTStmt {
     type: Token.LCURLY = Token.LCURLY;
 
-    constructor(public children: Stmt[]) {
+    constructor(public children: (Stmt | Expr)[]) {
         super();
     }
 
-    setChildren(children: Stmt[]) {
+    setChildren(children: (Stmt | Expr)[]) {
         this.children = children;
     }
 
     compile(scope: CompileScope): string[] {
         // Alloc stack space for local variables
-        let instructions: string[] = this.children.flatMap((child) =>
-            child.compile(scope),
-        );
+        let instructions: string[] = this.children.flatMap((child) => {
+            if (child instanceof ASTStmt) {
+                return child.compile(scope);
+            }
+
+            return child.compile(scope, CompileScope.LeaseRegister());
+        });
 
         const numVariables = scope.getNumVariables();
         if (numVariables) {

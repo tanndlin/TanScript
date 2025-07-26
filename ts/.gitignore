@@ -2,6 +2,7 @@ node_modules/*
 coverage/*
 *.exe
 *.o
+*.asm
 build/*
 
 **/script.*

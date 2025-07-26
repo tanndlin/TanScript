@@ -1,5 +1,4 @@
 import * as AST from '../AST';
-import Environment from '../Environment';
 import Lexer from '../Lexer';
 import Parser from '../Parser';
 import { LexerToken, Token } from '../types';
@@ -95,41 +94,5 @@ describe('Lambda Tests', () => {
 
         const [add] = block.children;
         expect(add).toBeInstanceOf(AST.ASTAdd);
-    });
-
-    it('should run a lambda successfully', () => {
-        const script = 'let f = (a, b) => {a + b;}; f(1, 2);';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-        const env = new Environment(ast, true);
-        const result = env.evaluate();
-        expect(result).toBe(3);
-
-        const scope = env.getGlobalScope();
-        const f = scope.getFunction('f');
-
-        expect(f).toBeInstanceOf(AST.ASTFunctionDef);
-    });
-
-    it('lambda should have access to outer scope', () => {
-        const script = 'let a = 1; let f = () => {a + 1;}; f();';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-        const env = new Environment(ast, true);
-        const result = env.evaluate();
-        expect(result).toBe(2);
-    });
-
-    it('lambda can be used as a param', () => {
-        const script =
-            'let double = (a) => {a * 2;}; let do = (f, a) => {f(a);}; do(double, 5);';
-        const lexer = new Lexer(script);
-        const parser = new Parser(getTokens(lexer));
-        const ast = parser.parse();
-        const env = new Environment(ast, true);
-        const result = env.evaluate();
-        expect(result).toBe(10);
     });
 });

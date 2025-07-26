@@ -67,8 +67,8 @@ export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48),
 );
 
-export const writeInstructions = (instructions: string[]) => {
-    const fileName = 'asm/script.asm';
+export const writeInstructions = (instructions: string[], path?: string) => {
+    const fileName = path ?? 'asm/script.asm';
     const tsc = instructions.map((i) => i.toString()).join('\n');
     writeFileSync(fileName, `${tsc}`);
     console.log(`Instructions written to ${fileName}`);
