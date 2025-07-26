@@ -2,7 +2,6 @@ import * as AST from './AST';
 import { ParserError } from './errors';
 import { PRECEDENCE } from './precedence';
 import {
-    INumberableAST,
     IterableResolvable,
     LexerToken,
     OPERATORS,
@@ -224,17 +223,14 @@ export default class Parser {
     }
 
     parseIncrementDecrement<
-        T extends new (
-            left: INumberableAST,
-            right: INumberableAST,
-        ) => AST.ASTMath,
+        T extends new (left: AST.Expr, right: AST.Expr) => AST.ASTMath,
     >(Ctor: T, identToken: LexerToken): AST.ASTAssign {
         this.consumeToken(Token.INCREMENT, Token.DECREMENT);
 
         return new AST.ASTAssign(
             new AST.ASTIdentifier(identToken.getValue()),
             new Ctor(
-                new AST.ASTIdentifier(identToken.getValue()) as INumberableAST,
+                new AST.ASTIdentifier(identToken.getValue()),
                 new AST.ASTNumber(1),
             ),
         );
@@ -315,7 +311,7 @@ export default class Parser {
 
     private getLeftASTFromToken(consumedToken: LexerToken) {
         if (consumedToken.isType(Token.LPAREN)) {
-            return this.parseLParen() as INumberableAST;
+            return this.parseLParen();
         }
 
         // If it looks something like x()
@@ -491,18 +487,15 @@ export default class Parser {
 
         // +=
         if (assignToken.isType(Token.PLUS)) {
-            const resultExpression = new AST.ASTAdd(
-                identAST as INumberableAST,
-                expressionAST as INumberableAST,
-            );
+            const resultExpression = new AST.ASTAdd(identAST, expressionAST);
             return new AST.ASTAssign(identAST, resultExpression);
         }
 
         // -=
         if (assignToken.isType(Token.MINUS)) {
             const resultExpression = new AST.ASTSubtract(
-                identAST as INumberableAST,
-                expressionAST as INumberableAST,
+                identAST,
+                expressionAST,
             );
             return new AST.ASTAssign(identAST, resultExpression);
         }
@@ -510,25 +503,22 @@ export default class Parser {
         // *=
         if (assignToken.isType(Token.MULTIPLY)) {
             const resultExpression = new AST.ASTMultiply(
-                identAST as INumberableAST,
-                expressionAST as INumberableAST,
+                identAST,
+                expressionAST,
             );
             return new AST.ASTAssign(identAST, resultExpression);
         }
 
         // /=
         if (assignToken.isType(Token.DIVIDE)) {
-            const resultExpression = new AST.ASTDivide(
-                identAST as INumberableAST,
-                expressionAST as INumberableAST,
-            );
+            const resultExpression = new AST.ASTDivide(identAST, expressionAST);
             return new AST.ASTAssign(identAST, resultExpression);
         }
 
         if (assignToken.isType(Token.INT_DIVIDE)) {
             const resultExpression = new AST.ASTIntegerDivide(
-                identAST as INumberableAST,
-                expressionAST as INumberableAST,
+                identAST,
+                expressionAST,
             );
             return new AST.ASTAssign(identAST, resultExpression);
         }

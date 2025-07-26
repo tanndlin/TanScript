@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs';
-import { Instruction } from './Compilation/Instruction';
 import { LexerError } from './errors';
-import { Token } from './types';
+import { Register, Token } from './types';
 
 export const readScript = (fileName: string): string => {
     const script = readFileSync(fileName, 'utf8');
@@ -58,10 +57,24 @@ export const NUMBERS = Array.from({ length: 10 }, (_, i) =>
     String.fromCharCode(i + 48),
 );
 
-export const writeInstructions = (instructions: Instruction[]) => {
-    const fileName = 'VM/script.tsc';
+export const writeInstructions = (instructions: string[]) => {
+    const fileName = 'asm/script.asm';
     const tsc = instructions.map((i) => i.toString()).join('\n');
-    const numInstructions = instructions.length;
-    writeFileSync(fileName, `${numInstructions}\n${tsc}`);
+    writeFileSync(fileName, `${tsc}`);
     console.log(`Instructions written to ${fileName}`);
 };
+
+export const registerOrder = [
+    Register.RAX,
+    Register.RBX,
+    Register.RCX,
+    Register.RDX,
+    Register.R8,
+    Register.R9,
+    Register.R10,
+    Register.R11,
+    Register.R12,
+    Register.R13,
+    Register.R14,
+    Register.R15,
+] as const;

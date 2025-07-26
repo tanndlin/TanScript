@@ -1,30 +1,24 @@
+import { Register } from '../types';
+import { registerOrder } from '../util';
+
 export class CompileScope {
     // Map of name to address
     private parent: CompileScope | null = null;
-
-    private variables: Map<string, number> = new Map();
-
-    private functions: Map<string, { lineNumber: number; length: number }> =
-        new Map();
+    private variables: Map<string, Register> = new Map();
+    private static readonly registers: Register[] = [];
+    public static readonly data: string[] = [];
 
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
-    }
-
-    public getNumVariables(currentScope: boolean): number {
-        if (currentScope) {
-            return this.variables.size;
+        if (!parent) {
+            CompileScope.registers.push(...registerOrder);
+            console.log(`Registers: ${CompileScope.registers.join(', ')}`);
         }
-
-        return (
-            this.variables.size +
-            (this.parent ? this.parent.getNumVariables(currentScope) : 0)
-        );
     }
 
-    public getVariableAddress(name: string): number {
+    public getVariableAddress(name: string): Register {
         if (this.variables.has(name)) {
-            return this.variables.get(name) as number;
+            return this.variables.get(name)!;
         }
 
         if (this.parent) {
@@ -34,43 +28,47 @@ export class CompileScope {
         throw new Error(`Variable ${name} not found`);
     }
 
-    public addVariable(name: string): number {
+    public addVariable(name: string): Register {
         if (this.variables.has(name)) {
             throw new Error(`Variable ${name} already exists`);
         }
 
-        const address = this.getNumVariables(false);
+        const address = CompileScope.LeaseRegister();
         this.variables.set(name, address);
         return address;
     }
 
-    public addFunction(name: string, length: number): void {
-        // if (this.functions.has(name)) {
-        //     throw new Error(`Function ${name} already exists`);
-        // }
+    public static LeaseRegister(req?: Register): Register {
+        if (CompileScope.registers.length === 0) {
+            throw new Error('No registers available');
+        }
 
-        const currentNumberOfLines = this.getTotalFunctionSize();
-        this.functions.set(name, { lineNumber: currentNumberOfLines, length });
+        if (req) {
+            if (!CompileScope.registers.includes(req)) {
+                throw new Error(`Register ${req} is not available`);
+            }
+
+            const index = CompileScope.registers.indexOf(req);
+            CompileScope.registers.splice(index, 1);
+            return req;
+        }
+
+        return CompileScope.registers.shift()!;
     }
 
-    public getFunction(value: string): { lineNumber: any; length: any } {
-        if (this.functions.has(value)) {
-            return this.functions.get(value)!;
-        }
-
-        if (this.parent) {
-            return this.parent.getFunction(value);
-        }
-
-        throw new Error(`Function ${value} not found`);
+    public static LeaseRegisters(numRegs: number): Register[] {
+        return Array.from({ length: numRegs }, () =>
+            CompileScope.LeaseRegister(),
+        );
     }
 
-    public getTotalFunctionSize() {
-        let sum = 0;
-        for (const { length } of this.functions.values()) {
-            sum += length;
-        }
+    public static ReleaseRegister(register: Register): void {
+        CompileScope.registers.push(register);
+    }
 
-        return sum;
+    public static addData(fmt: string) {
+        const dataName = `data_${CompileScope.data.length}`;
+        CompileScope.data.push(`\t${dataName} db ${fmt}, 0`);
+        return dataName;
     }
 }

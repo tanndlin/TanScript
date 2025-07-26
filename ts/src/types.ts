@@ -1,5 +1,4 @@
 import * as AST from './AST';
-import Scope from './Scope';
 
 export enum Token {
     FOR = 'for',
@@ -114,6 +113,22 @@ export const RESERVED_WORDS = {
 
 export type ReservedWordsKey = keyof typeof RESERVED_WORDS;
 
+export enum Register {
+    RAX = 'rax',
+    RBX = 'rbx',
+    RCX = 'rcx',
+    RDX = 'rdx',
+    R8 = 'r8',
+    R9 = 'r9',
+    R10 = 'r10',
+    R11 = 'r11',
+    R12 = 'r12',
+    R13 = 'r13',
+    R14 = 'r14',
+    R15 = 'r15',
+    EAX = 'eax',
+}
+
 export interface TokenTypeable {
     isType(type: Token): boolean;
     isOneOf(...types: Token[]): boolean;
@@ -148,40 +163,8 @@ export class LexerToken implements TokenTypeable {
 }
 
 export type Maybe<T> = T | null | undefined;
-export type Iterable = RuntimeValue[];
-export type Object = {
-    attributes: Record<string, RuntimeValue>;
-    methods: Record<string, Function>;
-};
-export type RuntimeValue = Maybe<
-    number | string | boolean | Iterable | void | Object
->;
 export type IterableResolvable = AST.ASTIterable | AST.ASTIdentifier;
 
-export interface INumberableAST extends AST.IAST {
-    evaluate(scope: Scope): number;
-}
-
-export interface IBooleanableAST extends AST.IAST {
-    evaluate(scope: Scope): boolean;
-}
-
-export interface ITokenConstructorPair {
-    token: Token;
-    ast: AnyOperatorConstructor;
-}
-
-export interface IMathOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): AST.ASTMath;
-}
-export interface IRelationalOperatorConstructor {
-    new (left: INumberableAST, right: INumberableAST): AST.ASTComparison;
-}
 export interface IEqualityOperatorConstructor {
-    new (left: AST.Expr, right: AST.Expr): AST.ASTComparison;
+    new (left: AST.ASTExpr, right: AST.ASTExpr): AST.ASTComparison;
 }
-
-export type AnyOperatorConstructor =
-    | IMathOperatorConstructor
-    | IRelationalOperatorConstructor
-    | IEqualityOperatorConstructor;

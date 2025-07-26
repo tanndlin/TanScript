@@ -1,5 +1,5 @@
 import * as AST from './AST';
-import { INumberableAST, Token } from './types';
+import { Token } from './types';
 
 export default class Optimizer {
     public static optimize(ast: AST.Program): AST.Program {
@@ -9,7 +9,7 @@ export default class Optimizer {
             .map((child) => {
                 return Optimizer.optimizeAny(child);
             })
-            .filter(Boolean) as AST.Stmt[];
+            .filter(Boolean);
 
         root.setChildren(newChildren);
         return ast;
@@ -24,12 +24,16 @@ export default class Optimizer {
             return Optimizer.optimizeFor(child) as T;
         }
 
-        return Optimizer.optimizeExpression(child) as T;
+        if (child instanceof AST.ASTExpr) {
+            return Optimizer.optimizeExpression(child) as T;
+        }
+
+        return child;
     }
 
     private static optimizeExpression(child: AST.Expr): AST.Expr {
         if (child.type === Token.LPAREN) {
-            child = Optimizer.simplifyParenthesis(child);
+            child = Optimizer.simplifyParenthesis(child) as AST.Expr;
         }
 
         if (child instanceof AST.ASTMath) {
@@ -127,8 +131,8 @@ export default class Optimizer {
 
         // Simplify left and right nodes
         const { left, right } = node;
-        const leftValue = Optimizer.optimizeExpression(left as AST.Expr);
-        const rightValue = Optimizer.optimizeExpression(right as AST.Expr);
+        const leftValue = Optimizer.optimizeExpression(left);
+        const rightValue = Optimizer.optimizeExpression(right);
 
         // If both are numbers, evaluate the expression
         if (
@@ -186,8 +190,8 @@ export default class Optimizer {
             }
         }
 
-        node.left = leftValue as INumberableAST;
-        node.right = rightValue as INumberableAST;
+        node.left = leftValue;
+        node.right = rightValue;
         return node;
     }
 
@@ -199,12 +203,8 @@ export default class Optimizer {
         }
 
         const { left, right } = node;
-        const leftValue = Optimizer.optimizeExpression(
-            left as AST.Expr,
-        ) as INumberableAST;
-        const rightValue = Optimizer.optimizeExpression(
-            right as AST.Expr,
-        ) as INumberableAST;
+        const leftValue = Optimizer.optimizeExpression(left);
+        const rightValue = Optimizer.optimizeExpression(right);
 
         if (
             leftValue.type !== Token.NUMBER &&

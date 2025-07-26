@@ -19,10 +19,9 @@
         {
             "splitTerminals": [
                 {
-                    "name": "VM",
+                    "name": "ASM",
                     "commands": [
-                        "cd VM",
-                        "nodemon -e c,h,tsc --exec powershell -Command ./run.ps1",
+                        "nodemon -e asm -x 'just asm'",
                     ]
                 },
                 {

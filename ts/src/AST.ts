@@ -1,28 +1,55 @@
-import { allFunctions, BuiltInFuncName } from './BuiltInFunctions';
+import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
-import * as Instruction from './Compilation/Instruction';
-import { NotImplementedError, RuntimeError, TannerError } from './errors';
-import Scope from './Scope';
+import { NotImplementedError, TannerError } from './errors';
 import {
     BooleanToken,
     ComparisonToken,
-    IBooleanableAST,
-    INumberableAST,
-    Iterable,
     IterableResolvable,
     MathToken,
-    Object,
-    RuntimeValue,
+    Register,
     Token,
 } from './types';
 
-export abstract class IAST {
+export abstract class ASTStmt {
     type!: Token;
-    abstract evaluate(scope: Scope): RuntimeValue;
-    abstract compile(scope: CompileScope): Instruction.Instruction[];
+    abstract compile(scope: CompileScope): string[];
 }
 
-export class Program extends IAST {
+export abstract class ASTExpr {
+    type!: Token;
+    abstract compile(scope: CompileScope, dst: Register): string[];
+}
+
+export type Stmt =
+    | Program
+    | ASTDeclaration
+    | ASTBlock
+    | ASTWhile
+    | ASTFor
+    | ASTIf
+    | ASTReturn
+    | ASTForEach;
+
+export type Expr =
+    | ASTAssign
+    | ASTLParen
+    | ASTIdentifier
+    | ASTString
+    | ASTMath
+    | ASTComparison
+    | ASTBoolean
+    | ASTNot
+    | ASTFunctionDef
+    | ASTFunctionCall
+    | ASTIterable
+    | ASTNumber
+    | ASTObject
+    | ASTAttribute
+    | ObjectAccessAST;
+
+export type AnyAST = Stmt | Expr;
+
+export class Program extends ASTStmt {
     type: Token.PROGRAM = Token.PROGRAM;
 
     constructor(private root: ASTBlock) {
@@ -45,82 +72,57 @@ export class Program extends IAST {
         return this.root;
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        return this.root.evaluate(scope);
-    }
-
-    compile(): Instruction.Instruction[] {
+    compile(): string[] {
         const globalScope = new CompileScope();
-        return [this.root.compile(globalScope)].flat();
+
+        const instructions = this.root.compile(globalScope);
+
+        return [
+            'BITS 64',
+            '',
+            'global main',
+            'extern printf',
+            'SECTION .data',
+            CompileScope.data.join('\n'),
+            'SECTION .text',
+            'main:',
+            '\tsub rsp, 40',
+            ...instructions.flatMap((i) => `\t${i}`),
+            '\tadd rsp, 40',
+            '\txor eax, eax',
+            '\tret',
+        ];
     }
 }
 
-export type Stmt =
-    | Program
-    | ASTAssign
-    | ASTDeclaration
-    | ASTBlock
-    | ASTWhile
-    | ASTFor
-    | ASTIf
-    | ASTReturn
-    | ASTForEach;
-
-export type Expr =
-    | Stmt
-    | ASTLParen
-    | ASTIdentifier
-    | ASTString
-    | ASTMath
-    | ASTComparison
-    | ASTBoolean
-    | ASTNot
-    | ASTFunctionDef
-    | ASTFunctionCall
-    | ASTIterable
-    | ASTNumber
-    | ASTObject
-    | ASTAttribute
-    | ObjectAccessAST;
-
-export type AnyAST = Stmt | Expr;
-
-export abstract class ASTDecorator extends IAST {
-    compile(_scope: CompileScope): Instruction.Instruction[] {
+export abstract class ASTDecorator extends ASTExpr {
+    compile(_scope: CompileScope): string[] {
         return [];
     }
 }
 
-export class ASTLParen extends IAST {
+export class ASTLParen extends ASTExpr {
     type: Token.LPAREN = Token.LPAREN;
 
     constructor(public child: Expr) {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        return this.child.evaluate(scope);
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        return this.child.compile(scope);
+    compile(scope: CompileScope, dst: Register): string[] {
+        return this.child.compile(scope, dst);
     }
 }
 
-export class ASTIdentifier extends IAST {
+export class ASTIdentifier extends ASTExpr {
     type: Token.IDENTIFIER = Token.IDENTIFIER;
 
     constructor(private name: string) {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        return scope.getVariable(this.name);
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
+    compile(scope: CompileScope, dst: Register): string[] {
         const address = scope.getVariableAddress(this.name);
-        return [new Instruction.LoadInstruction(address)];
+        return [];
     }
 
     public getName(): string {
@@ -128,7 +130,7 @@ export class ASTIdentifier extends IAST {
     }
 }
 
-export class ASTAssign extends IAST {
+export class ASTAssign extends ASTExpr {
     type: Token.ASSIGN = Token.ASSIGN;
 
     constructor(
@@ -138,21 +140,8 @@ export class ASTAssign extends IAST {
         super();
     }
 
-    evaluate(scope: Scope, isSignal = false): RuntimeValue {
-        const evaluatedValue = this.valueAST.evaluate(scope);
-        if (!isSignal) {
-            scope.setVariable(this.identifier.getName(), evaluatedValue);
-        }
-        return evaluatedValue;
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const address = scope.getVariableAddress(this.identifier.getName());
-        const valueInstructions = [this.valueAST.compile(scope)].flat();
-
-        return valueInstructions.concat(
-            new Instruction.StoreInstruction(address),
-        );
+    compile(scope: CompileScope, dst: Register): string[] {
+        return [];
     }
 
     public getName(): string {
@@ -160,42 +149,29 @@ export class ASTAssign extends IAST {
     }
 }
 
-export class ASTDeclaration extends IAST {
+export class ASTDeclaration extends ASTStmt {
     type: Token.DECLARATION = Token.DECLARATION;
 
     constructor(public child: ASTAssign | ASTIdentifier) {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        if (this.child.type === Token.IDENTIFIER) {
-            scope.addVariable(this.child.getName(), undefined);
-            return null;
-        }
-
-        const { identifier, valueAST } = this.child as ASTAssign;
-
-        // Special case for lambdas
-        // Yes this should be a token.lambda but I'm lazy
-        if (valueAST.type === Token.FUNCTION) {
-            valueAST.evaluate(scope);
-            return undefined;
-        }
-
-        const evaluatedValue = valueAST.evaluate(scope);
-        scope.addVariable(identifier.getName(), evaluatedValue);
-        return evaluatedValue;
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
+    compile(scope: CompileScope): string[] {
         // The allocation is already handled by hoisting in the block scope
         if (this.child.type === Token.IDENTIFIER) {
-            scope.addVariable(this.child.getName());
+            const reg = scope.addVariable(this.child.getName());
             return [];
         }
 
-        scope.addVariable(this.child.identifier.getName());
-        return this.child.compile(scope);
+        const address = scope.addVariable(this.child.identifier.getName());
+        const valueReg = CompileScope.LeaseRegister();
+        const instructions = [
+            ...this.child.compile(scope, valueReg),
+            `mov ${address}, ${valueReg}`,
+        ];
+
+        CompileScope.ReleaseRegister(valueReg);
+        return instructions;
     }
 
     public getName(): string {
@@ -203,22 +179,15 @@ export class ASTDeclaration extends IAST {
     }
 }
 
-export class ASTString extends IAST {
+export class ASTString extends ASTExpr {
     type: Token.STRING = Token.STRING;
 
     constructor(private value: string) {
         super();
     }
 
-    evaluate(): string {
-        return this.value;
-    }
-
-    compile(_scope: CompileScope): Instruction.Instruction[] {
-        return this.value
-            .split('')
-            .map((char) => new Instruction.PushInstruction(char.charCodeAt(0)))
-            .reverse();
+    compile(_scope: CompileScope): string[] {
+        return [];
     }
 
     public getValue(): string {
@@ -226,122 +195,61 @@ export class ASTString extends IAST {
     }
 }
 
-export class ASTBlock extends IAST {
+export class ASTBlock extends ASTStmt {
     type: Token.LCURLY = Token.LCURLY;
 
-    constructor(public children: (Stmt | Expr)[]) {
+    constructor(public children: Stmt[]) {
         super();
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        const newScope = new Scope(scope.globalScope, scope);
-        let retValue: RuntimeValue = undefined;
-
-        for (const statement of this.children) {
-            if (scope.isReturning()) {
-                return scope.getReturnValue();
-            }
-            retValue = statement.evaluate(newScope);
-        }
-
-        return retValue;
     }
 
     setChildren(children: Stmt[]) {
         this.children = children;
     }
 
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const blockScope = new CompileScope(scope);
-        let instructions = this.children
-            .map((child) => child.compile(blockScope))
-            .flat()
-            .filter(Boolean);
-
-        const totalFunctionLengths = blockScope.getTotalFunctionSize();
-        if (totalFunctionLengths > 0) {
-            instructions = [
-                new Instruction.JumpInstruction(totalFunctionLengths),
-                ...instructions,
-            ];
-        }
-
-        const numVars = blockScope.getNumVariables(true);
-        if (numVars !== 0) {
-            const allocs = new Instruction.AllocInstruction(numVars);
-            const unallocs = new Instruction.AllocInstruction(-numVars);
-            instructions = [allocs, ...instructions, unallocs];
-        }
-
-        return instructions;
+    compile(scope: CompileScope): string[] {
+        return this.children.flatMap((child) => child.compile(scope));
     }
 }
 
-export class ASTComparison extends IAST implements IBooleanableAST {
+export class ASTComparison extends ASTExpr {
     constructor(
         public type: ComparisonToken,
-        public left: INumberableAST,
-        public right: INumberableAST,
+        public left: Expr,
+        public right: Expr,
     ) {
         super();
     }
 
-    evaluate(scope: Scope): boolean {
-        const left = this.left.evaluate(scope);
-        const right = this.right.evaluate(scope);
-
-        switch (this.type) {
-            case Token.LESS:
-                return left < right;
-            case Token.LEQ:
-                return left <= right;
-            case Token.GREATER:
-                return left > right;
-            case Token.GEQ:
-                return left >= right;
-            case Token.AND:
-                return !!left && !!right;
-            case Token.OR:
-                return !!left || !!right;
-            case Token.EQUAL:
-                return left === right;
-            case Token.NEQ:
-                return left !== right;
-
-            default:
-                throw new TannerError(`Unexpected token: ${this.type}`);
-        }
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const left = [this.left.compile(scope)].flat();
-        const right = [this.right.compile(scope)].flat();
+    compile(scope: CompileScope, dst: Register): string[] {
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const left = [this.left.compile(scope, lReg)].flat();
+        const right = [this.right.compile(scope, rReg)].flat();
 
         const instructions = [...left, ...right];
         switch (this.type) {
             case Token.LESS:
-                instructions.push(new Instruction.LessInstruction());
+                instructions.push();
                 break;
             case Token.LEQ:
-                instructions.push(new Instruction.LeqInstruction());
+                instructions.push();
                 break;
             case Token.GREATER:
-                instructions.push(new Instruction.GreaterInstruction());
+                instructions.push();
                 break;
             case Token.GEQ:
-                instructions.push(new Instruction.GeqInstruction());
+                instructions.push();
                 break;
             case Token.EQUAL:
-                instructions.push(new Instruction.EqInstruction());
+                instructions.push();
                 break;
             case Token.NEQ:
-                instructions.push(new Instruction.NeqInstruction());
+                instructions.push();
                 break;
             case Token.AND:
-                instructions.push(new Instruction.AndInstruction());
+                instructions.push();
                 break;
             case Token.OR:
-                instructions.push(new Instruction.OrInstruction());
+                instructions.push();
                 break;
             default:
                 throw new TannerError(`Unexpected token: ${this.type}`);
@@ -351,7 +259,7 @@ export class ASTComparison extends IAST implements IBooleanableAST {
     }
 }
 
-export class ASTBoolean extends IAST {
+export class ASTBoolean extends ASTExpr {
     public type: BooleanToken;
 
     constructor(type: BooleanToken) {
@@ -359,21 +267,15 @@ export class ASTBoolean extends IAST {
         this.type = type;
     }
 
-    evaluate(): boolean {
-        return this.type === Token.TRUE;
-    }
-
-    compile(_scope: CompileScope): Instruction.Instruction[] {
-        return [
-            new Instruction.PushInstruction(this.type === Token.TRUE ? 1 : 0),
-        ];
+    compile(_scope: CompileScope): string[] {
+        return [];
     }
 }
 
 export class ASTLessThan extends ASTComparison {
     public type: Token.LESS = Token.LESS;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.LESS, left, right);
     }
 }
@@ -381,7 +283,7 @@ export class ASTLessThan extends ASTComparison {
 export class ASTLessEq extends ASTComparison {
     public type: Token.LEQ = Token.LEQ;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.LEQ, left, right);
     }
 }
@@ -389,7 +291,7 @@ export class ASTLessEq extends ASTComparison {
 export class ASTGreaterThan extends ASTComparison {
     public type: Token.GREATER = Token.GREATER;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.GREATER, left, right);
     }
 }
@@ -397,7 +299,7 @@ export class ASTGreaterThan extends ASTComparison {
 export class ASTGreaterEq extends ASTComparison {
     public type: Token.GEQ = Token.GEQ;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.GEQ, left, right);
     }
 }
@@ -405,91 +307,47 @@ export class ASTGreaterEq extends ASTComparison {
 export class ASTNotEqual extends ASTComparison {
     public type: Token.NEQ = Token.NEQ;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
-        super(Token.NEQ, left as INumberableAST, right as INumberableAST);
-    }
-
-    evaluate(scope: Scope): boolean {
-        const left = this.left.evaluate(scope);
-        const right = this.right.evaluate(scope);
-
-        return left !== right;
+    constructor(left: Expr, right: Expr) {
+        super(Token.NEQ, left, right);
     }
 }
 
 export class ASTEqual extends ASTComparison {
     public type: Token.EQUAL = Token.EQUAL;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.EQUAL, left, right);
-    }
-
-    evaluate(scope: Scope): boolean {
-        const left = this.left.evaluate(scope);
-        const right = this.right.evaluate(scope);
-
-        return left === right;
     }
 }
 
 export class ASTAnd extends ASTComparison {
     public type: Token.AND = Token.AND;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.AND, left, right);
-    }
-
-    evaluate(scope: Scope): boolean {
-        const left = this.left.evaluate(scope);
-
-        // Short circuit
-        if (!left) {
-            return false;
-        }
-
-        const right = this.right.evaluate(scope);
-
-        return !!left && !!right;
     }
 }
 
 export class ASTOr extends ASTComparison {
     public type: Token.OR = Token.OR;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.OR, left, right);
-    }
-
-    evaluate(scope: Scope): boolean {
-        const left = this.left.evaluate(scope);
-
-        // Short circuit
-        if (left) {
-            return true;
-        }
-
-        const right = this.right.evaluate(scope);
-
-        return !!left || !!right;
     }
 }
 
-export class ASTNot extends IAST {
+export class ASTNot extends ASTExpr {
     public type: Token.NOT = Token.NOT;
     constructor(public child: Expr) {
         super();
     }
 
-    evaluate(scope: Scope): boolean {
-        return !this.child.evaluate(scope);
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        return [...this.child.compile(scope), new Instruction.NotInstruction()];
+    compile(scope: CompileScope, dst: Register): string[] {
+        return [...this.child.compile(scope, dst), `NOT ${dst}`];
     }
 }
 
-export class ASTWhile extends IAST {
+export class ASTWhile extends ASTStmt {
     public type: Token.WHILE = Token.WHILE;
 
     constructor(
@@ -499,37 +357,12 @@ export class ASTWhile extends IAST {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        let ret;
-
-        while ((this.condition as ASTComparison).evaluate(scope)) {
-            ret = this.block.evaluate(scope);
-        }
-
-        return ret;
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const instructions: Instruction.Instruction[] = [];
-        const condition = [this.condition.compile(scope)].flat();
-        const block = [this.block.compile(scope)].flat();
-
-        instructions.push(...condition);
-        // Jump out of block if condition is false
-        instructions.push(
-            new Instruction.JumpFalseInstruction(block.length + 1),
-        );
-        instructions.push(...block);
-        // Jump back to condition
-        instructions.push(
-            new Instruction.JumpInstruction(-instructions.length - 1),
-        );
-
-        return instructions;
+    compile(scope: CompileScope): string[] {
+        return [];
     }
 }
 
-export class ASTFor extends IAST {
+export class ASTFor extends ASTStmt {
     public type: Token.FOR = Token.FOR;
 
     constructor(
@@ -541,49 +374,12 @@ export class ASTFor extends IAST {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        // Make a new scope for the looping variable
-        const newScope = new Scope(scope.globalScope, scope);
-        this.init.evaluate(newScope);
-
-        let ret;
-        while ((this.condition as ASTComparison).evaluate(newScope)) {
-            ret = this.block.evaluate(newScope);
-            this.update.evaluate(newScope);
-        }
-
-        return ret;
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const instructions: Instruction.Instruction[] = [];
-        const init = this.init.compile(scope);
-        const condition = this.condition.compile(scope);
-        const update = this.update.compile(scope);
-        const block = this.block.compile(scope);
-
-        instructions.push(...init);
-        instructions.push(...condition);
-        // Jump out of block if condition is false
-        instructions.push(
-            new Instruction.JumpFalseInstruction(
-                block.length + update.length + 1,
-            ),
-        );
-        instructions.push(...block);
-        instructions.push(...update);
-        // Jump back to condition
-        instructions.push(
-            new Instruction.JumpInstruction(
-                -(instructions.length - init.length + 1),
-            ),
-        );
-
-        return instructions;
+    compile(scope: CompileScope): string[] {
+        return [];
     }
 }
 
-export class ASTIf extends IAST {
+export class ASTIf extends ASTStmt {
     public type: Token.IF = Token.IF;
 
     constructor(
@@ -598,43 +394,12 @@ export class ASTIf extends IAST {
         this.elseBlock = elseBlock;
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        if ((this.condition as ASTComparison).evaluate(scope)) {
-            const ret = this.block.evaluate(scope);
-            return ret;
-        } else if (this.elseBlock) {
-            return this.elseBlock.evaluate(scope);
-        }
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const instructions: Instruction.Instruction[] = [];
-        const condition = [this.condition.compile(scope)].flat();
-        const block = [this.block.compile(scope)].flat();
-        const elseBlock = this.elseBlock
-            ? [this.elseBlock.compile(scope)].flat()
-            : [];
-
-        instructions.push(...condition);
-        const jumpToElse = new Instruction.JumpFalseInstruction(
-            block.length + (elseBlock.length ? 1 : 0),
-        );
-        instructions.push(jumpToElse);
-        instructions.push(...block);
-        if (elseBlock.length) {
-            const jumpOverElse = new Instruction.JumpInstruction(
-                elseBlock.length,
-            );
-            instructions.push(jumpOverElse);
-        }
-
-        instructions.push(...elseBlock);
-
-        return instructions;
+    compile(scope: CompileScope): string[] {
+        return [];
     }
 }
 
-export class ASTFunctionDef extends IAST {
+export class ASTFunctionDef extends ASTExpr {
     public type: Token.FUNCTION = Token.FUNCTION;
 
     constructor(
@@ -647,61 +412,16 @@ export class ASTFunctionDef extends IAST {
         this.block = block;
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        scope.addFunction(this.name, this);
-        return null;
-    }
-
-    callFunction(
-        callersScope: Scope,
-        params: Expr[],
-        funcDef: ASTFunctionDef,
-    ): RuntimeValue {
-        // Make sure the number of params line up
-        if (params.length !== this.paramList.length) {
-            throw new RuntimeError(
-                `Function ${this.name} expected ${this.paramList.length} params, got ${params.length}`,
-            );
-        }
-
-        const newScope = new Scope(callersScope.globalScope, null);
-        newScope.addFunction(this.name, funcDef);
-
-        params.forEach((param, i) => {
-            const expectedParam = this.paramList[i];
-            const name = expectedParam.getName();
-
-            newScope.addVariable(name, param.evaluate(callersScope));
-        });
-
-        return this.block.evaluate(newScope);
-    }
-
     getParamList() {
         return this.paramList;
     }
 
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        const funcScope = new CompileScope(scope);
-        this.paramList.forEach((param) => {
-            funcScope.addVariable(param.getName());
-        });
-
-        // Add the scope to allow recusion, we will update the length after compilation of the body
-        scope.addFunction(this.name, 0);
-
-        const instructions: Instruction.Instruction[] = [];
-        instructions.push(...[this.block.compile(funcScope)].flat());
-        instructions.push(new Instruction.PopStackInstruction());
-        instructions.push(new Instruction.UnframeInstruction());
-
-        // Update the length of the function
-        scope.addFunction(this.name, instructions.length);
-        return instructions;
+    compile(scope: CompileScope, dst: Register): string[] {
+        return [];
     }
 }
 
-export class ASTFunctionCall extends IAST {
+export class ASTFunctionCall extends ASTExpr {
     public type: Token.IDENTIFIER = Token.IDENTIFIER;
 
     constructor(
@@ -711,51 +431,14 @@ export class ASTFunctionCall extends IAST {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        if (this.name in allFunctions) {
-            const args = this.args.map((arg) =>
-                arg.evaluate(scope),
-            ) as RuntimeValue[];
-            return allFunctions[this.name as BuiltInFuncName](...args);
-        }
-
-        const funcDef = scope.getFunction(this.name);
-        return funcDef.callFunction(scope, this.args, funcDef);
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        // Check if this is a built in function
-        // TODO: Make built in functions compile
+    compile(scope: CompileScope, dst: Register): string[] {
         if (this.name === 'print') {
-            const instructions: Instruction.Instruction[] = [];
-            // Assume there is only one argument
-            const isString = this.args[0].type === Token.STRING;
-            const arg = [this.args[0].compile(scope)].flat();
-            instructions.push(...arg);
-            if (!isString) {
-                return [...instructions, new Instruction.PrintIntInstruction()];
-            }
-
-            arg.forEach((_) => {
-                instructions.push(new Instruction.PrintCInstruction());
-            });
-            return instructions;
+            return printf(scope, this.args);
         }
 
-        const { lineNumber } = scope.getFunction(this.name);
-        // Set the parameters
-        const argSetup = this.args.flatMap((arg) => arg.compile(scope));
-
-        return [
-            new Instruction.FrameInstruction(5 + argSetup.length), // Set the return point for the pc
-            new Instruction.AllocInstruction(1), // Skip over the push and alloc
-            // Create the args in place
-            ...argSetup,
-            new Instruction.AllocInstruction(-(1 + this.args.length)), // Go back to push the BP
-            new Instruction.PushStackInstruction(), // Offset stack for new frame
-            new Instruction.AllocInstruction(this.args.length), // Move stack pointer so you cannot overwrite the args
-            new Instruction.GotoInstruction(lineNumber), // Goto function
-        ];
+        throw new NotImplementedError(
+            `Custom function calls not implemented: ${this.name}`,
+        );
     }
 
     public getName() {
@@ -763,66 +446,23 @@ export class ASTFunctionCall extends IAST {
     }
 }
 
-export class ASTReturn extends IAST {
+export class ASTReturn extends ASTStmt {
     public type: Token.RETURN = Token.RETURN;
 
     constructor(public valueAST: Expr) {
         super();
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        return scope.setReturnValue(this.valueAST.evaluate(scope));
-    }
-
-    compile(scope: CompileScope): Instruction.Instruction[] {
-        return [
-            this.valueAST.compile(scope),
-            new Instruction.ReturnInstruction(),
-            new Instruction.PopStackInstruction(),
-            new Instruction.UnframeInstruction(),
-        ].flat();
+    compile(scope: CompileScope): string[] {
+        return [];
     }
 }
 
-class Iterator {
-    protected items: RuntimeValue[];
-    private index: number;
-
-    constructor(items: RuntimeValue[]) {
-        this.items = items;
-        this.index = 0;
-    }
-
-    hasNext(): boolean {
-        return this.index < this.items.length;
-    }
-
-    next(): RuntimeValue {
-        return this.items[this.index++];
-    }
-
-    reset(): void {
-        this.index = 0;
-    }
-
-    length(): number {
-        return this.items.length;
-    }
-}
-
-export class ASTIterable extends IAST {
+export class ASTIterable extends ASTExpr {
     public type: Token.LBRACKET = Token.LBRACKET;
 
     constructor(public items: Expr[]) {
         super();
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        return this.items.map((child) => child.evaluate(scope));
-    }
-
-    createIterator(scope: Scope): Iterator {
-        return new Iterator(this.items.map((child) => child.evaluate(scope)));
     }
 
     compile(_scope: CompileScope): never {
@@ -832,7 +472,7 @@ export class ASTIterable extends IAST {
 
 export class ASTList extends ASTIterable {}
 
-export class ASTForEach extends IAST {
+export class ASTForEach extends ASTStmt {
     public init: ASTDeclaration | ASTIdentifier;
     public iterable: IterableResolvable;
     public block: ASTBlock;
@@ -849,30 +489,6 @@ export class ASTForEach extends IAST {
         this.block = block;
     }
 
-    evaluate(scope: Scope): RuntimeValue {
-        let iterator: Iterator;
-        if (this.iterable.type === Token.IDENTIFIER) {
-            const items = scope.getVariable(
-                this.iterable.getName(),
-            ) as Iterable;
-            iterator = new Iterator(items);
-        } else {
-            iterator = (this.iterable as ASTIterable).createIterator(scope);
-        }
-
-        let ret;
-        while (iterator.hasNext() && !scope.isReturning()) {
-            const curItem = iterator.next();
-
-            // Add the current item to the scope
-            const newScope = new Scope(scope.globalScope, scope);
-            newScope.addVariable(this.init.getName(), curItem);
-            ret = this.block.evaluate(newScope);
-        }
-
-        return ret;
-    }
-
     compile(_scope: CompileScope): never {
         throw new NotImplementedError('Method not implemented.');
     }
@@ -886,37 +502,15 @@ export type ASTMathType =
     | ASTIntegerDivide
     | ASTMod;
 
-export class ASTMath extends IAST {
+export class ASTMath extends ASTExpr {
     constructor(
         public type: MathToken,
-        public left: INumberableAST,
-        public right: INumberableAST,
+        public left: Expr,
+        public right: Expr,
     ) {
         super();
         this.left = left;
         this.right = right;
-    }
-
-    evaluate(scope: Scope): number {
-        const left = (this.left as INumberableAST).evaluate(scope);
-        const right = (this.right as INumberableAST).evaluate(scope);
-
-        switch (this.type) {
-            case Token.PLUS:
-                return this.handleAddition(left, right);
-            case Token.MINUS:
-                return left - right;
-            case Token.MULTIPLY:
-                return left * right;
-            case Token.DIVIDE:
-                return left / right;
-            case Token.INT_DIVIDE:
-                return Math.floor(left / right);
-            case Token.MOD:
-                return left % right;
-            default:
-                throw new TannerError(`Unexpected token: ${this.type}`);
-        }
     }
 
     handleAddition(left: any, right: any): any {
@@ -928,21 +522,24 @@ export class ASTMath extends IAST {
         return left + right;
     }
 
-    compile(scope: CompileScope): Instruction.Instruction[] {
+    compile(scope: CompileScope, dst: Register): string[] {
         const instructions = this.left
-            .compile(scope)
-            .concat(this.right.compile(scope));
+            .compile(scope, Register.RAX)
+            .concat(this.right.compile(scope, Register.RBX));
 
         if (this.type === Token.PLUS) {
-            instructions.push(new Instruction.AddInstruction());
+            instructions.push('ADD rax, rbx');
+            instructions.push(`mov ${dst}, rax`);
         } else if (this.type === Token.MINUS) {
-            instructions.push(new Instruction.SubInstruction());
+            instructions.push('SUB rax, rbx');
         } else if (this.type === Token.MULTIPLY) {
-            instructions.push(new Instruction.MulInstruction());
+            instructions.push('MUL rax, rbx');
         } else if (this.type === Token.DIVIDE) {
-            instructions.push(new Instruction.DivInstruction());
+            instructions.push('DIV rax, rbx');
         } else if (this.type === Token.MOD) {
-            instructions.push(new Instruction.ModInstruction());
+            throw new NotImplementedError(
+                'Modulus operation not implemented in compile',
+            );
         } else {
             throw new TannerError('Unexpected call to ASTMath.compile');
         }
@@ -954,7 +551,7 @@ export class ASTMath extends IAST {
 export class ASTAdd extends ASTMath {
     type: Token.PLUS = Token.PLUS;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.PLUS, left, right);
     }
 }
@@ -962,7 +559,7 @@ export class ASTAdd extends ASTMath {
 export class ASTSubtract extends ASTMath {
     type: Token.MINUS = Token.MINUS;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.MINUS, left, right);
     }
 }
@@ -970,7 +567,7 @@ export class ASTSubtract extends ASTMath {
 export class ASTMultiply extends ASTMath {
     type: Token.MULTIPLY = Token.MULTIPLY;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.MULTIPLY, left, right);
     }
 }
@@ -978,7 +575,7 @@ export class ASTMultiply extends ASTMath {
 export class ASTDivide extends ASTMath {
     type: Token.DIVIDE = Token.DIVIDE;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.DIVIDE, left, right);
     }
 }
@@ -986,7 +583,7 @@ export class ASTDivide extends ASTMath {
 export class ASTIntegerDivide extends ASTMath {
     type: Token.INT_DIVIDE = Token.INT_DIVIDE;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.INT_DIVIDE, left, right);
     }
 }
@@ -994,24 +591,20 @@ export class ASTIntegerDivide extends ASTMath {
 export class ASTMod extends ASTMath {
     type: Token.MOD = Token.MOD;
 
-    constructor(left: INumberableAST, right: INumberableAST) {
+    constructor(left: Expr, right: Expr) {
         super(Token.MOD, left, right);
     }
 }
 
-export class ASTNumber extends IAST {
+export class ASTNumber extends ASTExpr {
     public type: Token.NUMBER = Token.NUMBER;
 
     constructor(private value: number) {
         super();
     }
 
-    evaluate(): number {
-        return this.value;
-    }
-
-    compile(_scope: CompileScope): Instruction.Instruction[] {
-        return [new Instruction.PushInstruction(this.value)];
+    compile(_scope: CompileScope, dst: Register): string[] {
+        return [`mov ${dst}, ${this.value}`];
     }
 
     public getValue(): number {
@@ -1019,20 +612,11 @@ export class ASTNumber extends IAST {
     }
 }
 
-export class ASTObject extends IAST {
+export class ASTObject extends ASTExpr {
     public type: Token.LCURLY = Token.LCURLY;
 
     constructor(public attributes: ASTAttribute[]) {
         super();
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        const obj: Object = { attributes: {}, methods: {} };
-        this.attributes.forEach((attribute: ASTAttribute) => {
-            obj.attributes[attribute.getName()] = attribute.evaluate(scope);
-        });
-
-        return obj;
     }
 
     compile(_scope: CompileScope): never {
@@ -1040,7 +624,7 @@ export class ASTObject extends IAST {
     }
 }
 
-export class ASTAttribute extends IAST {
+export class ASTAttribute extends ASTExpr {
     type: Token.PERIOD = Token.PERIOD;
 
     constructor(
@@ -1048,10 +632,6 @@ export class ASTAttribute extends IAST {
         public valueAST: Expr,
     ) {
         super();
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        return this.valueAST.evaluate(scope);
     }
 
     compile(_scope: CompileScope): never {
@@ -1063,19 +643,13 @@ export class ASTAttribute extends IAST {
     }
 }
 
-export class ObjectAccessAST extends IAST {
+export class ObjectAccessAST extends ASTExpr {
     public type: Token.IDENTIFIER = Token.IDENTIFIER;
     constructor(
         public objIdentifier: ASTIdentifier,
         public attribute: ASTIdentifier,
     ) {
         super();
-    }
-
-    evaluate(scope: Scope): RuntimeValue {
-        const obj = scope.getVariable<Object>(this.objIdentifier.getName());
-
-        return obj.attributes[this.attribute.getName()];
     }
 
     compile(_scope: CompileScope): never {

@@ -1,0 +1,9 @@
+set shell := ["cmd.exe", "/c"]
+
+asm:
+    nasm -f win64 asm/script.asm -o script.o
+    gcc script.o -o script
+    script.exe
+
+watch:
+    nodemon -e cpp,h,obj,mtl -x "just asm"

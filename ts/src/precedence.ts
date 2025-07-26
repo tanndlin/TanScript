@@ -1,7 +1,7 @@
 import * as AST from './AST';
-import { ITokenConstructorPair, Token } from './types';
+import { Token } from './types';
 
-export const PRECEDENCE: ITokenConstructorPair[][] = [
+export const PRECEDENCE = [
     [
         { token: Token.MULTIPLY, ast: AST.ASTMultiply },
         { token: Token.DIVIDE, ast: AST.ASTDivide },
