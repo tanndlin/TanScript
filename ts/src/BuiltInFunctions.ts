@@ -41,23 +41,25 @@ function compileFormatPrint(
 }
 
 function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
-    CompileScope.LeaseRegister(Register.RCX);
-    CompileScope.LeaseRegister(Register.RDX);
-
     if (
         arg instanceof ASTNumber ||
         arg instanceof ASTIdentifier ||
         isMathType(arg)
     ) {
+        const randomRegister = CompileScope.LeaseRegister();
+        const argCompiled = arg.compile(scope, randomRegister);
+
+        const rdx = CompileScope.LeaseRegister(Register.RDX);
+        const rcx = CompileScope.LeaseRegister(Register.RCX);
         const dataName = CompileScope.addData('"%d", 10');
         const instructions: string[] = [
             `mov rcx, ${dataName}`,
-            ...arg.compile(scope, Register.RDX),
+            `mov rdx, ${randomRegister}`, // Move the argument into RDX
+            ...argCompiled,
             'call printf',
         ];
 
-        CompileScope.ReleaseRegister(Register.RCX);
-        CompileScope.ReleaseRegister(Register.RDX);
+        CompileScope.ReleaseRegister(rcx, rdx, randomRegister);
         return instructions;
     }
 

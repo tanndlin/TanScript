@@ -19,12 +19,16 @@ describe('Basic Math Compilation', () => {
         ['print(13 - 3)', 10],
         ['print(13 * 13)', 169],
         ['print(13 * 13 - 100)', 69],
-    ])('should compile %s', (script, expectedInstruction) => {
+        ['print(10 / 2)', 5],
+        ['print(131 % 100)', 31],
+        ['print(131 % 10)', 1],
+        ['print(131 % 20)', 11],
+    ])('should compile %s', (script, expectedOutput) => {
         const instructions = instructionsFromScript(script);
         writeInstructions(instructions, 'asm/test.asm');
         execSync('nasm -f win64 asm/test.asm -o test.o');
         execSync('gcc test.o -o test');
         const output = execFileSync('./test', { encoding: 'utf8' });
-        expect(output.trim()).toBe(expectedInstruction.toString());
+        expect(output.trim()).toBe(expectedOutput.toString());
     });
 });

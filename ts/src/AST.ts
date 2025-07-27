@@ -611,7 +611,22 @@ export class ASTDivide extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        throw new NotImplementedError('Division not implemented yet.');
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
+
+        const rax = CompileScope.LeaseRegister(Register.RAX);
+        const rdx = CompileScope.LeaseRegister(Register.RDX);
+        const instructions: string[] = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `mov ${rax}, ${lReg}`,
+            `div ${rReg}`,
+            `mov ${dst}, ${rax}`,
+        ];
+
+        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
+        return instructions;
     }
 }
 
@@ -626,7 +641,22 @@ export class ASTIntegerDivide extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        throw new NotImplementedError('Integer division not implemented yet.');
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
+
+        const rax = CompileScope.LeaseRegister(Register.RAX);
+        const rdx = CompileScope.LeaseRegister(Register.RDX);
+        const instructions: string[] = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `mov ${rax}, ${lReg}`,
+            `div ${rReg}`,
+            `mov ${dst}, ${rax}`,
+        ];
+
+        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
+        return instructions;
     }
 }
 
@@ -641,7 +671,23 @@ export class ASTMod extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        throw new NotImplementedError('Modulus not implemented yet.');
+        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
+        const leftInstructions = this.left.compile(scope, lReg);
+        const rightInstructions = this.right.compile(scope, rReg);
+
+        const rax = CompileScope.LeaseRegister(Register.RAX);
+        const rdx = CompileScope.LeaseRegister(Register.RDX);
+        const instructions: string[] = [
+            ...leftInstructions,
+            ...rightInstructions,
+            `mov ${rax}, ${lReg}`,
+            'xor rdx, rdx', // Clear RDX for division
+            `div ${rReg}`,
+            `mov ${dst}, ${rdx}`, // RDX contains the remainder
+        ];
+
+        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
+        return instructions;
     }
 }
 
