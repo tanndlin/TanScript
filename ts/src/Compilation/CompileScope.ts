@@ -42,7 +42,7 @@ export class CompileScope {
         return this.variables.size;
     }
 
-    public static LeaseRegister(req?: Register): Register {
+    private static LeaseRegister(req?: Register): Register {
         if (req) {
             if (CompileScope.registersUsed.has(req)) {
                 throw new Error(
@@ -67,7 +67,11 @@ export class CompileScope {
         return reg;
     }
 
-    public static LeaseRegisters(numRegs: number): Register[] {
+    private static LeaseRegisters(registers: Register[]): Register[] {
+        return registers.map(CompileScope.LeaseRegister);
+    }
+
+    private static LeaseRandomRegisters(numRegs: number): Register[] {
         return Array.from({ length: numRegs }, () =>
             CompileScope.LeaseRegister(),
         );
@@ -81,6 +85,26 @@ export class CompileScope {
 
             CompileScope.registersUsed.delete(reg);
         }
+    }
+
+    public static LeaseRegistersWithScope<T>(
+        callback: (...regs: Register[]) => T,
+        ...registers: Register[]
+    ) {
+        CompileScope.LeaseRegisters(registers);
+        const ret = callback(...registers);
+        CompileScope.ReleaseRegister(...registers);
+        return ret;
+    }
+
+    public static LeaseRandomRegistersWithScope<T>(
+        callback: (...regs: Register[]) => T,
+        numRegisters: number = 1,
+    ) {
+        const regs = CompileScope.LeaseRandomRegisters(numRegisters);
+        const ret = callback(...regs);
+        CompileScope.ReleaseRegister(...regs);
+        return ret;
     }
 
     public static addData(fmt: string) {

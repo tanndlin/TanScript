@@ -21,23 +21,28 @@ function compileFormatPrint(
     formatString: ASTString,
     args: Expr[],
 ): string[] {
-    CompileScope.LeaseRegister(Register.RCX);
-    const regs: Register[] = CompileScope.LeaseRegisters(args.length);
-    const argInstructions: string[] = args.flatMap((arg, index) => {
-        return arg.compile(scope, regs[index]);
-    });
+    // const rcx = CompileScope.LeaseRegister(Register.RCX);
+    // const regs: Register[] = CompileScope.LeaseRegisters(args.length);
 
-    const dataName = CompileScope.addData(formatString.getValue());
-    const instructions: string[] = [
-        `mov rcx, ${dataName}`,
-        ...argInstructions,
-        'call printf',
-    ];
+    return CompileScope.LeaseRegistersWithScope((rcx: Register) =>
+        CompileScope.LeaseRandomRegistersWithScope((...regs: Register[]) => {
+            const argInstructions: string[] = args.flatMap((arg, index) => {
+                return arg.compile(scope, regs[index]);
+            });
 
-    CompileScope.ReleaseRegister(Register.RCX);
-    CompileScope.ReleaseRegister(...regs);
+            const dataName = CompileScope.addData(formatString.getValue());
+            const instructions: string[] = [
+                `mov ${rcx}, ${dataName}`,
+                ...argInstructions,
+                'call printf',
+            ];
 
-    return instructions;
+            CompileScope.ReleaseRegister(Register.RCX);
+            CompileScope.ReleaseRegister(...regs);
+
+            return instructions;
+        }, args.length),
+    );
 }
 
 function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
@@ -46,21 +51,20 @@ function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
         arg instanceof ASTIdentifier ||
         isMathType(arg)
     ) {
-        const randomRegister = CompileScope.LeaseRegister();
-        const argCompiled = arg.compile(scope, randomRegister);
+        return CompileScope.LeaseRandomRegistersWithScope((resultReg) => {
+            const argCompiled = arg.compile(scope, resultReg);
 
-        const rdx = CompileScope.LeaseRegister(Register.RDX);
-        const rcx = CompileScope.LeaseRegister(Register.RCX);
-        const dataName = CompileScope.addData('"%d", 10');
-        const instructions: string[] = [
-            `mov rcx, ${dataName}`,
-            `mov rdx, ${randomRegister}`, // Move the argument into RDX
-            ...argCompiled,
-            'call printf',
-        ];
-
-        CompileScope.ReleaseRegister(rcx, rdx, randomRegister);
-        return instructions;
+            return CompileScope.LeaseRegistersWithScope(
+                (rcx: Register, rdx: Register) => [
+                    ...argCompiled,
+                    `mov ${rdx}, ${resultReg}`, // Move the argument into RDX
+                    `mov ${rcx}, ${CompileScope.addData('"%d", 10')}`,
+                    'call printf',
+                ],
+                Register.RCX,
+                Register.RDX,
+            );
+        });
     }
 
     throw new Error(`Unsupported argument type for print: ${arg.type}`);

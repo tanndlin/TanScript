@@ -164,11 +164,11 @@ export class ASTDeclaration extends ASTStmt {
         }
 
         const address = scope.addVariable(this.child.getName()) + 8;
-        const reg = CompileScope.LeaseRegister();
-        const instructions = this.child.compile(scope, reg);
-        instructions.push(`mov [rbp - ${address}], ${reg}`);
-        CompileScope.ReleaseRegister(reg);
-        return instructions;
+        // const reg = CompileScope.LeaseRegister();
+        return CompileScope.LeaseRegistersWithScope((reg: Register) => [
+            ...this.child.compile(scope, reg),
+            `mov [rbp - ${address}], ${reg}`,
+        ]);
     }
 
     public getName(): string {
@@ -210,7 +210,7 @@ export class ASTBlock extends ASTStmt {
                 return child.compile(scope);
             }
 
-            return child.compile(scope, CompileScope.LeaseRegister());
+            return child.compile(scope, Register.R15);
         });
 
         const numVariables = scope.getNumVariables();
@@ -236,9 +236,12 @@ export class ASTComparison extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const left = [this.left.compile(scope, lReg)].flat();
-        const right = [this.right.compile(scope, rReg)].flat();
+        const left = CompileScope.LeaseRegistersWithScope((lReg: Register) =>
+            this.left.compile(scope, lReg),
+        );
+        const right = CompileScope.LeaseRegistersWithScope((rReg: Register) =>
+            this.right.compile(scope, rReg),
+        );
 
         const instructions = [...left, ...right];
         switch (this.type) {
@@ -528,19 +531,11 @@ export class ASTAdd extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
-
-        const instructions = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `add ${lReg}, ${rReg}`,
-            `mov ${dst}, ${lReg}`,
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg);
-        return instructions;
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
+            ...this.left.compile(scope, dst),
+            ...this.right.compile(scope, rReg),
+            `add ${dst}, ${rReg}`,
+        ]);
     }
 }
 
@@ -555,19 +550,11 @@ export class ASTSubtract extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
-
-        const instructions = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `sub ${lReg}, ${rReg}`,
-            `mov ${dst}, ${lReg}`,
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg);
-        return instructions;
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
+            ...this.left.compile(scope, dst),
+            ...this.right.compile(scope, rReg),
+            `sub ${dst}, ${rReg}`,
+        ]);
     }
 }
 
@@ -582,21 +569,21 @@ export class ASTMultiply extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const leftInstructions = this.left.compile(scope, lReg);
+            const rightInstructions = this.right.compile(scope, rReg);
 
-        const rax = CompileScope.LeaseRegister(Register.RAX);
-        const instructions: string[] = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `mov ${rax}, ${lReg}`,
-            `mul ${rReg}`,
-            `mov ${dst}, ${rax}`,
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg, rax);
-        return instructions;
+            return CompileScope.LeaseRegistersWithScope(
+                (rax: Register) => [
+                    ...leftInstructions,
+                    ...rightInstructions,
+                    `mov ${rax}, ${lReg}`,
+                    `mul ${rReg}`,
+                    `mov ${dst}, ${rax}`,
+                ],
+                Register.RAX,
+            );
+        }, 2);
     }
 }
 
@@ -611,22 +598,23 @@ export class ASTDivide extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const leftInstructions = this.left.compile(scope, lReg);
+            const rightInstructions = this.right.compile(scope, rReg);
 
-        const rax = CompileScope.LeaseRegister(Register.RAX);
-        const rdx = CompileScope.LeaseRegister(Register.RDX);
-        const instructions: string[] = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `mov ${rax}, ${lReg}`,
-            `div ${rReg}`,
-            `mov ${dst}, ${rax}`,
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
-        return instructions;
+            return CompileScope.LeaseRegistersWithScope(
+                (rax, rdx) => [
+                    ...leftInstructions,
+                    ...rightInstructions,
+                    `mov ${rax}, ${lReg}`,
+                    `xor ${rdx}, ${rdx}`, // Clear RDX for division
+                    `div ${rReg}`,
+                    `mov ${dst}, ${rax}`,
+                ],
+                Register.RAX,
+                Register.RDX,
+            );
+        }, 2);
     }
 }
 
@@ -641,22 +629,23 @@ export class ASTIntegerDivide extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const leftInstructions = this.left.compile(scope, lReg);
+            const rightInstructions = this.right.compile(scope, rReg);
 
-        const rax = CompileScope.LeaseRegister(Register.RAX);
-        const rdx = CompileScope.LeaseRegister(Register.RDX);
-        const instructions: string[] = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `mov ${rax}, ${lReg}`,
-            `div ${rReg}`,
-            `mov ${dst}, ${rax}`,
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
-        return instructions;
+            return CompileScope.LeaseRegistersWithScope(
+                (rax, rdx) => [
+                    ...leftInstructions,
+                    ...rightInstructions,
+                    `mov ${rax}, ${lReg}`,
+                    `xor ${rdx}, ${rdx}'`, // Clear RDX for division
+                    `div ${rReg}`,
+                    `mov ${dst}, ${rax}`,
+                ],
+                Register.RAX,
+                Register.RDX,
+            );
+        }, 2);
     }
 }
 
@@ -671,23 +660,23 @@ export class ASTMod extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const [lReg, rReg] = CompileScope.LeaseRegisters(2);
-        const leftInstructions = this.left.compile(scope, lReg);
-        const rightInstructions = this.right.compile(scope, rReg);
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const leftInstructions = this.left.compile(scope, lReg);
+            const rightInstructions = this.right.compile(scope, rReg);
 
-        const rax = CompileScope.LeaseRegister(Register.RAX);
-        const rdx = CompileScope.LeaseRegister(Register.RDX);
-        const instructions: string[] = [
-            ...leftInstructions,
-            ...rightInstructions,
-            `mov ${rax}, ${lReg}`,
-            'xor rdx, rdx', // Clear RDX for division
-            `div ${rReg}`,
-            `mov ${dst}, ${rdx}`, // RDX contains the remainder
-        ];
-
-        CompileScope.ReleaseRegister(lReg, rReg, rax, rdx);
-        return instructions;
+            return CompileScope.LeaseRegistersWithScope(
+                (rax, rdx) => [
+                    ...leftInstructions,
+                    ...rightInstructions,
+                    `mov ${rax}, ${lReg}`,
+                    `xor ${rdx}, ${rdx}`, // Clear RDX for division
+                    `div ${rReg}`,
+                    `mov ${dst}, ${rdx}`, // RDX contains the remainder
+                ],
+                Register.RAX,
+                Register.RDX,
+            );
+        }, 2);
     }
 }
 
