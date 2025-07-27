@@ -165,7 +165,7 @@ export class ASTDeclaration extends ASTStmt {
 
         const address = scope.addVariable(this.child.getName()) + 8;
         // const reg = CompileScope.LeaseRegister();
-        return CompileScope.LeaseRegistersWithScope((reg: Register) => [
+        return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
             ...this.child.compile(scope, reg),
             `mov [rbp - ${address}], ${reg}`,
         ]);
@@ -236,44 +236,72 @@ export class ASTComparison extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const left = CompileScope.LeaseRegistersWithScope((lReg: Register) =>
-            this.left.compile(scope, lReg),
-        );
-        const right = CompileScope.LeaseRegistersWithScope((rReg: Register) =>
-            this.right.compile(scope, rReg),
-        );
-
-        const instructions = [...left, ...right];
-        switch (this.type) {
-            case Token.LESS:
-                instructions.push();
-                break;
-            case Token.LEQ:
-                instructions.push();
-                break;
-            case Token.GREATER:
-                instructions.push();
-                break;
-            case Token.GEQ:
-                instructions.push();
-                break;
-            case Token.EQUAL:
-                instructions.push();
-                break;
-            case Token.NEQ:
-                instructions.push();
-                break;
-            case Token.AND:
-                instructions.push();
-                break;
-            case Token.OR:
-                instructions.push();
-                break;
-            default:
-                throw new TannerError(`Unexpected token: ${this.type}`);
-        }
-
-        return instructions;
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            switch (this.type) {
+                case Token.LESS:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `setl ${dst}`,
+                    ];
+                case Token.LEQ:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `setle ${dst}`,
+                    ];
+                case Token.GREATER:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `setg ${dst}`,
+                    ];
+                case Token.GEQ:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `setge ${dst}`,
+                    ];
+                case Token.EQUAL:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `sete ${dst}`,
+                    ];
+                case Token.NEQ:
+                    return [
+                        ...left,
+                        ...right,
+                        `cmp ${lReg}, ${rReg}`,
+                        `setne ${dst}`,
+                    ];
+                case Token.AND:
+                    return [
+                        ...left,
+                        ...right,
+                        `mov ${dst}, 0`, // Assume false
+                        `test ${lReg}, ${rReg}`, // Perform bitwise AND
+                        `setnz ${dst}`, // Set dst to 1 if result is non-zero
+                    ];
+                case Token.OR:
+                    return [
+                        ...left,
+                        ...right,
+                        `mov ${dst}, 0`, // Assume false
+                        `test ${lReg}, ${rReg}`, // Perform bitwise AND
+                        `setnz ${dst}`, // Set dst to 1 if result is non-zero
+                    ];
+                default:
+                    throw new TannerError(`Unexpected token: ${this.type}`);
+            }
+        }, 2);
     }
 }
 
