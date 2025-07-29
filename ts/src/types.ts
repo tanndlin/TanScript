@@ -60,16 +60,6 @@ export type MathToken =
     | Token.INT_DIVIDE
     | Token.MOD;
 
-export type ComparisonToken =
-    | Token.LESS
-    | Token.GREATER
-    | Token.LEQ
-    | Token.GEQ
-    | Token.EQUAL
-    | Token.NEQ
-    | Token.AND
-    | Token.OR;
-
 export type BooleanToken = Token.TRUE | Token.FALSE;
 
 export const OPERATORS = new Set([

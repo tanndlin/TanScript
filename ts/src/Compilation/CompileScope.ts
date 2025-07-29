@@ -8,6 +8,7 @@ export class CompileScope {
     private static readonly registersUsed: Set<Register> = new Set();
     private static readonly leaseableRegisters: Register[] = [];
     public static readonly data: string[] = [];
+    public static uniqueIdCounter: number = 0;
 
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
@@ -111,5 +112,9 @@ export class CompileScope {
         const dataName = `data_${CompileScope.data.length}`;
         CompileScope.data.push(`\t${dataName} db ${fmt}, 0`);
         return dataName;
+    }
+
+    public static GetUniqueId(): number {
+        return CompileScope.uniqueIdCounter++;
     }
 }

@@ -80,7 +80,7 @@ export const registerOrder = [
     Register.R15,
 ];
 
-export function isMathType(ast: AST.ASTExpr): ast is AST.ASTMathType {
+export function isMathType(ast: AST.Expr): ast is AST.ASTMathType {
     return (
         ast instanceof AST.ASTAdd ||
         ast instanceof AST.ASTSubtract ||
@@ -91,9 +91,7 @@ export function isMathType(ast: AST.ASTExpr): ast is AST.ASTMathType {
     );
 }
 
-export function isComparisonType(
-    ast: AST.ASTExpr,
-): ast is AST.ASTComparisonType {
+export function isComparisonType(ast: AST.Expr): ast is AST.ASTComparisonType {
     return (
         ast instanceof AST.ASTLessThan ||
         ast instanceof AST.ASTLessEq ||

@@ -465,13 +465,14 @@ export class ASTWhile extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
+        const id = CompileScope.GetUniqueId();
         return [
-            'loopstart:',
+            `loopstart${id}:`,
             ...this.condition.compile(scope, Register.R15),
-            'jz loopend',
+            `jz loopend${id}`,
             ...this.block.compile(new CompileScope(scope)),
-            'jmp loopstart',
-            'loopend:',
+            `jmp loopstart${id}`,
+            `loopend${id}:`,
         ];
     }
 }
@@ -489,7 +490,19 @@ export class ASTFor extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        return [];
+        const newScope = new CompileScope(scope);
+
+        const id = CompileScope.GetUniqueId();
+        return [
+            ...this.init.compile(newScope),
+            `loopstart${id}:`,
+            ...this.condition.compile(newScope, Register.R15),
+            `jz loopend${id}`,
+            ...this.block.compile(new CompileScope(newScope)),
+            ...this.update.compile(newScope),
+            `jmp loopstart${id}`,
+            `loopend${id}:`,
+        ];
     }
 }
 
@@ -509,7 +522,23 @@ export class ASTIf extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        return [];
+        const id = CompileScope.GetUniqueId();
+        const instructions: string[] = [
+            ...this.condition.compile(scope, Register.R15),
+            `jz else${id}`,
+            ...this.block.compile(new CompileScope(scope)),
+            `jmp endif${id}`,
+            `else${id}:`,
+        ];
+
+        if (this.elseBlock) {
+            instructions.push(
+                ...this.elseBlock.compile(new CompileScope(scope)),
+            );
+        }
+
+        instructions.push(`endif${id}:`);
+        return instructions;
     }
 }
 
