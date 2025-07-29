@@ -245,58 +245,62 @@ export class ASTComparison extends ASTExpr {
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
-                        `setl ${dst}`,
+                        `mov ${dst}, 0`,
+                        `setl ${dst}b`,
                     ];
                 case Token.LEQ:
                     return [
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
-                        `setle ${dst}`,
+                        `mov ${dst}, 0`,
+                        `setle ${dst}b`,
                     ];
                 case Token.GREATER:
                     return [
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
-                        `setg ${dst}`,
+                        `mov ${dst}, 0`,
+                        `setg ${dst}b`,
                     ];
                 case Token.GEQ:
                     return [
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
-                        `setge ${dst}`,
+                        `mov ${dst}, 0`,
+                        `setge ${dst}b`,
                     ];
                 case Token.EQUAL:
                     return [
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
-                        `sete ${dst}`,
+                        `mov ${dst}, 0`,
+                        `sete ${dst}b`,
                     ];
                 case Token.NEQ:
                     return [
                         ...left,
                         ...right,
                         `cmp ${lReg}, ${rReg}`,
+                        `mov ${dst}, 0`,
                         `setne ${dst}`,
                     ];
                 case Token.AND:
                     return [
                         ...left,
                         ...right,
-                        `mov ${dst}, 0`, // Assume false
-                        `test ${lReg}, ${rReg}`, // Perform bitwise AND
-                        `setnz ${dst}`, // Set dst to 1 if result is non-zero
+                        `and ${lReg}, ${rReg}`, // Perform bitwise AND
+                        `mov ${dst}, ${lReg}`,
                     ];
                 case Token.OR:
                     return [
                         ...left,
                         ...right,
-                        `mov ${dst}, 0`, // Assume false
-                        `test ${lReg}, ${rReg}`, // Perform bitwise AND
-                        `setnz ${dst}`, // Set dst to 1 if result is non-zero
+                        `or ${lReg}, ${rReg}`, // Perform bitwise OR
+                        `mov ${dst}, ${lReg}`,
                     ];
                 default:
                     throw new TannerError(`Unexpected token: ${this.type}`);
