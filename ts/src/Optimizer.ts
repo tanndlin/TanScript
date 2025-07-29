@@ -1,6 +1,6 @@
 import * as AST from './AST';
 import { Token } from './types';
-import { isMathType } from './util';
+import { isComparisonType, isMathType } from './util';
 
 export default class Optimizer {
     public static optimize(ast: AST.Program): AST.Program {
@@ -46,7 +46,7 @@ export default class Optimizer {
             child.type === Token.FALSE ||
             child.type === Token.NUMBER ||
             child.type === Token.NOT ||
-            child instanceof AST.ASTComparison
+            isComparisonType(child)
         ) {
             child = Optimizer.simplifyLogicalExpression(child);
         }
@@ -103,7 +103,7 @@ export default class Optimizer {
         node:
             | AST.ASTBoolean
             | AST.ASTNumber
-            | AST.ASTComparison
+            | AST.ASTComparisonType
             | AST.ASTMathType
             | AST.ASTNot,
     ) {

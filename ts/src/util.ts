@@ -1,14 +1,5 @@
 import { readFileSync, writeFileSync } from 'fs';
-import {
-    ASTAdd,
-    ASTDivide,
-    ASTExpr,
-    ASTIntegerDivide,
-    ASTMathType,
-    ASTMod,
-    ASTMultiply,
-    ASTSubtract,
-} from './AST';
+import * as AST from './AST';
 import { LexerError } from './errors';
 import { Register, Token } from './types';
 
@@ -89,13 +80,28 @@ export const registerOrder = [
     Register.R15,
 ];
 
-export function isMathType(ast: ASTExpr): ast is ASTMathType {
+export function isMathType(ast: AST.ASTExpr): ast is AST.ASTMathType {
     return (
-        ast instanceof ASTAdd ||
-        ast instanceof ASTSubtract ||
-        ast instanceof ASTMultiply ||
-        ast instanceof ASTDivide ||
-        ast instanceof ASTIntegerDivide ||
-        ast instanceof ASTMod
+        ast instanceof AST.ASTAdd ||
+        ast instanceof AST.ASTSubtract ||
+        ast instanceof AST.ASTMultiply ||
+        ast instanceof AST.ASTDivide ||
+        ast instanceof AST.ASTIntegerDivide ||
+        ast instanceof AST.ASTMod
+    );
+}
+
+export function isComparisonType(
+    ast: AST.ASTExpr,
+): ast is AST.ASTComparisonType {
+    return (
+        ast instanceof AST.ASTLessThan ||
+        ast instanceof AST.ASTLessEq ||
+        ast instanceof AST.ASTGreaterThan ||
+        ast instanceof AST.ASTGreaterEq ||
+        ast instanceof AST.ASTNotEqual ||
+        ast instanceof AST.ASTEqual ||
+        ast instanceof AST.ASTAnd ||
+        ast instanceof AST.ASTOr
     );
 }

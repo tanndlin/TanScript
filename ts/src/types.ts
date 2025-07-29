@@ -165,7 +165,3 @@ export class LexerToken implements TokenTypeable {
 
 export type Maybe<T> = T | null | undefined;
 export type IterableResolvable = AST.ASTIterable | AST.ASTIdentifier;
-
-export interface IEqualityOperatorConstructor {
-    new (left: AST.Expr, right: AST.Expr): AST.ASTComparison;
-}

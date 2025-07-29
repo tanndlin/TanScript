@@ -1,13 +1,7 @@
 import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
-import { NotImplementedError, TannerError } from './errors';
-import {
-    BooleanToken,
-    ComparisonToken,
-    IterableResolvable,
-    Register,
-    Token,
-} from './types';
+import { NotImplementedError } from './errors';
+import { BooleanToken, IterableResolvable, Register, Token } from './types';
 
 abstract class ASTStmt {
     type!: Token;
@@ -35,7 +29,14 @@ export type Expr =
     | ASTIdentifier
     | ASTString
     | ASTMathType
-    | ASTComparison
+    | ASTLessThan
+    | ASTLessEq
+    | ASTGreaterThan
+    | ASTGreaterEq
+    | ASTNotEqual
+    | ASTEqual
+    | ASTAnd
+    | ASTOr
     | ASTBoolean
     | ASTNot
     | ASTFunctionDef
@@ -226,89 +227,6 @@ export class ASTBlock extends ASTStmt {
     }
 }
 
-export class ASTComparison extends ASTExpr {
-    constructor(
-        public type: ComparisonToken,
-        public left: Expr,
-        public right: Expr,
-    ) {
-        super();
-    }
-
-    compile(scope: CompileScope, dst: Register): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const left = this.left.compile(scope, lReg);
-            const right = this.right.compile(scope, rReg);
-            switch (this.type) {
-                case Token.LESS:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `setl ${dst}b`,
-                    ];
-                case Token.LEQ:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `setle ${dst}b`,
-                    ];
-                case Token.GREATER:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `setg ${dst}b`,
-                    ];
-                case Token.GEQ:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `setge ${dst}b`,
-                    ];
-                case Token.EQUAL:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `sete ${dst}b`,
-                    ];
-                case Token.NEQ:
-                    return [
-                        ...left,
-                        ...right,
-                        `cmp ${lReg}, ${rReg}`,
-                        `mov ${dst}, 0`,
-                        `setne ${dst}`,
-                    ];
-                case Token.AND:
-                    return [
-                        ...left,
-                        ...right,
-                        `and ${lReg}, ${rReg}`, // Perform bitwise AND
-                        `mov ${dst}, ${lReg}`,
-                    ];
-                case Token.OR:
-                    return [
-                        ...left,
-                        ...right,
-                        `or ${lReg}, ${rReg}`, // Perform bitwise OR
-                        `mov ${dst}, ${lReg}`,
-                    ];
-                default:
-                    throw new TannerError(`Unexpected token: ${this.type}`);
-            }
-        }, 2);
-    }
-}
-
 export class ASTBoolean extends ASTExpr {
     public type: BooleanToken;
 
@@ -322,67 +240,201 @@ export class ASTBoolean extends ASTExpr {
     }
 }
 
-export class ASTLessThan extends ASTComparison {
+export type ASTComparisonType =
+    | ASTLessThan
+    | ASTLessEq
+    | ASTGreaterThan
+    | ASTGreaterEq
+    | ASTNotEqual
+    | ASTEqual
+    | ASTAnd
+    | ASTOr;
+
+export class ASTLessThan extends ASTExpr {
     public type: Token.LESS = Token.LESS;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.LESS, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `setl ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTLessEq extends ASTComparison {
+export class ASTLessEq extends ASTExpr {
     public type: Token.LEQ = Token.LEQ;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.LEQ, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `setle ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTGreaterThan extends ASTComparison {
+export class ASTGreaterThan extends ASTExpr {
     public type: Token.GREATER = Token.GREATER;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.GREATER, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `setg ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTGreaterEq extends ASTComparison {
+export class ASTGreaterEq extends ASTExpr {
     public type: Token.GEQ = Token.GEQ;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.GEQ, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `setge ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTNotEqual extends ASTComparison {
+export class ASTNotEqual extends ASTExpr {
     public type: Token.NEQ = Token.NEQ;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.NEQ, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `setne ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTEqual extends ASTComparison {
+export class ASTEqual extends ASTExpr {
     public type: Token.EQUAL = Token.EQUAL;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.EQUAL, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
+            const left = this.left.compile(scope, lReg);
+            const right = this.right.compile(scope, rReg);
+            return [
+                ...left,
+                ...right,
+                `cmp ${lReg}, ${rReg}`,
+                `mov ${dst}, 0`,
+                `sete ${dst}b`,
+            ];
+        }, 2);
     }
 }
 
-export class ASTAnd extends ASTComparison {
+export class ASTAnd extends ASTExpr {
     public type: Token.AND = Token.AND;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.AND, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        const left = this.left.compile(scope, dst);
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
+            const right = this.right.compile(scope, rReg);
+            return [...left, ...right, `and ${dst}, ${rReg}`];
+        }, 1);
     }
 }
 
-export class ASTOr extends ASTComparison {
+export class ASTOr extends ASTExpr {
     public type: Token.OR = Token.OR;
 
-    constructor(left: Expr, right: Expr) {
-        super(Token.OR, left, right);
+    constructor(
+        public left: Expr,
+        public right: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Register): string[] {
+        const left = this.left.compile(scope, dst);
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
+            const right = this.right.compile(scope, rReg);
+            return [...left, ...right, `or ${dst}, ${rReg}`];
+        }, 2);
     }
 }
 

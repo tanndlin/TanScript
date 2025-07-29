@@ -1,13 +1,7 @@
-import {
-    ASTComparison,
-    ASTIdentifier,
-    ASTNumber,
-    ASTString,
-    Expr,
-} from './AST';
+import { ASTIdentifier, ASTNumber, ASTString, Expr } from './AST';
 import { CompileScope } from './Compilation/CompileScope';
 import { Register } from './types';
-import { isMathType } from './util';
+import { isComparisonType, isMathType } from './util';
 
 export function printf(scope: CompileScope, args: Expr[]): string[] {
     if (args.length === 0) {
@@ -55,7 +49,7 @@ function compileBasicPrint(scope: CompileScope, arg: Expr): string[] {
     if (
         arg instanceof ASTNumber ||
         arg instanceof ASTIdentifier ||
-        arg instanceof ASTComparison ||
+        isComparisonType(arg) ||
         isMathType(arg)
     ) {
         return CompileScope.LeaseRandomRegistersWithScope((resultReg) => {
