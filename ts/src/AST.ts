@@ -142,7 +142,12 @@ export class ASTAssign extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        return this.valueAST.compile(scope, dst);
+        const address = scope.getVariableAddress(this.identifier.getName()) + 8;
+        return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
+            ...this.valueAST.compile(scope, reg),
+            `mov [rbp - ${address}], ${reg}`,
+            `mov ${dst}, ${reg}`, // Return the value in the destination register
+        ]);
     }
 
     public getName(): string {
@@ -460,7 +465,14 @@ export class ASTWhile extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        return [];
+        return [
+            'loopstart:',
+            ...this.condition.compile(scope, Register.R15),
+            'jz loopend',
+            ...this.block.compile(new CompileScope(scope)),
+            'jmp loopstart',
+            'loopend:',
+        ];
     }
 }
 
