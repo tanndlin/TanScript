@@ -481,9 +481,9 @@ export class ASTFor extends ASTStmt {
     public type: Token.FOR = Token.FOR;
 
     constructor(
-        public init: Stmt,
+        public init: Stmt | Expr,
         public condition: Expr,
-        public update: Stmt,
+        public update: Stmt | Expr,
         public block: ASTBlock,
     ) {
         super();
@@ -493,16 +493,19 @@ export class ASTFor extends ASTStmt {
         const newScope = new CompileScope(scope);
 
         const id = CompileScope.GetUniqueId();
-        return [
-            ...this.init.compile(newScope),
-            `loopstart${id}:`,
-            ...this.condition.compile(newScope, Register.R15),
-            `jz loopend${id}`,
-            ...this.block.compile(new CompileScope(newScope)),
-            ...this.update.compile(newScope),
-            `jmp loopstart${id}`,
-            `loopend${id}:`,
-        ];
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
+                ...this.init.compile(newScope, reg),
+                `loopstart${id}:`,
+                ...this.condition.compile(newScope, Register.R15),
+                `jz loopend${id}`,
+                ...this.block.compile(new CompileScope(newScope)),
+                ...this.update.compile(newScope, reg),
+                `jmp loopstart${id}`,
+                `loopend${id}:`,
+            ],
+            1,
+        );
     }
 }
 
