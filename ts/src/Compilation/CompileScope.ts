@@ -110,7 +110,7 @@ export class CompileScope {
 
     public static addData(fmt: string) {
         const dataName = `data_${CompileScope.data.length}`;
-        CompileScope.data.push(`\t${dataName} db ${fmt}, 0`);
+        CompileScope.data.push(`\t${dataName} db ${fmt}, 10, 0`);
         return dataName;
     }
 

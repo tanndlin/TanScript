@@ -21,27 +21,41 @@ function compileFormatPrint(
     formatString: ASTString,
     args: Expr[],
 ): string[] {
-    // const rcx = CompileScope.LeaseRegister(Register.RCX);
-    // const regs: Register[] = CompileScope.LeaseRegisters(args.length);
+    if (args.length > 3) {
+        throw new Error(
+            'print function with format string can only take up to 3 arguments',
+        );
+    }
 
-    return CompileScope.LeaseRegistersWithScope((rcx: Register) =>
-        CompileScope.LeaseRandomRegistersWithScope((...regs: Register[]) => {
-            const argInstructions: string[] = args.flatMap((arg, index) => {
-                return arg.compile(scope, regs[index]);
-            });
+    return CompileScope.LeaseRegistersWithScope(
+        (rcx: Register) =>
+            CompileScope.LeaseRegistersWithScope(
+                (...regs: Register[]) => {
+                    const argInstructions: string[] = args.flatMap(
+                        (arg, index) => {
+                            return arg.compile(scope, regs[index]);
+                        },
+                    );
 
-            const dataName = CompileScope.addData(formatString.getValue());
-            const instructions: string[] = [
-                `mov ${rcx}, ${dataName}`,
-                ...argInstructions,
-                'call printf',
-            ];
+                    const dataName = CompileScope.addData(
+                        `"${formatString.getValue()}"`,
+                    );
+                    const instructions: string[] = [
+                        `mov ${rcx}, ${dataName}`,
+                        ...argInstructions,
+                        'call printf',
+                    ];
 
-            CompileScope.ReleaseRegister(Register.RCX);
-            CompileScope.ReleaseRegister(...regs);
+                    CompileScope.ReleaseRegister(Register.RCX);
+                    CompileScope.ReleaseRegister(...regs);
 
-            return instructions;
-        }, args.length),
+                    return instructions;
+                },
+                Register.RDX,
+                Register.R8,
+                Register.R9,
+            ),
+        Register.RCX,
     );
 }
 
