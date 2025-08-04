@@ -9,17 +9,21 @@ export class CompileScope {
     private static readonly leaseableRegisters: Register[] = [];
     public static readonly data: string[] = [];
     public static uniqueIdCounter: number = 0;
+    public offset: number;
 
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
         if (!parent) {
             CompileScope.leaseableRegisters.push(...registerOrder);
+            this.offset = 0;
+        } else {
+            this.offset = parent.offset + parent.variables.size * 8; // Assuming 64-bit addressing
         }
     }
 
     public getVariableAddress(name: string): number {
         if (this.variables.has(name)) {
-            return this.variables.get(name)!;
+            return this.variables.get(name)! + this.offset;
         }
 
         if (this.parent) {

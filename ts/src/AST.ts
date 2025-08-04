@@ -6,11 +6,19 @@ import { BooleanToken, IterableResolvable, Register, Token } from './types';
 abstract class ASTStmt {
     type!: Token;
     abstract compile(scope: CompileScope): string[];
+
+    public debugString(): string {
+        return this.type.toString();
+    }
 }
 
 export abstract class ASTExpr {
     type!: Token;
     abstract compile(scope: CompileScope, dst: Register): string[];
+
+    public debugString(): string {
+        return this.type.toString();
+    }
 }
 
 export type Stmt =
@@ -88,8 +96,11 @@ export class Program extends ASTStmt {
             'SECTION .text',
             'main:',
             '\tsub rsp, 40',
+            '\tpush rbp',
+            '\tmov rbp, rsp',
             ...instructions.flatMap((i) => `\t${i}`),
             '\tadd rsp, 40',
+            '\tpop rbp',
             '\txor rcx, rcx',
             '\tcall ExitProcess',
         ];
@@ -129,6 +140,10 @@ export class ASTIdentifier extends ASTExpr {
     public getName(): string {
         return this.name;
     }
+
+    public override debugString(): string {
+        return this.name;
+    }
 }
 
 export class ASTAssign extends ASTExpr {
@@ -144,9 +159,9 @@ export class ASTAssign extends ASTExpr {
     compile(scope: CompileScope, dst: Register): string[] {
         const address = scope.getVariableAddress(this.identifier.getName()) + 8;
         return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
+            `; ${this.identifier.debugString()} = ${this.valueAST.debugString()}`,
             ...this.valueAST.compile(scope, reg),
             `mov [rbp - ${address}], ${reg}`,
-            `mov ${dst}, ${reg}`, // Return the value in the destination register
         ]);
     }
 
@@ -165,16 +180,12 @@ export class ASTDeclaration extends ASTStmt {
     compile(scope: CompileScope): string[] {
         // The allocation is already handled by hoisting in the block scope
         if (this.child.type === Token.IDENTIFIER) {
-            const reg = scope.addVariable(this.child.getName());
+            scope.addVariable(this.child.getName());
             return [];
         }
 
-        const address = scope.addVariable(this.child.getName()) + 8;
-        // const reg = CompileScope.LeaseRegister();
-        return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
-            ...this.child.compile(scope, reg),
-            `mov [rbp - ${address}], ${reg}`,
-        ]);
+        scope.addVariable(this.child.getName());
+        return this.child.compile(scope, Register.R15);
     }
 
     public getName(): string {
@@ -211,20 +222,24 @@ export class ASTBlock extends ASTStmt {
 
     compile(scope: CompileScope): string[] {
         // Alloc stack space for local variables
+
+        const newScope = new CompileScope(scope);
         let instructions: string[] = this.children.flatMap((child) => {
             if (child instanceof ASTStmt) {
-                return child.compile(scope);
+                return child.compile(newScope);
             }
 
-            return child.compile(scope, Register.R15);
+            return child.compile(newScope, Register.R15);
         });
 
-        const numVariables = scope.getNumVariables();
+        const numVariables = newScope.getNumVariables();
         if (numVariables) {
             instructions = [
+                '; {',
                 `sub rsp, ${numVariables * 8}`,
                 ...instructions,
                 `add rsp, ${numVariables * 8}`,
+                '; }',
             ];
         }
 
@@ -270,6 +285,7 @@ export class ASTLessThan extends ASTExpr {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
             return [
+                `; ${this.left.debugString()} < ${this.right.debugString()}`,
                 ...left,
                 ...right,
                 `cmp ${lReg}, ${rReg}`,
@@ -295,6 +311,7 @@ export class ASTLessEq extends ASTExpr {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
             return [
+                `; ${this.left.debugString()} <= ${this.right.debugString()}`,
                 ...left,
                 ...right,
                 `cmp ${lReg}, ${rReg}`,
@@ -395,6 +412,7 @@ export class ASTEqual extends ASTExpr {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
             return [
+                `; ${this.left.debugString()} == ${this.right.debugString()}`,
                 ...left,
                 ...right,
                 `cmp ${lReg}, ${rReg}`,
@@ -467,10 +485,11 @@ export class ASTWhile extends ASTStmt {
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
         return [
+            '; while',
             `loopstart${id}:`,
             ...this.condition.compile(scope, Register.R15),
             `jz loopend${id}`,
-            ...this.block.compile(new CompileScope(scope)),
+            ...this.block.compile(scope),
             `jmp loopstart${id}`,
             `loopend${id}:`,
         ];
@@ -490,17 +509,15 @@ export class ASTFor extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        const newScope = new CompileScope(scope);
-
         const id = CompileScope.GetUniqueId();
         return CompileScope.LeaseRandomRegistersWithScope(
             (reg) => [
-                ...this.init.compile(newScope, reg),
+                ...this.init.compile(scope, reg),
                 `loopstart${id}:`,
-                ...this.condition.compile(newScope, Register.R15),
+                ...this.condition.compile(scope, Register.R15),
                 `jz loopend${id}`,
-                ...this.block.compile(new CompileScope(newScope)),
-                ...this.update.compile(newScope, reg),
+                ...this.block.compile(scope),
+                ...this.update.compile(scope, reg),
                 `jmp loopstart${id}`,
                 `loopend${id}:`,
             ],
@@ -527,17 +544,16 @@ export class ASTIf extends ASTStmt {
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
         const instructions: string[] = [
+            '; if',
             ...this.condition.compile(scope, Register.R15),
             `jz else${id}`,
-            ...this.block.compile(new CompileScope(scope)),
+            ...this.block.compile(scope),
             `jmp endif${id}`,
             `else${id}:`,
         ];
 
         if (this.elseBlock) {
-            instructions.push(
-                ...this.elseBlock.compile(new CompileScope(scope)),
-            );
+            instructions.push(...this.elseBlock.compile(scope));
         }
 
         instructions.push(`endif${id}:`);
@@ -660,6 +676,7 @@ export class ASTAdd extends ASTExpr {
 
     compile(scope: CompileScope, dst: Register): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
+            `; ${this.left.debugString()} + ${this.right.debugString()}`,
             ...this.left.compile(scope, dst),
             ...this.right.compile(scope, rReg),
             `add ${dst}, ${rReg}`,
@@ -794,6 +811,7 @@ export class ASTMod extends ASTExpr {
 
             return CompileScope.LeaseRegistersWithScope(
                 (rax, rdx) => [
+                    `; ${this.left.debugString()} % ${this.right.debugString()}`,
                     ...leftInstructions,
                     ...rightInstructions,
                     `mov ${rax}, ${lReg}`,
@@ -821,6 +839,10 @@ export class ASTNumber extends ASTExpr {
 
     public getValue(): number {
         return this.value;
+    }
+
+    public override debugString(): string {
+        return this.value.toString();
     }
 }
 
