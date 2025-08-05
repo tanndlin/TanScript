@@ -1,3 +1,4 @@
+import { CompilerError } from '../errors';
 import { Register } from '../types';
 import { registerOrder } from '../util';
 
@@ -5,8 +6,8 @@ export class CompileScope {
     // Map of name to address
     private parent: CompileScope | null = null;
     private variables: Map<string, number> = new Map();
-    private static readonly registersUsed: Set<Register> = new Set();
-    private static readonly leaseableRegisters: Register[] = [];
+    private static readonly registers: Map<Register, boolean> = new Map();
+    private static readonly priorityRegistersUsed: Set<Register> = new Set();
     public static readonly data: string[] = [];
     public static uniqueIdCounter: number = 0;
     public offset: number;
@@ -14,7 +15,9 @@ export class CompileScope {
     constructor(parent: CompileScope | null = null) {
         this.parent = parent;
         if (!parent) {
-            CompileScope.leaseableRegisters.push(...registerOrder);
+            registerOrder.forEach((reg) =>
+                CompileScope.registers.set(reg, false),
+            );
             this.offset = 0;
         } else {
             this.offset = parent.offset + parent.variables.size * 8; // Assuming 64-bit addressing
@@ -48,28 +51,41 @@ export class CompileScope {
     }
 
     private static LeaseRegister(req?: Register): Register {
-        if (req) {
-            if (CompileScope.registersUsed.has(req)) {
-                throw new Error(
-                    `Attempted to lease allocated register (reg: ${req})`,
+        if (!req) {
+            return CompileScope.LeaseRandomRegister();
+        }
+
+        // Check the list of non-allocatable registers
+        if (!CompileScope.registers.has(req)) {
+            if (CompileScope.priorityRegistersUsed.has(req)) {
+                throw new CompilerError(
+                    `Attempted to lease non-allocatable register (reg: ${req})`,
                 );
             }
 
-            CompileScope.registersUsed.add(req);
-            const index = CompileScope.leaseableRegisters.indexOf(req);
-            if (index !== -1) {
-                CompileScope.leaseableRegisters.splice(index, 1);
-            }
+            CompileScope.priorityRegistersUsed.add(req);
             return req;
         }
 
-        if (CompileScope.leaseableRegisters.length === 0) {
+        if (CompileScope.registers.get(req)) {
+            throw new Error(
+                `Attempted to lease allocated register (reg: ${req})`,
+            );
+        }
+
+        CompileScope.registers.set(req, true);
+        return req;
+    }
+
+    private static LeaseRandomRegister(): Register {
+        const reg = CompileScope.registers.entries().find(([_, used]) => !used);
+
+        if (!reg) {
             throw new Error('All registers leased');
         }
 
-        const reg = CompileScope.leaseableRegisters.shift()!;
-        CompileScope.registersUsed.add(reg);
-        return reg;
+        CompileScope.registers.set(reg[0], true);
+        return reg[0];
     }
 
     private static LeaseRegisters(registers: Register[]): Register[] {
@@ -85,10 +101,10 @@ export class CompileScope {
     public static ReleaseRegister(...registers: Register[]): void {
         for (const reg of registers) {
             if (registerOrder.includes(reg)) {
-                CompileScope.leaseableRegisters.push(reg);
+                CompileScope.registers.set(reg, false);
+            } else {
+                this.priorityRegistersUsed.delete(reg);
             }
-
-            CompileScope.registersUsed.delete(reg);
         }
     }
 

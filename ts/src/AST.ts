@@ -484,15 +484,19 @@ export class ASTWhile extends ASTStmt {
 
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
-        return [
-            '; while',
-            `loopstart${id}:`,
-            ...this.condition.compile(scope, Register.R15),
-            `jz loopend${id}`,
-            ...this.block.compile(scope),
-            `jmp loopstart${id}`,
-            `loopend${id}:`,
-        ];
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
+                '; while',
+                `loopstart${id}:`,
+                ...this.condition.compile(scope, reg),
+                `test ${reg}, ${reg}`,
+                `jz loopend${id}`,
+                ...this.block.compile(scope),
+                `jmp loopstart${id}`,
+                `loopend${id}:`,
+            ],
+            1,
+        );
     }
 }
 
@@ -511,17 +515,18 @@ export class ASTFor extends ASTStmt {
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
         return CompileScope.LeaseRandomRegistersWithScope(
-            (reg) => [
+            (reg, cmp) => [
                 ...this.init.compile(scope, reg),
                 `loopstart${id}:`,
-                ...this.condition.compile(scope, Register.R15),
+                ...this.condition.compile(scope, cmp),
+                `test ${cmp}, ${cmp}`,
                 `jz loopend${id}`,
                 ...this.block.compile(scope),
                 ...this.update.compile(scope, reg),
                 `jmp loopstart${id}`,
                 `loopend${id}:`,
             ],
-            1,
+            2,
         );
     }
 }
@@ -543,21 +548,25 @@ export class ASTIf extends ASTStmt {
 
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
-        const instructions: string[] = [
-            '; if',
-            ...this.condition.compile(scope, Register.R15),
-            `jz else${id}`,
-            ...this.block.compile(scope),
-            `jmp endif${id}`,
-            `else${id}:`,
-        ];
 
-        if (this.elseBlock) {
-            instructions.push(...this.elseBlock.compile(scope));
-        }
+        return CompileScope.LeaseRandomRegistersWithScope((reg) => {
+            const instructions: string[] = [
+                '; if',
+                ...this.condition.compile(scope, reg),
+                `test ${reg}, ${reg}`,
+                `jz else${id}`,
+                ...this.block.compile(scope),
+                `jmp endif${id}`,
+                `else${id}:`,
+            ];
 
-        instructions.push(`endif${id}:`);
-        return instructions;
+            if (this.elseBlock) {
+                instructions.push(...this.elseBlock.compile(scope));
+            }
+
+            instructions.push(`endif${id}:`);
+            return instructions;
+        }, 1);
     }
 }
 
