@@ -4,6 +4,8 @@ asm:
     nasm -f win64 asm/script.asm -o script.o
     gcc script.o -o script
     script.exe
+    del script.exe
+    del script.o
 
 watch:
-    nodemon -e cpp,h,obj,mtl -x "just asm"
+    nodemon -e asm -x "just asm"

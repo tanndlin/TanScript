@@ -30,5 +30,8 @@ describe('Basic Math Compilation', () => {
         execSync('gcc test.o -o test');
         const output = execFileSync('./test', { encoding: 'utf8' });
         expect(output.trim()).toBe(expectedOutput.toString());
+
+        execSync('del test.o');
+        execSync('del test');
     });
 });

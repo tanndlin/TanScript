@@ -84,6 +84,15 @@ export class Program extends ASTStmt {
         const globalScope = new CompileScope();
 
         const instructions = this.root.compile(globalScope);
+        const functions: string[] = globalScope
+            .getFunctions()
+            .map((func) =>
+                [
+                    `${func.name}:`,
+                    ...func.instructions.map((i) => `\t${i}`),
+                    '\tret',
+                ].join('\n'),
+            );
 
         return [
             'BITS 64',
@@ -91,9 +100,10 @@ export class Program extends ASTStmt {
             'global main',
             'extern printf',
             'extern ExitProcess',
-            'SECTION .data',
+            '\nSECTION .data',
             CompileScope.data.join('\n'),
-            'SECTION .text',
+            'SECTION .text\n',
+            functions.join('\n'),
             'main:',
             '\tsub rsp, 40',
             '\tpush rbp',
@@ -109,7 +119,7 @@ export class Program extends ASTStmt {
 
 export abstract class ASTDecorator extends ASTExpr {
     compile(_scope: CompileScope): string[] {
-        return [];
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -146,7 +156,7 @@ export class ASTIdentifier extends ASTExpr {
     }
 }
 
-export class ASTAssign extends ASTExpr {
+export class ASTAssign extends ASTStmt {
     type: Token.ASSIGN = Token.ASSIGN;
 
     constructor(
@@ -156,7 +166,7 @@ export class ASTAssign extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope): string[] {
         const address = scope.getVariableAddress(this.identifier.getName()) + 8;
         return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
             `; ${this.identifier.debugString()} = ${this.valueAST.debugString()}`,
@@ -185,7 +195,7 @@ export class ASTDeclaration extends ASTStmt {
         }
 
         scope.addVariable(this.child.getName());
-        return this.child.compile(scope, Register.R15);
+        return this.child.compile(scope);
     }
 
     public getName(): string {
@@ -201,7 +211,7 @@ export class ASTString extends ASTExpr {
     }
 
     compile(_scope: CompileScope): string[] {
-        return [];
+        throw new NotImplementedError('Method not implemented.');
     }
 
     public getValue(): string {
@@ -256,7 +266,7 @@ export class ASTBoolean extends ASTExpr {
     }
 
     compile(_scope: CompileScope): string[] {
-        return [];
+        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -570,7 +580,7 @@ export class ASTIf extends ASTStmt {
     }
 }
 
-export class ASTFunctionDef extends ASTExpr {
+export class ASTFunctionDef extends ASTStmt {
     public type: Token.FUNCTION = Token.FUNCTION;
 
     constructor(
@@ -587,7 +597,20 @@ export class ASTFunctionDef extends ASTExpr {
         return this.paramList;
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope): string[] {
+        const newScope = new CompileScope(scope);
+        this.paramList.forEach((param) => {
+            newScope.addVariable(param.getName());
+        });
+
+        const instructions = this.block.compile(newScope);
+
+        scope.addFunction({
+            name: this.name,
+            numParams: this.paramList.length,
+            instructions,
+        });
+
         return [];
     }
 }
@@ -607,8 +630,57 @@ export class ASTFunctionCall extends ASTExpr {
             return printf(scope, this.args);
         }
 
-        throw new NotImplementedError(
-            `Custom function calls not implemented: ${this.name}`,
+        const functionDef = scope.getFunction(this.name);
+        if (!functionDef) {
+            throw new Error(`Function ${this.name} not defined`);
+        }
+
+        if (functionDef.numParams !== this.args.length) {
+            throw new Error(
+                `Function ${this.name} expects ${functionDef.numParams} parameters, but got ${this.args.length}`,
+            );
+        }
+
+        return CompileScope.LeaseRegistersWithScope(
+            (...regs: Register[]) => {
+                return CompileScope.LeaseRandomRegistersWithScope((reg) => {
+                    const instructions: string[] = ['sub rsp, 32'];
+                    for (let i = 0; i < Math.min(this.args.length, 4); i++) {
+                        instructions.push(
+                            ...this.args[i].compile(scope, reg),
+                            `mov ${regs[i]}, ${reg}`,
+                        );
+                    }
+
+                    if (this.args.length > 4) {
+                        instructions.push(
+                            `sub rsp, ${(this.args.length - 4) * 8}`,
+                        );
+                        for (let i = this.args.length; i >= 4; i++) {
+                            instructions.push(
+                                ...this.args[i].compile(scope, reg),
+                                `mov [rsp + ${(i - 4) * 8}], ${reg}`,
+                            );
+                        }
+                    }
+
+                    instructions.push(`call ${this.name}`);
+                    instructions.push(`mov ${dst}, rax`); // Assuming the return value is in RAX
+                    if (this.args.length > 4) {
+                        instructions.push(
+                            `add rsp, ${(this.args.length - 4) * 8}`,
+                        ); // Clean up the stack
+                    }
+
+                    instructions.push('add rsp, 32'); // Clean up the stack
+                    return instructions;
+                }, 1);
+            },
+            Register.RAX,
+            Register.RCX,
+            Register.RDX,
+            Register.R8,
+            Register.R9,
         );
     }
 
@@ -625,7 +697,10 @@ export class ASTReturn extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        return [];
+        return [
+            `; return ${this.valueAST.debugString()}`,
+            ...this.valueAST.compile(scope, Register.RAX),
+        ];
     }
 }
 

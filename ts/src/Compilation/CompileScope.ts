@@ -1,11 +1,12 @@
 import { CompilerError } from '../errors';
-import { Register } from '../types';
+import { FunctionDef, Register } from '../types';
 import { registerOrder } from '../util';
 
 export class CompileScope {
     // Map of name to address
     private parent: CompileScope | null = null;
     private variables: Map<string, number> = new Map();
+    private functions: Map<string, FunctionDef> = new Map();
     private static readonly registers: Map<Register, boolean> = new Map();
     private static readonly priorityRegistersUsed: Set<Register> = new Set();
     public static readonly data: string[] = [];
@@ -48,6 +49,27 @@ export class CompileScope {
 
     public getNumVariables(): number {
         return this.variables.size;
+    }
+
+    public addFunction(def: FunctionDef) {
+        const global = this.getGlobalScope();
+        global.functions.set(def.name, def);
+    }
+
+    public getFunction(name: string): FunctionDef | undefined {
+        return this.getGlobalScope().functions.get(name);
+    }
+
+    public getFunctions(): FunctionDef[] {
+        return Array.from(this.getGlobalScope().functions.values());
+    }
+
+    private getGlobalScope(): CompileScope {
+        if (this.parent === null) {
+            return this;
+        }
+
+        return this.parent.getGlobalScope();
     }
 
     private static LeaseRegister(req?: Register): Register {

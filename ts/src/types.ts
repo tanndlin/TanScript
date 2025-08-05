@@ -155,3 +155,9 @@ export class LexerToken implements TokenTypeable {
 
 export type Maybe<T> = T | null | undefined;
 export type IterableResolvable = AST.ASTIterable | AST.ASTIdentifier;
+
+export type FunctionDef = {
+    name: string;
+    numParams: number;
+    instructions: string[];
+};
