@@ -58,7 +58,7 @@ export class CompileScope {
             return reg;
         }
 
-        const address = this.variables.size * 8; // Assuming 64-bit addressing
+        const address = (this.variables.size + 1) * 8; // Assuming 64-bit addressing; + 1 because rbp + 0 is old rbp
         this.variables.set(name, address);
         return address;
     }
@@ -88,7 +88,7 @@ export class CompileScope {
         return this.parent.getGlobalScope();
     }
 
-    private static LeaseRegister(req?: Register): Register {
+    public static LeaseRegister(req?: Register): Register {
         if (!req) {
             return CompileScope.LeaseRandomRegister();
         }

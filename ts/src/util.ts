@@ -108,14 +108,14 @@ export function addressIsRegister(address: Address): address is Register {
     return typeof address === 'string';
 }
 
-export function addressToASM(address: Address, offset?: number): string {
+export function addressToASM(address: Address): string {
     if (addressIsRegister(address)) {
         return address;
     }
 
     if (address >= 0) {
-        return `[rbp - ${address + (offset ?? 0)}]`;
+        return `[rbp - ${address}]`;
     }
 
-    return `[rbp + ${-address + (offset ?? 0)}]`;
+    return `[rbp + ${-address}]`;
 }

@@ -1,8 +1,14 @@
 import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
 import { NotImplementedError } from './errors';
-import { BooleanToken, IterableResolvable, Register, Token } from './types';
-import { addressToASM } from './util';
+import {
+    Address,
+    BooleanToken,
+    IterableResolvable,
+    Register,
+    Token,
+} from './types';
+import { addressIsRegister, addressToASM } from './util';
 
 abstract class ASTStmt {
     type!: Token;
@@ -15,7 +21,7 @@ abstract class ASTStmt {
 
 export abstract class ASTExpr {
     type!: Token;
-    abstract compile(scope: CompileScope, dst: Register): string[];
+    abstract compile(scope: CompileScope, dst: Address): string[];
 
     public debugString(): string {
         return this.type.toString();
@@ -125,7 +131,7 @@ export class ASTLParen extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return this.child.compile(scope, dst);
     }
 }
@@ -137,10 +143,21 @@ export class ASTIdentifier extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         const address = scope.getVariableAddress(this.name);
-        const asmAddress = addressToASM(address, 8);
-        return [`mov ${dst}, ${asmAddress}`];
+        const asmAddress = addressToASM(address);
+        if (addressIsRegister(dst)) {
+            return [`mov ${dst}, ${asmAddress}`];
+        }
+
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
+                `; load ${this.name}`,
+                `mov ${addressToASM(reg)}, ${asmAddress}`,
+                `mov ${addressToASM(dst)}, ${reg}`,
+            ],
+            1,
+        );
     }
 
     public getName(): string {
@@ -167,8 +184,7 @@ export class ASTAssign extends ASTStmt {
 
         return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
             `; ${this.identifier.debugString()} = ${this.valueAST.debugString()}`,
-            ...this.valueAST.compile(scope, reg),
-            `mov ${addressToASM(address, 8)}, ${reg}`,
+            ...this.valueAST.compile(scope, address),
         ]);
     }
 
@@ -287,7 +303,13 @@ export class ASTLessThan extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -313,7 +335,13 @@ export class ASTLessEq extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -339,7 +367,13 @@ export class ASTGreaterThan extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -364,7 +398,13 @@ export class ASTGreaterEq extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -389,7 +429,13 @@ export class ASTNotEqual extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -414,7 +460,13 @@ export class ASTEqual extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
+        if (!addressIsRegister(dst)) {
+            throw new Error(
+                `Destination address must be a register, got ${dst}`,
+            );
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const left = this.left.compile(scope, lReg);
             const right = this.right.compile(scope, rReg);
@@ -440,7 +492,7 @@ export class ASTAnd extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         const left = this.left.compile(scope, dst);
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
             const right = this.right.compile(scope, rReg);
@@ -459,7 +511,7 @@ export class ASTOr extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         const left = this.left.compile(scope, dst);
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
             const right = this.right.compile(scope, rReg);
@@ -474,7 +526,7 @@ export class ASTNot extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return [...this.child.compile(scope, dst), `NOT ${dst}`];
     }
 }
@@ -640,7 +692,7 @@ export class ASTFunctionCall extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         if (this.name === 'print') {
             return printf(scope, this.args);
         }
@@ -668,7 +720,7 @@ export class ASTFunctionCall extends ASTExpr {
                     for (let i = 0; i < Math.min(this.args.length, 4); i++) {
                         instructions.push(
                             ...this.args[i].compile(scope, reg),
-                            `mov ${regs[i]}, ${reg}`,
+                            `mov ${addressToASM(regs[i])}, ${reg}`,
                         );
                     }
 
@@ -684,8 +736,12 @@ export class ASTFunctionCall extends ASTExpr {
                         }
                     }
 
+                    CompileScope.LeaseRegister(Register.RAX);
                     instructions.push(`call ${this.name}`);
-                    instructions.push(`mov ${dst}, rax`); // Assuming the return value is in RAX
+                    instructions.push(
+                        `mov ${addressToASM(dst)}, ${Register.RAX}`,
+                    ); // Assuming the return value is in RAX
+                    CompileScope.ReleaseRegister(Register.RAX);
                     if (this.args.length > 4) {
                         instructions.push(
                             `add rsp, ${(this.args.length - 4) * 8}`,
@@ -777,12 +833,12 @@ export class ASTAdd extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
             `; ${this.left.debugString()} + ${this.right.debugString()}`,
             ...this.left.compile(scope, dst),
             ...this.right.compile(scope, rReg),
-            `add ${dst}, ${rReg}`,
+            `add ${addressToASM(dst)}, ${rReg}`,
         ]);
     }
 }
@@ -797,11 +853,11 @@ export class ASTSubtract extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
             ...this.left.compile(scope, dst),
             ...this.right.compile(scope, rReg),
-            `sub ${dst}, ${rReg}`,
+            `sub ${addressToASM(dst)}, ${rReg}`,
         ]);
     }
 }
@@ -816,7 +872,7 @@ export class ASTMultiply extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const leftInstructions = this.left.compile(scope, lReg);
             const rightInstructions = this.right.compile(scope, rReg);
@@ -825,9 +881,9 @@ export class ASTMultiply extends ASTExpr {
                 (rax: Register) => [
                     ...leftInstructions,
                     ...rightInstructions,
-                    `mov ${rax}, ${lReg}`,
+                    `mov ${addressToASM(rax)}, ${lReg}`,
                     `mul ${rReg}`,
-                    `mov ${dst}, ${rax}`,
+                    `mov ${addressToASM(dst)}, ${rax}`,
                 ],
                 Register.RAX,
             );
@@ -845,7 +901,7 @@ export class ASTDivide extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const leftInstructions = this.left.compile(scope, lReg);
             const rightInstructions = this.right.compile(scope, rReg);
@@ -854,10 +910,10 @@ export class ASTDivide extends ASTExpr {
                 (rax, rdx) => [
                     ...leftInstructions,
                     ...rightInstructions,
-                    `mov ${rax}, ${lReg}`,
+                    `mov ${addressToASM(rax)}, ${lReg}`,
                     `xor ${rdx}, ${rdx}`, // Clear RDX for division
                     `div ${rReg}`,
-                    `mov ${dst}, ${rax}`,
+                    `mov ${addressToASM(dst)}, ${rax}`,
                 ],
                 Register.RAX,
                 Register.RDX,
@@ -876,7 +932,7 @@ export class ASTIntegerDivide extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const leftInstructions = this.left.compile(scope, lReg);
             const rightInstructions = this.right.compile(scope, rReg);
@@ -885,10 +941,10 @@ export class ASTIntegerDivide extends ASTExpr {
                 (rax, rdx) => [
                     ...leftInstructions,
                     ...rightInstructions,
-                    `mov ${rax}, ${lReg}`,
+                    `mov ${addressToASM(rax)}, ${lReg}`,
                     `xor ${rdx}, ${rdx}'`, // Clear RDX for division
                     `div ${rReg}`,
-                    `mov ${dst}, ${rax}`,
+                    `mov ${addressToASM(dst)}, ${rax}`,
                 ],
                 Register.RAX,
                 Register.RDX,
@@ -907,7 +963,7 @@ export class ASTMod extends ASTExpr {
         super();
     }
 
-    compile(scope: CompileScope, dst: Register): string[] {
+    compile(scope: CompileScope, dst: Address): string[] {
         return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
             const leftInstructions = this.left.compile(scope, lReg);
             const rightInstructions = this.right.compile(scope, rReg);
@@ -917,10 +973,10 @@ export class ASTMod extends ASTExpr {
                     `; ${this.left.debugString()} % ${this.right.debugString()}`,
                     ...leftInstructions,
                     ...rightInstructions,
-                    `mov ${rax}, ${lReg}`,
+                    `mov ${addressToASM(rax)}, ${lReg}`,
                     `xor ${rdx}, ${rdx}`, // Clear RDX for division
                     `div ${rReg}`,
-                    `mov ${dst}, ${rdx}`, // RDX contains the remainder
+                    `mov ${addressToASM(dst)}, ${rdx}`, // RDX contains the remainder
                 ],
                 Register.RAX,
                 Register.RDX,
@@ -936,8 +992,8 @@ export class ASTNumber extends ASTExpr {
         super();
     }
 
-    compile(_scope: CompileScope, dst: Register): string[] {
-        return [`mov ${dst}, ${this.value}`];
+    compile(_scope: CompileScope, dst: Address): string[] {
+        return [`mov QWORD ${addressToASM(dst)}, ${this.value}`];
     }
 
     public getValue(): number {
