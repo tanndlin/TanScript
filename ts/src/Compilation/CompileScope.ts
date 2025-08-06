@@ -1,11 +1,11 @@
 import { CompilerError } from '../errors';
-import { FunctionDef, Register } from '../types';
-import { registerOrder } from '../util';
+import { Address, FunctionDef, Register } from '../types';
+import { addressIsRegister, registerOrder } from '../util';
 
 export class CompileScope {
     // Map of name to address
     private parent: CompileScope | null = null;
-    private variables: Map<string, number> = new Map();
+    private variables: Map<string, Address> = new Map();
     private functions: Map<string, FunctionDef> = new Map();
     private static readonly registers: Map<Register, boolean> = new Map();
     private static readonly priorityRegistersUsed: Set<Register> = new Set();
@@ -25,9 +25,15 @@ export class CompileScope {
         }
     }
 
-    public getVariableAddress(name: string): number {
+    public getVariableAddress(name: string): Address {
         if (this.variables.has(name)) {
-            return this.variables.get(name)! + this.offset;
+            const address = this.variables.get(name)!;
+
+            if (typeof address === 'string') {
+                return address;
+            }
+
+            return address + this.offset;
         }
 
         if (this.parent) {
@@ -37,9 +43,19 @@ export class CompileScope {
         throw new Error(`Variable ${name} not found`);
     }
 
-    public addVariable(name: string): number {
+    public addVariable(name: string, reg?: Address): Address {
         if (this.variables.has(name)) {
             throw new Error(`Variable ${name} already exists`);
+        }
+
+        if (reg) {
+            if (addressIsRegister(reg)) {
+                this.variables.set(name, reg);
+                return reg;
+            }
+
+            this.variables.set(name, reg);
+            return reg;
         }
 
         const address = this.variables.size * 8; // Assuming 64-bit addressing

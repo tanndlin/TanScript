@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import * as AST from './AST';
 import { LexerError } from './errors';
-import { Register, Token } from './types';
+import { Address, Register, Token } from './types';
 
 export const readScript = (fileName: string): string => {
     const script = readFileSync(fileName, 'utf8');
@@ -102,4 +102,20 @@ export function isComparisonType(ast: AST.Expr): ast is AST.ASTComparisonType {
         ast instanceof AST.ASTAnd ||
         ast instanceof AST.ASTOr
     );
+}
+
+export function addressIsRegister(address: Address): address is Register {
+    return typeof address === 'string';
+}
+
+export function addressToASM(address: Address, offset?: number): string {
+    if (addressIsRegister(address)) {
+        return address;
+    }
+
+    if (address >= 0) {
+        return `[rbp - ${address + (offset ?? 0)}]`;
+    }
+
+    return `[rbp + ${-address + (offset ?? 0)}]`;
 }

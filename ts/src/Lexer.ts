@@ -54,6 +54,18 @@ class Lexer {
             return this.getNextToken();
         }
 
+        if (char === '#') {
+            // Skip comments
+            while (
+                this.pos < this.script.length &&
+                this.script[this.pos] !== '\n'
+            ) {
+                this.pos++;
+            }
+
+            return this.getNextToken();
+        }
+
         const tokenType = valueToToken(char);
         switch (tokenType) {
             case Token.NUMBER:

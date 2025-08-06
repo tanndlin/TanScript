@@ -2,6 +2,7 @@ import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
 import { NotImplementedError } from './errors';
 import { BooleanToken, IterableResolvable, Register, Token } from './types';
+import { addressToASM } from './util';
 
 abstract class ASTStmt {
     type!: Token;
@@ -86,13 +87,7 @@ export class Program extends ASTStmt {
         const instructions = this.root.compile(globalScope);
         const functions: string[] = globalScope
             .getFunctions()
-            .map((func) =>
-                [
-                    `${func.name}:`,
-                    ...func.instructions.map((i) => `\t${i}`),
-                    '\tret',
-                ].join('\n'),
-            );
+            .map((func) => func.instructions.join('\n'));
 
         return [
             'BITS 64',
@@ -103,8 +98,8 @@ export class Program extends ASTStmt {
             '\nSECTION .data',
             CompileScope.data.join('\n'),
             'SECTION .text\n',
-            functions.join('\n'),
-            'main:',
+            functions.join('\n\n'),
+            '\nmain:',
             '\tsub rsp, 40',
             '\tpush rbp',
             '\tmov rbp, rsp',
@@ -143,8 +138,9 @@ export class ASTIdentifier extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Register): string[] {
-        const address = scope.getVariableAddress(this.name) + 8;
-        return [`mov ${dst}, [rbp - ${address}]`];
+        const address = scope.getVariableAddress(this.name);
+        const asmAddress = addressToASM(address, 8);
+        return [`mov ${dst}, ${asmAddress}`];
     }
 
     public getName(): string {
@@ -167,11 +163,12 @@ export class ASTAssign extends ASTStmt {
     }
 
     compile(scope: CompileScope): string[] {
-        const address = scope.getVariableAddress(this.identifier.getName()) + 8;
+        const address = scope.getVariableAddress(this.identifier.getName());
+
         return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
             `; ${this.identifier.debugString()} = ${this.valueAST.debugString()}`,
             ...this.valueAST.compile(scope, reg),
-            `mov [rbp - ${address}], ${reg}`,
+            `mov ${addressToASM(address, 8)}, ${reg}`,
         ]);
     }
 
@@ -599,11 +596,29 @@ export class ASTFunctionDef extends ASTStmt {
 
     compile(scope: CompileScope): string[] {
         const newScope = new CompileScope(scope);
-        this.paramList.forEach((param) => {
-            newScope.addVariable(param.getName());
+        const registers = [
+            Register.RCX,
+            Register.RDX,
+            Register.R8,
+            Register.R9,
+        ];
+        this.paramList.forEach((param, index) => {
+            if (index < 4) {
+                newScope.addVariable(param.getName(), registers[index]);
+                return;
+            }
+
+            newScope.addVariable(param.getName(), -40 - (index - 4) * 8);
         });
 
-        const instructions = this.block.compile(newScope);
+        const instructions = [
+            `${this.name}:`,
+            '\tpush rbp',
+            '\tmov rbp, rsp',
+            ...this.block.compile(newScope).map((i) => `\t${i}`),
+            '\tpop rbp',
+            '\tret',
+        ];
 
         scope.addFunction({
             name: this.name,
@@ -644,7 +659,12 @@ export class ASTFunctionCall extends ASTExpr {
         return CompileScope.LeaseRegistersWithScope(
             (...regs: Register[]) => {
                 return CompileScope.LeaseRandomRegistersWithScope((reg) => {
-                    const instructions: string[] = ['sub rsp, 32'];
+                    const instructions: string[] = [
+                        `; call ${this.name}(${this.args
+                            .map((a) => a.debugString())
+                            .join(', ')})`,
+                        'sub rsp, 32',
+                    ];
                     for (let i = 0; i < Math.min(this.args.length, 4); i++) {
                         instructions.push(
                             ...this.args[i].compile(scope, reg),
@@ -656,10 +676,10 @@ export class ASTFunctionCall extends ASTExpr {
                         instructions.push(
                             `sub rsp, ${(this.args.length - 4) * 8}`,
                         );
-                        for (let i = this.args.length; i >= 4; i++) {
+                        for (let i = this.args.length - 1; i >= 4; i--) {
                             instructions.push(
                                 ...this.args[i].compile(scope, reg),
-                                `mov [rsp + ${(i - 4) * 8}], ${reg}`,
+                                `mov [rsp + ${(i - 4) * 8 + 32}], ${reg}`, // 32 to be above the shadow space
                             );
                         }
                     }
@@ -676,7 +696,6 @@ export class ASTFunctionCall extends ASTExpr {
                     return instructions;
                 }, 1);
             },
-            Register.RAX,
             Register.RCX,
             Register.RDX,
             Register.R8,

@@ -120,6 +120,8 @@ export enum Register {
     EAX = 'eax',
 }
 
+export type Address = number | Register;
+
 export interface TokenTypeable {
     isType(type: Token): boolean;
     isOneOf(...types: Token[]): boolean;
