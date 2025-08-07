@@ -315,8 +315,8 @@ export default class Parser {
                 return this.parseFunctionCall(consumedToken);
             }
 
-            if (this.tokens[this.pos].isType(Token.PERIOD)) {
-                return this.parseObjectAccess(consumedToken);
+            if (this.tokens[this.pos].isType(Token.LBRACKET)) {
+                return this.parseArrayAccess(consumedToken);
             }
 
             return new AST.ASTIdentifier(consumedToken.getValue());
@@ -331,46 +331,11 @@ export default class Parser {
             return this.parseNot(consumedToken);
         }
 
-        if (consumedToken.isType(Token.LCURLY)) {
-            return this.parseObject(consumedToken);
-        }
-
         if (consumedToken.isType(Token.STRING)) {
             return new AST.ASTString(consumedToken.getValue());
         }
 
         return new AST.ASTNumber(+consumedToken.getValue());
-    }
-
-    parseObjectAccess(identToken: LexerToken) {
-        const identAST = new AST.ASTIdentifier(identToken.getValue());
-        this.consumeToken(Token.PERIOD);
-
-        const key = this.consumeToken(Token.IDENTIFIER);
-        const attributeIdent = new AST.ASTIdentifier(key.getValue());
-        return new AST.ObjectAccessAST(identAST, attributeIdent);
-    }
-
-    parseObject(consumedToken?: LexerToken) {
-        if (!consumedToken) {
-            consumedToken = this.consumeToken(Token.LCURLY);
-        }
-
-        const attributes: AST.ASTAttribute[] = [];
-        while (this.tokens[this.pos].getType() !== Token.RCURLY) {
-            const key = this.consumeToken(Token.IDENTIFIER);
-            this.consumeToken(Token.COLON);
-
-            const value = this.parseNext() as AST.Expr;
-            attributes.push(new AST.ASTAttribute(key.getValue(), value));
-
-            if (this.tokens[this.pos].isType(Token.COMMA)) {
-                this.consumeToken(Token.COMMA);
-            }
-        }
-
-        this.consumeToken(Token.RCURLY);
-        return new AST.ASTObject(attributes);
     }
 
     parseLParen(): AST.ASTLParen {

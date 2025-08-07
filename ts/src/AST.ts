@@ -50,9 +50,6 @@ export type Expr =
     | ASTFunctionDef
     | ASTFunctionCall
     | ASTNumber
-    | ASTObject
-    | ASTAttribute
-    | ObjectAccessAST
     | ASTArrayAccess;
 
 export type AnyAST = Stmt | Expr;
@@ -176,28 +173,21 @@ export class ASTAssign extends ASTStmt {
     compile(scope: CompileScope): string[] {
         if (this.lValue.type === Token.LBRACKET) {
             const address = scope.getVariableAddress(this.lValue.getName());
-            return CompileScope.LeaseRegistersWithScope(
-                (rax) =>
-                    CompileScope.LeaseRandomRegistersWithScope(
-                        (reg, idx, ptr) => [
-                            `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
-                            ...this.valueAST.compile(scope, reg),
-                            '; get ptr',
-                            `mov ${ptr}, ${addressToASM(address)}`,
-                            '; store index',
-                            ...(this.lValue as ASTArrayAccess).index.compile(
-                                scope,
-                                rax,
-                            ),
-                            `mov ${idx}, 8`, // Assuming 64-bit addressing
-                            `mul ${idx}`,
-                            '; add index from base address',
-                            `add ${ptr}, ${rax}`, // Assuming 64-bit addressing
-                            `mov [${ptr}], ${reg}`,
-                        ],
-                        3,
+
+            return CompileScope.LeaseRandomRegistersWithScope(
+                (reg, ptr) => [
+                    `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
+                    ...this.valueAST.compile(scope, reg),
+                    '; store index',
+                    ...(this.lValue as ASTArrayAccess).index.compile(
+                        scope,
+                        ptr,
                     ),
-                Register.RAX,
+                    `imul ${ptr}, ${ptr}, 8`,
+                    `add ${ptr}, ${addressToASM(address)}`,
+                    `mov [${ptr}], ${reg}`,
+                ],
+                2,
             );
         }
 
@@ -858,21 +848,14 @@ export class ASTMultiply extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const leftInstructions = this.left.compile(scope, lReg);
-            const rightInstructions = this.right.compile(scope, rReg);
-
-            return CompileScope.LeaseRegistersWithScope(
-                (rax: Register) => [
-                    ...leftInstructions,
-                    ...rightInstructions,
-                    `mov ${addressToASM(rax)}, ${lReg}`,
-                    `mul ${rReg}`,
-                    `mov ${addressToASM(dst)}, ${rax}`,
-                ],
-                Register.RAX,
-            );
-        }, 2);
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
+                ...this.left.compile(scope, dst),
+                ...this.right.compile(scope, reg),
+                `imul ${dst}, ${reg}`,
+            ],
+            1,
+        );
     }
 }
 
@@ -990,51 +973,6 @@ export class ASTNumber extends ASTExpr {
     }
 }
 
-export class ASTObject extends ASTExpr {
-    public type: Token.LCURLY = Token.LCURLY;
-
-    constructor(public attributes: ASTAttribute[]) {
-        super();
-    }
-
-    compile(_scope: CompileScope): never {
-        throw new NotImplementedError('Method not implemented.');
-    }
-}
-
-export class ASTAttribute extends ASTExpr {
-    type: Token.PERIOD = Token.PERIOD;
-
-    constructor(
-        private name: string,
-        public valueAST: Expr,
-    ) {
-        super();
-    }
-
-    compile(_scope: CompileScope): never {
-        throw new NotImplementedError('Method not implemented.');
-    }
-
-    public getName(): string {
-        return this.name;
-    }
-}
-
-export class ObjectAccessAST extends ASTExpr {
-    public type: Token.IDENTIFIER = Token.IDENTIFIER;
-    constructor(
-        public objIdentifier: ASTIdentifier,
-        public attribute: ASTIdentifier,
-    ) {
-        super();
-    }
-
-    compile(_scope: CompileScope): never {
-        throw new NotImplementedError('Method not implemented.');
-    }
-}
-
 export class ASTArrayAccess extends ASTExpr {
     public type: Token.LBRACKET = Token.LBRACKET;
 
@@ -1048,24 +986,15 @@ export class ASTArrayAccess extends ASTExpr {
     compile(scope: CompileScope, dst: Address): string[] {
         const address = scope.getVariableAddress(this.array.getName());
         if (addressIsRegister(dst)) {
-            return CompileScope.LeaseRegistersWithScope(
-                (rax) =>
-                    CompileScope.LeaseRandomRegistersWithScope(
-                        (idx, ptr) => [
-                            `; ${this.array.debugString()}[${this.index.debugString()}]`,
-                            '; store address',
-                            `mov ${ptr}, ${addressToASM(address)}`,
-                            '; store index',
-                            ...this.index.compile(scope, rax),
-                            `mov ${idx}, 8`,
-                            `mul ${idx}`, // Assuming 64-bit addressing
-                            '; add base address',
-                            `add ${ptr}, ${rax}`,
-                            `mov ${addressToASM(dst)}, [${ptr}]`,
-                        ],
-                        2,
-                    ),
-                Register.RAX,
+            return CompileScope.LeaseRandomRegistersWithScope(
+                (ptr) => [
+                    `; ${this.array.debugString()}[${this.index.debugString()}]`,
+                    ...this.index.compile(scope, ptr),
+                    `imul ${ptr}, ${ptr}, 8`,
+                    `add ${ptr}, ${addressToASM(address)}`,
+                    `mov ${addressToASM(dst)}, [${ptr}]`,
+                ],
+                1,
             );
         }
 
