@@ -176,22 +176,28 @@ export class ASTAssign extends ASTStmt {
     compile(scope: CompileScope): string[] {
         if (this.lValue.type === Token.LBRACKET) {
             const address = scope.getVariableAddress(this.lValue.getName());
-            return CompileScope.LeaseRandomRegistersWithScope(
-                (reg, idx, ptr) => [
-                    `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
-                    ...this.valueAST.compile(scope, reg),
-                    '; get ptr',
-                    `mov ${ptr}, ${addressToASM(address)}`,
-                    '; store index',
-                    ...(this.lValue as ASTArrayAccess).index.compile(
-                        scope,
-                        idx,
+            return CompileScope.LeaseRegistersWithScope(
+                (rax) =>
+                    CompileScope.LeaseRandomRegistersWithScope(
+                        (reg, idx, ptr) => [
+                            `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
+                            ...this.valueAST.compile(scope, reg),
+                            '; get ptr',
+                            `mov ${ptr}, ${addressToASM(address)}`,
+                            '; store index',
+                            ...(this.lValue as ASTArrayAccess).index.compile(
+                                scope,
+                                rax,
+                            ),
+                            `mov ${idx}, 8`, // Assuming 64-bit addressing
+                            `mul ${idx}`,
+                            '; add index from base address',
+                            `add ${ptr}, ${rax}`, // Assuming 64-bit addressing
+                            `mov [${ptr}], ${reg}`,
+                        ],
+                        3,
                     ),
-                    '; add base address',
-                    `sub ${ptr}, ${idx}`, // Assuming 64-bit addressing
-                    `mov [${ptr}], ${reg}`,
-                ],
-                3,
+                Register.RAX,
             );
         }
 
@@ -1042,18 +1048,24 @@ export class ASTArrayAccess extends ASTExpr {
     compile(scope: CompileScope, dst: Address): string[] {
         const address = scope.getVariableAddress(this.array.getName());
         if (addressIsRegister(dst)) {
-            return CompileScope.LeaseRandomRegistersWithScope(
-                (reg, ptr) => [
-                    `; ${this.array.debugString()}[${this.index.debugString()}]`,
-                    '; store address',
-                    `mov ${ptr}, ${addressToASM(address)}`,
-                    '; store index',
-                    ...this.index.compile(scope, reg),
-                    '; add base address',
-                    `sub ${ptr}, ${reg}`, // Assuming 64-bit addressing
-                    `mov ${addressToASM(dst)}, [${ptr}]`,
-                ],
-                2,
+            return CompileScope.LeaseRegistersWithScope(
+                (rax) =>
+                    CompileScope.LeaseRandomRegistersWithScope(
+                        (idx, ptr) => [
+                            `; ${this.array.debugString()}[${this.index.debugString()}]`,
+                            '; store address',
+                            `mov ${ptr}, ${addressToASM(address)}`,
+                            '; store index',
+                            ...this.index.compile(scope, rax),
+                            `mov ${idx}, 8`,
+                            `mul ${idx}`, // Assuming 64-bit addressing
+                            '; add base address',
+                            `add ${ptr}, ${rax}`,
+                            `mov ${addressToASM(dst)}, [${ptr}]`,
+                        ],
+                        2,
+                    ),
+                Register.RAX,
             );
         }
 

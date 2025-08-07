@@ -6,3 +6,6 @@ coverage/*
 build/*
 
 **/script.*
+
+.vs
+**/x64/**
