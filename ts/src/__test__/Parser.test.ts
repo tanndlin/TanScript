@@ -160,7 +160,7 @@ describe('Parser Math Operators', () => {
         }
 
         // Left should be an identifier
-        const { identifier } = assignAST;
+        const { lValue: identifier } = assignAST;
         expect(identifier.type).toBe(Token.IDENTIFIER);
         expect(identifier.getName()).toBe('x');
     });
@@ -273,7 +273,7 @@ describe('Parser Assignment', () => {
             throw new Error('Expected ASTAssign');
         }
 
-        const { identifier, valueAST } = child;
+        const { lValue: identifier, valueAST } = child;
         expect(identifier.type).toBe(Token.IDENTIFIER);
         expect(identifier.getName()).toBe('x');
 
@@ -313,7 +313,7 @@ describe('Parser Assignment', () => {
             throw new Error('Expected ASTAssign');
         }
 
-        const { identifier, valueAST } = child;
+        const { lValue: identifier, valueAST } = child;
         expect(identifier.type).toBe(Token.IDENTIFIER);
         expect(identifier.getName()).toBe('x');
 
@@ -341,7 +341,7 @@ describe('Parser Assignment', () => {
             throw new Error('Expected ASTAssign');
         }
 
-        const { identifier, valueAST } = assignAST;
+        const { lValue: identifier, valueAST } = assignAST;
         expect(identifier.type).toBe(Token.IDENTIFIER);
         expect(identifier.getName()).toBe('x');
 
@@ -974,7 +974,7 @@ describe('String Parsing', () => {
             return;
         }
 
-        const { identifier, valueAST } = child;
+        const { lValue: identifier, valueAST } = child;
         expect(identifier.type).toBe(Token.IDENTIFIER);
         expect(identifier.getName()).toBe('x');
 

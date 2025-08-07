@@ -1,13 +1,7 @@
 import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
 import { NotImplementedError } from './errors';
-import {
-    Address,
-    BooleanToken,
-    IterableResolvable,
-    Register,
-    Token,
-} from './types';
+import { Address, BooleanToken, Register, Token } from './types';
 import { addressIsRegister, addressToASM } from './util';
 
 abstract class ASTStmt {
@@ -35,8 +29,7 @@ export type Stmt =
     | ASTWhile
     | ASTFor
     | ASTIf
-    | ASTReturn
-    | ASTForEach;
+    | ASTReturn;
 
 export type Expr =
     | ASTAssign
@@ -56,11 +49,11 @@ export type Expr =
     | ASTNot
     | ASTFunctionDef
     | ASTFunctionCall
-    | ASTIterable
     | ASTNumber
     | ASTObject
     | ASTAttribute
-    | ObjectAccessAST;
+    | ObjectAccessAST
+    | ASTArrayAccess;
 
 export type AnyAST = Stmt | Expr;
 
@@ -100,6 +93,7 @@ export class Program extends ASTStmt {
             '',
             'global main',
             'extern printf',
+            'extern malloc, free',
             'extern ExitProcess',
             '\nSECTION .data',
             CompileScope.data.join('\n'),
@@ -173,23 +167,43 @@ export class ASTAssign extends ASTStmt {
     type: Token.ASSIGN = Token.ASSIGN;
 
     constructor(
-        public identifier: ASTIdentifier,
+        public lValue: ASTIdentifier | ASTArrayAccess,
         public valueAST: Expr,
     ) {
         super();
     }
 
     compile(scope: CompileScope): string[] {
-        const address = scope.getVariableAddress(this.identifier.getName());
+        if (this.lValue.type === Token.LBRACKET) {
+            const address = scope.getVariableAddress(this.lValue.getName());
+            return CompileScope.LeaseRandomRegistersWithScope(
+                (reg, idx, ptr) => [
+                    `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
+                    ...this.valueAST.compile(scope, reg),
+                    '; get ptr',
+                    `mov ${ptr}, ${addressToASM(address)}`,
+                    '; store index',
+                    ...(this.lValue as ASTArrayAccess).index.compile(
+                        scope,
+                        idx,
+                    ),
+                    '; add base address',
+                    `sub ${ptr}, ${idx}`, // Assuming 64-bit addressing
+                    `mov [${ptr}], ${reg}`,
+                ],
+                3,
+            );
+        }
 
-        return CompileScope.LeaseRandomRegistersWithScope((reg: Register) => [
-            `; ${this.identifier.debugString()} = ${this.valueAST.debugString()}`,
+        const address = scope.getVariableAddress(this.lValue.getName());
+        return [
+            `; ${this.lValue.debugString()} = ${this.valueAST.debugString()}`,
             ...this.valueAST.compile(scope, address),
-        ]);
+        ];
     }
 
     public getName(): string {
-        return this.identifier.getName();
+        return this.lValue.getName();
     }
 }
 
@@ -698,11 +712,12 @@ export class ASTFunctionCall extends ASTExpr {
         }
 
         const functionDef = scope.getFunction(this.name);
-        if (!functionDef) {
+        const externalFunctions = ['malloc', 'free', 'printf'];
+        if (!functionDef && !externalFunctions.includes(this.name)) {
             throw new Error(`Function ${this.name} not defined`);
         }
 
-        if (functionDef.numParams !== this.args.length) {
+        if (functionDef && functionDef.numParams !== this.args.length) {
             throw new Error(
                 `Function ${this.name} expects ${functionDef.numParams} parameters, but got ${this.args.length}`,
             );
@@ -776,42 +791,6 @@ export class ASTReturn extends ASTStmt {
             `; return ${this.valueAST.debugString()}`,
             ...this.valueAST.compile(scope, Register.RAX),
         ];
-    }
-}
-
-export class ASTIterable extends ASTExpr {
-    public type: Token.LBRACKET = Token.LBRACKET;
-
-    constructor(public items: Expr[]) {
-        super();
-    }
-
-    compile(_scope: CompileScope): never {
-        throw new NotImplementedError('Method not implemented.');
-    }
-}
-
-export class ASTList extends ASTIterable {}
-
-export class ASTForEach extends ASTStmt {
-    public init: ASTDeclaration | ASTIdentifier;
-    public iterable: IterableResolvable;
-    public block: ASTBlock;
-    public type: Token.FOREACH = Token.FOREACH;
-
-    constructor(
-        init: ASTDeclaration | ASTIdentifier,
-        iterable: IterableResolvable,
-        block: ASTBlock,
-    ) {
-        super();
-        this.init = init;
-        this.iterable = iterable;
-        this.block = block;
-    }
-
-    compile(_scope: CompileScope): never {
-        throw new NotImplementedError('Method not implemented.');
     }
 }
 
@@ -1047,5 +1026,55 @@ export class ObjectAccessAST extends ASTExpr {
 
     compile(_scope: CompileScope): never {
         throw new NotImplementedError('Method not implemented.');
+    }
+}
+
+export class ASTArrayAccess extends ASTExpr {
+    public type: Token.LBRACKET = Token.LBRACKET;
+
+    constructor(
+        public array: ASTIdentifier,
+        public index: Expr,
+    ) {
+        super();
+    }
+
+    compile(scope: CompileScope, dst: Address): string[] {
+        const address = scope.getVariableAddress(this.array.getName());
+        if (addressIsRegister(dst)) {
+            return CompileScope.LeaseRandomRegistersWithScope(
+                (reg, ptr) => [
+                    `; ${this.array.debugString()}[${this.index.debugString()}]`,
+                    '; store address',
+                    `mov ${ptr}, ${addressToASM(address)}`,
+                    '; store index',
+                    ...this.index.compile(scope, reg),
+                    '; add base address',
+                    `sub ${ptr}, ${reg}`, // Assuming 64-bit addressing
+                    `mov ${addressToASM(dst)}, [${ptr}]`,
+                ],
+                2,
+            );
+        }
+
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (ptr) => [
+                `; ${this.array.debugString()}[${this.index.debugString()}]`,
+                '; store index',
+                ...this.index.compile(scope, ptr),
+                '; add base address',
+                `add ${ptr}, ${addressToASM(address)}`, // Assuming 64-bit addressing
+                `mov ${addressToASM(dst)}, [${ptr}]`,
+            ],
+            1,
+        );
+    }
+
+    public getName(): string {
+        return this.array.getName();
+    }
+
+    public debugString(): string {
+        return `${this.array.debugString()}[${this.index.debugString()}]`;
     }
 }

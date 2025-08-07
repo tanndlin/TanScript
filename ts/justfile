@@ -1,11 +1,15 @@
 set shell := ["cmd.exe", "/c"]
 
 asm:
-    nasm -f win64 asm/script.asm -o script.o
+    nasm -g -f win64 asm/script.asm -o script.o
     gcc script.o -o script
     script.exe
     del script.exe
     del script.o
+
+debug:
+    nasm -g -f win64 asm/script.asm -o script.o
+    gcc script.o -o script
 
 watch:
     nodemon -e asm -x "just asm"
