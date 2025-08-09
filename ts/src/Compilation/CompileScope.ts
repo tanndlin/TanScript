@@ -167,8 +167,17 @@ export class CompileScope {
     }
 
     public static addData(fmt: string) {
+        const mapped = CompileScope.data.map((d) =>
+            d.split(' ').slice(1).join(' '),
+        );
+
+        if (mapped.includes(`db ${fmt}, 0`)) {
+            const index = mapped.indexOf(`db ${fmt}, 0`);
+            return `data_${index}`;
+        }
+
         const dataName = `data_${CompileScope.data.length}`;
-        CompileScope.data.push(`\t${dataName} db ${fmt}, 10, 0`);
+        CompileScope.data.push(`${dataName} db ${fmt}, 0`);
         return dataName;
     }
 

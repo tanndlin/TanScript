@@ -1,4 +1,3 @@
-import { printf } from './BuiltInFunctions';
 import { CompileScope } from './Compilation/CompileScope';
 import { NotImplementedError } from './errors';
 import { Address, BooleanToken, Register, Token } from './types';
@@ -93,7 +92,7 @@ export class Program extends ASTStmt {
             'extern malloc, free',
             'extern ExitProcess',
             '\nSECTION .data',
-            CompileScope.data.join('\n'),
+            CompileScope.data.map((d) => `\t${d}`).join('\n'),
             'SECTION .text\n',
             functions.join('\n\n'),
             '\nmain:',
@@ -233,8 +232,14 @@ export class ASTString extends ASTExpr {
         super();
     }
 
-    compile(_scope: CompileScope): string[] {
-        throw new NotImplementedError('Method not implemented.');
+    compile(scope: CompileScope, dst: Address): string[] {
+        let reformatted = `"${this.value.split('\n').filter(Boolean).join('", 10, "')}"`;
+        if (this.value.endsWith('\n')) {
+            reformatted += ', 10';
+        }
+
+        let data = CompileScope.addData(reformatted);
+        return [`mov ${addressToASM(dst)}, ${data}`];
     }
 
     public getValue(): string {
@@ -705,10 +710,6 @@ export class ASTFunctionCall extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        if (this.name === 'print') {
-            return printf(scope, this.args);
-        }
-
         const functionDef = scope.getFunction(this.name);
         const externalFunctions = ['malloc', 'free', 'printf'];
         if (!functionDef && !externalFunctions.includes(this.name)) {
