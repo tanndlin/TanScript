@@ -809,12 +809,23 @@ export class ASTAdd extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
-            `; ${this.left.debugString()} + ${this.right.debugString()}`,
-            ...this.left.compile(scope, dst),
-            ...this.right.compile(scope, rReg),
-            `add ${addressToASM(dst)}, ${rReg}`,
-        ]);
+        if (this.right.type === Token.NUMBER) {
+            return [
+                `; ${this.left.debugString()} + ${this.right.debugString()}`,
+                ...this.left.compile(scope, dst),
+                `add QWORD ${addressToASM(dst)}, ${this.right.getValue()}`,
+            ];
+        }
+
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (rReg) => [
+                `; ${this.left.debugString()} + ${this.right.debugString()}`,
+                ...this.left.compile(scope, dst),
+                ...this.right.compile(scope, rReg),
+                `add ${addressToASM(dst)}, ${rReg}`,
+            ],
+            1,
+        );
     }
 }
 
@@ -829,6 +840,14 @@ export class ASTSubtract extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
+        if (this.right.type === Token.NUMBER) {
+            return [
+                `; ${this.left.debugString()} - ${this.right.debugString()}`,
+                ...this.left.compile(scope, dst),
+                `sub QWORD ${addressToASM(dst)}, ${this.right.getValue()}`,
+            ];
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope((rReg) => [
             ...this.left.compile(scope, dst),
             ...this.right.compile(scope, rReg),
@@ -848,6 +867,14 @@ export class ASTMultiply extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
+        if (this.right.type === Token.NUMBER) {
+            return [
+                `; ${this.left.debugString()} * ${this.right.debugString()}`,
+                ...this.left.compile(scope, dst),
+                `imul ${addressToASM(dst)}, ${this.right.getValue()}`,
+            ];
+        }
+
         return CompileScope.LeaseRandomRegistersWithScope(
             (reg) => [
                 ...this.left.compile(scope, dst),
@@ -870,15 +897,11 @@ export class ASTDivide extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const leftInstructions = this.left.compile(scope, lReg);
-            const rightInstructions = this.right.compile(scope, rReg);
-
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
             return CompileScope.LeaseRegistersWithScope(
                 (rax, rdx) => [
-                    ...leftInstructions,
-                    ...rightInstructions,
-                    `mov ${addressToASM(rax)}, ${lReg}`,
+                    ...this.left.compile(scope, rax),
+                    ...this.right.compile(scope, rReg),
                     `xor ${rdx}, ${rdx}`, // Clear RDX for division
                     `div ${rReg}`,
                     `mov ${addressToASM(dst)}, ${rax}`,
@@ -886,7 +909,7 @@ export class ASTDivide extends ASTExpr {
                 Register.RAX,
                 Register.RDX,
             );
-        }, 2);
+        }, 1);
     }
 }
 

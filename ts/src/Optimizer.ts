@@ -29,6 +29,20 @@ export default class Optimizer {
             return Optimizer.optimizeExpression(child) as T;
         }
 
+        if (child.type === Token.ASSIGN) {
+            child.valueAST = Optimizer.optimizeExpression(child.valueAST);
+            return child;
+        }
+
+        if (child.type === Token.DECLARATION) {
+            if (child.child.type === Token.ASSIGN) {
+                child.child.valueAST = Optimizer.optimizeExpression(
+                    child.child.valueAST,
+                );
+            }
+            return child;
+        }
+
         return child;
     }
 
