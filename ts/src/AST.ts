@@ -327,18 +327,18 @@ export class ASTLessThan extends ASTExpr {
             );
         }
 
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const left = this.left.compile(scope, lReg);
-            const right = this.right.compile(scope, rReg);
-            return [
+        const left = this.left.compile(scope, dst);
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (rReg) => [
                 `; ${this.left.debugString()} < ${this.right.debugString()}`,
                 ...left,
-                ...right,
-                `cmp ${lReg}, ${rReg}`,
+                ...this.right.compile(scope, rReg),
+                `cmp ${dst}, ${rReg}`,
                 `mov ${dst}, 0`,
                 `setl ${dst}b`,
-            ];
-        }, 2);
+            ],
+            1,
+        );
     }
 }
 
@@ -359,18 +359,18 @@ export class ASTLessEq extends ASTExpr {
             );
         }
 
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const left = this.left.compile(scope, lReg);
-            const right = this.right.compile(scope, rReg);
-            return [
+        const left = this.left.compile(scope, dst);
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (rReg) => [
                 `; ${this.left.debugString()} <= ${this.right.debugString()}`,
                 ...left,
-                ...right,
-                `cmp ${lReg}, ${rReg}`,
+                ...this.right.compile(scope, rReg),
+                `cmp ${dst}, ${rReg}`,
                 `mov ${dst}, 0`,
                 `setle ${dst}b`,
-            ];
-        }, 2);
+            ],
+            1,
+        );
     }
 }
 
@@ -625,24 +625,29 @@ export class ASTIf extends ASTStmt {
     compile(scope: CompileScope): string[] {
         const id = CompileScope.GetUniqueId();
 
-        return CompileScope.LeaseRandomRegistersWithScope((reg) => {
-            const instructions: string[] = [
+        const compare = CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
                 '; if',
                 ...this.condition.compile(scope, reg),
                 `test ${reg}, ${reg}`,
                 `jz else${id}`,
-                ...this.block.compile(scope),
-                `jmp endif${id}`,
-                `else${id}:`,
-            ];
+            ],
+            1,
+        );
 
-            if (this.elseBlock) {
-                instructions.push(...this.elseBlock.compile(scope));
-            }
+        const instructions: string[] = [
+            ...compare,
+            ...this.block.compile(scope),
+            `jmp endif${id}`,
+            `else${id}:`,
+        ];
 
-            instructions.push(`endif${id}:`);
-            return instructions;
-        }, 1);
+        if (this.elseBlock) {
+            instructions.push(...this.elseBlock.compile(scope));
+        }
+
+        instructions.push(`endif${id}:`);
+        return instructions;
     }
 }
 
@@ -961,10 +966,10 @@ export class ASTMod extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
-            const leftInstructions = this.left.compile(scope, Register.RAX);
-            const rightInstructions = this.right.compile(scope, rReg);
+        const leftInstructions = this.left.compile(scope, Register.RAX);
 
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
+            const rightInstructions = this.right.compile(scope, rReg);
             return CompileScope.LeaseRegistersWithScope(
                 (rax, rdx) => [
                     `; ${this.left.debugString()} % ${this.right.debugString()}`,
@@ -989,7 +994,17 @@ export class ASTNumber extends ASTExpr {
     }
 
     compile(_scope: CompileScope, dst: Address): string[] {
-        return [`mov QWORD ${addressToASM(dst)}, ${this.value}`];
+        if (this.value < 2147483648 && this.value > -2147483648) {
+            return [`mov QWORD ${addressToASM(dst)}, ${this.value}`];
+        }
+
+        return CompileScope.LeaseRandomRegistersWithScope(
+            (reg) => [
+                `mov ${reg}, ${this.value}`,
+                `mov ${addressToASM(dst)}, ${reg}`,
+            ],
+            1,
+        );
     }
 
     public getValue(): number {
