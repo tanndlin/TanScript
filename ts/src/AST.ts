@@ -288,8 +288,10 @@ export class ASTBoolean extends ASTExpr {
         this.type = type;
     }
 
-    compile(_scope: CompileScope): string[] {
-        throw new NotImplementedError('Method not implemented.');
+    compile(_scope: CompileScope, dst: Address): string[] {
+        return [
+            `mov ${addressToASM(dst)}, ${this.type === Token.TRUE ? 1 : 0}`,
+        ];
     }
 }
 
@@ -786,6 +788,9 @@ export class ASTReturn extends ASTStmt {
         return [
             `; return ${this.valueAST.debugString()}`,
             ...this.valueAST.compile(scope, Register.RAX),
+            'mov rsp, rbp',
+            'pop rbp',
+            'ret',
         ];
     }
 }
@@ -955,8 +960,8 @@ export class ASTMod extends ASTExpr {
     }
 
     compile(scope: CompileScope, dst: Address): string[] {
-        return CompileScope.LeaseRandomRegistersWithScope((lReg, rReg) => {
-            const leftInstructions = this.left.compile(scope, lReg);
+        return CompileScope.LeaseRandomRegistersWithScope((rReg) => {
+            const leftInstructions = this.left.compile(scope, Register.RAX);
             const rightInstructions = this.right.compile(scope, rReg);
 
             return CompileScope.LeaseRegistersWithScope(
@@ -964,7 +969,6 @@ export class ASTMod extends ASTExpr {
                     `; ${this.left.debugString()} % ${this.right.debugString()}`,
                     ...leftInstructions,
                     ...rightInstructions,
-                    `mov ${addressToASM(rax)}, ${lReg}`,
                     `xor ${rdx}, ${rdx}`, // Clear RDX for division
                     `div ${rReg}`,
                     `mov ${addressToASM(dst)}, ${rdx}`, // RDX contains the remainder
@@ -972,7 +976,7 @@ export class ASTMod extends ASTExpr {
                 Register.RAX,
                 Register.RDX,
             );
-        }, 2);
+        }, 1);
     }
 }
 
