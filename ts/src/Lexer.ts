@@ -58,7 +58,8 @@ class Lexer {
             // Skip comments
             while (
                 this.pos < this.script.length &&
-                this.script[this.pos] !== '\n'
+                `${this.script[this.pos]}${this.script[this.pos + 1]}` !==
+                    '\r\n'
             ) {
                 this.pos++;
             }
