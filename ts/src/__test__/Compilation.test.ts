@@ -14,15 +14,15 @@ const instructionsFromScript = (script: string) => {
 
 describe('Basic Math Compilation', () => {
     it.each([
-        ['print(1 + 2)', 3],
-        ['print(69 + 420)', 489],
-        ['print(13 - 3)', 10],
-        ['print(13 * 13)', 169],
-        ['print(13 * 13 - 100)', 69],
-        ['print(10 / 2)', 5],
-        ['print(131 % 100)', 31],
-        ['print(131 % 10)', 1],
-        ['print(131 % 20)', 11],
+        ['printf("%d\n", 1 + 2)', 3],
+        ['printf("%d\n", 69 + 420)', 489],
+        ['printf("%d\n", 13 - 3)', 10],
+        ['printf("%d\n", 13 * 13)', 169],
+        ['printf("%d\n", 13 * 13 - 100)', 69],
+        ['printf("%d\n", 10 / 2)', 5],
+        ['printf("%d\n", 131 % 100)', 31],
+        ['printf("%d\n", 131 % 10)', 1],
+        ['printf("%d\n", 131 % 20)', 11],
     ])('should compile %s', (script, expectedOutput) => {
         const instructions = instructionsFromScript(script);
         writeInstructions(instructions, 'asm/test.asm');

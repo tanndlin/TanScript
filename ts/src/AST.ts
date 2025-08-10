@@ -727,40 +727,37 @@ export class ASTFunctionCall extends ASTExpr {
             );
         }
 
-        return CompileScope.LeaseRegistersWithScope(
-            (...regs: Register[]) => {
-                return CompileScope.LeaseRandomRegistersWithScope((reg) => {
-                    const instructions: string[] = [
-                        `; call ${this.name}(${this.args
-                            .map((a) => a.debugString())
-                            .join(', ')})`,
-                        'sub rsp, 32',
-                    ];
-                    for (let i = 0; i < Math.min(this.args.length, 4); i++) {
-                        instructions.push(
-                            ...this.args[i].compile(scope, reg),
-                            `mov ${addressToASM(regs[i])}, ${reg}`,
-                        );
-                    }
+        return CompileScope.LeaseRandomRegistersWithScope((reg) => {
+            const regs = [Register.RCX, Register.RDX, Register.R8, Register.R9];
 
-                    if (this.args.length > 4) {
-                        instructions.push(
-                            `sub rsp, ${(this.args.length - 4) * 8}`,
-                        );
-                        for (let i = this.args.length - 1; i >= 4; i--) {
-                            instructions.push(
-                                ...this.args[i].compile(scope, reg),
-                                `mov [rsp + ${(i - 4) * 8 + 32}], ${reg}`, // 32 to be above the shadow space
-                            );
-                        }
-                    }
+            const instructions: string[] = [
+                `; call ${this.name}(${this.args
+                    .map((a) => a.debugString())
+                    .join(', ')})`,
+            ];
 
-                    CompileScope.LeaseRegister(Register.RAX);
-                    instructions.push(`call ${this.name}`);
+            for (let i = 0; i < Math.min(this.args.length, 4); i++) {
+                instructions.push(
+                    ...this.args[i].compile(scope, reg),
+                    `mov ${addressToASM(regs[i])}, ${reg}`,
+                );
+            }
+
+            instructions.push('sub rsp, 32');
+            if (this.args.length > 4) {
+                instructions.push(`sub rsp, ${(this.args.length - 4) * 8}`);
+                for (let i = this.args.length - 1; i >= 4; i--) {
                     instructions.push(
-                        `mov ${addressToASM(dst)}, ${Register.RAX}`,
-                    ); // Assuming the return value is in RAX
-                    CompileScope.ReleaseRegister(Register.RAX);
+                        ...this.args[i].compile(scope, reg),
+                        `mov [rsp + ${(i - 4) * 8 + 32}], ${reg}`, // 32 to be above the shadow space
+                    );
+                }
+            }
+
+            return CompileScope.LeaseRegistersWithScope(
+                (rax, ..._: Register[]) => {
+                    instructions.push(`call ${this.name}`);
+                    instructions.push(`mov ${addressToASM(dst)}, ${rax}`); // Assuming the return value is in RAX
                     if (this.args.length > 4) {
                         instructions.push(
                             `add rsp, ${(this.args.length - 4) * 8}`,
@@ -769,13 +766,14 @@ export class ASTFunctionCall extends ASTExpr {
 
                     instructions.push('add rsp, 32'); // Clean up the stack
                     return instructions;
-                }, 1);
-            },
-            Register.RCX,
-            Register.RDX,
-            Register.R8,
-            Register.R9,
-        );
+                },
+                Register.RAX,
+                Register.RCX,
+                Register.RDX,
+                Register.R8,
+                Register.R9,
+            );
+        }, 1);
     }
 
     public getName() {
