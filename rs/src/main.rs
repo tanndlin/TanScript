@@ -2,7 +2,9 @@ use glob::glob;
 
 use crate::lexer::Lexer;
 
+mod ast;
 mod lexer;
+mod parser;
 mod types;
 
 fn main() {

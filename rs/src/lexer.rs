@@ -61,14 +61,6 @@ impl Lexer {
         }
     }
 
-    pub fn peek_next(&self) -> Option<char> {
-        if self.index + 1 < self.chars.len() {
-            Some(self.chars[self.index + 1])
-        } else {
-            None
-        }
-    }
-
     fn get_number(&mut self) -> i32 {
         let mut cur_num: i32 = 0;
 
