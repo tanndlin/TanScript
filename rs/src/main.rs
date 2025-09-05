@@ -1,6 +1,6 @@
 use glob::glob;
 
-use crate::lexer::Lexer;
+use crate::{lexer::Lexer, parser::expr};
 
 mod ast;
 mod lexer;
@@ -12,15 +12,10 @@ fn main() {
     println!("Current dir: {}", dir.display());
 
     let paths =
-        glob(format!("{}/*.tan", dir.display()).as_str()).expect("Couldn't find script file");
+        glob(format!("{}/**/*.tan", dir.display()).as_str()).expect("Couldn't find script file");
     let file = paths.into_iter().next().expect("No file found").unwrap();
-    let chars = std::fs::read_to_string(file)
-        .unwrap()
-        .chars()
-        .collect::<Vec<char>>();
+    let file_as_string = std::fs::read_to_string(file).unwrap();
 
-    let mut lexer = Lexer::new(chars.as_slice());
-    let tokens = lexer.tokenize();
-
-    dbg!(tokens);
+    let ast = expr(&file_as_string);
+    println!("{}", ast);
 }

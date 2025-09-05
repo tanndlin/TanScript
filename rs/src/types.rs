@@ -1,24 +1,11 @@
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Token {
-    Number(i32),
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
-}
-impl Token {
-    pub fn char_to_token(cur_char: char) -> Token {
-        match cur_char {
-            '+' => Token::Plus,
-            '-' => Token::Minus,
-            '*' => Token::Multiply,
-            '/' => Token::Divide,
-            _ => panic!("Unexpected token ({})", cur_char),
-        }
-    }
+    Atom(char),
+    Op(char),
+    Eof,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct LexerToken {
     pub token_type: Token,
     pub line_number: u32,
