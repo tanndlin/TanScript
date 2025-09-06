@@ -1,4 +1,4 @@
-use crate::types::{LexerToken, Token};
+use crate::types::{LexerAtomType, LexerToken, Token};
 
 #[derive(Debug)]
 pub struct Lexer {
@@ -8,24 +8,43 @@ pub struct Lexer {
 impl Lexer {
     pub fn new(input: &str) -> Lexer {
         let mut line_number = 0u32;
+        let mut chars = input.chars().collect::<Vec<char>>();
 
-        let mut tokens = input
-            .chars()
-            // .filter(|it| !it.is_whitespace())
-            .filter_map(|c| match c {
-                '\n' => {
-                    line_number += 1;
-                    None
-                }
-                ' ' | '\t' | '\r' => None,
-                '0'..='9' | 'a'..='z' | 'A'..='Z' => {
-                    Some(LexerToken::new(Token::Atom(c), line_number))
-                }
-                _ => Some(LexerToken::new(Token::Op(c), line_number)),
-            })
-            .collect::<Vec<LexerToken>>();
+        let mut tokens = vec![];
+        while let Some(cur) = chars.last() {
+            if cur == &'\n' {
+                line_number += 1;
+                chars.pop();
+                continue;
+            }
 
-        tokens.reverse();
+            if cur.is_whitespace() {
+                chars.pop();
+                continue;
+            }
+
+            if cur.is_ascii_digit() {
+                tokens.push(LexerToken::new(
+                    Token::Atom(LexerAtomType::Number(get_number(&mut chars))),
+                    line_number,
+                ));
+                continue;
+            }
+
+            if cur.is_alphabetic() {
+                tokens.push(LexerToken::new(
+                    Token::Atom(LexerAtomType::Identifier(get_identifier(&mut chars))),
+                    line_number,
+                ));
+                continue;
+            }
+
+            tokens.push(LexerToken::new(
+                Token::Op(chars.pop().unwrap()),
+                line_number,
+            ));
+        }
+
         Lexer { tokens }
     }
 
@@ -33,26 +52,66 @@ impl Lexer {
         self.tokens.pop().unwrap_or(LexerToken::new(Token::Eof, 0))
     }
 
-    pub fn peek(&self) -> LexerToken {
-        self.tokens
-            .last()
-            .copied()
-            .unwrap_or(LexerToken::new(Token::Eof, 0))
+    pub fn peek(&self) -> Option<&LexerToken> {
+        self.tokens.last()
     }
 
-    pub fn expect(&self, c: char) {
-        match self.peek().token_type {
-            Token::Atom(cur) => {
-                if cur != c {
-                    panic!("Error: Expected {}, got {:?}", c, self.peek());
-                }
-            }
-            Token::Op(cur) => {
-                if cur != c {
-                    panic!("Error: Expected {}, got {:?}", c, self.peek());
-                }
-            }
-            _ => panic!("Error: Expected {}, got {:?}", c, self.peek()),
+    pub fn peek_next(&self) -> Option<&LexerToken> {
+        if self.tokens.len() >= 2 {
+            Some(&self.tokens[self.tokens.len() - 2])
+        } else {
+            None
         }
     }
+
+    // pub fn expect(&self, c: char) {
+    //     match self.peek() {
+    //         None => panic!("No more tokens"),
+    //         Some(tok) => match tok.token_type {
+    //             Token::Atom(cur) => {
+    //                 match cur {
+    //                     LexerAtomType::Number()
+    //                 }
+    //                 if cur != c {
+    //                     panic!("Error: Expected {}, got {:?}", c, self.peek());
+    //                 }
+    //             }
+    //             Token::Op(cur) => {
+    //                 if cur != c {
+    //                     panic!("Error: Expected {}, got {:?}", c, self.peek());
+    //                 }
+    //             }
+    //             _ => panic!("Error: Expected {}, got {:?}", c, self.peek()),
+    //         },
+    //     }
+    // }
+}
+
+fn get_number(input: &mut Vec<char>) -> i32 {
+    let mut n = 0i32;
+
+    while let Some(c) = input.last() {
+        if !c.is_ascii_digit() {
+            break;
+        }
+
+        n = n * 10 + c.to_digit(10).unwrap() as i32;
+        input.pop();
+    }
+
+    n
+}
+
+fn get_identifier(input: &mut Vec<char>) -> String {
+    let mut string_vec = vec![];
+
+    while let Some(c) = &input.last() {
+        if !c.is_alphanumeric() {
+            break;
+        }
+
+        string_vec.push(input.pop().unwrap());
+    }
+
+    string_vec.into_iter().rev().collect::<String>()
 }

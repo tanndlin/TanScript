@@ -1,6 +1,6 @@
 use glob::glob;
 
-use crate::{lexer::Lexer, parser::expr};
+use crate::parser::parse;
 
 mod ast;
 mod lexer;
@@ -16,6 +16,6 @@ fn main() {
     let file = paths.into_iter().next().expect("No file found").unwrap();
     let file_as_string = std::fs::read_to_string(file).unwrap();
 
-    let ast = expr(&file_as_string);
+    let ast = parse(&file_as_string);
     println!("{}", ast);
 }

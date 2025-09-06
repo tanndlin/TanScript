@@ -1,11 +1,17 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
+pub enum LexerAtomType {
+    Number(i32),
+    Identifier(String),
+}
+
+#[derive(Clone, Debug)]
 pub enum Token {
-    Atom(char),
+    Atom(LexerAtomType),
     Op(char),
     Eof,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct LexerToken {
     pub token_type: Token,
     pub line_number: u32,
