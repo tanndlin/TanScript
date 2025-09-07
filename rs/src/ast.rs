@@ -3,6 +3,29 @@ use std::fmt;
 use crate::types::LexerAtomType;
 
 #[derive(Debug)]
+pub struct Program {
+    pub children: Vec<StatementOrExpression>,
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut first = true;
+
+        for child in &self.children {
+            if first {
+                first = false;
+            } else {
+                writeln!(f)?;
+            }
+
+            write!(f, "{}", child)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct Assignment {
     pub identifier: String,
     pub expression: Expression,
@@ -15,6 +38,7 @@ pub struct Declaration {
 
 #[derive(Debug)]
 pub enum Statement {
+    Program(Program),
     Declaration(Declaration),
     Assign(Assignment),
 }
@@ -34,6 +58,7 @@ impl fmt::Display for Declaration {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Statement::Program(e) => write!(f, "{}", e),
             Statement::Declaration(e) => write!(f, "{}", e),
             Statement::Assign(e) => write!(f, "{}", e),
         }
@@ -80,6 +105,7 @@ impl AtomType {
         match atom {
             LexerAtomType::Number(n) => AtomType::Number(n),
             LexerAtomType::Identifier(s) => AtomType::Identifier(s),
+            LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
         }
     }
 }

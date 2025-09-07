@@ -39,10 +39,23 @@ impl Lexer {
                 continue;
             }
 
-            tokens.push(LexerToken::new(
-                Token::Op(chars.pop().unwrap()),
-                line_number,
-            ));
+            match cur {
+                ';' => {
+                    chars.pop();
+                    tokens.push(LexerToken::new(
+                        Token::Atom(LexerAtomType::Semicolon),
+                        line_number,
+                    ));
+                    continue;
+                }
+                '+' | '-' | '*' | '/' | '=' | '(' | ')' => {
+                    tokens.push(LexerToken::new(
+                        Token::Op(chars.pop().unwrap()),
+                        line_number,
+                    ));
+                }
+                _ => panic!("Unknown character: {} on line: {}", cur, line_number),
+            }
         }
 
         Lexer { tokens }
@@ -79,6 +92,13 @@ impl Lexer {
                 LexerAtomType::Identifier(s) => {
                     if s != expected {
                         Some(s.clone())
+                    } else {
+                        None
+                    }
+                }
+                LexerAtomType::Semicolon => {
+                    if ";" != expected {
+                        Some(";".to_string())
                     } else {
                         None
                     }

@@ -2,6 +2,7 @@
 pub enum LexerAtomType {
     Number(i32),
     Identifier(String),
+    Semicolon,
 }
 
 #[derive(Clone, Debug)]
