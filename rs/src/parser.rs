@@ -1,6 +1,7 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Declaration, Expression, Program, Statement, StatementOrExpression,
+        Assignment, AtomType, Declaration, Expression, OperatorType, Program, Statement,
+        StatementOrExpression,
     },
     lexer::Lexer,
     types::{LexerAtomType, Token},
@@ -95,7 +96,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Expression {
         Token::Op(op) => {
             let ((), r_bp) = prefix_binding_power(op);
             let rhs = parse_expression(lexer, r_bp);
-            Expression::Operation(AtomType::from_char(op), vec![rhs])
+            Expression::Operation(OperatorType::from_char(op), vec![rhs])
         }
         _ => panic!("bad token: {:?}", token),
     };
@@ -122,7 +123,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Expression {
                 break;
             }
             lexer.next();
-            lhs = Expression::Operation(AtomType::from_char(op), vec![lhs]);
+            lhs = Expression::Operation(OperatorType::from_char(op), vec![lhs]);
             continue;
         }
 
@@ -132,7 +133,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Expression {
             }
             lexer.next();
             let rhs = parse_expression(lexer, r_bp);
-            lhs = Expression::Operation(AtomType::from_char(op), vec![lhs, rhs]);
+            lhs = Expression::Operation(OperatorType::from_char(op), vec![lhs, rhs]);
             continue;
         }
 

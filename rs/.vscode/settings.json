@@ -26,5 +26,9 @@
                 }
             ],
         }
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./src/compilation/Cargo.toml",
+        "./src/compilation/"
     ]
 }

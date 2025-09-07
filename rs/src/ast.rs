@@ -38,7 +38,6 @@ pub struct Declaration {
 
 #[derive(Debug)]
 pub enum Statement {
-    Program(Program),
     Declaration(Declaration),
     Assign(Assignment),
 }
@@ -58,7 +57,6 @@ impl fmt::Display for Declaration {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Program(e) => write!(f, "{}", e),
             Statement::Declaration(e) => write!(f, "{}", e),
             Statement::Assign(e) => write!(f, "{}", e),
         }
@@ -82,25 +80,11 @@ impl fmt::Display for StatementOrExpression {
 
 #[derive(Debug)]
 pub enum AtomType {
-    Program,
     Number(i32),
     Identifier(String),
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
 }
 
 impl AtomType {
-    pub fn from_char(op: char) -> AtomType {
-        match op {
-            '+' => AtomType::Add,
-            '-' => AtomType::Subtract,
-            '*' => AtomType::Multiply,
-            '/' => AtomType::Divide,
-            _ => panic!("Unknown operator: {}", op),
-        }
-    }
     pub fn from_lexer_atom(atom: LexerAtomType) -> AtomType {
         match atom {
             LexerAtomType::Number(n) => AtomType::Number(n),
@@ -113,11 +97,6 @@ impl AtomType {
 impl fmt::Display for AtomType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AtomType::Add => write!(f, "+"),
-            AtomType::Subtract => write!(f, "-"),
-            AtomType::Multiply => write!(f, "*"),
-            AtomType::Divide => write!(f, "/"),
-            AtomType::Program => write!(f, "Program"),
             AtomType::Number(n) => write!(f, "{}", n),
             AtomType::Identifier(c) => write!(f, "{}", c),
         }
@@ -125,9 +104,40 @@ impl fmt::Display for AtomType {
 }
 
 #[derive(Debug)]
+pub enum OperatorType {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl OperatorType {
+    pub fn from_char(op: char) -> OperatorType {
+        match op {
+            '+' => OperatorType::Add,
+            '-' => OperatorType::Subtract,
+            '*' => OperatorType::Multiply,
+            '/' => OperatorType::Divide,
+            _ => panic!("Unknown operator: {}", op),
+        }
+    }
+}
+
+impl fmt::Display for OperatorType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OperatorType::Add => write!(f, "+"),
+            OperatorType::Subtract => write!(f, "-"),
+            OperatorType::Multiply => write!(f, "*"),
+            OperatorType::Divide => write!(f, "/"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Expression {
     Atom(AtomType),
-    Operation(AtomType, Vec<Expression>),
+    Operation(OperatorType, Vec<Expression>),
 }
 
 impl fmt::Display for Expression {

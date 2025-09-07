@@ -1,11 +1,15 @@
+use std::{fs, path::Path};
+
 use glob::glob;
 
-use crate::parser::parse;
-
 mod ast;
+mod compile;
+mod compile_scope;
 mod lexer;
 mod parser;
 mod types;
+
+use crate::parser::parse;
 
 fn main() {
     let dir = std::env::current_dir().unwrap();
@@ -18,4 +22,7 @@ fn main() {
 
     let ast = parse(&file_as_string);
     println!("{}", ast);
+
+    let code = ast.compile();
+    fs::write(Path::new("script.asm"), code).expect("Failed to write to file")
 }
