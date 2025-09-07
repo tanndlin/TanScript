@@ -64,27 +64,43 @@ impl Lexer {
         }
     }
 
-    // pub fn expect(&self, c: char) {
-    //     match self.peek() {
-    //         None => panic!("No more tokens"),
-    //         Some(tok) => match tok.token_type {
-    //             Token::Atom(cur) => {
-    //                 match cur {
-    //                     LexerAtomType::Number()
-    //                 }
-    //                 if cur != c {
-    //                     panic!("Error: Expected {}, got {:?}", c, self.peek());
-    //                 }
-    //             }
-    //             Token::Op(cur) => {
-    //                 if cur != c {
-    //                     panic!("Error: Expected {}, got {:?}", c, self.peek());
-    //                 }
-    //             }
-    //             _ => panic!("Error: Expected {}, got {:?}", c, self.peek()),
-    //         },
-    //     }
-    // }
+    pub fn expect(&mut self, expected: &str) {
+        let token = self.next();
+
+        let error: Option<String> = match token.token_type {
+            Token::Atom(cur) => match cur {
+                LexerAtomType::Number(n) => {
+                    if n.to_string() != expected {
+                        Some(n.to_string())
+                    } else {
+                        None
+                    }
+                }
+                LexerAtomType::Identifier(s) => {
+                    if s != expected {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
+                }
+            },
+            Token::Op(cur) => {
+                if cur.to_string() != expected {
+                    Some(cur.to_string())
+                } else {
+                    None
+                }
+            }
+            Token::Eof => Some("End-Of-File".to_string()),
+        };
+
+        if let Some(got) = error {
+            panic!(
+                "Error: Expected {}, got {:?} on line: {}",
+                expected, got, token.line_number
+            );
+        }
+    }
 }
 
 fn get_number(input: &mut Vec<char>) -> i32 {

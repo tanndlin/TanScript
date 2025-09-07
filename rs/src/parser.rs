@@ -31,8 +31,7 @@ fn parse_statement(lexer: &mut Lexer) -> Option<Statement> {
 }
 
 fn parse_declaration(lexer: &mut Lexer) -> Declaration {
-    // Consume let
-    lexer.next();
+    lexer.expect("let");
 
     Declaration {
         assign: parse_assignment(lexer),
@@ -45,14 +44,7 @@ fn parse_assignment(lexer: &mut Lexer) -> Assignment {
         _ => panic!("Expected identifier"),
     };
 
-    match lexer.next().token_type {
-        Token::Op(c) => {
-            if c != '=' {
-                panic!("Expected:  =")
-            }
-        }
-        _ => panic!("Expected:  ="),
-    }
+    lexer.expect("=");
 
     Assignment {
         identifier,
