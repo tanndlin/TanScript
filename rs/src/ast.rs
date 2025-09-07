@@ -4,10 +4,21 @@ use crate::types::LexerAtomType;
 
 #[derive(Debug)]
 pub struct Program {
-    pub children: Vec<StatementOrExpression>,
+    pub block: Block,
 }
 
 impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.block)
+    }
+}
+
+#[derive(Debug)]
+pub struct Block {
+    pub children: Vec<StatementOrExpression>,
+}
+
+impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut first = true;
 

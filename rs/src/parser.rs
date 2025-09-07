@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Declaration, Expression, OperatorType, Program, Statement,
+        Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
         StatementOrExpression,
     },
     lexer::Lexer,
@@ -10,12 +10,12 @@ use crate::{
 pub fn parse(input: &str) -> Program {
     let mut lexer = Lexer::new(input);
 
-    let mut program = Program { children: vec![] };
+    let mut block = Block { children: vec![] };
     while let Some(s) = parse_statement_or_expression(&mut lexer) {
-        program.children.push(s);
+        block.children.push(s);
     }
 
-    program
+    Program { block }
 }
 
 fn parse_statement_or_expression(lexer: &mut Lexer) -> Option<StatementOrExpression> {

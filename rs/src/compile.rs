@@ -2,12 +2,13 @@ use std::fmt;
 
 use crate::{
     ast::{
-        Assignment, AtomType, Declaration, Expression, OperatorType, Program, Statement,
+        Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
         StatementOrExpression,
     },
     compile_scope::CompileScope,
 };
 
+#[derive(Clone)]
 pub enum Register {
     RAX,
     RBX,
@@ -42,6 +43,7 @@ impl fmt::Display for Register {
     }
 }
 
+#[derive(Clone)]
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset in the stack
@@ -68,16 +70,7 @@ impl Program {
     pub fn compile(&self) -> String {
         let mut compile_scope = CompileScope::new();
 
-        let instructions = self
-            .children
-            .iter()
-            .map(|s| s.compile(&mut compile_scope))
-            .collect::<Vec<String>>()
-            .join("\n")
-            .split("\n")
-            .map(|s| format!("\t{}", s))
-            .collect::<Vec<String>>()
-            .join("\n");
+        let instructions = self.block.compile(&mut compile_scope);
 
         format!(
             "BITS 64
@@ -106,6 +99,20 @@ main:
     }
 }
 
+impl Block {
+    pub fn compile(&self, compile_scope: &mut CompileScope) -> String {
+        self.children
+            .iter()
+            .map(|s| s.compile(compile_scope))
+            .collect::<Vec<String>>()
+            .join("\n")
+            .split("\n")
+            .map(|s| format!("\t{}", s))
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+}
+
 impl StatementOrExpression {
     fn compile(&self, compile_scope: &mut CompileScope) -> String {
         match &self {
@@ -128,13 +135,15 @@ impl CompileStatement for Statement {
 
 impl CompileStatement for Declaration {
     fn compile(&self, compile_scope: &mut CompileScope) -> String {
-        todo!()
+        compile_scope.add_variable(self.assign.identifier.clone());
+        self.assign.compile(compile_scope)
     }
 }
 
 impl CompileStatement for Assignment {
     fn compile(&self, compile_scope: &mut CompileScope) -> String {
-        todo!()
+        let address = compile_scope.get_variable(&self.identifier).clone();
+        self.expression.compile(compile_scope, &address)
     }
 }
 
@@ -143,7 +152,7 @@ impl CompileExpression for Expression {
         match self {
             Expression::Atom(a) => match a {
                 AtomType::Number(n) => compile_number(n, dst),
-                AtomType::Identifier(name) => compile_variable(name, dst),
+                AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
             },
             Expression::Operation(v, children) => compile_operator(v, children, compile_scope, dst),
         }
@@ -154,8 +163,9 @@ fn compile_number(n: &i32, dst: &Address) -> String {
     format!("mov {} {}", dst, n)
 }
 
-fn compile_variable(name: &str, dst: &Address) -> String {
-    todo!()
+fn compile_variable(compile_scope: &CompileScope, name: &str, dst: &Address) -> String {
+    let address = compile_scope.get_variable(name);
+    format!("mov {} {}", dst, address)
 }
 
 fn compile_operator(
