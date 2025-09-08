@@ -5,6 +5,7 @@ use crate::{
         Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
         StatementOrExpression,
     },
+    compile,
     compile_scope::CompileScope,
 };
 
@@ -77,7 +78,6 @@ impl Program {
 
 global main
 extern printf
-extern malloc free
 extern ExitProcess
 
 SECTION .data
@@ -85,13 +85,13 @@ SECTION .data
 SECTION .text
 
 main:
-\tsub rsp 40
+\tsub rsp, 40
 \tpush rbp
-\tmov rbp rsp
+\tmov rbp, rsp
 {}
-\tadd rsp 40
+\tadd rsp, 40
 \tpop rbp
-\txor rcx rcx
+\txor rcx, rcx
 \tcall ExitProcess",
             instructions
         )
@@ -101,11 +101,22 @@ main:
 
 impl Block {
     pub fn compile(&self, compile_scope: &mut CompileScope) -> String {
-        self.children
+        let mut instructions = self
+            .children
             .iter()
             .map(|s| s.compile(compile_scope))
             .collect::<Vec<String>>()
-            .join("\n")
+            .join("\n");
+
+        if compile_scope.num_variables > 0 {
+            let alloc_size = compile_scope.num_variables * 8;
+            let alloc = format!("sub rsp, {}", alloc_size);
+            let dealloc = format!("add rsp, {}", alloc_size);
+
+            instructions = format!("{}\n{}\n{}", alloc, instructions, dealloc);
+        }
+
+        instructions
             .split("\n")
             .map(|s| format!("\t{}", s))
             .collect::<Vec<String>>()
@@ -160,12 +171,12 @@ impl CompileExpression for Expression {
 }
 
 fn compile_number(n: &i32, dst: &Address) -> String {
-    format!("mov {} {}", dst, n)
+    format!("mov QWORD {}, {}", dst, n)
 }
 
 fn compile_variable(compile_scope: &CompileScope, name: &str, dst: &Address) -> String {
     let address = compile_scope.get_variable(name);
-    format!("mov {} {}", dst, address)
+    format!("mov r8, {}\nmov {}, r8", address, dst)
 }
 
 fn compile_operator(
@@ -198,8 +209,8 @@ fn compile_infix_operator(
         .compile(compile_scope, &Address::Register(Register::R8));
 
     let perform = match op {
-        OperatorType::Add => format!("add {} r8", dst),
-        OperatorType::Subtract => format!("sub {} r8", dst),
+        OperatorType::Add => format!("add {}, r8", dst),
+        OperatorType::Subtract => format!("sub {}, r8", dst),
         OperatorType::Multiply => todo!(),
         OperatorType::Divide => todo!(),
     };
