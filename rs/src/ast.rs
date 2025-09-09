@@ -94,7 +94,6 @@ pub enum AtomType {
     Number(i32),
     Identifier(String),
     String(String),
-    FunctionCall(String, Vec<Expression>),
 }
 
 impl AtomType {
@@ -114,16 +113,6 @@ impl fmt::Display for AtomType {
             AtomType::Number(n) => write!(f, "{}", n),
             AtomType::Identifier(c) => write!(f, "{}", c),
             AtomType::String(s) => write!(f, "{}", s),
-            AtomType::FunctionCall(name, expressions) => write!(
-                f,
-                "{}({})",
-                name,
-                expressions
-                    .iter()
-                    .map(|e| e.to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
-            ),
         }
     }
 }
@@ -163,6 +152,7 @@ impl fmt::Display for OperatorType {
 pub enum Expression {
     Atom(AtomType),
     Operation(OperatorType, Vec<Expression>),
+    FunctionCall(String, Vec<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -179,6 +169,16 @@ impl fmt::Display for Expression {
                 }
                 write!(f, ")")
             }
+            Expression::FunctionCall(name, expressions) => write!(
+                f,
+                "{}({})",
+                name,
+                expressions
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
         }
     }
 }

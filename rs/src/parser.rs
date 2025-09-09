@@ -190,7 +190,7 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         }
     }
 
-    Ok(Expression::Atom(AtomType::FunctionCall(s, args)))
+    Ok(Expression::FunctionCall(s, args))
 }
 
 fn prefix_binding_power(op: char) -> ((), u8) {

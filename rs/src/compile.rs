@@ -283,12 +283,12 @@ impl Expression {
                 AtomType::Number(n) => Ok(compile_number(n, dst)),
                 AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
-                AtomType::FunctionCall(name, args) => {
-                    compile_function_call(compile_scope, register_handler, name, args)
-                }
             },
             Expression::Operation(v, children) => {
                 compile_operator(v, children, compile_scope, dst, register_handler)
+            }
+            Expression::FunctionCall(name, args) => {
+                compile_function_call(compile_scope, register_handler, name, args)
             }
         }
     }
