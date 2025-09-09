@@ -11,20 +11,27 @@ mod types;
 
 use crate::parser::parse;
 
-fn main() {
-    let dir = std::env::current_dir().unwrap();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = std::env::current_dir()?;
     println!("Current dir: {}", dir.display());
 
-    let paths =
-        glob(format!("{}/**/*.tan", dir.display()).as_str()).expect("Couldn't find script file");
-    let file = paths.into_iter().next().expect("No file found").unwrap();
-    let file_as_string = std::fs::read_to_string(file).unwrap();
+    let paths = glob(&format!("{}/**/*.tan", dir.display()))?;
+    let file = paths.into_iter().next().ok_or("No file found")??;
+    let file_as_string = fs::read_to_string(file)?;
 
-    let ast = parse(&file_as_string);
+    let ast = parse(&file_as_string).map_err(|e| {
+        eprintln!("Error during parsing: {}", e);
+        e
+    })?;
+
     println!("{}", ast);
 
-    match ast.compile() {
-        Ok(code) => fs::write(Path::new("script.asm"), code).expect("Failed to write to file"),
-        Err(e) => eprintln!("Error during compilation: {}", e),
-    }
+    let code = ast.compile().map_err(|e| {
+        eprintln!("Error during compilation: {}", e);
+        e
+    })?;
+
+    fs::write(Path::new("script.asm"), code)?;
+
+    Ok(())
 }

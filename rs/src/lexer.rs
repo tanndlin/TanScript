@@ -6,7 +6,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(input: &str) -> Lexer {
+    pub fn new(input: &str) -> Result<Lexer, String> {
         let mut line_number = 0u32;
         let mut chars = input.chars().collect::<Vec<char>>();
 
@@ -62,11 +62,16 @@ impl Lexer {
                         line_number,
                     ));
                 }
-                _ => panic!("Unknown character: {} on line: {}", cur, line_number),
+                _ => {
+                    return Err(format!(
+                        "Unknown character: {} on line: {}",
+                        cur, line_number
+                    ));
+                }
             }
         }
 
-        Lexer { tokens }
+        Ok(Lexer { tokens })
     }
 
     pub fn next(&mut self) -> LexerToken {
@@ -85,55 +90,28 @@ impl Lexer {
         }
     }
 
-    pub fn expect(&mut self, expected: &str) {
+    pub fn expect(&mut self, expected: &str) -> Result<(), String> {
         let token = self.next();
 
-        let error: Option<String> = match token.token_type {
+        // Extract what we "got" as a string
+        let got = match &token.token_type {
             Token::Atom(cur) => match cur {
-                LexerAtomType::Number(n) => {
-                    if n.to_string() != expected {
-                        Some(n.to_string())
-                    } else {
-                        None
-                    }
-                }
-                LexerAtomType::Identifier(s) => {
-                    if s != expected {
-                        Some(s.clone())
-                    } else {
-                        None
-                    }
-                }
-                LexerAtomType::Semicolon => {
-                    if ";" != expected {
-                        Some(";".to_string())
-                    } else {
-                        None
-                    }
-                }
-                LexerAtomType::String(s) => {
-                    if s != expected {
-                        Some(s)
-                    } else {
-                        None
-                    }
-                }
+                LexerAtomType::Number(n) => n.to_string(),
+                LexerAtomType::Identifier(s) => s.clone(),
+                LexerAtomType::Semicolon => ";".to_string(),
+                LexerAtomType::String(s) => s.clone(),
             },
-            Token::Op(cur) => {
-                if cur.to_string() != expected {
-                    Some(cur.to_string())
-                } else {
-                    None
-                }
-            }
-            Token::Eof => Some("End-Of-File".to_string()),
+            Token::Op(cur) => cur.to_string(),
+            Token::Eof => "End-Of-File".to_string(),
         };
 
-        if let Some(got) = error {
-            panic!(
+        if got != expected {
+            Err(format!(
                 "Error: Expected {}, got {:?} on line: {}",
                 expected, got, token.line_number
-            );
+            ))
+        } else {
+            Ok(())
         }
     }
 }
