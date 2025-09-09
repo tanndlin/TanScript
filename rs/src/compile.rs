@@ -44,7 +44,7 @@ impl RegisterHandler {
             }
         }
 
-        Err("No registers avaible".to_string())
+        Err("No registers available".to_string())
     }
 
     pub fn release_register(&mut self, register: Register) {
