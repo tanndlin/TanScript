@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub struct RegisterHandler {
+    data: Vec<String>,
     registers: [Register; 12],
     used: [bool; 12],
 }
@@ -17,6 +18,7 @@ pub struct RegisterHandler {
 impl RegisterHandler {
     pub fn new() -> RegisterHandler {
         RegisterHandler {
+            data: vec![],
             registers: [
                 Register::RAX,
                 Register::RBX,
@@ -53,7 +55,32 @@ impl RegisterHandler {
             }
         }
     }
+
+    fn add_data(&mut self, s: &str) -> String {
+        let name = format!("data_{}", self.data.len());
+        let format = format_data(&name, s);
+        self.data.push(format);
+
+        name
+    }
 }
+
+fn format_data(name: &String, s: &str) -> String {
+    let mut pieces: Vec<&str> = s.split("\\n").collect();
+    if s.ends_with("\\n") {
+        pieces.pop();
+    }
+
+    let mut newlines = pieces.join("\", 10, \"");
+    if s.ends_with("\\n") {
+        newlines.push_str("\", 10");
+    } else {
+        newlines.push('"');
+    }
+
+    format!("{} db \"{}, 0", name, newlines)
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Clone)]
 pub enum Register {
@@ -111,6 +138,13 @@ impl Program {
         let mut register_handler = RegisterHandler::new();
         let instructions = self.block.compile(&mut global_scope, &mut register_handler);
 
+        let data = register_handler
+            .data
+            .iter()
+            .map(|d| format!("\t{}", d))
+            .collect::<Vec<String>>()
+            .join("\n");
+
         format!(
             "BITS 64
 
@@ -119,7 +153,7 @@ extern printf
 extern ExitProcess
 
 SECTION .data
-
+{}
 SECTION .text
 
 main:
@@ -131,7 +165,7 @@ main:
 \tpop rbp
 \txor rcx, rcx
 \tcall ExitProcess",
-            instructions
+            data, instructions
         )
         .to_string()
     }
@@ -234,12 +268,60 @@ impl Expression {
             Expression::Atom(a) => match a {
                 AtomType::Number(n) => compile_number(n, dst),
                 AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
+                AtomType::String(s) => compile_string(s, dst, register_handler),
+                AtomType::FunctionCall(name, args) => {
+                    compile_function_call(compile_scope, register_handler, name, args)
+                }
             },
             Expression::Operation(v, children) => {
                 compile_operator(v, children, compile_scope, dst, register_handler)
             }
         }
     }
+}
+
+fn compile_string(s: &str, dst: &Address, register_handler: &mut RegisterHandler) -> String {
+    let handle = register_handler.add_data(s);
+    format!("mov {}, {}", dst, handle)
+}
+
+fn compile_function_call(
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+    name: &str,
+    args: &[Expression],
+) -> String {
+    let function_def = compile_scope.get_function(name);
+    let external_functions = ["printf"];
+    if let Some(f) = function_def {
+        if f.num_args != args.len() as u8 {
+            panic!(
+                "Incorrect numnber of args supplied. Expected {}, got {}",
+                f.num_args,
+                args.len()
+            )
+        }
+    } else if !external_functions.contains(&name) {
+        panic!("Function defintion not found for: {}", name)
+    }
+
+    if args.len() > 4 {
+        todo!("More than 4 args not supported")
+    }
+
+    let mut instructions = vec![];
+
+    let target_registers = vec![Register::RCX, Register::RDX, Register::R8, Register::R9];
+    let zipped = args.iter().zip(target_registers);
+    for (arg, reg) in zipped {
+        instructions.push(arg.compile(compile_scope, &Address::Register(reg), register_handler))
+    }
+
+    instructions.push("sub rsp, 32".to_string());
+    instructions.push(format!("call {}", name));
+    instructions.push("add rsp, 32".to_string());
+
+    instructions.join("\n")
 }
 
 fn compile_number(n: &i32, dst: &Address) -> String {

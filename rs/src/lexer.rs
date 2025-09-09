@@ -39,6 +39,14 @@ impl Lexer {
                 continue;
             }
 
+            if *cur == '"' {
+                tokens.push(LexerToken::new(
+                    Token::Atom(LexerAtomType::String(get_string(&mut chars))),
+                    line_number,
+                ));
+                continue;
+            }
+
             match cur {
                 ';' => {
                     chars.pop();
@@ -48,7 +56,7 @@ impl Lexer {
                     ));
                     continue;
                 }
-                '+' | '-' | '*' | '/' | '=' | '(' | ')' => {
+                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' => {
                     tokens.push(LexerToken::new(
                         Token::Op(chars.pop().unwrap()),
                         line_number,
@@ -103,6 +111,13 @@ impl Lexer {
                         None
                     }
                 }
+                LexerAtomType::String(s) => {
+                    if s != expected {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                }
             },
             Token::Op(cur) => {
                 if cur.to_string() != expected {
@@ -124,18 +139,22 @@ impl Lexer {
 }
 
 fn get_number(input: &mut Vec<char>) -> i32 {
-    let mut n = 0i32;
+    let mut chars = vec![];
 
     while let Some(c) = input.last() {
         if !c.is_ascii_digit() {
             break;
         }
 
-        n = n * 10 + c.to_digit(10).unwrap() as i32;
-        input.pop();
+        chars.push(input.pop().unwrap());
     }
 
-    n
+    chars
+        .into_iter()
+        .rev()
+        .collect::<String>()
+        .parse::<i32>()
+        .unwrap()
 }
 
 fn get_identifier(input: &mut Vec<char>) -> String {
@@ -150,4 +169,25 @@ fn get_identifier(input: &mut Vec<char>) -> String {
     }
 
     string_vec.into_iter().rev().collect::<String>()
+}
+
+fn get_string(input: &mut Vec<char>) -> String {
+    // Remove the leading quote
+    input.pop();
+    let mut chars = vec![];
+
+    while let Some(c) = input.last() {
+        if *c == '"' {
+            break;
+        }
+
+        chars.push(*c);
+        input.pop();
+    }
+
+    // Remove the closing quote
+    input.pop().expect("No closing quote found for string");
+
+    chars.reverse();
+    chars.into_iter().collect()
 }

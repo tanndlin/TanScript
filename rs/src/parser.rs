@@ -19,12 +19,16 @@ pub fn parse(input: &str) -> Program {
 }
 
 fn parse_statement_or_expression(lexer: &mut Lexer) -> Option<StatementOrExpression> {
-    lexer.peek()?;
-
-    Some(match parse_statement(lexer) {
-        Some(statement) => StatementOrExpression::Statement(statement),
-        None => StatementOrExpression::Expression(parse_expression(lexer, 0)),
-    })
+    match lexer.peek()?.token_type {
+        Token::Eof | Token::Atom(LexerAtomType::Semicolon) => {
+            lexer.next();
+            None
+        }
+        _ => Some(match parse_statement(lexer) {
+            Some(statement) => StatementOrExpression::Statement(statement),
+            None => StatementOrExpression::Expression(parse_expression(lexer, 0)),
+        }),
+    }
 }
 
 fn parse_statement(lexer: &mut Lexer) -> Option<Statement> {
@@ -46,11 +50,11 @@ fn parse_statement(lexer: &mut Lexer) -> Option<Statement> {
                     None
                 }
             }
-            LexerAtomType::Number(_) => None,
             LexerAtomType::Semicolon => {
                 lexer.next();
                 None
             }
+            LexerAtomType::Number(_) | LexerAtomType::String(_) => None,
         },
     };
 
@@ -86,6 +90,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Expression {
     let token = lexer.next();
 
     let mut lhs = match token.token_type {
+        Token::Atom(LexerAtomType::Identifier(s)) => parse_identifier_or_function_call(lexer, s),
         Token::Atom(it) => Expression::Atom(AtomType::from_lexer_atom(it)),
         Token::Op('(') => {
             let lhs = parse_expression(lexer, 0);
@@ -141,6 +146,42 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Expression {
     }
 
     lhs
+}
+
+fn parse_identifier_or_function_call(lexer: &mut Lexer, s: String) -> Expression {
+    if let Some(next) = lexer.peek() {
+        match next.token_type {
+            Token::Op('(') => parse_function_call(lexer, s),
+            _ => Expression::Atom(AtomType::Identifier(s)),
+        }
+    } else {
+        Expression::Atom(AtomType::Identifier(s))
+    }
+}
+
+fn parse_function_call(lexer: &mut Lexer, s: String) -> Expression {
+    lexer.expect("(");
+
+    let mut args = vec![];
+    loop {
+        let next = lexer
+            .peek()
+            .expect("Ran out of tokens parsing function call");
+        let arg = match next.token_type {
+            Token::Eof => panic!("Ran out of tokens parsing function call (Are you missing a ')'"),
+            _ => parse_expression(lexer, 0),
+        };
+
+        args.push(arg);
+        let next = lexer.next();
+        match next.token_type {
+            Token::Op(')') => break,
+            Token::Op(',') => continue,
+            _ => panic!("Invalid token {}", next),
+        }
+    }
+
+    Expression::Atom(AtomType::FunctionCall(s, args))
 }
 
 fn prefix_binding_power(op: char) -> ((), u8) {

@@ -93,6 +93,8 @@ impl fmt::Display for StatementOrExpression {
 pub enum AtomType {
     Number(i32),
     Identifier(String),
+    String(String),
+    FunctionCall(String, Vec<Expression>),
 }
 
 impl AtomType {
@@ -100,6 +102,7 @@ impl AtomType {
         match atom {
             LexerAtomType::Number(n) => AtomType::Number(n),
             LexerAtomType::Identifier(s) => AtomType::Identifier(s),
+            LexerAtomType::String(s) => AtomType::String(s),
             LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
         }
     }
@@ -110,6 +113,17 @@ impl fmt::Display for AtomType {
         match self {
             AtomType::Number(n) => write!(f, "{}", n),
             AtomType::Identifier(c) => write!(f, "{}", c),
+            AtomType::String(s) => write!(f, "{}", s),
+            AtomType::FunctionCall(name, expressions) => write!(
+                f,
+                "{}({})",
+                name,
+                expressions
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
         }
     }
 }

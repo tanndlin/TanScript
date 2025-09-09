@@ -19,9 +19,9 @@
                     ]
                 },
                 {
-                    "name": "Test",
+                    "name": "ASM",
                     "commands": [
-                        "nodemon -e rs,tan -x \"cargo test\""
+                        "nodemon -e asm -x \"just asm\""
                     ]
                 }
             ],
