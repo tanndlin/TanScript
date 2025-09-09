@@ -54,7 +54,7 @@ impl RegisterHandler {
         }
     }
 }
-
+#[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Clone)]
 pub enum Register {
     RAX,
