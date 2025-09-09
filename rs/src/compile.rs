@@ -1,3 +1,4 @@
+use core::panic;
 use std::fmt;
 
 use crate::{
@@ -8,7 +9,53 @@ use crate::{
     compile_scope::CompileScope,
 };
 
-#[derive(Clone)]
+pub struct RegisterHandler {
+    registers: [Register; 12],
+    used: [bool; 12],
+}
+
+impl RegisterHandler {
+    pub fn new() -> RegisterHandler {
+        RegisterHandler {
+            registers: [
+                Register::RAX,
+                Register::RBX,
+                Register::RCX,
+                Register::RDX,
+                Register::R8,
+                Register::R9,
+                Register::R10,
+                Register::R11,
+                Register::R12,
+                Register::R13,
+                Register::R14,
+                Register::R15,
+            ],
+            used: [false; 12],
+        }
+    }
+
+    pub fn lease_register(&mut self) -> Register {
+        for i in 0..12 {
+            if !self.used[i] {
+                self.used[i] = true;
+                return self.registers[i].clone();
+            }
+        }
+
+        panic!("No registers avaible")
+    }
+
+    pub fn release_register(&mut self, register: Register) {
+        for i in 0..12 {
+            if register == self.registers[i] {
+                self.used[i] = false;
+            }
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone)]
 pub enum Register {
     RAX,
     RBX,
@@ -58,19 +105,11 @@ impl fmt::Display for Address {
     }
 }
 
-pub trait CompileStatement {
-    fn compile(&self, compile_scope: &mut CompileScope) -> String;
-}
-
-pub trait CompileExpression {
-    fn compile(&self, compile_scope: &mut CompileScope, dst: &Address) -> String;
-}
-
 impl Program {
     pub fn compile(&self) -> String {
-        let mut compile_scope = CompileScope::new();
-
-        let instructions = self.block.compile(&mut compile_scope);
+        let mut global_scope = CompileScope::new();
+        let mut register_handler = RegisterHandler::new();
+        let instructions = self.block.compile(&mut global_scope, &mut register_handler);
 
         format!(
             "BITS 64
@@ -99,11 +138,15 @@ main:
 }
 
 impl Block {
-    pub fn compile(&self, compile_scope: &mut CompileScope) -> String {
+    pub fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         let mut instructions = self
             .children
             .iter()
-            .map(|s| s.compile(compile_scope))
+            .map(|s| s.compile(compile_scope, register_handler))
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -124,47 +167,77 @@ impl Block {
 }
 
 impl StatementOrExpression {
-    fn compile(&self, compile_scope: &mut CompileScope) -> String {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         match &self {
-            StatementOrExpression::Statement(statement) => statement.compile(compile_scope),
-            StatementOrExpression::Expression(expression) => {
-                expression.compile(compile_scope, &Address::Register(Register::R15))
+            StatementOrExpression::Statement(statement) => {
+                statement.compile(compile_scope, register_handler)
             }
+            StatementOrExpression::Expression(expression) => expression.compile(
+                compile_scope,
+                &Address::Register(Register::R15),
+                register_handler,
+            ),
         }
     }
 }
 
-impl CompileStatement for Statement {
-    fn compile(&self, compile_scope: &mut CompileScope) -> String {
+impl Statement {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         match &self {
-            Statement::Declaration(declaration) => declaration.compile(compile_scope),
-            Statement::Assign(assignment) => assignment.compile(compile_scope),
+            Statement::Declaration(declaration) => {
+                declaration.compile(compile_scope, register_handler)
+            }
+            Statement::Assign(assignment) => assignment.compile(compile_scope, register_handler),
         }
     }
 }
 
-impl CompileStatement for Declaration {
-    fn compile(&self, compile_scope: &mut CompileScope) -> String {
+impl Declaration {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         compile_scope.add_variable(self.assign.identifier.clone());
-        self.assign.compile(compile_scope)
+        self.assign.compile(compile_scope, register_handler)
     }
 }
 
-impl CompileStatement for Assignment {
-    fn compile(&self, compile_scope: &mut CompileScope) -> String {
+impl Assignment {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         let address = compile_scope.get_variable(&self.identifier).clone();
-        self.expression.compile(compile_scope, &address)
+        self.expression
+            .compile(compile_scope, &address, register_handler)
     }
 }
 
-impl CompileExpression for Expression {
-    fn compile(&self, compile_scope: &mut CompileScope, dst: &Address) -> String {
+impl Expression {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        dst: &Address,
+        register_handler: &mut RegisterHandler,
+    ) -> String {
         match self {
             Expression::Atom(a) => match a {
                 AtomType::Number(n) => compile_number(n, dst),
                 AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
             },
-            Expression::Operation(v, children) => compile_operator(v, children, compile_scope, dst),
+            Expression::Operation(v, children) => {
+                compile_operator(v, children, compile_scope, dst, register_handler)
+            }
         }
     }
 }
@@ -183,12 +256,15 @@ fn compile_operator(
     children: &[Expression],
     compile_scope: &mut CompileScope,
     dst: &Address,
+    register_handler: &mut RegisterHandler,
 ) -> String {
     match op {
         OperatorType::Add
         | OperatorType::Subtract
         | OperatorType::Multiply
-        | OperatorType::Divide => compile_infix_operator(op, children, compile_scope, dst),
+        | OperatorType::Divide => {
+            compile_infix_operator(op, children, compile_scope, dst, register_handler)
+        }
     }
 }
 
@@ -197,22 +273,31 @@ fn compile_infix_operator(
     children: &[Expression],
     compile_scope: &mut CompileScope,
     dst: &Address,
+    register_handler: &mut RegisterHandler,
 ) -> String {
+    let right_reg = register_handler.lease_register();
+
     let left = children
         .first()
         .unwrap_or_else(|| panic!("Missing first child for infix operator: {}", op))
-        .compile(compile_scope, dst);
+        .compile(compile_scope, dst, register_handler);
     let right = children
         .get(1)
         .unwrap_or_else(|| panic!("Missing first child for infix operator: {}", op))
-        .compile(compile_scope, &Address::Register(Register::R8));
+        .compile(
+            compile_scope,
+            &Address::Register(right_reg.clone()),
+            register_handler,
+        );
 
     let perform = match op {
-        OperatorType::Add => format!("add {}, r8", dst),
-        OperatorType::Subtract => format!("sub {}, r8", dst),
+        OperatorType::Add => format!("add {}, {}", dst, right_reg),
+        OperatorType::Subtract => format!("sub {}, {}", dst, right_reg),
         OperatorType::Multiply => todo!(),
         OperatorType::Divide => todo!(),
     };
+
+    register_handler.release_register(right_reg);
 
     format!("{}\n{}\n{}", left, right, perform)
 }
