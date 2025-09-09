@@ -5,7 +5,6 @@ use crate::{
         Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
         StatementOrExpression,
     },
-    compile,
     compile_scope::CompileScope,
 };
 
@@ -201,11 +200,11 @@ fn compile_infix_operator(
 ) -> String {
     let left = children
         .first()
-        .expect(format!("Missing first child for infix operator: {}", op).as_str())
+        .unwrap_or_else(|| panic!("Missing first child for infix operator: {}", op))
         .compile(compile_scope, dst);
     let right = children
         .get(1)
-        .expect(format!("Missing first child for infix operator: {}", op).as_str())
+        .unwrap_or_else(|| panic!("Missing first child for infix operator: {}", op))
         .compile(compile_scope, &Address::Register(Register::R8));
 
     let perform = match op {
