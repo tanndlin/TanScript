@@ -4,7 +4,7 @@ use crate::compile::Address;
 
 pub struct FunctionDefinition {
     pub name: String,
-    pub num_args: u8,
+    pub num_args: Option<u8>,
 }
 
 pub struct CompileScope {
@@ -15,27 +15,44 @@ pub struct CompileScope {
 
 impl CompileScope {
     pub fn new() -> CompileScope {
+        let mut functions = HashMap::new();
+        functions.insert(
+            "printf".to_string(),
+            FunctionDefinition {
+                name: "printf".to_string(),
+                num_args: None,
+            },
+        );
+
         CompileScope {
             variables: HashMap::new(),
-            functions: HashMap::new(),
+            functions,
             num_variables: 0,
         }
     }
 
-    pub fn get_variable(&self, name: &str) -> Address {
+    pub fn get_variable(&self, name: &str) -> Result<&Address, String> {
         match self.variables.get(name) {
-            None => panic!("Variable {} not found", name),
-            Some(addr) => (*addr).clone(),
+            Some(addr) => Ok(addr),
+            None => Err(format!("Variable '{}' not found", name)),
         }
     }
 
-    pub fn add_variable(&mut self, name: String) {
+    pub fn add_variable(&mut self, name: String) -> Result<(), String> {
+        if self.variables.contains_key(&name) {
+            return Err(format!("Variable '{}' already declared", name));
+        }
+
         self.variables
             .insert(name, Address::Stack((self.num_variables + 1) * 8));
-        self.num_variables += 1
+        self.num_variables += 1;
+        Ok(())
     }
 
-    pub fn get_function(&self, name: &str) -> Option<&FunctionDefinition> {
-        self.functions.get(name)
+    pub fn get_function(&self, name: &str) -> Result<&FunctionDefinition, String> {
+        match self.functions.get(name) {
+            Some(func) => Ok(func),
+            None => Err(format!("Function '{}' not found", name)),
+        }
     }
 }

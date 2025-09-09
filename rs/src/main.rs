@@ -23,6 +23,8 @@ fn main() {
     let ast = parse(&file_as_string);
     println!("{}", ast);
 
-    let code = ast.compile();
-    fs::write(Path::new("script.asm"), code).expect("Failed to write to file")
+    match ast.compile() {
+        Ok(code) => fs::write(Path::new("script.asm"), code).expect("Failed to write to file"),
+        Err(e) => eprintln!("Error during compilation: {}", e),
+    }
 }
