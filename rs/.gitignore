@@ -1,3 +1,5 @@
 *.tan
 target/*
 *.asm
+*.exe
+*.o
