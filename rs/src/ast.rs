@@ -48,9 +48,16 @@ pub struct Declaration {
 }
 
 #[derive(Debug)]
+pub struct WhileLoop {
+    pub condition: Expression,
+    pub block: Block,
+}
+
+#[derive(Debug)]
 pub enum Statement {
     Declaration(Declaration),
     Assign(Assignment),
+    WhileLoop(WhileLoop),
 }
 
 impl fmt::Display for Assignment {
@@ -70,6 +77,13 @@ impl fmt::Display for Statement {
         match self {
             Statement::Declaration(e) => write!(f, "{}", e),
             Statement::Assign(e) => write!(f, "{}", e),
+            Statement::WhileLoop(while_loop) => {
+                write!(
+                    f,
+                    "while ({}) {{\n{}\n}}",
+                    while_loop.condition, while_loop.block
+                )
+            }
         }
     }
 }
@@ -123,6 +137,7 @@ pub enum OperatorType {
     Subtract,
     Multiply,
     Divide,
+    LessThan,
 }
 
 impl OperatorType {
@@ -132,6 +147,7 @@ impl OperatorType {
             '-' => OperatorType::Subtract,
             '*' => OperatorType::Multiply,
             '/' => OperatorType::Divide,
+            '<' => OperatorType::LessThan,
             _ => panic!("Unknown operator: {}", op),
         }
     }
@@ -144,6 +160,7 @@ impl fmt::Display for OperatorType {
             OperatorType::Subtract => write!(f, "-"),
             OperatorType::Multiply => write!(f, "*"),
             OperatorType::Divide => write!(f, "/"),
+            OperatorType::LessThan => write!(f, "<"),
         }
     }
 }

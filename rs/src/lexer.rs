@@ -56,7 +56,7 @@ impl Lexer {
                     ));
                     continue;
                 }
-                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' => {
+                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' | '}' | '{' | '<' => {
                     tokens.push(LexerToken::new(
                         Token::Op(chars.pop().unwrap()),
                         line_number,
@@ -64,7 +64,7 @@ impl Lexer {
                 }
                 _ => {
                     return Err(format!(
-                        "Unknown character: {} on line: {}",
+                        "Lexer: Unknown character: {} on line: {}",
                         cur, line_number
                     ));
                 }

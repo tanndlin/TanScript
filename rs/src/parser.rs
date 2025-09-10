@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
-        StatementOrExpression,
+        StatementOrExpression, WhileLoop,
     },
     lexer::Lexer,
     types::{LexerAtomType, Token},
@@ -21,19 +21,31 @@ pub fn parse(input: &str) -> Result<Program, String> {
 fn parse_statement_or_expression(
     lexer: &mut Lexer,
 ) -> Result<Option<StatementOrExpression>, String> {
-    match lexer.peek() {
-        None => Ok(None),
+    let ret = match lexer.peek() {
+        None => {
+            println!("Returing none");
+            Ok(None)
+        }
         Some(tok) => match tok.token_type {
-            Token::Eof | Token::Atom(LexerAtomType::Semicolon) => {
+            Token::Eof => {
                 lexer.next();
-                Ok(None)
+                parse_statement_or_expression(lexer)
             }
             _ => Ok(Some(match parse_statement(lexer)? {
                 Some(statement) => StatementOrExpression::Statement(statement),
                 None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
             })),
         },
+    };
+
+    if let Ok(Some(result)) = &ret {
+        match result {
+            StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
+            _ => lexer.expect(";")?,
+        }
     }
+
+    ret
 }
 
 fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
@@ -43,6 +55,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
             LexerAtomType::Identifier(s) => {
                 if let Some(keyword) = match s.as_str() {
                     "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
+                    "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
                     _ => None,
                 } {
                     Some(keyword)
@@ -56,17 +69,46 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
                 }
             }
             LexerAtomType::Semicolon => {
-                lexer.next();
-                None
+                panic!("Hanging semicolon got left over")
             }
             LexerAtomType::Number(_) | LexerAtomType::String(_) => None,
         },
     };
 
-    if statement.is_some() {
-        lexer.expect(";")?;
-    }
     Ok(statement)
+}
+
+fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, String> {
+    lexer.expect("while")?;
+    let condition = parse_expression(lexer, 0)?;
+    let block = parse_block(lexer)?;
+    Ok(WhileLoop { condition, block })
+}
+
+fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
+    lexer.expect("{")?;
+    let mut children = vec![];
+    // while let Some(statement) = parse_statement_or_expression(lexer)? {
+    //     children.push(statement)
+    // }
+
+    loop {
+        match lexer
+            .peek()
+            .expect("Ran out of tokens parsing while loop")
+            .token_type
+        {
+            Token::Op('}') => break,
+            _ => children.push(match parse_statement_or_expression(lexer)? {
+                None => return Err("Ran out of tokens parsing while loop".to_string()),
+                Some(s) => s,
+            }),
+        }
+    }
+
+    lexer.expect("}")?;
+
+    Ok(Block { children })
 }
 
 fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
@@ -99,7 +141,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
         Token::Atom(it) => Expression::Atom(AtomType::from_lexer_atom(it)),
         Token::Op('(') => {
             let lhs = parse_expression(lexer, 0)?;
-            // lexer.expect(')');
+            lexer.expect(")")?;
             lexer.next();
             lhs
         }
@@ -119,12 +161,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
         let op_token = lexer.peek().unwrap();
         let op = match op_token.token_type {
             Token::Eof => break,
-            Token::Op(op) => {
-                if op == ')' {
-                    return Ok(lhs);
-                }
-                op
-            }
+            Token::Op(')') => break,
+            Token::Op(op) => op,
             _ => break,
         };
 
@@ -151,6 +189,32 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
     }
 
     Ok(lhs)
+}
+
+fn prefix_binding_power(op: char) -> ((), u8) {
+    match op {
+        '-' => ((), 5),
+        _ => panic!("bad op: {:?}", op),
+    }
+}
+
+fn postfix_binding_power(op: char) -> Option<(u8, ())> {
+    let res = match op {
+        '!' => (7, ()),
+        _ => return None,
+    };
+    Some(res)
+}
+
+fn infix_binding_power(op: char) -> Option<(u8, u8)> {
+    let res = match op {
+        '<' | '>' => (1, 2),
+        '+' | '-' => (3, 4),
+        '*' | '/' => (5, 6),
+        '.' => (10, 9),
+        _ => return None,
+    };
+    Some(res)
 }
 
 fn parse_identifier_or_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, String> {
@@ -184,38 +248,19 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         args.push(arg);
         let next = lexer.next();
         match next.token_type {
-            Token::Op(')') => break,
-            Token::Op(',') => continue,
+            Token::Op(')') => {
+                println!("Function call done");
+                break;
+            }
+            Token::Op(',') => {
+                println!("more args");
+                continue;
+            }
             _ => panic!("Invalid token {}", next),
         }
     }
 
     Ok(Expression::FunctionCall(s, args))
-}
-
-fn prefix_binding_power(op: char) -> ((), u8) {
-    match op {
-        '+' | '-' => ((), 5),
-        _ => panic!("bad op: {:?}", op),
-    }
-}
-
-fn postfix_binding_power(op: char) -> Option<(u8, ())> {
-    let res = match op {
-        '!' => (7, ()),
-        _ => return None,
-    };
-    Some(res)
-}
-
-fn infix_binding_power(op: char) -> Option<(u8, u8)> {
-    let res = match op {
-        '+' | '-' => (1, 2),
-        '*' | '/' => (3, 4),
-        '.' => (10, 9),
-        _ => return None,
-    };
-    Some(res)
 }
 
 #[test]

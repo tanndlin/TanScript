@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     ast::{
         Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
-        StatementOrExpression,
+        StatementOrExpression, WhileLoop,
     },
     compile_scope::CompileScope,
 };
@@ -12,6 +12,7 @@ pub struct RegisterHandler {
     data: Vec<String>,
     registers: [Register; 12],
     used: [bool; 12],
+    unique_id: u32,
 }
 
 impl RegisterHandler {
@@ -33,6 +34,7 @@ impl RegisterHandler {
                 Register::R15,
             ],
             used: [false; 12],
+            unique_id: 0,
         }
     }
 
@@ -74,6 +76,12 @@ impl RegisterHandler {
         }
 
         Err(format!("Register {} is not leasable", requested))
+    }
+
+    fn get_unique_id(&mut self) -> u32 {
+        let id = self.unique_id;
+        self.unique_id += 1;
+        id
     }
 }
 
@@ -244,12 +252,13 @@ impl Statement {
                 declaration.compile(compile_scope, register_handler)
             }
             Statement::Assign(assignment) => assignment.compile(compile_scope, register_handler),
+            Statement::WhileLoop(for_loop) => for_loop.compile(compile_scope, register_handler),
         }
     }
 }
 
 impl Declaration {
-    fn compile(
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -260,7 +269,7 @@ impl Declaration {
 }
 
 impl Assignment {
-    fn compile(
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -268,6 +277,36 @@ impl Assignment {
         let address = compile_scope.get_variable(&self.identifier)?.clone();
         self.expression
             .compile(compile_scope, &address, register_handler)
+    }
+}
+
+impl WhileLoop {
+    pub fn compile(
+        &self,
+        compile_scope: &mut crate::compile_scope::CompileScope,
+        register_handler: &mut crate::compile::RegisterHandler,
+    ) -> Result<String, String> {
+        let unique_id = register_handler.get_unique_id();
+        let start_label = format!("while_start_{}", unique_id);
+        let end_label = format!("while_end_{}", unique_id);
+
+        let condition = self.condition.compile(
+            compile_scope,
+            &Address::Register(Register::R15),
+            register_handler,
+        )?;
+        let block = self.block.compile(compile_scope, register_handler)?;
+
+        Ok(format!(
+            "{}:\n\
+             {}\n\
+             cmp r15, 0\n\
+             je {}\n\
+             {}\n\
+             jmp {}\n\
+             {}:",
+            start_label, condition, end_label, block, start_label, end_label
+        ))
     }
 }
 
@@ -357,7 +396,8 @@ fn compile_operator(
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     match op {
-        OperatorType::Add
+        OperatorType::LessThan
+        | OperatorType::Add
         | OperatorType::Subtract
         | OperatorType::Multiply
         | OperatorType::Divide => {
@@ -401,6 +441,9 @@ fn compile_infix_operator(
                 }
                 OperatorType::Divide => {
                     return Err("This shouldn't be possible. Use compile_divide".to_string());
+                }
+                OperatorType::LessThan => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {dst}b")
                 }
             };
 
