@@ -8,16 +8,10 @@ pub struct Lexer {
 impl Lexer {
     pub fn new(input: &str) -> Result<Lexer, String> {
         let mut line_number = 0u32;
-        let mut chars = input.chars().collect::<Vec<char>>();
+        let mut chars = input.chars().rev().collect::<Vec<char>>();
 
         let mut tokens = vec![];
         while let Some(cur) = chars.last() {
-            if cur == &'\n' {
-                line_number += 1;
-                chars.pop();
-                continue;
-            }
-
             if cur.is_whitespace() {
                 chars.pop();
                 continue;
@@ -39,28 +33,29 @@ impl Lexer {
                 continue;
             }
 
-            if *cur == '"' {
-                tokens.push(LexerToken::new(
-                    Token::Atom(LexerAtomType::String(get_string(&mut chars))),
-                    line_number,
-                ));
-                continue;
-            }
-
             match cur {
+                '"' => {
+                    tokens.push(LexerToken::new(
+                        Token::Atom(LexerAtomType::String(get_string(&mut chars)?)),
+                        line_number,
+                    ));
+                }
                 ';' => {
                     chars.pop();
                     tokens.push(LexerToken::new(
                         Token::Atom(LexerAtomType::Semicolon),
                         line_number,
                     ));
-                    continue;
                 }
                 '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' | '}' | '{' | '<' => {
                     tokens.push(LexerToken::new(
                         Token::Op(chars.pop().unwrap()),
                         line_number,
                     ));
+                }
+                '\n' => {
+                    line_number += 1;
+                    chars.pop();
                 }
                 _ => {
                     return Err(format!(
@@ -71,6 +66,7 @@ impl Lexer {
             }
         }
 
+        tokens.reverse();
         Ok(Lexer { tokens })
     }
 
@@ -129,7 +125,6 @@ fn get_number(input: &mut Vec<char>) -> i32 {
 
     chars
         .into_iter()
-        .rev()
         .collect::<String>()
         .parse::<i32>()
         .unwrap()
@@ -146,12 +141,20 @@ fn get_identifier(input: &mut Vec<char>) -> String {
         string_vec.push(input.pop().unwrap());
     }
 
-    string_vec.into_iter().rev().collect::<String>()
+    string_vec.into_iter().collect::<String>()
 }
 
-fn get_string(input: &mut Vec<char>) -> String {
+fn get_string(input: &mut Vec<char>) -> Result<String, String> {
     // Remove the leading quote
-    input.pop();
+    let popped = input.pop();
+    if popped != Some('"') {
+        if let Some(c) = popped {
+            Err(format!("Expected a starting quote. Got: {}", c).to_string())
+        } else {
+            Err("Expected a starting quote".to_string())
+        }?;
+    };
+
     let mut chars = vec![];
 
     while let Some(c) = input.last() {
@@ -164,8 +167,87 @@ fn get_string(input: &mut Vec<char>) -> String {
     }
 
     // Remove the closing quote
-    input.pop().expect("No closing quote found for string");
+    input
+        .pop()
+        .ok_or_else(|| "No closing quote found for string".to_string())?;
 
-    chars.reverse();
-    chars.into_iter().collect()
+    Ok(chars.into_iter().collect())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        lexer::Lexer,
+        types::{LexerAtomType, Token},
+    };
+
+    macro_rules! token_eq {
+        ($lexer:expr, $expected:expr) => {{
+            assert!($lexer.tokens.len() > 0);
+            let token = $lexer.tokens.pop().unwrap();
+            assert_eq!(token.token_type, $expected);
+        }};
+    }
+
+    #[test]
+    fn lex_string() {
+        let mut lexer = Lexer::new("\"This is a string 123\"").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::String("This is a string 123".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_get_identifier() {
+        let mut lexer = Lexer::new("variableName123").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("variableName123".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_number() {
+        let mut lexer = Lexer::new("123").unwrap();
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(123)));
+    }
+
+    #[test]
+    fn lex_indentifier() {
+        let mut lexer = Lexer::new("abc123").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("abc123".to_string()))
+        )
+    }
+
+    #[test]
+    fn lex_basic_math() {
+        let mut lexer = Lexer::new("abc123+def456").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("abc123".to_string()))
+        );
+        token_eq!(lexer, Token::Op('+'));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("def456".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_declaration() {
+        let mut lexer = Lexer::new("let a = 1;").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("let".to_string()))
+        );
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op('='));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+    }
 }

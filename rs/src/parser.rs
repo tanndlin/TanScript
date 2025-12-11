@@ -256,49 +256,54 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
     Ok(Expression::FunctionCall(s, args))
 }
 
-#[test]
-fn test_parse_basic_math() {
-    let mut lexer = Lexer::new("1").unwrap();
-    let s = parse_expression(&mut lexer, 0).unwrap();
-    assert_eq!(s.to_string(), "1");
+#[cfg(test)]
+mod test {
+    use crate::{
+        lexer::Lexer,
+        parser::{parse, parse_expression},
+    };
 
-    let mut lexer = Lexer::new("1 + 2 * 3").unwrap();
-    let s = parse_expression(&mut lexer, 0).unwrap();
-    assert_eq!(s.to_string(), "(+ 1 (* 2 3))");
+    macro_rules! test_parse_expression {
+        ($input:expr, $expected:expr) => {
+            let mut lexer = Lexer::new($input).unwrap();
+            let s = parse_expression(&mut lexer, 0).unwrap();
+            assert_eq!(s.to_string(), $expected);
+        };
+    }
 
-    let mut lexer = Lexer::new("a + b * c * d + e").unwrap();
-    let s = parse_expression(&mut lexer, 0).unwrap();
-    assert_eq!(s.to_string(), "(+ (+ a (* (* b c) d)) e)");
-}
+    macro_rules! integration_test {
+        ($input:expr, $expected:expr) => {
+            let program = parse($input).unwrap();
+            assert_eq!(program.to_string(), $expected);
+        };
+    }
 
-#[test]
-fn test_parse_negative_numbers() {
-    let mut lexer = Lexer::new("-9").unwrap();
-    let s = parse_expression(&mut lexer, 0).unwrap();
-    assert_eq!(s.to_string(), "(- 9)");
-}
+    #[test]
+    fn parse_basic_math() {
+        test_parse_expression!("1", "1");
+        test_parse_expression!("1 + 2 * 3", "(+ 1 (* 2 3))");
+        test_parse_expression!("a + b * c * d + e", "(+ (+ a (* (* b c) d)) e)");
+    }
 
-#[test]
-fn test_parse_parentheses() {
-    let mut lexer = Lexer::new("(1 + 2) * 3").unwrap();
-    let s = parse_expression(&mut lexer, 0).unwrap();
-    assert_eq!(s.to_string(), "(* (+ 1 2) 3)");
-}
+    #[test]
+    fn parse_negative_numbers() {
+        test_parse_expression!("-9", "(- 9)");
+    }
 
-#[test]
-fn test_parse_assignment() {
-    let s = parse("a = 1;").unwrap();
-    assert_eq!(s.to_string(), "a = 1");
+    #[test]
+    fn parse_parentheses() {
+        test_parse_expression!("(1 + 2) * 3", "(* (+ 1 2) 3)");
+    }
 
-    let s = parse("a = 1 + 2;").unwrap();
-    assert_eq!(s.to_string(), "a = (+ 1 2)");
-}
+    #[test]
+    fn parse_assignment() {
+        integration_test!("a = 1;", "a = 1");
+        integration_test!("a = 1 + 2;", "a = (+ 1 2)");
+    }
 
-#[test]
-fn test_parse_declaration() {
-    let s = parse("let a = 1;").unwrap();
-    assert_eq!(s.to_string(), "let a = 1");
-
-    let s = parse("let a = 1 + 2;").unwrap();
-    assert_eq!(s.to_string(), "let a = (+ 1 2)");
+    #[test]
+    fn parse_declaration() {
+        integration_test!("let a = 1;", "let a = 1");
+        integration_test!("let a = 1 + 2;", "let a = (+ 1 2)");
+    }
 }

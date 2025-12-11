@@ -1,6 +1,6 @@
 use std::fmt::{self};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LexerAtomType {
     Number(i32),
     Identifier(String),
@@ -19,7 +19,7 @@ impl fmt::Display for LexerAtomType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Atom(LexerAtomType),
     Op(char),

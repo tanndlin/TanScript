@@ -7,6 +7,12 @@
                     "commands": [
                         "git status",
                     ]
+                },
+                {
+                    "name": "Test",
+                    "commands": [
+                        "nodemon --watch src -e rs -x \"cargo test\""
+                    ]
                 }
             ]
         },
