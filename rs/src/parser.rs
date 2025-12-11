@@ -248,14 +248,8 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         args.push(arg);
         let next = lexer.next();
         match next.token_type {
-            Token::Op(')') => {
-                println!("Function call done");
-                break;
-            }
-            Token::Op(',') => {
-                println!("more args");
-                continue;
-            }
+            Token::Op(')') => break,
+            Token::Op(',') => continue,
             _ => panic!("Invalid token {}", next),
         }
     }
