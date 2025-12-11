@@ -49,33 +49,35 @@ fn parse_statement_or_expression(
 }
 
 fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
-    let statement = match &lexer.peek().expect("Ran out of tokens").token_type {
-        Token::Op(_) | Token::Eof => None,
-        Token::Atom(atom) => match atom {
-            LexerAtomType::Identifier(s) => {
-                if let Some(keyword) = match s.as_str() {
-                    "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
-                    "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
-                    _ => None,
-                } {
-                    Some(keyword)
-                } else if let Some(next) = lexer.peek_next() {
-                    match &next.token_type {
-                        Token::Op('=') => Some(Statement::Assign(parse_assignment(lexer)?)),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            }
-            LexerAtomType::Semicolon => {
-                panic!("Hanging semicolon got left over")
-            }
-            LexerAtomType::Number(_) | LexerAtomType::String(_) => None,
-        },
-    };
+    match &lexer.peek() {
+        None => Err("Ran out of tokens".to_string()),
 
-    Ok(statement)
+        Some(tok) => Ok(match &tok.token_type {
+            Token::Op(_) | Token::Eof => None,
+            Token::Atom(atom) => match atom {
+                LexerAtomType::Identifier(s) => {
+                    if let Some(keyword) = match s.as_str() {
+                        "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
+                        "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
+                        _ => None,
+                    } {
+                        Some(keyword)
+                    } else if let Some(next) = lexer.peek_next() {
+                        match &next.token_type {
+                            Token::Op('=') => Some(Statement::Assign(parse_assignment(lexer)?)),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
+                LexerAtomType::Semicolon => {
+                    panic!("Hanging semicolon got left over")
+                }
+                LexerAtomType::Number(_) | LexerAtomType::String(_) => None,
+            },
+        }),
+    }
 }
 
 fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, String> {
