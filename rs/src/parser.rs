@@ -142,7 +142,6 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
         Token::Op('(') => {
             let lhs = parse_expression(lexer, 0)?;
             lexer.expect(")")?;
-            lexer.next();
             lhs
         }
         Token::Op(op) => {
