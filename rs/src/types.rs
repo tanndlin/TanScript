@@ -10,11 +10,12 @@ pub enum LexerAtomType {
 
 impl fmt::Display for LexerAtomType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use LexerAtomType::*;
         match self {
-            LexerAtomType::Number(n) => write!(f, "{}", n),
-            LexerAtomType::Identifier(s) => write!(f, "{}", s),
-            LexerAtomType::String(s) => write!(f, "{}", s),
-            LexerAtomType::Semicolon => write!(f, ";"),
+            Number(n) => write!(f, "{}", n),
+            Identifier(s) => write!(f, "{}", s),
+            String(s) => write!(f, "\"{}\"", s),
+            Semicolon => write!(f, ";"),
         }
     }
 }
