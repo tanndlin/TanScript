@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::compile::Address;
 
 pub struct FunctionDefinition {
-    pub name: String,
     pub num_args: Option<u8>,
 }
 
@@ -16,13 +15,7 @@ pub struct CompileScope {
 impl CompileScope {
     pub fn new() -> CompileScope {
         let mut functions = HashMap::new();
-        functions.insert(
-            "printf".to_string(),
-            FunctionDefinition {
-                name: "printf".to_string(),
-                num_args: None,
-            },
-        );
+        functions.insert("printf".to_string(), FunctionDefinition { num_args: None });
 
         CompileScope {
             variables: HashMap::new(),
