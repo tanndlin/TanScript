@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 use crate::{
     ast::{
@@ -10,8 +10,7 @@ use crate::{
 
 pub struct RegisterHandler {
     data: Vec<String>,
-    registers: [Register; 12],
-    used: [bool; 12],
+    registers: HashMap<Register, bool>,
     unique_id: u32,
 }
 
@@ -19,42 +18,38 @@ impl RegisterHandler {
     pub fn new() -> RegisterHandler {
         RegisterHandler {
             data: vec![],
-            registers: [
-                Register::RAX,
-                Register::RBX,
-                Register::RCX,
-                Register::RDX,
-                Register::R8,
-                Register::R9,
-                Register::R10,
-                Register::R11,
-                Register::R12,
-                Register::R13,
-                Register::R14,
-                Register::R15,
-            ],
-            used: [false; 12],
+            registers: HashMap::from([
+                (Register::RAX, false),
+                (Register::RBX, false),
+                (Register::RCX, false),
+                (Register::RDX, false),
+                (Register::R8, false),
+                (Register::R9, false),
+                (Register::R10, false),
+                (Register::R11, false),
+                (Register::R12, false),
+                (Register::R13, false),
+                (Register::R14, false),
+                (Register::R15, false),
+            ]),
             unique_id: 0,
         }
     }
 
     pub fn lease_register(&mut self) -> Result<Register, String> {
-        for i in 0..12 {
-            if !self.used[i] {
-                self.used[i] = true;
-                return Ok(self.registers[i].clone());
-            }
-        }
-
-        Err("No registers available".to_string())
+        self.registers
+            .iter()
+            .skip_while(|(_, used)| **used)
+            .map(|(reg, _)| Ok(reg.clone()))
+            .nth(0)
+            .unwrap_or_else(|| Err("No registers available".to_string()))
     }
 
     pub fn release_register(&mut self, register: Register) {
-        for i in 0..12 {
-            if register == self.registers[i] {
-                self.used[i] = false;
-            }
-        }
+        match self.registers.get(&register) {
+            Some(_) => self.registers.insert(register, false),
+            None => panic!("Released unleasable register? {}", register),
+        };
     }
 
     fn add_data(&mut self, s: &str) -> String {
@@ -65,17 +60,17 @@ impl RegisterHandler {
         name
     }
 
-    fn request_register(&mut self, requested: &Register) -> Result<Register, String> {
-        for i in 0..12 {
-            if self.registers[i] == *requested {
-                return match self.used[i] {
-                    true => Err(format!("Register {} already in use", requested)),
-                    false => Ok(requested.clone()),
-                };
-            }
+    fn request_register(&mut self, register: &Register) -> Result<Register, String> {
+        match self.registers.get(register) {
+            None => Err("Register not leasable".to_string()),
+            Some(used) => match used {
+                true => Err("Register not available".to_string()),
+                false => {
+                    self.registers.insert(register.clone(), true);
+                    Ok(register.clone())
+                }
+            },
         }
-
-        Err(format!("Register {} is not leasable", requested))
     }
 
     fn get_unique_id(&mut self) -> u32 {
@@ -102,7 +97,7 @@ fn format_data(name: &String, s: &str) -> String {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone)]
 pub enum Register {
     RAX,
     RBX,
@@ -362,15 +357,27 @@ fn compile_function_call(
 
     let mut instructions = vec![];
 
-    let target_registers = vec![Register::RCX, Register::RDX, Register::R8, Register::R9];
-    let zipped = args.iter().zip(target_registers);
-    for (arg, reg) in zipped {
-        instructions.push(arg.compile(compile_scope, &Address::Register(reg), register_handler)?)
+    let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
+    let zipped = args.iter().zip(target_registers.clone());
+    for (arg, dst_reg) in zipped {
+        //  Reserve destination
+        register_handler.request_register(&dst_reg)?;
+        instructions.push(arg.compile(
+            compile_scope,
+            &Address::Register(dst_reg),
+            register_handler,
+        )?)
     }
 
     instructions.push("sub rsp, 32".to_string());
     instructions.push(format!("call {}", name));
     instructions.push("add rsp, 32".to_string());
+
+    // Give back the registers
+    target_registers
+        .iter()
+        .take(args.len())
+        .for_each(|r| register_handler.release_register(r.clone()));
 
     Ok(instructions.join("\n"))
 }

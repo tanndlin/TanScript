@@ -22,10 +22,7 @@ fn parse_statement_or_expression(
     lexer: &mut Lexer,
 ) -> Result<Option<StatementOrExpression>, String> {
     let ret = match lexer.peek() {
-        None => {
-            println!("Returing none");
-            Ok(None)
-        }
+        None => Ok(None),
         Some(tok) => match tok.token_type {
             Token::Eof => {
                 lexer.next();
