@@ -9,6 +9,15 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+                sh '''
+                curl -L \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                https://api.github.com/repos/tanndlin/TanScript/statuses/$GIT_COMMIT \
+                -d '{"state":"pending","description":"Build in progress","context":"Jenkins"}'
+                '''
             }
         }
 
