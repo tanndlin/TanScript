@@ -221,14 +221,14 @@ fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
     Some(res)
 }
 
-fn parse_identifier_or_function_call(lexer: &mut Lexer, s: &String) -> Result<Expression, String> {
+fn parse_identifier_or_function_call(lexer: &mut Lexer, s: &str) -> Result<Expression, String> {
     Ok(if let Some(next) = lexer.peek() {
         match next.token_type {
-            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.clone())?,
-            _ => Expression::Atom(AtomType::Identifier(s.clone())),
+            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.to_string())?,
+            _ => Expression::Atom(AtomType::Identifier(s.to_string())),
         }
     } else {
-        Expression::Atom(AtomType::Identifier(s.clone()))
+        Expression::Atom(AtomType::Identifier(s.to_string()))
     })
 }
 
