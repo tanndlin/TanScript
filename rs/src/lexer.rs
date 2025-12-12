@@ -71,8 +71,8 @@ impl Lexer {
         Ok(Lexer { tokens })
     }
 
-    pub fn next(&mut self) -> LexerToken {
-        self.tokens.pop().unwrap_or(LexerToken::new(Token::Eof, 0))
+    pub fn next(&mut self) -> Option<LexerToken> {
+        self.tokens.pop()
     }
 
     pub fn peek(&self) -> Option<&LexerToken> {
@@ -88,7 +88,9 @@ impl Lexer {
     }
 
     pub fn expect(&mut self, expected: &str) -> Result<(), String> {
-        let token = self.next();
+        let token = self
+            .next()
+            .ok_or(format!("Expected {} but ran out of tokens", expected))?;
 
         // Extract what we "got" as a string
         let got = match &token.token_type {
@@ -99,12 +101,11 @@ impl Lexer {
                 LexerAtomType::String(s) => s.clone(),
             },
             Token::Op(cur) => cur.to_string(),
-            Token::Eof => "End-Of-File".to_string(),
         };
 
         if got != expected {
             Err(format!(
-                "Error: Expected {}, got {:?} on line: {}",
+                "Expected {}, got {} on line: {}",
                 expected, got, token.line_number
             ))
         } else {

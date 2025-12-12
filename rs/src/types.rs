@@ -26,13 +26,11 @@ impl fmt::Display for LexerAtomType {
 pub enum Token {
     Atom(LexerAtomType),
     Op(OperatorType),
-    Eof,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Token::Eof => Ok(()),
             Token::Atom(lexer_atom_type) => write!(f, "{}", lexer_atom_type),
             Token::Op(c) => write!(f, "{}", c),
         }

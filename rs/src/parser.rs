@@ -21,28 +21,21 @@ pub fn parse(input: &str) -> Result<Program, String> {
 fn parse_statement_or_expression(
     lexer: &mut Lexer,
 ) -> Result<Option<StatementOrExpression>, String> {
-    let ret = match lexer.peek() {
+    match lexer.peek() {
         None => Ok(None),
-        Some(tok) => match tok.token_type {
-            Token::Eof => {
-                lexer.next();
-                parse_statement_or_expression(lexer)
-            }
-            _ => Ok(Some(match parse_statement(lexer)? {
+        Some(_) => {
+            let result = match parse_statement(lexer)? {
                 Some(statement) => StatementOrExpression::Statement(statement),
                 None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
-            })),
-        },
-    };
-
-    if let Ok(Some(result)) = &ret {
-        match result {
-            StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
-            _ => lexer.expect(";")?,
+            };
+            // Only expect a semicolon if it's not a while loop statement
+            match &result {
+                StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
+                _ => lexer.expect(";")?,
+            }
+            Ok(Some(result))
         }
     }
-
-    ret
 }
 
 fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
@@ -50,7 +43,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
         None => Err("Ran out of tokens".to_string()),
 
         Some(tok) => Ok(match &tok.token_type {
-            Token::Op(_) | Token::Eof => None,
+            Token::Op(_) => None,
             Token::Atom(atom) => match atom {
                 LexerAtomType::Identifier(s) => {
                     if let Some(keyword) = match s.as_str() {
@@ -121,7 +114,11 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
 }
 
 fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
-    let identifier = match lexer.next().token_type {
+    let identifier = match lexer
+        .next()
+        .ok_or("Expected identifier after declaration")?
+        .token_type
+    {
         Token::Atom(LexerAtomType::Identifier(s)) => s,
         _ => panic!("Expected identifier"),
     };
@@ -135,7 +132,7 @@ fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
 }
 
 fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String> {
-    let token = lexer.next();
+    let token = lexer.next().ok_or("Ran out of tokens")?;
 
     let mut lhs = match &token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => parse_identifier_or_function_call(lexer, s)?,
@@ -150,7 +147,6 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             let rhs = parse_expression(lexer, r_bp)?;
             Expression::Operation(op.clone(), vec![rhs])
         }
-        _ => return Err(format!("bad token: {:?}", token)),
     };
 
     loop {
@@ -160,7 +156,6 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
 
         let op_token = lexer.peek().unwrap();
         let op = match &op_token.token_type {
-            Token::Eof => break,
             Token::Op(OperatorType::CloseParen) => break,
             Token::Op(op) => op.clone(),
             _ => break,
@@ -240,17 +235,17 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         let next = lexer
             .peek()
             .expect("Ran out of tokens parsing function call");
-        let arg = match next.token_type {
-            Token::Eof => {
-                return Err(
-                    "Ran out of tokens parsing function call (Are you missing a ')'".to_string(),
-                );
-            }
-            _ => parse_expression(lexer, 0)?,
-        };
 
+        if next.token_type == Token::Op(OperatorType::CloseParen) {
+            lexer.next().unwrap();
+            break;
+        }
+
+        let arg = parse_expression(lexer, 0)?;
         args.push(arg);
-        let next = lexer.next();
+        let next = lexer
+            .next()
+            .ok_or("Ran out of tokens while parsing function call")?;
         match next.token_type {
             Token::Op(OperatorType::CloseParen) => break,
             Token::Op(OperatorType::Comma) => continue,
