@@ -32,11 +32,13 @@ pipeline {
 
         stage('Lint') {
             steps {
-                sh '''
-                cd rs
-                cargo fmt -- --check
-                cargo clippy -- -D warnings
-                '''
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    sh '''
+                    cd rs
+                    cargo fmt -- --check
+                    cargo clippy -- -D warnings
+                    '''
+                }
             }
         }
 
