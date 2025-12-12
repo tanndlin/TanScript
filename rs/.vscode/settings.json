@@ -3,9 +3,9 @@
         {
             "splitTerminals": [
                 {
-                    "name": "Git",
+                    "name": "Lint",
                     "commands": [
-                        "git status",
+                        "nodemon --watch src -e rs -x \"cargo clippy -- -D clippy::pedantic\""
                     ]
                 },
                 {
@@ -28,6 +28,16 @@
                     "name": "ASM",
                     "commands": [
                         "nodemon -e asm -x \"just asm\""
+                    ]
+                }
+            ],
+        },
+        {
+            "splitTerminals": [
+                {
+                    "name": "Git",
+                    "commands": [
+                        "git status"
                     ]
                 }
             ],

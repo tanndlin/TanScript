@@ -36,7 +36,7 @@ pipeline {
                     sh '''
                     cd rs
                     cargo fmt -- --check
-                    cargo clippy -- -D warnings
+                    cargo clippy -- -D clippy::pedantic
                     '''
                 }
             }
