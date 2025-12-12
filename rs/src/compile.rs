@@ -37,12 +37,16 @@ impl RegisterHandler {
     }
 
     pub fn lease_register(&mut self) -> Result<Register, String> {
-        self.registers
+        let reg = self
+            .registers
             .iter()
             .skip_while(|(_, used)| **used)
             .map(|(reg, _)| Ok(reg.clone()))
             .nth(0)
-            .unwrap_or_else(|| Err("No registers available".to_string()))
+            .unwrap_or_else(|| Err("No registers available".to_string()))?;
+
+        self.registers.insert(reg.clone(), true);
+        Ok(reg)
     }
 
     pub fn release_register(&mut self, register: Register) {
