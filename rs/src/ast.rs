@@ -111,11 +111,11 @@ pub enum AtomType {
 }
 
 impl AtomType {
-    pub fn from_lexer_atom(atom: LexerAtomType) -> AtomType {
+    pub fn from_lexer_atom(atom: &LexerAtomType) -> AtomType {
         match atom {
-            LexerAtomType::Number(n) => AtomType::Number(n),
-            LexerAtomType::Identifier(s) => AtomType::Identifier(s),
-            LexerAtomType::String(s) => AtomType::String(s),
+            LexerAtomType::Number(n) => AtomType::Number(*n),
+            LexerAtomType::Identifier(s) => AtomType::Identifier(s.clone()),
+            LexerAtomType::String(s) => AtomType::String(s.clone()),
             LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
         }
     }
@@ -131,13 +131,25 @@ impl fmt::Display for AtomType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OperatorType {
     Add,
     Subtract,
     Multiply,
     Divide,
     LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual,
+    Equal,
+    NotEqual,
+    Assign,
+    OpenCurly,
+    CloseCurly,
+    OpenParen,
+    CloseParen,
+    Not,
+    Comma,
 }
 
 impl OperatorType {
@@ -148,6 +160,14 @@ impl OperatorType {
             '*' => OperatorType::Multiply,
             '/' => OperatorType::Divide,
             '<' => OperatorType::LessThan,
+            '>' => OperatorType::GreaterThan,
+            '!' => OperatorType::Not,
+            '=' => OperatorType::Assign,
+            '{' => OperatorType::OpenCurly,
+            '}' => OperatorType::CloseCurly,
+            '(' => OperatorType::OpenParen,
+            ')' => OperatorType::CloseParen,
+            ',' => OperatorType::Comma,
             _ => panic!("Unknown operator: {}", op),
         }
     }
@@ -161,6 +181,18 @@ impl fmt::Display for OperatorType {
             OperatorType::Multiply => write!(f, "*"),
             OperatorType::Divide => write!(f, "/"),
             OperatorType::LessThan => write!(f, "<"),
+            OperatorType::LessOrEqual => write!(f, "<="),
+            OperatorType::GreaterThan => write!(f, ">"),
+            OperatorType::GreaterOrEqual => write!(f, ">="),
+            OperatorType::Equal => write!(f, "=="),
+            OperatorType::NotEqual => write!(f, "!="),
+            OperatorType::Assign => write!(f, "="),
+            OperatorType::OpenCurly => write!(f, "{{"),
+            OperatorType::CloseCurly => write!(f, "}}"),
+            OperatorType::OpenParen => write!(f, "("),
+            OperatorType::CloseParen => write!(f, ")"),
+            OperatorType::Not => write!(f, "!"),
+            OperatorType::Comma => write!(f, ","),
         }
     }
 }

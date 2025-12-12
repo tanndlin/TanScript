@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::HashMap, fmt};
 
 use crate::{
@@ -406,13 +407,15 @@ fn compile_operator(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
+    use OperatorType::*;
     match op {
-        OperatorType::LessThan
-        | OperatorType::Add
-        | OperatorType::Subtract
-        | OperatorType::Multiply
-        | OperatorType::Divide => {
+        Add | Subtract | Multiply | Divide | LessThan | LessOrEqual | GreaterThan
+        | GreaterOrEqual | Equal | NotEqual => {
             compile_infix_operator(op, children, compile_scope, dst, register_handler)
+        }
+        Not => compile_prefix_operator(op, children, compile_scope, dst, register_handler),
+        Assign | OpenCurly | CloseCurly | OpenParen | CloseParen | Comma => {
+            panic!("Unexpected operator{}", op)
         }
     }
 }
@@ -456,6 +459,28 @@ fn compile_infix_operator(
                 OperatorType::LessThan => {
                     format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {dst}b")
                 }
+                OperatorType::LessOrEqual => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetle {dst}b")
+                }
+                OperatorType::GreaterThan => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetg {dst}b")
+                }
+                OperatorType::GreaterOrEqual => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetge {dst}b")
+                }
+                OperatorType::Equal => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsete {dst}b")
+                }
+                OperatorType::NotEqual => {
+                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetne {dst}b")
+                }
+                OperatorType::Assign
+                | OperatorType::OpenCurly
+                | OperatorType::CloseCurly
+                | OperatorType::OpenParen
+                | OperatorType::CloseParen
+                | OperatorType::Not
+                | OperatorType::Comma => panic!("Somehow called compile operator on {}", op),
             };
 
             register_handler.release_register(right_reg);
@@ -463,6 +488,26 @@ fn compile_infix_operator(
             Ok(format!("{}\n{}\n{}", left, right, perform))
         }
     }
+}
+
+fn compile_prefix_operator(
+    op: &OperatorType,
+    children: &[Expression],
+    compile_scope: &mut CompileScope,
+    dst: &Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<String, String> {
+    let child = children.first().ok_or("Infix operator missing child")?;
+    let child_asm = child.compile(compile_scope, dst, register_handler)?;
+
+    let asm = match op {
+        OperatorType::Not => {
+            format!("xor {dst}, 1\n")
+        }
+        _ => panic!("Unexpected operator in compile_prefix_operator: {}", op),
+    };
+
+    Ok(format!("{}\n{}", child_asm, asm))
 }
 
 fn compile_multiply(

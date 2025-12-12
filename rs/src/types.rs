@@ -1,5 +1,7 @@
 use std::fmt::{self};
 
+use crate::ast::OperatorType;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LexerAtomType {
     Number(i32),
@@ -23,7 +25,7 @@ impl fmt::Display for LexerAtomType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
     Atom(LexerAtomType),
-    Op(char),
+    Op(OperatorType),
     Eof,
 }
 

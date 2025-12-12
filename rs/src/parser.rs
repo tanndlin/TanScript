@@ -61,7 +61,9 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
                         Some(keyword)
                     } else if let Some(next) = lexer.peek_next() {
                         match &next.token_type {
-                            Token::Op('=') => Some(Statement::Assign(parse_assignment(lexer)?)),
+                            Token::Op(OperatorType::Assign) => {
+                                Some(Statement::Assign(parse_assignment(lexer)?))
+                            }
                             _ => None,
                         }
                     } else {
@@ -97,7 +99,7 @@ fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
             .expect("Ran out of tokens parsing while loop")
             .token_type
         {
-            Token::Op('}') => break,
+            Token::Op(OperatorType::CloseCurly) => break,
             _ => children.push(match parse_statement_or_expression(lexer)? {
                 None => return Err("Ran out of tokens parsing while loop".to_string()),
                 Some(s) => s,
@@ -135,10 +137,10 @@ fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
 fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String> {
     let token = lexer.next();
 
-    let mut lhs = match token.token_type {
+    let mut lhs = match &token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => parse_identifier_or_function_call(lexer, s)?,
         Token::Atom(it) => Expression::Atom(AtomType::from_lexer_atom(it)),
-        Token::Op('(') => {
+        Token::Op(OperatorType::OpenParen) => {
             let lhs = parse_expression(lexer, 0)?;
             lexer.expect(")")?;
             lhs
@@ -146,7 +148,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
         Token::Op(op) => {
             let ((), r_bp) = prefix_binding_power(op);
             let rhs = parse_expression(lexer, r_bp)?;
-            Expression::Operation(OperatorType::from_char(op), vec![rhs])
+            Expression::Operation(op.clone(), vec![rhs])
         }
         _ => return Err(format!("bad token: {:?}", token)),
     };
@@ -157,29 +159,29 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
         }
 
         let op_token = lexer.peek().unwrap();
-        let op = match op_token.token_type {
+        let op = match &op_token.token_type {
             Token::Eof => break,
-            Token::Op(')') => break,
-            Token::Op(op) => op,
+            Token::Op(OperatorType::CloseParen) => break,
+            Token::Op(op) => op.clone(),
             _ => break,
         };
 
-        if let Some((l_bp, ())) = postfix_binding_power(op) {
+        if let Some((l_bp, ())) = postfix_binding_power(&op) {
             if l_bp < min_bp {
                 break;
             }
             lexer.next();
-            lhs = Expression::Operation(OperatorType::from_char(op), vec![lhs]);
+            lhs = Expression::Operation(op, vec![lhs]);
             continue;
         }
 
-        if let Some((l_bp, r_bp)) = infix_binding_power(op) {
+        if let Some((l_bp, r_bp)) = infix_binding_power(&op) {
             if l_bp < min_bp {
                 break;
             }
             lexer.next();
             let rhs = parse_expression(lexer, r_bp)?;
-            lhs = Expression::Operation(OperatorType::from_char(op), vec![lhs, rhs]);
+            lhs = Expression::Operation(op.clone(), vec![lhs, rhs]);
             continue;
         }
 
@@ -189,40 +191,44 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
     Ok(lhs)
 }
 
-fn prefix_binding_power(op: char) -> ((), u8) {
+fn prefix_binding_power(op: &OperatorType) -> ((), u8) {
     match op {
-        '-' => ((), 5),
+        OperatorType::Subtract => ((), 7),
+        OperatorType::Not => ((), 7),
         _ => panic!("bad op: {:?}", op),
     }
 }
 
-fn postfix_binding_power(op: char) -> Option<(u8, ())> {
+fn postfix_binding_power(_: &OperatorType) -> Option<(u8, ())> {
+    // let res = match op {
+    //     '!' => (9, ()),
+    //     _ => return None,
+    // };
+    // Some(res)
+    None
+}
+
+fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
+    use OperatorType::*;
+
     let res = match op {
-        '!' => (7, ()),
+        Equal | NotEqual => (3, 4),
+        LessThan | LessOrEqual | GreaterThan | GreaterOrEqual => (3, 4),
+        Add | Subtract => (5, 6),
+        Multiply | Divide => (7, 8),
         _ => return None,
     };
     Some(res)
 }
 
-fn infix_binding_power(op: char) -> Option<(u8, u8)> {
-    let res = match op {
-        '<' | '>' => (1, 2),
-        '+' | '-' => (3, 4),
-        '*' | '/' => (5, 6),
-        '.' => (10, 9),
-        _ => return None,
-    };
-    Some(res)
-}
-
-fn parse_identifier_or_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, String> {
+fn parse_identifier_or_function_call(lexer: &mut Lexer, s: &String) -> Result<Expression, String> {
     Ok(if let Some(next) = lexer.peek() {
         match next.token_type {
-            Token::Op('(') => parse_function_call(lexer, s)?,
-            _ => Expression::Atom(AtomType::Identifier(s)),
+            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.clone())?,
+            _ => Expression::Atom(AtomType::Identifier(s.clone())),
         }
     } else {
-        Expression::Atom(AtomType::Identifier(s))
+        Expression::Atom(AtomType::Identifier(s.clone()))
     })
 }
 
@@ -246,8 +252,8 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         args.push(arg);
         let next = lexer.next();
         match next.token_type {
-            Token::Op(')') => break,
-            Token::Op(',') => continue,
+            Token::Op(OperatorType::CloseParen) => break,
+            Token::Op(OperatorType::Comma) => continue,
             _ => panic!("Invalid token {}", next),
         }
     }
@@ -304,5 +310,41 @@ mod test {
     fn parse_declaration() {
         integration_test!("let a = 1;", "let a = 1");
         integration_test!("let a = 1 + 2;", "let a = (+ 1 2)");
+    }
+
+    #[test]
+    fn parse_less_than() {
+        test_parse_expression!("1 < 2", "(< 1 2)");
+    }
+
+    #[test]
+    fn parse_less_than_or_equal() {
+        test_parse_expression!("1 <= 2", "(<= 1 2)");
+    }
+
+    #[test]
+    fn parse_greater_than() {
+        test_parse_expression!("1 > 2", "(> 1 2)");
+    }
+
+    #[test]
+    fn parse_greater_than_or_equal() {
+        test_parse_expression!("1 >= 2", "(>= 1 2)");
+    }
+
+    #[test]
+    fn parse_equals() {
+        test_parse_expression!("1 == 2", "(== 1 2)");
+    }
+
+    #[test]
+    fn parse_not_equal() {
+        test_parse_expression!("1 != 2", "(!= 1 2)");
+    }
+
+    #[test]
+    fn parse_boolean_negate() {
+        test_parse_expression!("!1", "(! 1)");
+        test_parse_expression!("!(1 < 2)", "(! (< 1 2))");
     }
 }

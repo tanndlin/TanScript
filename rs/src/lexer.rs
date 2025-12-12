@@ -1,4 +1,7 @@
-use crate::types::{LexerAtomType, LexerToken, Token};
+use crate::{
+    ast::OperatorType,
+    types::{LexerAtomType, LexerToken, Token},
+};
 
 #[derive(Debug)]
 pub struct Lexer {
@@ -47,11 +50,9 @@ impl Lexer {
                         line_number,
                     ));
                 }
-                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' | '}' | '{' | '<' => {
-                    tokens.push(LexerToken::new(
-                        Token::Op(chars.pop().unwrap()),
-                        line_number,
-                    ));
+                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' | '}' | '{' | '<' | '>' | '!' => {
+                    let op = get_operator(&mut chars);
+                    tokens.push(LexerToken::new(Token::Op(op), line_number));
                 }
                 '\n' => {
                     line_number += 1;
@@ -174,9 +175,30 @@ fn get_string(input: &mut Vec<char>) -> Result<String, String> {
     Ok(chars.into_iter().collect())
 }
 
+fn get_operator(chars: &mut Vec<char>) -> OperatorType {
+    let cur = chars
+        .pop()
+        .expect("Expected an operator, ran out of tokens");
+    if let Some(next) = chars.last()
+        && let Some(compound_op) = match format!("{}{}", cur, next).as_str() {
+            "<=" => Some(OperatorType::LessOrEqual),
+            ">=" => Some(OperatorType::GreaterOrEqual),
+            "==" => Some(OperatorType::Equal),
+            "!=" => Some(OperatorType::NotEqual),
+            _ => None,
+        }
+    {
+        chars.pop();
+        compound_op
+    } else {
+        OperatorType::from_char(cur)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
+        ast::OperatorType,
         lexer::Lexer,
         types::{LexerAtomType, Token},
     };
@@ -187,6 +209,14 @@ mod test {
             let token = $lexer.tokens.pop().unwrap();
             assert_eq!(token.token_type, $expected);
         }};
+    }
+
+    macro_rules! lex_token {
+        ($input:expr, $expected:expr) => {
+            let lexer = Lexer::new($input).unwrap();
+            let token = lexer.peek().unwrap();
+            assert_eq!(token.token_type, $expected)
+        };
     }
 
     #[test]
@@ -229,7 +259,7 @@ mod test {
             lexer,
             Token::Atom(LexerAtomType::Identifier("abc123".to_string()))
         );
-        token_eq!(lexer, Token::Op('+'));
+        token_eq!(lexer, Token::Op(OperatorType::Add));
         token_eq!(
             lexer,
             Token::Atom(LexerAtomType::Identifier("def456".to_string()))
@@ -247,7 +277,102 @@ mod test {
             lexer,
             Token::Atom(LexerAtomType::Identifier("a".to_string()))
         );
-        token_eq!(lexer, Token::Op('='));
+        token_eq!(lexer, Token::Op(OperatorType::Assign));
         token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+    }
+
+    #[test]
+    fn lex_operators() {
+        use OperatorType::*;
+
+        lex_token!("+", Token::Op(Add));
+        lex_token!("-", Token::Op(Subtract));
+        lex_token!("*", Token::Op(Multiply));
+        lex_token!("/", Token::Op(Divide));
+        lex_token!("<", Token::Op(LessThan));
+        lex_token!("<=", Token::Op(LessOrEqual));
+        lex_token!(">", Token::Op(GreaterThan));
+        lex_token!(">=", Token::Op(GreaterOrEqual));
+        lex_token!("==", Token::Op(Equal));
+        lex_token!("!=", Token::Op(NotEqual));
+        lex_token!("!", Token::Op(Not));
+
+        let mut lexer = Lexer::new("< = > = ! = = <= >= != ==").unwrap();
+        token_eq!(lexer, Token::Op(LessThan));
+        token_eq!(lexer, Token::Op(Assign));
+        token_eq!(lexer, Token::Op(GreaterThan));
+        token_eq!(lexer, Token::Op(Assign));
+        token_eq!(lexer, Token::Op(Not));
+        token_eq!(lexer, Token::Op(Assign));
+        token_eq!(lexer, Token::Op(Assign));
+        token_eq!(lexer, Token::Op(LessOrEqual));
+        token_eq!(lexer, Token::Op(GreaterOrEqual));
+        token_eq!(lexer, Token::Op(NotEqual));
+        token_eq!(lexer, Token::Op(Equal));
+    }
+
+    #[test]
+    fn lex_add() {
+        lex_token!("+", Token::Op(OperatorType::Add));
+    }
+
+    #[test]
+    fn lex_subtract() {
+        lex_token!("-", Token::Op(OperatorType::Subtract));
+    }
+
+    #[test]
+    fn lex_multiply() {
+        lex_token!("*", Token::Op(OperatorType::Multiply));
+    }
+
+    #[test]
+    fn lex_divide() {
+        lex_token!("/", Token::Op(OperatorType::Divide));
+    }
+
+    #[test]
+    fn lex_less_than() {
+        lex_token!("<", Token::Op(OperatorType::LessThan));
+    }
+
+    #[test]
+    fn lex_less_or_equal() {
+        lex_token!("<=", Token::Op(OperatorType::LessOrEqual));
+    }
+
+    #[test]
+    fn lex_greater_than() {
+        lex_token!(">", Token::Op(OperatorType::GreaterThan));
+    }
+
+    #[test]
+    fn lex_greater_or_equal() {
+        lex_token!(">=", Token::Op(OperatorType::GreaterOrEqual));
+    }
+
+    #[test]
+    fn lex_not() {
+        lex_token!("!", Token::Op(OperatorType::Not));
+    }
+
+    #[test]
+    fn lex_equal() {
+        lex_token!("==", Token::Op(OperatorType::Equal));
+    }
+
+    #[test]
+    fn lex_not_equal() {
+        lex_token!("!=", Token::Op(OperatorType::NotEqual));
+    }
+
+    #[test]
+    fn lex_semicolon() {
+        lex_token!(";", Token::Atom(LexerAtomType::Semicolon));
+    }
+
+    #[test]
+    fn lex_number_in_whitespace() {
+        lex_token!("   \n\t  42  ", Token::Atom(LexerAtomType::Number(42)));
     }
 }
