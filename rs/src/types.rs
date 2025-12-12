@@ -12,12 +12,11 @@ pub enum LexerAtomType {
 
 impl fmt::Display for LexerAtomType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use LexerAtomType::*;
         match self {
-            Number(n) => write!(f, "{}", n),
-            Identifier(s) => write!(f, "{}", s),
-            String(s) => write!(f, "\"{}\"", s),
-            Semicolon => write!(f, ";"),
+            LexerAtomType::Number(n) => write!(f, "{n}"),
+            LexerAtomType::Identifier(s) => write!(f, "{s}"),
+            LexerAtomType::String(s) => write!(f, "\"{s}\""),
+            LexerAtomType::Semicolon => write!(f, ";"),
         }
     }
 }
@@ -31,8 +30,8 @@ pub enum Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Token::Atom(lexer_atom_type) => write!(f, "{}", lexer_atom_type),
-            Token::Op(c) => write!(f, "{}", c),
+            Token::Atom(lexer_atom_type) => write!(f, "{lexer_atom_type}"),
+            Token::Op(c) => write!(f, "{c}"),
         }
     }
 }

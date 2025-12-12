@@ -60,8 +60,7 @@ impl Lexer {
                 }
                 _ => {
                     return Err(format!(
-                        "Lexer: Unknown character: {} on line: {}",
-                        cur, line_number
+                        "Lexer: Unknown character: {cur} on line: {line_number}"
                     ));
                 }
             }
@@ -90,26 +89,25 @@ impl Lexer {
     pub fn expect(&mut self, expected: &str) -> Result<(), String> {
         let token = self
             .next()
-            .ok_or(format!("Expected {} but ran out of tokens", expected))?;
+            .ok_or(format!("Expected {expected} but ran out of tokens"))?;
 
         // Extract what we "got" as a string
         let got = match &token.token_type {
             Token::Atom(cur) => match cur {
                 LexerAtomType::Number(n) => n.to_string(),
-                LexerAtomType::Identifier(s) => s.clone(),
+                LexerAtomType::Identifier(s) | LexerAtomType::String(s) => s.clone(),
                 LexerAtomType::Semicolon => ";".to_string(),
-                LexerAtomType::String(s) => s.clone(),
             },
             Token::Op(cur) => cur.to_string(),
         };
 
-        if got != expected {
+        if got == expected {
+            Ok(())
+        } else {
             Err(format!(
                 "Expected {}, got {} on line: {}",
                 expected, got, token.line_number
             ))
-        } else {
-            Ok(())
         }
     }
 }
@@ -151,11 +149,11 @@ fn get_string(input: &mut Vec<char>) -> Result<String, String> {
     let popped = input.pop();
     if popped != Some('"') {
         if let Some(c) = popped {
-            Err(format!("Expected a starting quote. Got: {}", c).to_string())
+            Err(format!("Expected a starting quote. Got: {c}").to_string())
         } else {
             Err("Expected a starting quote".to_string())
         }?;
-    };
+    }
 
     let mut chars = vec![];
 
@@ -181,7 +179,7 @@ fn get_operator(chars: &mut Vec<char>) -> OperatorType {
         .pop()
         .expect("Expected an operator, ran out of tokens");
     if let Some(next) = chars.last()
-        && let Some(compound_op) = match format!("{}{}", cur, next).as_str() {
+        && let Some(compound_op) = match format!("{cur}{next}").as_str() {
             "<=" => Some(OperatorType::LessOrEqual),
             ">=" => Some(OperatorType::GreaterOrEqual),
             "==" => Some(OperatorType::Equal),
@@ -250,7 +248,7 @@ mod test {
         token_eq!(
             lexer,
             Token::Atom(LexerAtomType::Identifier("abc123".to_string()))
-        )
+        );
     }
 
     #[test]

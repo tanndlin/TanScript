@@ -98,7 +98,7 @@ fn format_data(name: &String, s: &str) -> String {
         newlines.push('"');
     }
 
-    format!("{} db \"{}, 0", name, newlines)
+    format!("{name} db \"{newlines}, 0")
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -146,8 +146,8 @@ pub enum Address {
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Address::Register(reg) => write!(f, "{}", reg),
-            Address::Stack(off) => write!(f, "[rbp - {}]", off),
+            Address::Register(reg) => write!(f, "{reg}"),
+            Address::Stack(off) => write!(f, "[rbp - {off}]"),
         }
     }
 }
@@ -163,7 +163,7 @@ impl Program {
         let data = register_handler
             .data
             .iter()
-            .map(|d| format!("\t{}", d))
+            .map(|d| format!("\t{d}"))
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -175,19 +175,18 @@ extern printf
 extern ExitProcess
 
 SECTION .data
-{}
+{data}
 SECTION .text
 
 main:
 \tsub rsp, 40
 \tpush rbp
 \tmov rbp, rsp
-{}
+{instructions}
 \tadd rsp, 40
 \tpop rbp
 \txor rcx, rcx
-\tcall ExitProcess",
-            data, instructions
+\tcall ExitProcess"
         )
         .to_string())
     }
@@ -208,15 +207,15 @@ impl Block {
 
         if compile_scope.num_variables > 0 {
             let alloc_size = compile_scope.num_variables * 8;
-            let alloc = format!("sub rsp, {}", alloc_size);
-            let dealloc = format!("add rsp, {}", alloc_size);
+            let alloc = format!("sub rsp, {alloc_size}");
+            let dealloc = format!("add rsp, {alloc_size}");
 
-            instructions = format!("{}\n{}\n{}", alloc, instructions, dealloc);
+            instructions = format!("{alloc}\n{instructions}\n{dealloc}");
         }
 
         Ok(instructions
-            .split("\n")
-            .map(|s| format!("\t{}", s))
+            .split('\n')
+            .map(|s| format!("\t{s}"))
             .collect::<Vec<String>>()
             .join("\n"))
     }
@@ -287,8 +286,8 @@ impl WhileLoop {
         register_handler: &mut crate::compile::RegisterHandler,
     ) -> Result<String, String> {
         let unique_id = register_handler.get_unique_id();
-        let start_label = format!("while_start_{}", unique_id);
-        let end_label = format!("while_end_{}", unique_id);
+        let start_label = format!("while_start_{unique_id}");
+        let end_label = format!("while_end_{unique_id}");
 
         let condition = self.condition.compile(
             compile_scope,
@@ -298,14 +297,13 @@ impl WhileLoop {
         let block = self.block.compile(compile_scope, register_handler)?;
 
         Ok(format!(
-            "{}:\n\
-             {}\n\
+            "{start_label}:\n\
+             {condition}\n\
              cmp r15, 0\n\
-             je {}\n\
-             {}\n\
-             jmp {}\n\
-             {}:",
-            start_label, condition, end_label, block, start_label, end_label
+             je {end_label}\n\
+             {block}\n\
+             jmp {start_label}\n\
+             {end_label}:"
         ))
     }
 }
@@ -319,7 +317,7 @@ impl Expression {
     ) -> Result<String, String> {
         match self {
             Expression::Atom(a) => match a {
-                AtomType::Number(n) => Ok(compile_number(n, dst)),
+                AtomType::Number(n) => Ok(compile_number(*n, dst)),
                 AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
             },
@@ -335,7 +333,7 @@ impl Expression {
 
 fn compile_string(s: &str, dst: &Address, register_handler: &mut RegisterHandler) -> String {
     let handle = register_handler.add_data(s);
-    format!("mov {}, {}", dst, handle)
+    format!("mov {dst}, {handle}")
 }
 
 fn compile_function_call(
@@ -371,11 +369,11 @@ fn compile_function_call(
             compile_scope,
             &Address::Register(dst_reg),
             register_handler,
-        )?)
+        )?);
     }
 
     instructions.push("sub rsp, 32".to_string());
-    instructions.push(format!("call {}", name));
+    instructions.push(format!("call {name}"));
     instructions.push("add rsp, 32".to_string());
 
     // Give back the registers
@@ -387,8 +385,8 @@ fn compile_function_call(
     Ok(instructions.join("\n"))
 }
 
-fn compile_number(n: &i32, dst: &Address) -> String {
-    format!("mov QWORD {}, {}", dst, n)
+fn compile_number(n: i32, dst: &Address) -> String {
+    format!("mov QWORD {dst}, {n}")
 }
 
 fn compile_variable(
@@ -397,7 +395,7 @@ fn compile_variable(
     dst: &Address,
 ) -> Result<String, String> {
     let address = compile_scope.get_variable(name)?;
-    Ok(format!("mov r8, {}\nmov {}, r8", address, dst))
+    Ok(format!("mov r8, {address}\nmov {dst}, r8"))
 }
 
 fn compile_operator(
@@ -407,7 +405,10 @@ fn compile_operator(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    use OperatorType::*;
+    use OperatorType::{
+        Add, Assign, CloseCurly, CloseParen, Comma, Divide, Equal, GreaterOrEqual, GreaterThan,
+        LessOrEqual, LessThan, Multiply, Not, NotEqual, OpenCurly, OpenParen, Subtract,
+    };
     match op {
         Add | Subtract | Multiply | Divide | LessThan | LessOrEqual | GreaterThan
         | GreaterOrEqual | Equal | NotEqual => {
@@ -448,8 +449,8 @@ fn compile_infix_operator(
             )?;
 
             let perform = match op {
-                OperatorType::Add => format!("add {}, {}", dst, right_reg),
-                OperatorType::Subtract => format!("sub {}, {}", dst, right_reg),
+                OperatorType::Add => format!("add {dst}, {right_reg}"),
+                OperatorType::Subtract => format!("sub {dst}, {right_reg}"),
                 OperatorType::Multiply => {
                     return Err("This shouldn't be possible. Use compile_multiply".to_string());
                 }
@@ -485,7 +486,7 @@ fn compile_infix_operator(
 
             register_handler.release_register(right_reg);
 
-            Ok(format!("{}\n{}\n{}", left, right, perform))
+            Ok(format!("{left}\n{right}\n{perform}"))
         }
     }
 }
@@ -507,7 +508,7 @@ fn compile_prefix_operator(
         _ => panic!("Unexpected operator in compile_prefix_operator: {}", op),
     };
 
-    Ok(format!("{}\n{}", child_asm, asm))
+    Ok(format!("{child_asm}\n{asm}"))
 }
 
 fn compile_multiply(
@@ -533,8 +534,8 @@ fn compile_multiply(
     let instructions = [
         left,
         right,
-        format!("imul {}, {}", left_reg, right_reg),
-        format!("mov {}, {}", dst, left_reg),
+        format!("imul {left_reg}, {right_reg}"),
+        format!("mov {dst}, {left_reg}"),
     ];
 
     register_handler.release_register(left_reg);
@@ -567,9 +568,9 @@ fn compile_divide(
     let instructions = [
         left,
         right,
-        format!("xor {}, {}", rdx, rdx),
-        format!("div {}", right_reg),
-        format!("mov {}, {}", dst, rax),
+        format!("xor {rdx}, {rdx}"),
+        format!("div {right_reg}"),
+        format!("mov {dst}, {rax}"),
     ];
 
     register_handler.release_register(rax);

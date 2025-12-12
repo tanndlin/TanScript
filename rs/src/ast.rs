@@ -29,7 +29,7 @@ impl fmt::Display for Block {
                 writeln!(f)?;
             }
 
-            write!(f, "{}", child)?;
+            write!(f, "{child}")?;
         }
 
         Ok(())
@@ -75,8 +75,8 @@ impl fmt::Display for Declaration {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Declaration(e) => write!(f, "{}", e),
-            Statement::Assign(e) => write!(f, "{}", e),
+            Statement::Declaration(e) => write!(f, "{e}"),
+            Statement::Assign(e) => write!(f, "{e}"),
             Statement::WhileLoop(while_loop) => {
                 write!(
                     f,
@@ -97,8 +97,8 @@ pub enum StatementOrExpression {
 impl fmt::Display for StatementOrExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StatementOrExpression::Expression(e) => write!(f, "{}", e),
-            StatementOrExpression::Statement(s) => write!(f, "{}", s),
+            StatementOrExpression::Expression(e) => write!(f, "{e}"),
+            StatementOrExpression::Statement(s) => write!(f, "{s}"),
         }
     }
 }
@@ -124,9 +124,9 @@ impl AtomType {
 impl fmt::Display for AtomType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AtomType::Number(n) => write!(f, "{}", n),
-            AtomType::Identifier(c) => write!(f, "{}", c),
-            AtomType::String(s) => write!(f, "{}", s),
+            AtomType::Number(n) => write!(f, "{n}"),
+            AtomType::Identifier(c) => write!(f, "{c}"),
+            AtomType::String(s) => write!(f, "{s}"),
         }
     }
 }
@@ -168,7 +168,7 @@ impl OperatorType {
             '(' => OperatorType::OpenParen,
             ')' => OperatorType::CloseParen,
             ',' => OperatorType::Comma,
-            _ => panic!("Unknown operator: {}", op),
+            _ => panic!("Unknown operator: {op}"),
         }
     }
 }
@@ -208,13 +208,13 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             // Atom: use {} not {:?>
-            Expression::Atom(i) => write!(f, "{}", i),
+            Expression::Atom(i) => write!(f, "{i}"),
 
             // Operation: same here
             Expression::Operation(head, rest) => {
-                write!(f, "({}", head)?;
+                write!(f, "({head}")?;
                 for s in rest {
-                    write!(f, " {}", s)?;
+                    write!(f, " {s}")?;
                 }
                 write!(f, ")")
             }
@@ -224,7 +224,7 @@ impl fmt::Display for Expression {
                 name,
                 expressions
                     .iter()
-                    .map(|e| e.to_string())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
                     .join(",")
             ),

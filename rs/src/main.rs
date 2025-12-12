@@ -20,14 +20,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_as_string = fs::read_to_string(file)?;
 
     let ast = parse(&file_as_string).map_err(|e| {
-        eprintln!("Error during parsing: {}", e);
+        eprintln!("Error during parsing: {e}");
         e
     })?;
 
-    println!("{}", ast);
+    println!("{ast}");
 
     let code = ast.compile().map_err(|e| {
-        eprintln!("Error during compilation: {}", e);
+        eprintln!("Error during compilation: {e}");
         e
     })?;
 

@@ -21,20 +21,19 @@ pub fn parse(input: &str) -> Result<Program, String> {
 fn parse_statement_or_expression(
     lexer: &mut Lexer,
 ) -> Result<Option<StatementOrExpression>, String> {
-    match lexer.peek() {
-        None => Ok(None),
-        Some(_) => {
-            let result = match parse_statement(lexer)? {
-                Some(statement) => StatementOrExpression::Statement(statement),
-                None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
-            };
-            // Only expect a semicolon if it's not a while loop statement
-            match &result {
-                StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
-                _ => lexer.expect(";")?,
-            }
-            Ok(Some(result))
+    if lexer.peek().is_none() {
+        Ok(None)
+    } else {
+        let result = match parse_statement(lexer)? {
+            Some(statement) => StatementOrExpression::Statement(statement),
+            None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
+        };
+        // Only expect a semicolon if it's not a while loop statement
+        match &result {
+            StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
+            _ => lexer.expect(";")?,
         }
+        Ok(Some(result))
     }
 }
 
@@ -114,13 +113,12 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
 }
 
 fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
-    let identifier = match lexer
+    let Token::Atom(LexerAtomType::Identifier(identifier)) = lexer
         .next()
         .ok_or("Expected identifier after declaration")?
         .token_type
-    {
-        Token::Atom(LexerAtomType::Identifier(s)) => s,
-        _ => panic!("Expected identifier"),
+    else {
+        panic!("Expected identifier");
     };
 
     lexer.expect("=")?;
@@ -156,9 +154,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
 
         let op_token = lexer.peek().unwrap();
         let op = match &op_token.token_type {
-            Token::Op(OperatorType::CloseParen) => break,
+            Token::Op(OperatorType::CloseParen) | Token::Atom(_) => break,
             Token::Op(op) => op.clone(),
-            _ => break,
         };
 
         if let Some((l_bp, ())) = postfix_binding_power(&op) {
@@ -188,9 +185,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
 
 fn prefix_binding_power(op: &OperatorType) -> ((), u8) {
     match op {
-        OperatorType::Subtract => ((), 7),
-        OperatorType::Not => ((), 7),
-        _ => panic!("bad op: {:?}", op),
+        OperatorType::Subtract | OperatorType::Not => ((), 7),
+        _ => panic!("bad op: {op:?}"),
     }
 }
 
@@ -204,15 +200,17 @@ fn postfix_binding_power(_: &OperatorType) -> Option<(u8, ())> {
 }
 
 fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
-    use OperatorType::*;
-
     let res = match op {
-        Equal | NotEqual => (3, 4),
-        LessThan | LessOrEqual | GreaterThan | GreaterOrEqual => (3, 4),
-        Add | Subtract => (5, 6),
-        Multiply | Divide => (7, 8),
+        OperatorType::Equal | OperatorType::NotEqual => (1, 2),
+        OperatorType::LessThan
+        | OperatorType::LessOrEqual
+        | OperatorType::GreaterThan
+        | OperatorType::GreaterOrEqual => (3, 4),
+        OperatorType::Add | OperatorType::Subtract => (5, 6),
+        OperatorType::Multiply | OperatorType::Divide => (7, 8),
         _ => return None,
     };
+
     Some(res)
 }
 
@@ -248,8 +246,8 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
             .ok_or("Ran out of tokens while parsing function call")?;
         match next.token_type {
             Token::Op(OperatorType::CloseParen) => break,
-            Token::Op(OperatorType::Comma) => continue,
-            _ => panic!("Invalid token {}", next),
+            Token::Op(OperatorType::Comma) => (),
+            _ => panic!("Invalid token {next}"),
         }
     }
 

@@ -27,13 +27,13 @@ impl CompileScope {
     pub fn get_variable(&self, name: &str) -> Result<&Address, String> {
         match self.variables.get(name) {
             Some(addr) => Ok(addr),
-            None => Err(format!("Variable '{}' not found", name)),
+            None => Err(format!("Variable '{name}' not found")),
         }
     }
 
     pub fn add_variable(&mut self, name: String) -> Result<(), String> {
         if self.variables.contains_key(&name) {
-            return Err(format!("Variable '{}' already declared", name));
+            return Err(format!("Variable '{name}' already declared"));
         }
 
         self.variables
@@ -45,7 +45,7 @@ impl CompileScope {
     pub fn get_function(&self, name: &str) -> Result<&FunctionDefinition, String> {
         match self.functions.get(name) {
             Some(func) => Ok(func),
-            None => Err(format!("Function '{}' not found", name)),
+            None => Err(format!("Function '{name}' not found")),
         }
     }
 }
