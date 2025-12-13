@@ -110,11 +110,11 @@ SECTION .data
 SECTION .text
 
 main:
-\tsub rsp, 40
+\tsub rsp, 32
 \tpush rbp
 \tmov rbp, rsp
 {instructions}
-\tadd rsp, 40
+\tadd rsp, 32
 \tpop rbp
 \txor rcx, rcx
 \tcall ExitProcess"
@@ -138,6 +138,13 @@ impl Block {
 
         if compile_scope.num_variables > 0 {
             let alloc_size = compile_scope.num_variables * 8;
+            // Align stack
+            let alloc_size = if alloc_size % 16 != 0 {
+                alloc_size + alloc_size % 16
+            } else {
+                alloc_size
+            };
+
             let alloc = format!("sub rsp, {alloc_size}");
             let dealloc = format!("add rsp, {alloc_size}");
 
