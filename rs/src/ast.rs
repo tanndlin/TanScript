@@ -54,10 +54,18 @@ pub struct WhileLoop {
 }
 
 #[derive(Debug)]
+pub struct IfStatement {
+    pub condition: Expression,
+    pub block: Block,
+    pub else_block: Option<Block>,
+}
+
+#[derive(Debug)]
 pub enum Statement {
     Declaration(Declaration),
     Assign(Assignment),
     WhileLoop(WhileLoop),
+    IfStatement(IfStatement),
 }
 
 impl fmt::Display for Assignment {
@@ -80,9 +88,24 @@ impl fmt::Display for Statement {
             Statement::WhileLoop(while_loop) => {
                 write!(
                     f,
-                    "while ({}) {{\n{}\n}}",
+                    "while {} {{\n{}\n}}",
                     while_loop.condition, while_loop.block
                 )
+            }
+            Statement::IfStatement(if_statement) => {
+                if let Some(else_block) = &if_statement.else_block {
+                    write!(
+                        f,
+                        "if {} {{\n{}\n}} else {{\n{}\n}}",
+                        if_statement.condition, if_statement.block, else_block
+                    )
+                } else {
+                    write!(
+                        f,
+                        "if {} {{\n{}\n}}",
+                        if_statement.condition, if_statement.block
+                    )
+                }
             }
         }
     }
