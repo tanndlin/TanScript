@@ -5,6 +5,7 @@ use crate::compile::Register;
 pub struct RegisterHandler {
     pub data: Vec<String>,
     registers: HashMap<Register, bool>,
+    reserved_registers: Vec<Register>,
     unique_id: u32,
 }
 
@@ -26,6 +27,7 @@ impl RegisterHandler {
                 (Register::R14, false),
                 (Register::R15, false),
             ]),
+            reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
             unique_id: 0,
         }
     }
@@ -34,6 +36,7 @@ impl RegisterHandler {
         let reg = self
             .registers
             .iter()
+            .filter(|(reg, _)| !self.reserved_registers.contains(reg))
             .skip_while(|(_, used)| **used)
             .map(|(reg, _)| Ok(reg.clone()))
             .nth(0)
@@ -92,4 +95,31 @@ fn format_data(name: &String, s: &str) -> String {
     }
 
     format!("{name} db \"{newlines}, 0")
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{compile::Register, register_handler::RegisterHandler};
+
+    #[test]
+    fn prevent_double_lease() {
+        let mut rh = RegisterHandler::new();
+        let reg = rh.request_register(&Register::RAX);
+        assert!(reg.is_ok());
+
+        let reg2 = rh.request_register(&Register::RAX);
+        assert!(reg2.is_err());
+    }
+
+    #[test]
+    fn allow_release_then_lease() {
+        let mut rh = RegisterHandler::new();
+        let reg = rh.request_register(&Register::RAX);
+        assert!(reg.is_ok());
+
+        rh.release_register(reg.unwrap());
+
+        let reg = rh.request_register(&Register::RAX);
+        assert!(reg.is_ok());
+    }
 }
