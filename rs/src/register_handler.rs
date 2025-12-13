@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::compile::Register;
 
 pub struct RegisterHandler {
     pub data: Vec<String>,
     registers: HashMap<Register, bool>,
-    reserved_registers: Vec<Register>,
+    reserved_registers: HashSet<Register>,
     unique_id: u32,
 }
 
@@ -27,7 +27,7 @@ impl RegisterHandler {
                 (Register::R14, false),
                 (Register::R15, false),
             ]),
-            reserved_registers: vec![Register::RAX, Register::RDX],
+            reserved_registers: HashSet::from([Register::RAX, Register::RDX]),
             unique_id: 0,
         }
     }
