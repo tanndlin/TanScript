@@ -185,7 +185,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
 
 fn prefix_binding_power(op: &OperatorType) -> ((), u8) {
     match op {
-        OperatorType::Subtract | OperatorType::Not => ((), 7),
+        OperatorType::Subtract | OperatorType::Not => ((), 9),
         _ => panic!("bad op: {op:?}"),
     }
 }
@@ -202,12 +202,13 @@ fn postfix_binding_power(_: &OperatorType) -> Option<(u8, ())> {
 fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
     let res = match op {
         OperatorType::Equal | OperatorType::NotEqual => (1, 2),
+        OperatorType::And | OperatorType::Or => (3, 4),
         OperatorType::LessThan
         | OperatorType::LessOrEqual
         | OperatorType::GreaterThan
-        | OperatorType::GreaterOrEqual => (3, 4),
-        OperatorType::Add | OperatorType::Subtract => (5, 6),
-        OperatorType::Multiply | OperatorType::Divide | OperatorType::Modulo => (7, 8),
+        | OperatorType::GreaterOrEqual => (5, 6),
+        OperatorType::Add | OperatorType::Subtract => (7, 8),
+        OperatorType::Multiply | OperatorType::Divide | OperatorType::Modulo => (9, 10),
         _ => return None,
     };
 
@@ -338,6 +339,16 @@ mod test {
     #[test]
     fn parse_not_equal() {
         test_parse_expression!("1 != 2", "(!= 1 2)");
+    }
+
+    #[test]
+    fn parse_logical_or() {
+        test_parse_expression!("1 || 0", "(|| 1 0)");
+    }
+
+    #[test]
+    fn parse_logical_and() {
+        test_parse_expression!("1 && 0", "(&& 1 0)");
     }
 
     #[test]

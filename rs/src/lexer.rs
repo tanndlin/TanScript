@@ -51,7 +51,7 @@ impl Lexer {
                     ));
                 }
                 '+' | '-' | '*' | '/' | '%' | '=' | '(' | ')' | ',' | '}' | '{' | '<' | '>'
-                | '!' => {
+                | '!' | '|' | '&' => {
                     let op = get_operator(&mut chars);
                     tokens.push(LexerToken::new(Token::Op(op), line_number));
                 }
@@ -185,6 +185,8 @@ fn get_operator(chars: &mut Vec<char>) -> OperatorType {
             ">=" => Some(OperatorType::GreaterOrEqual),
             "==" => Some(OperatorType::Equal),
             "!=" => Some(OperatorType::NotEqual),
+            "||" => Some(OperatorType::Or),
+            "&&" => Some(OperatorType::And),
             _ => None,
         }
     {
@@ -370,6 +372,16 @@ mod test {
     #[test]
     fn lex_not_equal() {
         lex_token!("!=", Token::Op(OperatorType::NotEqual));
+    }
+
+    #[test]
+    fn lex_logical_or() {
+        lex_token!("||", Token::Op(OperatorType::Or));
+    }
+
+    #[test]
+    fn lex_logical_and() {
+        lex_token!("&&", Token::Op(OperatorType::And));
     }
 
     #[test]
