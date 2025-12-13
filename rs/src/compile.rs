@@ -416,7 +416,9 @@ fn compile_operator(
         | OperatorType::GreaterThan
         | OperatorType::GreaterOrEqual
         | OperatorType::Equal
-        | OperatorType::NotEqual => {
+        | OperatorType::NotEqual
+        | OperatorType::Or
+        | OperatorType::And => {
             compile_infix_operator(op, children, compile_scope, dst, register_handler)
         }
         OperatorType::Not => {
@@ -490,6 +492,12 @@ fn compile_infix_operator(
                 }
                 OperatorType::NotEqual => {
                     format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetne {dst}b")
+                }
+                OperatorType::Or => {
+                    format!("and {dst}, {right_reg}")
+                }
+                OperatorType::And => {
+                    format!("or {dst}, {right_reg}")
                 }
                 OperatorType::Assign
                 | OperatorType::OpenCurly
