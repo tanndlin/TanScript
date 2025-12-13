@@ -7,6 +7,7 @@ mod compile;
 mod compile_scope;
 mod lexer;
 mod parser;
+mod register_handler;
 mod types;
 
 use crate::parser::parse;
