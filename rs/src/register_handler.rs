@@ -5,6 +5,7 @@ use crate::compile::Register;
 pub struct RegisterHandler {
     pub data: Vec<String>,
     registers: HashMap<Register, bool>,
+    reserved_registers: Vec<Register>,
     unique_id: u32,
 }
 
@@ -26,6 +27,7 @@ impl RegisterHandler {
                 (Register::R14, false),
                 (Register::R15, false),
             ]),
+            reserved_registers: vec![Register::RAX, Register::RDX],
             unique_id: 0,
         }
     }
@@ -34,6 +36,7 @@ impl RegisterHandler {
         let reg = self
             .registers
             .iter()
+            .filter(|(reg, _)| !self.reserved_registers.contains(reg))
             .skip_while(|(_, used)| **used)
             .map(|(reg, _)| Ok(reg.clone()))
             .nth(0)
