@@ -292,7 +292,7 @@ impl Expression {
                 compile_operator(v, children, compile_scope, dst, register_handler)
             }
             Expression::FunctionCall(name, args) => {
-                compile_function_call(compile_scope, register_handler, name, args)
+                compile_function_call(compile_scope, register_handler, name, args, dst)
             }
         }
     }
@@ -308,6 +308,7 @@ fn compile_function_call(
     register_handler: &mut RegisterHandler,
     name: &str,
     args: &[Expression],
+    dst: &Address,
 ) -> Result<String, String> {
     let function_def = compile_scope.get_function(name)?;
     if let Some(num_args) = function_def.num_args
@@ -339,9 +340,13 @@ fn compile_function_call(
         )?);
     }
 
+    let rax = register_handler.request_register(&Register::RAX)?;
     instructions.push("sub rsp, 32".to_string());
     instructions.push(format!("call {name}"));
     instructions.push("add rsp, 32".to_string());
+    instructions.push(format!("mov {dst}, {rax}"));
+
+    register_handler.release_register(rax);
 
     // Give back the registers
     target_registers
