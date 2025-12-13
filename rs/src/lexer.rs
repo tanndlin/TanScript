@@ -50,7 +50,8 @@ impl Lexer {
                         line_number,
                     ));
                 }
-                '+' | '-' | '*' | '/' | '=' | '(' | ')' | ',' | '}' | '{' | '<' | '>' | '!' => {
+                '+' | '-' | '*' | '/' | '%' | '=' | '(' | ')' | ',' | '}' | '{' | '<' | '>'
+                | '!' => {
                     let op = get_operator(&mut chars);
                     tokens.push(LexerToken::new(Token::Op(op), line_number));
                 }
@@ -288,6 +289,7 @@ mod test {
         lex_token!("-", Token::Op(Subtract));
         lex_token!("*", Token::Op(Multiply));
         lex_token!("/", Token::Op(Divide));
+        lex_token!("%", Token::Op(Modulo));
         lex_token!("<", Token::Op(LessThan));
         lex_token!("<=", Token::Op(LessOrEqual));
         lex_token!(">", Token::Op(GreaterThan));
@@ -328,6 +330,11 @@ mod test {
     #[test]
     fn lex_divide() {
         lex_token!("/", Token::Op(OperatorType::Divide));
+    }
+
+    #[test]
+    fn lex_modulo() {
+        lex_token!("%", Token::Op(OperatorType::Modulo));
     }
 
     #[test]

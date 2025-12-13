@@ -207,7 +207,7 @@ fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
         | OperatorType::GreaterThan
         | OperatorType::GreaterOrEqual => (3, 4),
         OperatorType::Add | OperatorType::Subtract => (5, 6),
-        OperatorType::Multiply | OperatorType::Divide => (7, 8),
+        OperatorType::Multiply | OperatorType::Divide | OperatorType::Modulo => (7, 8),
         _ => return None,
     };
 
@@ -303,6 +303,11 @@ mod test {
     fn parse_declaration() {
         integration_test!("let a = 1;", "let a = 1");
         integration_test!("let a = 1 + 2;", "let a = (+ 1 2)");
+    }
+
+    #[test]
+    fn parse_modulo() {
+        test_parse_expression!("5 % 2", "(% 5 2)");
     }
 
     #[test]

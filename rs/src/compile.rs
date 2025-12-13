@@ -405,17 +405,29 @@ fn compile_operator(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    use OperatorType::{
-        Add, Assign, CloseCurly, CloseParen, Comma, Divide, Equal, GreaterOrEqual, GreaterThan,
-        LessOrEqual, LessThan, Multiply, Not, NotEqual, OpenCurly, OpenParen, Subtract,
-    };
     match op {
-        Add | Subtract | Multiply | Divide | LessThan | LessOrEqual | GreaterThan
-        | GreaterOrEqual | Equal | NotEqual => {
+        OperatorType::Add
+        | OperatorType::Subtract
+        | OperatorType::Multiply
+        | OperatorType::Divide
+        | OperatorType::Modulo
+        | OperatorType::LessThan
+        | OperatorType::LessOrEqual
+        | OperatorType::GreaterThan
+        | OperatorType::GreaterOrEqual
+        | OperatorType::Equal
+        | OperatorType::NotEqual => {
             compile_infix_operator(op, children, compile_scope, dst, register_handler)
         }
-        Not => compile_prefix_operator(op, children, compile_scope, dst, register_handler),
-        Assign | OpenCurly | CloseCurly | OpenParen | CloseParen | Comma => {
+        OperatorType::Not => {
+            compile_prefix_operator(op, children, compile_scope, dst, register_handler)
+        }
+        OperatorType::Assign
+        | OperatorType::OpenCurly
+        | OperatorType::CloseCurly
+        | OperatorType::OpenParen
+        | OperatorType::CloseParen
+        | OperatorType::Comma => {
             panic!("Unexpected operator{}", op)
         }
     }
@@ -436,6 +448,7 @@ fn compile_infix_operator(
         .ok_or("Infix operator missing right operand")?;
     match op {
         OperatorType::Divide => compile_divide(compile_scope, left, right, dst, register_handler),
+        OperatorType::Modulo => compile_modulo(compile_scope, left, right, dst, register_handler),
         OperatorType::Multiply => {
             compile_multiply(compile_scope, left, right, dst, register_handler)
         }
@@ -456,6 +469,9 @@ fn compile_infix_operator(
                 }
                 OperatorType::Divide => {
                     return Err("This shouldn't be possible. Use compile_divide".to_string());
+                }
+                OperatorType::Modulo => {
+                    return Err("This shouldn't be possible. Use compile_modulo".to_string());
                 }
                 OperatorType::LessThan => {
                     format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {dst}b")
@@ -571,6 +587,40 @@ fn compile_divide(
         format!("xor {rdx}, {rdx}"),
         format!("div {right_reg}"),
         format!("mov {dst}, {rax}"),
+    ];
+
+    register_handler.release_register(rax);
+
+    Ok(instructions.join("\n"))
+}
+
+fn compile_modulo(
+    compile_scope: &mut CompileScope,
+    left: &Expression,
+    right: &Expression,
+    dst: &Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<String, String> {
+    let rax = register_handler.request_register(&Register::RAX)?;
+    let rdx = register_handler.request_register(&Register::RDX)?;
+    let right_reg = register_handler.lease_register()?;
+    let left = left.compile(
+        compile_scope,
+        &Address::Register(rax.clone()),
+        register_handler,
+    )?;
+    let right = right.compile(
+        compile_scope,
+        &Address::Register(right_reg.clone()),
+        register_handler,
+    )?;
+
+    let instructions = [
+        left,
+        right,
+        format!("xor {rdx}, {rdx}"),
+        format!("div {right_reg}"),
+        format!("mov {dst}, {rdx}"),
     ];
 
     register_handler.release_register(rax);
