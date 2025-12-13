@@ -262,7 +262,7 @@ impl IfStatement {
         };
 
         Ok(format!(
-            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\nelse{id}:\n{}endif{id}:",
+            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}endif{id}:",
             else_block.unwrap_or(String::new())
         ))
     }
