@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
-        StatementOrExpression, WhileLoop,
+        Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
+        Statement, StatementOrExpression, WhileLoop,
     },
     lexer::Lexer,
     types::{LexerAtomType, Token},
@@ -28,9 +28,11 @@ fn parse_statement_or_expression(
             Some(statement) => StatementOrExpression::Statement(statement),
             None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
         };
-        // Only expect a semicolon if it's not a while loop statement
+        // Only expect a semicolon if it's not a while loop or if statement
         match &result {
-            StatementOrExpression::Statement(Statement::WhileLoop(_)) => (),
+            StatementOrExpression::Statement(
+                Statement::WhileLoop(_) | Statement::IfStatement(_),
+            ) => (),
             _ => lexer.expect(";")?,
         }
         Ok(Some(result))
@@ -48,6 +50,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
                     if let Some(keyword) = match s.as_str() {
                         "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
                         "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
+                        "if" => Some(Statement::IfStatement(parse_if_statement(lexer)?)),
                         _ => None,
                     } {
                         Some(keyword)
@@ -76,6 +79,25 @@ fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, String> {
     let condition = parse_expression(lexer, 0)?;
     let block = parse_block(lexer)?;
     Ok(WhileLoop { condition, block })
+}
+
+fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, String> {
+    lexer.expect("if")?;
+    let condition = parse_expression(lexer, 0)?;
+    let block = parse_block(lexer)?;
+    let else_block = match lexer.peek() {
+        None => None,
+        Some(tok) => match &tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => Some(parse_block(lexer)?),
+            _ => None,
+        },
+    };
+
+    Ok(IfStatement {
+        condition,
+        block,
+        else_block,
+    })
 }
 
 fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
@@ -201,8 +223,8 @@ fn postfix_binding_power(_: &OperatorType) -> Option<(u8, ())> {
 
 fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
     let res = match op {
-        OperatorType::Equal | OperatorType::NotEqual => (1, 2),
-        OperatorType::And | OperatorType::Or => (3, 4),
+        OperatorType::And | OperatorType::Or => (1, 2),
+        OperatorType::Equal | OperatorType::NotEqual => (3, 4),
         OperatorType::LessThan
         | OperatorType::LessOrEqual
         | OperatorType::GreaterThan

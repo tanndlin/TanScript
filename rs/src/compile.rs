@@ -3,8 +3,8 @@ use std::{collections::HashMap, fmt};
 
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, Expression, OperatorType, Program, Statement,
-        StatementOrExpression, WhileLoop,
+        Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
+        Statement, StatementOrExpression, WhileLoop,
     },
     compile_scope::CompileScope,
 };
@@ -67,9 +67,9 @@ impl RegisterHandler {
 
     fn request_register(&mut self, register: &Register) -> Result<Register, String> {
         match self.registers.get(register) {
-            None => Err("Register not leasable".to_string()),
+            None => Err(format!("Register {register} not leasable")),
             Some(used) => match used {
-                true => Err("Register not available".to_string()),
+                true => Err(format!("Register {register} not available")),
                 false => {
                     self.registers.insert(register.clone(), true);
                     Ok(register.clone())
@@ -78,7 +78,7 @@ impl RegisterHandler {
         }
     }
 
-    fn get_unique_id(&mut self) -> u32 {
+    pub fn get_unique_id(&mut self) -> u32 {
         let id = self.unique_id;
         self.unique_id += 1;
         id
@@ -141,6 +141,28 @@ impl fmt::Display for Register {
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset in the stack
+}
+
+impl Address {
+    pub fn lower_8_bits(&self) -> String {
+        match self {
+            Address::Stack(off) => format!("[rbp - {off}]"),
+            Address::Register(reg) => match reg {
+                Register::RAX => "al".to_string(),
+                Register::RBX => "bl".to_string(),
+                Register::RCX => "cl".to_string(),
+                Register::RDX => "dl".to_string(),
+                Register::R8 => "r8b".to_string(),
+                Register::R9 => "r9b".to_string(),
+                Register::R10 => "r10b".to_string(),
+                Register::R11 => "r11b".to_string(),
+                Register::R12 => "r12b".to_string(),
+                Register::R13 => "r13b".to_string(),
+                Register::R14 => "r14b".to_string(),
+                Register::R15 => "r15b".to_string(),
+            },
+        }
+    }
 }
 
 impl fmt::Display for Address {
@@ -251,7 +273,10 @@ impl Statement {
                 declaration.compile(compile_scope, register_handler)
             }
             Statement::Assign(assignment) => assignment.compile(compile_scope, register_handler),
-            Statement::WhileLoop(for_loop) => for_loop.compile(compile_scope, register_handler),
+            Statement::WhileLoop(while_loop) => while_loop.compile(compile_scope, register_handler),
+            Statement::IfStatement(if_statement) => {
+                if_statement.compile(compile_scope, register_handler)
+            }
         }
     }
 }
@@ -304,6 +329,32 @@ impl WhileLoop {
              {block}\n\
              jmp {start_label}\n\
              {end_label}:"
+        ))
+    }
+}
+
+impl IfStatement {
+    pub fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<String, String> {
+        let id = register_handler.get_unique_id();
+        let dst = register_handler.lease_register()?;
+        let condition = self.condition.compile(
+            compile_scope,
+            &Address::Register(dst.clone()),
+            register_handler,
+        )?;
+        let block = self.block.compile(compile_scope, register_handler)?;
+        let else_block = match &self.else_block {
+            None => None,
+            Some(else_block) => Some(else_block.compile(compile_scope, register_handler)?),
+        };
+
+        Ok(format!(
+            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\nelse{id}:\n{}endif{id}:",
+            else_block.unwrap_or(String::new())
         ))
     }
 }
@@ -476,22 +527,40 @@ fn compile_infix_operator(
                     return Err("This shouldn't be possible. Use compile_modulo".to_string());
                 }
                 OperatorType::LessThan => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::LessOrEqual => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetle {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetle {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::GreaterThan => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetg {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetg {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::GreaterOrEqual => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetge {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetge {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::Equal => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsete {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsete {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::NotEqual => {
-                    format!("cmp {dst}, {right_reg}\nmov {dst}, 0\nsetne {dst}b")
+                    format!(
+                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetne {}",
+                        dst.lower_8_bits()
+                    )
                 }
                 OperatorType::Or => {
                     format!("or {dst}, {right_reg}")
@@ -575,20 +644,21 @@ fn compile_divide(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let rax = register_handler.request_register(&Register::RAX)?;
-    let rdx = register_handler.request_register(&Register::RDX)?;
     let right_reg = register_handler.lease_register()?;
-    let left = left.compile(
-        compile_scope,
-        &Address::Register(rax.clone()),
-        register_handler,
-    )?;
     let right = right.compile(
         compile_scope,
         &Address::Register(right_reg.clone()),
         register_handler,
     )?;
 
+    let rax = register_handler.request_register(&Register::RAX)?;
+    let left = left.compile(
+        compile_scope,
+        &Address::Register(rax.clone()),
+        register_handler,
+    )?;
+
+    let rdx = register_handler.request_register(&Register::RDX)?;
     let instructions = [
         left,
         right,
@@ -597,7 +667,9 @@ fn compile_divide(
         format!("mov {dst}, {rax}"),
     ];
 
+    register_handler.release_register(right_reg);
     register_handler.release_register(rax);
+    register_handler.release_register(rdx);
 
     Ok(instructions.join("\n"))
 }
@@ -609,20 +681,21 @@ fn compile_modulo(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let rax = register_handler.request_register(&Register::RAX)?;
-    let rdx = register_handler.request_register(&Register::RDX)?;
     let right_reg = register_handler.lease_register()?;
-    let left = left.compile(
-        compile_scope,
-        &Address::Register(rax.clone()),
-        register_handler,
-    )?;
     let right = right.compile(
         compile_scope,
         &Address::Register(right_reg.clone()),
         register_handler,
     )?;
 
+    let rax = register_handler.request_register(&Register::RAX)?;
+    let left = left.compile(
+        compile_scope,
+        &Address::Register(rax.clone()),
+        register_handler,
+    )?;
+
+    let rdx = register_handler.request_register(&Register::RDX)?;
     let instructions = [
         left,
         right,
@@ -631,7 +704,9 @@ fn compile_modulo(
         format!("mov {dst}, {rdx}"),
     ];
 
+    register_handler.release_register(right_reg);
     register_handler.release_register(rax);
+    register_handler.release_register(rdx);
 
     Ok(instructions.join("\n"))
 }
