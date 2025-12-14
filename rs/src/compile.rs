@@ -234,21 +234,24 @@ impl WhileLoop {
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
 
+        let reg = register_handler.lease_register()?;
         let condition = self.condition.compile(
             compile_scope,
-            &Address::Register(Register::R15),
+            &Address::Register(reg.clone()),
             register_handler,
         )?;
+        register_handler.release_register(reg.clone());
+
         let block = self.block.compile(compile_scope, register_handler)?;
 
         Ok(format!(
             "{start_label}:\n\
-             {condition}\n\
-             cmp r15, 0\n\
-             je {end_label}\n\
-             {block}\n\
-             jmp {start_label}\n\
-             {end_label}:"
+            {condition}\n\
+            cmp {reg}, 0\n\
+            je {end_label}\n\
+            {block}\n\
+            jmp {start_label}\n\
+            {end_label}:"
         ))
     }
 }
