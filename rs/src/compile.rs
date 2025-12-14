@@ -285,7 +285,9 @@ impl Expression {
         match self {
             Expression::Atom(a) => match a {
                 AtomType::Number(n) => Ok(compile_number(*n, dst)),
-                AtomType::Identifier(name) => compile_variable(compile_scope, name, dst),
+                AtomType::Identifier(name) => {
+                    compile_variable(compile_scope, register_handler, name, dst)
+                }
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
             },
             Expression::Operation(v, children) => {
@@ -363,11 +365,15 @@ fn compile_number(n: i32, dst: &Address) -> String {
 
 fn compile_variable(
     compile_scope: &CompileScope,
+    register_handler: &mut RegisterHandler,
     name: &str,
     dst: &Address,
 ) -> Result<String, String> {
     let address = compile_scope.get_variable(name)?;
-    Ok(format!("mov r8, {address}\nmov {dst}, r8"))
+    let reg = register_handler.lease_register()?;
+    let ret = Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"));
+    register_handler.release_register(reg);
+    ret
 }
 
 fn compile_operator(
