@@ -16,6 +16,22 @@ impl CompileScope {
     pub fn new() -> CompileScope {
         let mut functions = HashMap::new();
         functions.insert("printf".to_string(), FunctionDefinition { num_args: None });
+        functions.insert(
+            "malloc".to_string(),
+            FunctionDefinition { num_args: Some(1) },
+        );
+        functions.insert(
+            "fopen".to_string(),
+            FunctionDefinition { num_args: Some(2) },
+        );
+        functions.insert(
+            "fclose".to_string(),
+            FunctionDefinition { num_args: Some(1) },
+        );
+        functions.insert(
+            "fread".to_string(),
+            FunctionDefinition { num_args: Some(4) },
+        );
 
         CompileScope {
             variables: HashMap::new(),

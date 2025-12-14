@@ -103,6 +103,10 @@ impl Program {
 
 global main
 extern printf
+extern fopen
+extern fread
+extern fclose
+extern malloc
 extern ExitProcess
 
 SECTION .data
