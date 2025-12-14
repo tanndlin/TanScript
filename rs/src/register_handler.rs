@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::compile::Register;
+use crate::compile::{Address, Register};
 
 pub struct RegisterHandler {
     pub data: Vec<String>,
@@ -51,6 +51,27 @@ impl RegisterHandler {
             Some(_) => self.registers.insert(register, false),
             None => panic!("Released unleasable register? {register}"),
         };
+    }
+
+    pub fn lease_with_scope<T>(
+        &mut self,
+        function: impl Fn(Address) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let reg = self.lease_register()?;
+        let ret = function(Address::Register(reg.clone()));
+        self.release_register(reg);
+        ret
+    }
+
+    pub fn request_with_scope<T>(
+        &mut self,
+        reg: &Register,
+        function: impl Fn(Address) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let reg = self.request_register(reg)?;
+        let ret = function(Address::Register(reg.clone()));
+        self.release_register(reg);
+        ret
     }
 
     pub fn add_data(&mut self, s: &str) -> String {

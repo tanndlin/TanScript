@@ -346,13 +346,15 @@ fn compile_function_call(
         )?);
     }
 
-    let rax = register_handler.request_register(&Register::RAX)?;
-    instructions.push("sub rsp, 32".to_string());
-    instructions.push(format!("call {name}"));
-    instructions.push("add rsp, 32".to_string());
-    instructions.push(format!("mov {dst}, {rax}"));
-
-    register_handler.release_register(rax);
+    instructions.push(register_handler.request_with_scope(&Register::RAX, |rax| {
+        Ok([
+            "sub rsp, 32".to_string(),
+            format!("call {name}"),
+            "add rsp, 32".to_string(),
+            format!("mov {dst}, {rax}"),
+        ]
+        .join("\n"))
+    })?);
 
     // Give back the registers
     target_registers
@@ -373,11 +375,10 @@ fn compile_variable(
     name: &str,
     dst: &Address,
 ) -> Result<String, String> {
-    let address = compile_scope.get_variable(name)?;
-    let reg = register_handler.lease_register()?;
-    let ret = Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"));
-    register_handler.release_register(reg);
-    ret
+    register_handler.lease_with_scope(|reg| {
+        let address = compile_scope.get_variable(name)?;
+        Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))
+    })
 }
 
 fn compile_operator(
@@ -543,12 +544,13 @@ fn compile_multiply(
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let left_reg = register_handler.lease_register()?;
-    let right_reg = register_handler.lease_register()?;
     let left = left.compile(
         compile_scope,
         &Address::Register(left_reg.clone()),
         register_handler,
     )?;
+
+    let right_reg = register_handler.lease_register()?;
     let right = right.compile(
         compile_scope,
         &Address::Register(right_reg.clone()),
@@ -589,18 +591,17 @@ fn compile_divide(
         register_handler,
     )?;
 
-    let rdx = register_handler.request_register(&Register::RDX)?;
-    let instructions = [
-        left,
-        right,
-        format!("xor {rdx}, {rdx}"),
-        format!("div {right_reg}"),
-        format!("mov {dst}, {rax}"),
-    ];
+    let mut instructions = vec![left, right];
+    instructions.extend(register_handler.request_with_scope(&Register::RDX, |rdx| {
+        Ok([
+            format!("xor {rdx}, {rdx}"),
+            format!("div {right_reg}"),
+            format!("mov {dst}, {rax}"),
+        ])
+    })?);
 
     register_handler.release_register(right_reg);
     register_handler.release_register(rax);
-    register_handler.release_register(rdx);
 
     Ok(instructions.join("\n"))
 }
