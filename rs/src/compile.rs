@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Register {
     RAX,
     RBX,
@@ -47,7 +47,7 @@ impl fmt::Display for Register {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset in the stack
@@ -323,17 +323,28 @@ impl FunctionDefinition {
             Address::Register(Register::R9),
         ];
 
-        for (arg, address) in self.args.iter().zip(addresses) {
-            scope
-                .borrow_mut()
-                .add_variable_at_address(arg.clone(), address)?;
-        }
+        let preamble = format!("{}:\n\tpush rbp\n\tmov rbp, rsp", self.name);
 
+        // Put all the args that are in registers onto the stack for function body usage
+        let mut arg_setup = vec![];
+        for (i, arg) in self.args.iter().enumerate() {
+            if i >= 4 {
+                break;
+            }
+
+            let new_address =
+                Address::Stack((i32::try_from(i).map_err(|_| "Index out of range")? + 1) * 8);
+            arg_setup.push(format!("mov {}, {}", new_address, addresses[i]));
+            let mut scope_borrow = scope.borrow_mut();
+            scope_borrow.add_variable_at_address(arg.clone(), new_address)?;
+            // This is not a variable that needs to be deallocated later
+            scope_borrow.num_variables -= 1;
+        }
+        let arg_setup = arg_setup.join("\n\t");
         let instructions = self.body.compile(&scope, register_handler)?;
 
         Ok(format!(
-            "{}:\n\tsub rsp, 32\n\tpush rbp\n\tmov rbp, rsp\n{instructions}\n\tadd rsp, 32\n\tpop rbp\n\tret",
-            self.name
+            "{preamble}\n\t{arg_setup}\n{instructions}\n\tpop rbp\n\tret",
         ))
     }
 }

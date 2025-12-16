@@ -6,6 +6,7 @@ use std::{
 
 use crate::compile::Address;
 
+#[allow(dead_code)]
 pub struct CompileScope {
     pub parent: Option<Weak<RefCell<CompileScope>>>,
     pub variables: HashMap<String, Address>,
