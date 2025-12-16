@@ -6,8 +6,9 @@ use crate::{
         Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
         Statement, StatementOrExpression, WhileLoop,
     },
-    compile_scope::{CompileScope, FunctionDefinition},
+    compile_scope::CompileScope,
     register_handler::RegisterHandler,
+    symbol_table::{FunctionDefinition, SymbolTable},
 };
 
 #[allow(clippy::upper_case_acronyms)]
@@ -87,25 +88,29 @@ impl Program {
     pub fn compile(&self) -> Result<String, String> {
         let global_scope = Rc::new(RefCell::new(CompileScope::new(None)));
         let mut register_handler = RegisterHandler::new();
+
+        let mut symbol_table = SymbolTable::new();
+        self.block.discover(&mut symbol_table);
         let instructions = self.block.compile(&global_scope, &mut register_handler)?;
+
+        let functions = symbol_table
+            .functions
+            .values()
+            .map(|def| def.compile(&global_scope, &mut register_handler))
+            .collect::<Result<Vec<_>, _>>()?
+            .join("\n");
+        let extern_functions = symbol_table
+            .externs
+            .iter()
+            .map(|e| format!("extern {e}"))
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let data = register_handler
             .data
             .iter()
             .map(|d| format!("\t{d}"))
             .collect::<Vec<String>>()
-            .join("\n");
-
-        let extern_functions = global_scope
-            .borrow()
-            .discover_functions()
-
-        let functions = global_scope
-            .borrow()
-            .functions
-            .values()
-            .map(|def| def.compile(&global_scope, &mut register_handler))
-            .collect::<Result<Vec<_>, _>>()?
             .join("\n");
 
         Ok(format!(
@@ -117,6 +122,7 @@ extern ExitProcess
 
 SECTION .data
 {data}
+
 SECTION .text
 
 {functions}
@@ -145,13 +151,10 @@ impl Block {
             .children
             .iter()
             .map(|child| match child {
-                StatementOrExpression::Statement(Statement::FunctionDefintion(def)) => {
-                    compile_scope
-                        .borrow_mut()
-                        .add_function(&def.name, def.clone());
+                StatementOrExpression::Statement(Statement::FunctionDefintion(_)) => {
                     Ok(String::new())
                 }
-                _ => child.compile(compile_scope, register_handler).map(|s| s),
+                _ => child.compile(compile_scope, register_handler),
             })
             .collect::<Result<Vec<String>, String>>()?
             .join("\n");
@@ -213,7 +216,7 @@ impl Statement {
             Statement::IfStatement(if_statement) => {
                 if_statement.compile(compile_scope, register_handler)
             }
-            Statement::FunctionDefintion(def) => def.compile(compile_scope, register_handler),
+            Statement::FunctionDefintion(_) => Ok(String::new()),
         }
     }
 }
@@ -329,7 +332,8 @@ impl FunctionDefinition {
         let instructions = self.body.compile(&scope, register_handler)?;
 
         Ok(format!(
-            "sub rsp, 32\npush rbp\nmov rbp, rsp\n{instructions}\nadd rsp, 32\npop rbp"
+            "{}:\n\tsub rsp, 32\n\tpush rbp\n\tmov rbp, rsp\n{instructions}\n\tadd rsp, 32\n\tpop rbp\n\tret",
+            self.name
         ))
     }
 }

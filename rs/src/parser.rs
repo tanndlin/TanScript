@@ -3,8 +3,8 @@ use crate::{
         Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
         Statement, StatementOrExpression, WhileLoop,
     },
-    compile_scope::FunctionDefinition,
     lexer::Lexer,
+    symbol_table::FunctionDefinition,
     types::{LexerAtomType, Token},
 };
 
@@ -311,6 +311,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, St
             }
             Some(arg_name) => {
                 args.push(arg_name.clone());
+                lexer.next(); // consume the identifier
 
                 match lexer.next() {
                     None => return Err("Ran out of tokens parsing function definition".to_string()),

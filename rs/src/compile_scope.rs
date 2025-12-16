@@ -1,22 +1,14 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     rc::{Rc, Weak},
 };
 
-use crate::{ast::Block, compile::Address};
-
-#[derive(Debug, Clone)]
-pub struct FunctionDefinition {
-    pub name: String,
-    pub args: Vec<String>,
-    pub body: Block,
-}
+use crate::compile::Address;
 
 pub struct CompileScope {
     pub parent: Option<Weak<RefCell<CompileScope>>>,
     pub variables: HashMap<String, Address>,
-    pub functions: HashMap<String, FunctionDefinition>,
     pub num_variables: i32,
 }
 
@@ -25,7 +17,6 @@ impl CompileScope {
         CompileScope {
             parent: parent.map(Rc::downgrade),
             variables: HashMap::new(),
-            functions: HashMap::new(),
             num_variables: 0,
         }
     }
@@ -59,16 +50,6 @@ impl CompileScope {
 
         self.variables.insert(name, address);
         self.num_variables += 1;
-        Ok(())
-    }
-
-    pub fn add_function(&mut self, name: &String, def: FunctionDefinition) -> Result<(), String> {
-        if self.functions.contains_key(name) {
-            return Err(format!("Function {name} already exists"));
-        }
-
-        self.functions.insert(name.clone(), def);
-
         Ok(())
     }
 }

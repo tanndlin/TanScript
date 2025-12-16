@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{compile_scope::FunctionDefinition, types::LexerAtomType};
+use crate::{symbol_table::FunctionDefinition, types::LexerAtomType};
 
 #[derive(Debug)]
 pub struct Program {

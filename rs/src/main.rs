@@ -8,6 +8,7 @@ mod compile_scope;
 mod lexer;
 mod parser;
 mod register_handler;
+mod symbol_table;
 mod types;
 
 use crate::parser::parse;
