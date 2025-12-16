@@ -1,41 +1,24 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::compile::Address;
 
-pub struct FunctionDefinition {
-    pub num_args: Option<u8>,
-}
+// pub struct FunctionDefinition {
+//     pub num_args: Option<u8>,
+// }
 
 pub struct CompileScope {
     pub variables: HashMap<String, Address>,
-    pub functions: HashMap<String, FunctionDefinition>,
+    pub functions: HashSet<String>,
+    pub unknown_functions: HashSet<String>,
     pub num_variables: i32,
 }
 
 impl CompileScope {
     pub fn new() -> CompileScope {
-        let mut functions = HashMap::new();
-        functions.insert("printf".to_string(), FunctionDefinition { num_args: None });
-        functions.insert(
-            "malloc".to_string(),
-            FunctionDefinition { num_args: Some(1) },
-        );
-        functions.insert(
-            "fopen".to_string(),
-            FunctionDefinition { num_args: Some(2) },
-        );
-        functions.insert(
-            "fclose".to_string(),
-            FunctionDefinition { num_args: Some(1) },
-        );
-        functions.insert(
-            "fread".to_string(),
-            FunctionDefinition { num_args: Some(4) },
-        );
-
         CompileScope {
             variables: HashMap::new(),
-            functions,
+            functions: HashSet::new(),
+            unknown_functions: HashSet::new(),
             num_variables: 0,
         }
     }
@@ -58,10 +41,9 @@ impl CompileScope {
         Ok(())
     }
 
-    pub fn get_function(&self, name: &str) -> Result<&FunctionDefinition, String> {
-        match self.functions.get(name) {
-            Some(func) => Ok(func),
-            None => Err(format!("Function '{name}' not found")),
+    pub fn register_function(&mut self, name: &str) {
+        if self.functions.get(name).is_none() {
+            self.unknown_functions.insert(name.to_string());
         }
     }
 }

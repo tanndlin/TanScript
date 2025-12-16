@@ -98,16 +98,18 @@ impl Program {
             .collect::<Vec<String>>()
             .join("\n");
 
+        let extern_functions = global_scope
+            .unknown_functions
+            .iter()
+            .map(|s| format!("extern {s}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
         Ok(format!(
             "BITS 64
 
 global main
-extern printf
-extern fopen
-extern fread
-extern fclose
-extern malloc
-extern ExitProcess
+{extern_functions}
 
 SECTION .data
 {data}
@@ -319,17 +321,7 @@ fn compile_function_call(
     args: &[Expression],
     dst: &Address,
 ) -> Result<String, String> {
-    let function_def = compile_scope.get_function(name)?;
-    if let Some(num_args) = function_def.num_args
-        && num_args as usize != args.len()
-    {
-        return Err(format!(
-            "Function '{}' expects {} arguments, got {}",
-            name,
-            num_args,
-            args.len()
-        ));
-    }
+    compile_scope.register_function(name);
 
     if args.len() > 4 {
         todo!("More than 4 args not supported")

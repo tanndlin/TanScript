@@ -14,7 +14,6 @@ use crate::parser::parse;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dir = std::env::current_dir()?;
-    println!("Current dir: {}", dir.display());
 
     let paths = glob(&format!("{}/**/*.tan", dir.display()))?;
     let file = paths.into_iter().next().ok_or("No file found")??;
