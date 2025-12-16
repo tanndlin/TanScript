@@ -218,6 +218,7 @@ impl Statement {
             }
             Statement::FunctionDefintion(_) => Ok(String::new()),
             Statement::Return(expr) => {
+                // TODO: This will wipe whatever is in RAX
                 let instructions = expr.compile(
                     compile_scope,
                     &Address::Register(Register::RAX),
@@ -397,6 +398,9 @@ fn compile_function_call(
     if args.len() > 4 {
         todo!("More than 4 args not supported")
     }
+
+    // TODO: If calling a function call as a param the volitaile registers can be wiped
+    // Therefore: no args should be set in place until all args are compiled and stored.
 
     let mut instructions = vec![];
 
