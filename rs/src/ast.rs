@@ -67,6 +67,7 @@ pub enum Statement {
     WhileLoop(WhileLoop),
     IfStatement(IfStatement),
     FunctionDefintion(FunctionDefinition),
+    Return(Expression),
 }
 
 impl fmt::Display for Assignment {
@@ -115,6 +116,7 @@ impl fmt::Display for Statement {
                 def.args.join(", "),
                 def.body
             ),
+            Statement::Return(expr) => write!(f, "return {expr}"),
         }
     }
 }

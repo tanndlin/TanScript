@@ -57,6 +57,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
                         "def" => Some(Statement::FunctionDefintion(parse_function_definition(
                             lexer,
                         )?)),
+                        "return" => Some(Statement::Return(parse_return(lexer)?)),
                         _ => None,
                     } {
                         Some(keyword)
@@ -327,6 +328,11 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, St
 
     let body = parse_block(lexer)?;
     Ok(FunctionDefinition { name, args, body })
+}
+
+fn parse_return(lexer: &mut Lexer) -> Result<Expression, String> {
+    lexer.expect("return")?;
+    parse_expression(lexer, 0)
 }
 
 #[cfg(test)]

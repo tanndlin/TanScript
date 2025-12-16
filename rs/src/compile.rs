@@ -217,6 +217,14 @@ impl Statement {
                 if_statement.compile(compile_scope, register_handler)
             }
             Statement::FunctionDefintion(_) => Ok(String::new()),
+            Statement::Return(expr) => {
+                let instructions = expr.compile(
+                    compile_scope,
+                    &Address::Register(Register::RAX),
+                    register_handler,
+                )?;
+                Ok(format!("{instructions}\nmov rsp, rbp\npop rbp\nret"))
+            }
         }
     }
 }
@@ -395,13 +403,13 @@ fn compile_function_call(
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
     let zipped = args.iter().zip(target_registers.clone());
     for (arg, dst_reg) in zipped {
-        //  Reserve destination
-        register_handler.request_register(&dst_reg)?;
         instructions.push(arg.compile(
             compile_scope,
-            &Address::Register(dst_reg),
+            &Address::Register(dst_reg.clone()),
             register_handler,
         )?);
+        //  Prevent register from being modified
+        register_handler.request_register(&dst_reg)?;
     }
 
     instructions.push(register_handler.request_with_scope(&Register::RAX, |rax| {

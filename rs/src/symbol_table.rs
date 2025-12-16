@@ -77,6 +77,9 @@ impl Statement {
                 while_loop.condition.discover(symbols);
                 while_loop.block.discover(symbols);
             }
+            Statement::Return(expression) => {
+                expression.discover(symbols);
+            }
         }
     }
 }
