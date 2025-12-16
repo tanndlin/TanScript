@@ -53,25 +53,34 @@ impl RegisterHandler {
         };
     }
 
-    pub fn lease_with_scope<T>(
+    pub fn lease_with_scope(
         &mut self,
-        function: impl Fn(Address) -> Result<T, String>,
-    ) -> Result<T, String> {
-        let reg = self.lease_register()?;
-        let ret = function(Address::Register(reg.clone()));
-        self.release_register(reg);
-        ret
+        function: impl Fn(Address) -> Result<String, String>,
+    ) -> Result<String, String> {
+        if let Ok(reg) = self.lease_register() {
+            let ret = function(Address::Register(reg.clone()));
+            self.release_register(reg);
+            ret
+        } else {
+            let reg = self.reserved_registers[0].clone(); // Use the first reserved register as a fallback
+            let ret = function(Address::Register(reg.clone()))?;
+            Ok(format!("push {reg}\n{ret}\npop {reg}"))
+        }
     }
 
-    pub fn request_with_scope<T>(
+    pub fn request_with_scope(
         &mut self,
         reg: &Register,
-        function: impl Fn(Address) -> Result<T, String>,
-    ) -> Result<T, String> {
-        let reg = self.request_register(reg)?;
-        let ret = function(Address::Register(reg.clone()));
-        self.release_register(reg);
-        ret
+        function: impl Fn(Address) -> Result<String, String>,
+    ) -> Result<String, String> {
+        if let Ok(reg) = self.request_register(reg) {
+            let ret = function(Address::Register(reg.clone()));
+            self.release_register(reg);
+            ret
+        } else {
+            let ret = function(Address::Register(reg.clone()))?;
+            Ok(format!("push {reg}\n{ret}\npop {reg}"))
+        }
     }
 
     pub fn add_data(&mut self, s: &str) -> String {

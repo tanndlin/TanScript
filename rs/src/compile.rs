@@ -323,36 +323,36 @@ impl FunctionDefinition {
     ) -> Result<String, String> {
         let scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
 
-        // TODO: Support more than 4 args with the stack
-        let addresses = [
-            Address::Register(Register::RCX),
-            Address::Register(Register::RDX),
-            Address::Register(Register::R8),
-            Address::Register(Register::R9),
-        ];
-
-        let preamble = format!("{}:\n\tpush rbp\n\tmov rbp, rsp", self.name);
-
-        // Put all the args that are in registers onto the stack for function body usage
         let mut arg_setup = vec![];
-        for (i, arg) in self.args.iter().enumerate() {
+        // TODO: Support more than 4 args with the stack
+        let arg_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
+        for (i, (arg, reg)) in self.args.iter().zip(arg_registers).enumerate() {
             if i >= 4 {
                 break;
             }
 
+            // Move the arg to the shadow space
             let new_address =
                 Address::Stack((i32::try_from(i).map_err(|_| "Index out of range")? + 1) * 8);
-            arg_setup.push(format!("mov {}, {}", new_address, addresses[i]));
+            arg_setup.push(format!("mov {new_address}, {reg}"));
             let mut scope_borrow = scope.borrow_mut();
+
+            // Update its location in the scope
             scope_borrow.add_variable_at_address(arg.clone(), new_address)?;
             // This is not a variable that needs to be deallocated later
             scope_borrow.num_variables -= 1;
         }
         let arg_setup = arg_setup.join("\n\t");
         let instructions = self.body.compile(&scope, register_handler)?;
+        let ret = if instructions.ends_with("ret") {
+            ""
+        } else {
+            "pop rbp\n\tret"
+        };
 
+        let preamble = format!("{}:\n\tpush rbp\n\tmov rbp, rsp", self.name);
         Ok(format!(
-            "{preamble}\n\t{arg_setup}\n{instructions}\n\tpop rbp\n\tret",
+            "{preamble}\n\t{arg_setup}\n{instructions}\n\t{ret}",
         ))
     }
 }
@@ -401,6 +401,7 @@ fn compile_function_call(
     let mut instructions = vec![];
 
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
+    let mut moved_registers = vec![];
     let zipped = args.iter().zip(target_registers.clone());
     for (arg, dst_reg) in zipped {
         instructions.push(arg.compile(
@@ -409,7 +410,11 @@ fn compile_function_call(
             register_handler,
         )?);
         //  Prevent register from being modified
-        register_handler.request_register(&dst_reg)?;
+        if register_handler.request_register(&dst_reg).is_err() {
+            // if the destination is leased, move temporarily
+            instructions.insert(instructions.len() - 1, format!("push {dst_reg}"));
+            moved_registers.push(dst_reg);
+        }
     }
 
     instructions.push(register_handler.request_with_scope(&Register::RAX, |rax| {
@@ -426,7 +431,16 @@ fn compile_function_call(
     target_registers
         .iter()
         .take(args.len())
+        .filter(|reg| !moved_registers.contains(reg))
         .for_each(|r| register_handler.release_register(r.clone()));
+
+    let undo = moved_registers
+        .iter()
+        .rev()
+        .map(|reg| format!("pop {reg}"))
+        .collect::<Vec<_>>();
+
+    instructions.extend(undo);
 
     Ok(instructions.join("\n"))
 }
@@ -658,19 +672,17 @@ fn compile_divide(
         register_handler,
     )?;
 
-    let mut instructions = vec![left, right];
-    instructions.extend(register_handler.request_with_scope(&Register::RDX, |rdx| {
-        Ok([
-            format!("xor {rdx}, {rdx}"),
-            format!("div {right_reg}"),
-            format!("mov {dst}, {rax}"),
-        ])
-    })?);
+    let instructions = [left, right];
+    let div = register_handler.request_with_scope(&Register::RDX, |rdx| {
+        Ok(format!(
+            "xor {rdx}, {rdx}\ndiv {right_reg}\nmov {dst}, {rax}"
+        ))
+    })?;
 
     register_handler.release_register(right_reg);
     register_handler.release_register(rax);
 
-    Ok(instructions.join("\n"))
+    Ok(instructions.join("\n") + &div)
 }
 
 fn compile_modulo(
