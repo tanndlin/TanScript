@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::types::LexerAtomType;
+use crate::{compile_scope::FunctionDefinition, types::LexerAtomType};
 
 #[derive(Debug)]
 pub struct Program {
@@ -13,7 +13,7 @@ impl fmt::Display for Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub children: Vec<StatementOrExpression>,
 }
@@ -36,36 +36,37 @@ impl fmt::Display for Block {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Assignment {
     pub identifier: String,
     pub expression: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Declaration {
     pub assign: Assignment,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WhileLoop {
     pub condition: Expression,
     pub block: Block,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfStatement {
     pub condition: Expression,
     pub block: Block,
     pub else_block: Option<Block>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     Declaration(Declaration),
     Assign(Assignment),
     WhileLoop(WhileLoop),
     IfStatement(IfStatement),
+    FunctionDefintion(FunctionDefinition),
 }
 
 impl fmt::Display for Assignment {
@@ -107,11 +108,18 @@ impl fmt::Display for Statement {
                     )
                 }
             }
+            Statement::FunctionDefintion(def) => write!(
+                f,
+                "def {}({}) {{{}}}",
+                def.name,
+                def.args.join(", "),
+                def.body
+            ),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StatementOrExpression {
     Statement(Statement),
     Expression(Expression),
@@ -126,7 +134,7 @@ impl fmt::Display for StatementOrExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AtomType {
     Number(i32),
     Identifier(String),
@@ -227,7 +235,7 @@ impl fmt::Display for OperatorType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Atom(AtomType),
     Operation(OperatorType, Vec<Expression>),

@@ -1,24 +1,31 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    rc::{Rc, Weak},
+};
 
-use crate::compile::Address;
+use crate::{ast::Block, compile::Address};
 
-// pub struct FunctionDefinition {
-//     pub num_args: Option<u8>,
-// }
+#[derive(Debug, Clone)]
+pub struct FunctionDefinition {
+    pub name: String,
+    pub args: Vec<String>,
+    pub body: Block,
+}
 
 pub struct CompileScope {
+    pub parent: Option<Weak<RefCell<CompileScope>>>,
     pub variables: HashMap<String, Address>,
-    pub functions: HashSet<String>,
-    pub unknown_functions: HashSet<String>,
+    pub functions: HashMap<String, FunctionDefinition>,
     pub num_variables: i32,
 }
 
 impl CompileScope {
-    pub fn new() -> CompileScope {
+    pub fn new(parent: Option<&Rc<RefCell<CompileScope>>>) -> CompileScope {
         CompileScope {
+            parent: parent.map(Rc::downgrade),
             variables: HashMap::new(),
-            functions: HashSet::new(),
-            unknown_functions: HashSet::new(),
+            functions: HashMap::new(),
             num_variables: 0,
         }
     }
@@ -41,9 +48,27 @@ impl CompileScope {
         Ok(())
     }
 
-    pub fn register_function(&mut self, name: &str) {
-        if self.functions.get(name).is_none() {
-            self.unknown_functions.insert(name.to_string());
+    pub fn add_variable_at_address(
+        &mut self,
+        name: String,
+        address: Address,
+    ) -> Result<(), String> {
+        if self.variables.contains_key(&name) {
+            return Err(format!("Variable '{name}' already declared"));
         }
+
+        self.variables.insert(name, address);
+        self.num_variables += 1;
+        Ok(())
+    }
+
+    pub fn add_function(&mut self, name: &String, def: FunctionDefinition) -> Result<(), String> {
+        if self.functions.contains_key(name) {
+            return Err(format!("Function {name} already exists"));
+        }
+
+        self.functions.insert(name.clone(), def);
+
+        Ok(())
     }
 }

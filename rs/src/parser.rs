@@ -3,6 +3,7 @@ use crate::{
         Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
         Statement, StatementOrExpression, WhileLoop,
     },
+    compile_scope::FunctionDefinition,
     lexer::Lexer,
     types::{LexerAtomType, Token},
 };
@@ -28,10 +29,12 @@ fn parse_statement_or_expression(
             Some(statement) => StatementOrExpression::Statement(statement),
             None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
         };
-        // Only expect a semicolon if it's not a while loop or if statement
+        // Do not expect semicolon for certain statements
         match &result {
             StatementOrExpression::Statement(
-                Statement::WhileLoop(_) | Statement::IfStatement(_),
+                Statement::WhileLoop(_)
+                | Statement::IfStatement(_)
+                | Statement::FunctionDefintion(_),
             ) => (),
             _ => lexer.expect(";")?,
         }
@@ -51,6 +54,9 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
                         "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
                         "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
                         "if" => Some(Statement::IfStatement(parse_if_statement(lexer)?)),
+                        "def" => Some(Statement::FunctionDefintion(parse_function_definition(
+                            lexer,
+                        )?)),
                         _ => None,
                     } {
                         Some(keyword)
@@ -275,6 +281,51 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
     }
 
     Ok(Expression::FunctionCall(s, args))
+}
+
+fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, String> {
+    lexer.expect("def")?;
+    let name = match lexer.next() {
+        None => Err("Ran out of tokens parsing function defintion"),
+        Some(tok) => Ok(match tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(name)) => Ok(name),
+            _ => Err("Expected function name".to_string()),
+        }?),
+    }?;
+
+    lexer.expect("(")?;
+    let mut args = vec![];
+    loop {
+        let next_arg = match lexer.peek() {
+            None => Err("Ran out of tokens parsing function definition"),
+            Some(tok) => Ok(match &tok.token_type {
+                Token::Atom(LexerAtomType::Identifier(arg_name)) => Some(arg_name),
+                _ => None,
+            }),
+        }?;
+
+        match next_arg {
+            None => {
+                lexer.expect(")")?;
+                break;
+            }
+            Some(arg_name) => {
+                args.push(arg_name.clone());
+
+                match lexer.next() {
+                    None => return Err("Ran out of tokens parsing function definition".to_string()),
+                    Some(tok) => match tok.token_type {
+                        Token::Op(OperatorType::Comma) => (),
+                        Token::Op(OperatorType::CloseParen) => break,
+                        _ => return Err(format!("Unexpected token: {tok}")),
+                    },
+                }
+            }
+        }
+    }
+
+    let body = parse_block(lexer)?;
+    Ok(FunctionDefinition { name, args, body })
 }
 
 #[cfg(test)]
