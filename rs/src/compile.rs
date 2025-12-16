@@ -455,11 +455,19 @@ fn compile_variable(
     name: &str,
     dst: &Address,
 ) -> Result<String, String> {
-    register_handler.lease_with_scope(|reg| {
-        let binding = compile_scope.borrow();
-        let address = binding.get_variable(name)?;
-        Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))
-    })
+    let binding = compile_scope.borrow();
+    let address = binding.get_variable(name)?;
+    match dst {
+        //  You can always move to a register
+        Address::Register(_) => Ok(format!("mov {dst}, {address}")),
+        Address::Stack(_) => match address {
+            Address::Register(_) => Ok(format!("mov {dst}, {address}")),
+
+            // Need an intermediate register
+            Address::Stack(_) => register_handler
+                .lease_with_scope(|reg| Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))),
+        },
+    }
 }
 
 fn compile_operator(
