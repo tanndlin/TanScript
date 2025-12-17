@@ -20,18 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = paths.into_iter().next().ok_or("No file found")??;
     let file_as_string = fs::read_to_string(file)?;
 
-    let ast = parse(&file_as_string).map_err(|e| {
-        eprintln!("Error during parsing: {e}");
-        e
-    })?;
-
+    let ast = parse(&file_as_string)?;
     println!("{ast}");
-
-    let code = ast.compile().map_err(|e| {
-        eprintln!("Error during compilation: {e}");
-        e
-    })?;
-
+    let code = ast.compile()?;
     fs::write(Path::new("script.asm"), code)?;
 
     Ok(())
