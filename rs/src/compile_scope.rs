@@ -22,11 +22,18 @@ impl CompileScope {
         }
     }
 
-    pub fn get_variable(&self, name: &str) -> Result<&Address, String> {
-        match self.variables.get(name) {
-            Some(addr) => Ok(addr),
-            None => Err(format!("Variable '{name}' not found")),
+    pub fn get_variable(&self, name: &str) -> Result<Address, String> {
+        if let Some(addr) = self.variables.get(name) {
+            return Ok(addr.clone());
         }
+
+        let parent = self
+            .parent
+            .as_ref()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| format!("Variable '{name}' not found"))?;
+
+        parent.borrow().get_variable(name)
     }
 
     pub fn add_variable(&mut self, name: String) -> Result<(), String> {
