@@ -147,6 +147,8 @@ impl Block {
         compile_scope: &Rc<RefCell<CompileScope>>,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
+        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+
         let mut instructions = self
             .children
             .iter()
@@ -154,13 +156,13 @@ impl Block {
                 StatementOrExpression::Statement(Statement::FunctionDefintion(_)) => {
                     Ok(String::new())
                 }
-                _ => child.compile(compile_scope, register_handler),
+                _ => child.compile(&new_scope, register_handler),
             })
             .collect::<Result<Vec<String>, String>>()?
             .join("\n");
 
-        if compile_scope.borrow().num_variables > 0 {
-            let alloc_size = compile_scope.borrow().num_variables * 8;
+        if new_scope.borrow().num_variables > 0 {
+            let alloc_size = new_scope.borrow().num_variables * 8;
             // Align stack
             let alloc_size = if alloc_size % 16 != 0 {
                 alloc_size + alloc_size % 16
@@ -303,10 +305,13 @@ impl IfStatement {
             &Address::Register(dst.clone()),
             register_handler,
         )?;
-        let block = self.block.compile(compile_scope, register_handler)?;
+
+        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+        let block = self.block.compile(&new_scope, register_handler)?;
+        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
         let else_block = match &self.else_block {
             None => None,
-            Some(else_block) => Some(else_block.compile(compile_scope, register_handler)?),
+            Some(else_block) => Some(else_block.compile(&new_scope, register_handler)?),
         };
 
         Ok(format!(

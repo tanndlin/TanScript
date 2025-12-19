@@ -14,8 +14,8 @@ pub struct CompileScope {
 }
 
 impl CompileScope {
-    pub fn new(parent: Option<&Rc<RefCell<CompileScope>>>) -> CompileScope {
-        CompileScope {
+    pub fn new(parent: Option<&Rc<RefCell<Self>>>) -> Self {
+        Self {
             parent: parent.map(Rc::downgrade),
             variables: HashMap::new(),
             num_variables: 0,
