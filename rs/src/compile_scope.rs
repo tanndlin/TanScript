@@ -36,27 +36,18 @@ impl CompileScope {
         parent.borrow().get_variable(name)
     }
 
-    pub fn add_variable(&mut self, name: String) -> Result<(), String> {
+    pub fn add_variable(&mut self, name: String, address: Option<Address>) -> Result<(), String> {
         if self.variables.contains_key(&name) {
             return Err(format!("Variable '{name}' already declared"));
         }
 
-        self.variables
-            .insert(name, Address::Stack((self.num_variables + 1) * 8));
-        self.num_variables += 1;
-        Ok(())
-    }
-
-    pub fn add_variable_at_address(
-        &mut self,
-        name: String,
-        address: Address,
-    ) -> Result<(), String> {
-        if self.variables.contains_key(&name) {
-            return Err(format!("Variable '{name}' already declared"));
+        if let Some(address) = address {
+            self.variables.insert(name, address);
+        } else {
+            self.variables
+                .insert(name, Address::Stack((self.num_variables + 1) * 8));
         }
 
-        self.variables.insert(name, address);
         self.num_variables += 1;
         Ok(())
     }

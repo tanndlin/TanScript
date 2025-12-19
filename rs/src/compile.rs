@@ -238,7 +238,7 @@ impl Declaration {
     ) -> Result<String, String> {
         compile_scope
             .borrow_mut()
-            .add_variable(self.assign.identifier.clone())?;
+            .add_variable(self.assign.identifier.clone(), None)?;
         self.assign.compile(compile_scope, register_handler)
     }
 }
@@ -339,7 +339,7 @@ impl FunctionDefinition {
             let mut scope_borrow = scope.borrow_mut();
 
             // Update its location in the scope
-            scope_borrow.add_variable_at_address(arg.clone(), new_address)?;
+            scope_borrow.add_variable(arg.clone(), Some(new_address))?;
             // This is not a variable that needs to be deallocated later
             scope_borrow.num_variables -= 1;
         }
