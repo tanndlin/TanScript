@@ -220,7 +220,6 @@ impl Statement {
             }
             Statement::FunctionDefintion(_) => Ok(String::new()),
             Statement::Return(expr) => {
-                // TODO: This will wipe whatever is in RAX
                 let instructions = expr.compile(
                     compile_scope,
                     &Address::Register(Register::RAX),
