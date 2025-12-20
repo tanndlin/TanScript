@@ -308,10 +308,10 @@ impl IfStatement {
 
         let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
         let block = self.block.compile(&new_scope, register_handler)?;
-        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+        let else_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
         let else_block = match &self.else_block {
             None => None,
-            Some(else_block) => Some(else_block.compile(&new_scope, register_handler)?),
+            Some(else_block) => Some(else_block.compile(&else_scope, register_handler)?),
         };
 
         register_handler.release_register(dst.clone());
@@ -508,9 +508,7 @@ fn compile_operator(
         | OperatorType::CloseCurly
         | OperatorType::OpenParen
         | OperatorType::CloseParen
-        | OperatorType::Comma => {
-            panic!("Unexpected operator{}", op)
-        }
+        | OperatorType::Comma => panic!("Unexpected operator: {}", op),
     }
 }
 
@@ -619,7 +617,7 @@ fn compile_prefix_operator(
     dst: &Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let child = children.first().ok_or("Infix operator missing child")?;
+    let child = children.first().ok_or("Prefix operator missing child")?;
     let child_asm = child.compile(compile_scope, dst, register_handler)?;
 
     let asm = match op {
