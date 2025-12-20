@@ -314,6 +314,7 @@ impl IfStatement {
             Some(else_block) => Some(else_block.compile(&new_scope, register_handler)?),
         };
 
+        register_handler.release_register(dst.clone());
         Ok(format!(
             "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}endif{id}:",
             else_block.unwrap_or(String::new())
