@@ -404,9 +404,6 @@ fn compile_function_call(
         todo!("More than 4 args not supported")
     }
 
-    // TODO: If calling a function call as a param the volitaile registers can be wiped
-    // Therefore: no args should be set in place until all args are compiled and stored.
-
     let mut instructions = vec![];
 
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
