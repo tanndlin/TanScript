@@ -165,7 +165,7 @@ impl Block {
             let alloc_size = new_scope.borrow().num_variables * 8;
             // Align stack
             let alloc_size = if alloc_size % 16 != 0 {
-                alloc_size + alloc_size % 16
+                alloc_size + (16 - alloc_size % 16)
             } else {
                 alloc_size
             };
