@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        GITHUB_TOKEN = credentials('GITHUB_TOKEN') // matches the ID you set
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
     }
 
     stages {
