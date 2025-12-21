@@ -24,7 +24,7 @@ impl CompileScope {
 
     pub fn get_variable(&self, name: &str) -> Result<Address, String> {
         if let Some(addr) = self.variables.get(name) {
-            return Ok(addr.clone());
+            return Ok(*addr);
         }
 
         let parent = self

@@ -36,49 +36,47 @@ impl RegisterHandler {
         let reg = self
             .registers
             .iter()
-            .filter(|(reg, _)| !self.reserved_registers.contains(reg))
-            .skip_while(|(_, used)| **used)
-            .map(|(reg, _)| Ok(reg.clone()))
-            .nth(0)
-            .unwrap_or_else(|| Err("No registers available".to_string()))?;
+            .find(|(reg, used)| !*used && !self.reserved_registers.contains(reg))
+            .map(|(reg, _)| *reg)
+            .ok_or_else(|| "No registers available".to_string())?;
 
-        self.registers.insert(reg.clone(), true);
+        *self.registers.get_mut(&reg).unwrap() = true;
         Ok(reg)
     }
 
     pub fn release_register(&mut self, register: Register) {
-        match self.registers.get(&register) {
-            Some(_) => self.registers.insert(register, false),
+        match self.registers.get_mut(&register) {
+            Some(used) => *used = false,
             None => panic!("Released unleasable register? {register}"),
-        };
+        }
     }
 
     pub fn lease_with_scope(
         &mut self,
         function: impl Fn(Address) -> Result<String, String>,
     ) -> Result<String, String> {
-        if let Ok(reg) = self.lease_register() {
-            let ret = function(Address::Register(reg.clone()));
-            self.release_register(reg);
+        if let Ok(reg) = &self.lease_register() {
+            let ret = function(Address::Register(*reg));
+            self.release_register(*reg);
             ret
         } else {
-            let reg = self.reserved_registers[0].clone(); // Use the first reserved register as a fallback
-            let ret = function(Address::Register(reg.clone()))?;
+            let reg = &self.reserved_registers[0]; // Use the first reserved register as a fallback
+            let ret = function(Address::Register(*reg))?;
             Ok(format!("push {reg}\n{ret}\npop {reg}"))
         }
     }
 
     pub fn request_with_scope(
         &mut self,
-        reg: &Register,
+        reg: Register,
         function: impl Fn(Address) -> Result<String, String>,
     ) -> Result<String, String> {
         if let Ok(reg) = self.request_register(reg) {
-            let ret = function(Address::Register(reg.clone()));
+            let ret = function(Address::Register(reg));
             self.release_register(reg);
             ret
         } else {
-            let ret = function(Address::Register(reg.clone()))?;
+            let ret = function(Address::Register(reg))?;
             Ok(format!("push {reg}\n{ret}\npop {reg}"))
         }
     }
@@ -91,16 +89,14 @@ impl RegisterHandler {
         name
     }
 
-    pub fn request_register(&mut self, register: &Register) -> Result<Register, String> {
-        match self.registers.get(register) {
+    pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
+        match self.registers.get_mut(&register) {
             None => Err(format!("Register {register} not leasable")),
-            Some(used) => match used {
-                true => Err(format!("Register {register} not available")),
-                false => {
-                    self.registers.insert(register.clone(), true);
-                    Ok(register.clone())
-                }
-            },
+            Some(used) if *used => Err(format!("Register {register} not available")),
+            Some(used) => {
+                *used = true;
+                Ok(register)
+            }
         }
     }
 
@@ -134,22 +130,22 @@ mod tests {
     #[test]
     fn prevent_double_lease() {
         let mut rh = RegisterHandler::new();
-        let reg = rh.request_register(&Register::RAX);
+        let reg = rh.request_register(Register::RAX);
         assert!(reg.is_ok());
 
-        let reg2 = rh.request_register(&Register::RAX);
+        let reg2 = rh.request_register(Register::RAX);
         assert!(reg2.is_err());
     }
 
     #[test]
     fn allow_release_then_lease() {
         let mut rh = RegisterHandler::new();
-        let reg = rh.request_register(&Register::RAX);
-        assert!(reg.is_ok());
 
-        rh.release_register(reg.unwrap());
+        let rax = rh.request_register(Register::RAX);
+        assert!(rax.is_ok());
+        let rax = rax.unwrap();
 
-        let reg = rh.request_register(&Register::RAX);
-        assert!(reg.is_ok());
+        rh.release_register(rax);
+        assert!(rh.request_register(rax).is_ok());
     }
 }

@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register {
     RAX,
     RBX,
@@ -47,14 +47,14 @@ impl fmt::Display for Register {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Debug)]
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset in the stack
 }
 
 impl Address {
-    pub fn lower_8_bits(&self) -> String {
+    pub fn lower_8_bits(self) -> String {
         match self {
             Address::Stack(off) => format!("[rbp - {off}]"),
             Address::Register(reg) => match reg {
@@ -196,7 +196,7 @@ impl StatementOrExpression {
             }
             StatementOrExpression::Expression(expression) => expression.compile(
                 compile_scope,
-                &Address::Register(Register::R15),
+                Address::Register(Register::R15),
                 register_handler,
             ),
         }
@@ -222,7 +222,7 @@ impl Statement {
             Statement::Return(expr) => {
                 let instructions = expr.compile(
                     compile_scope,
-                    &Address::Register(Register::RAX),
+                    Address::Register(Register::RAX),
                     register_handler,
                 )?;
                 Ok(format!("{instructions}\nmov rsp, rbp\npop rbp\nret"))
@@ -250,12 +250,9 @@ impl Assignment {
         compile_scope: &Rc<RefCell<CompileScope>>,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let address = compile_scope
-            .borrow()
-            .get_variable(&self.identifier)?
-            .clone();
+        let address = compile_scope.borrow().get_variable(&self.identifier)?;
         self.expression
-            .compile(compile_scope, &address, register_handler)
+            .compile(compile_scope, address, register_handler)
     }
 }
 
@@ -270,12 +267,10 @@ impl WhileLoop {
         let end_label = format!("while_end_{unique_id}");
 
         let reg = register_handler.lease_register()?;
-        let condition = self.condition.compile(
-            compile_scope,
-            &Address::Register(reg.clone()),
-            register_handler,
-        )?;
-        register_handler.release_register(reg.clone());
+        let condition =
+            self.condition
+                .compile(compile_scope, Address::Register(reg), register_handler)?;
+        register_handler.release_register(reg);
 
         let block = self.block.compile(compile_scope, register_handler)?;
 
@@ -299,11 +294,9 @@ impl IfStatement {
     ) -> Result<String, String> {
         let id = register_handler.get_unique_id();
         let dst = register_handler.lease_register()?;
-        let condition = self.condition.compile(
-            compile_scope,
-            &Address::Register(dst.clone()),
-            register_handler,
-        )?;
+        let condition =
+            self.condition
+                .compile(compile_scope, Address::Register(dst), register_handler)?;
 
         let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
         let block = self.block.compile(&new_scope, register_handler)?;
@@ -313,7 +306,7 @@ impl IfStatement {
             Some(else_block) => Some(else_block.compile(&else_scope, register_handler)?),
         };
 
-        register_handler.release_register(dst.clone());
+        register_handler.release_register(dst);
         Ok(format!(
             "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}endif{id}:",
             else_block.unwrap_or(String::new())
@@ -367,7 +360,7 @@ impl Expression {
     fn compile(
         &self,
         compile_scope: &Rc<RefCell<CompileScope>>,
-        dst: &Address,
+        dst: Address,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         match self {
@@ -388,7 +381,7 @@ impl Expression {
     }
 }
 
-fn compile_string(s: &str, dst: &Address, register_handler: &mut RegisterHandler) -> String {
+fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler) -> String {
     let handle = register_handler.add_data(s);
     format!("mov {dst}, {handle}")
 }
@@ -398,7 +391,7 @@ fn compile_function_call(
     register_handler: &mut RegisterHandler,
     name: &str,
     args: &[Expression],
-    dst: &Address,
+    dst: Address,
 ) -> Result<String, String> {
     if args.len() > 4 {
         todo!("More than 4 args not supported")
@@ -408,22 +401,22 @@ fn compile_function_call(
 
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
     let mut moved_registers = vec![];
-    let zipped = args.iter().zip(target_registers.clone());
+    let zipped = args.iter().zip(target_registers);
     for (arg, dst_reg) in zipped {
         instructions.push(arg.compile(
             compile_scope,
-            &Address::Register(dst_reg.clone()),
+            Address::Register(dst_reg),
             register_handler,
         )?);
         //  Prevent register from being modified
-        if register_handler.request_register(&dst_reg).is_err() {
+        if register_handler.request_register(dst_reg).is_err() {
             // if the destination is leased, move temporarily
             instructions.insert(instructions.len() - 1, format!("push {dst_reg}"));
             moved_registers.push(dst_reg);
         }
     }
 
-    instructions.push(register_handler.request_with_scope(&Register::RAX, |rax| {
+    instructions.push(register_handler.request_with_scope(Register::RAX, |rax| {
         Ok([
             "sub rsp, 32".to_string(),
             format!("call {name}"),
@@ -438,7 +431,7 @@ fn compile_function_call(
         .iter()
         .take(args.len())
         .filter(|reg| !moved_registers.contains(reg))
-        .for_each(|r| register_handler.release_register(r.clone()));
+        .for_each(|r| register_handler.release_register(*r));
 
     let undo = moved_registers
         .iter()
@@ -451,7 +444,7 @@ fn compile_function_call(
     Ok(instructions.join("\n"))
 }
 
-fn compile_number(n: i32, dst: &Address) -> String {
+fn compile_number(n: i32, dst: Address) -> String {
     format!("mov QWORD {dst}, {n}")
 }
 
@@ -459,7 +452,7 @@ fn compile_variable(
     compile_scope: &Rc<RefCell<CompileScope>>,
     register_handler: &mut RegisterHandler,
     name: &str,
-    dst: &Address,
+    dst: Address,
 ) -> Result<String, String> {
     let binding = compile_scope.borrow();
     let address = binding.get_variable(name)?;
@@ -480,7 +473,7 @@ fn compile_operator(
     op: &OperatorType,
     children: &[Expression],
     compile_scope: &Rc<RefCell<CompileScope>>,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     match op {
@@ -515,7 +508,7 @@ fn compile_infix_operator(
     op: &OperatorType,
     children: &[Expression],
     compile_scope: &Rc<RefCell<CompileScope>>,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let left = children
@@ -535,7 +528,7 @@ fn compile_infix_operator(
             let right_reg = register_handler.lease_register()?;
             let right = right.compile(
                 compile_scope,
-                &Address::Register(right_reg.clone()),
+                Address::Register(right_reg),
                 register_handler,
             )?;
 
@@ -613,7 +606,7 @@ fn compile_prefix_operator(
     op: &OperatorType,
     children: &[Expression],
     compile_scope: &Rc<RefCell<CompileScope>>,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let child = children.first().ok_or("Prefix operator missing child")?;
@@ -633,20 +626,16 @@ fn compile_multiply(
     compile_scope: &Rc<RefCell<CompileScope>>,
     left: &Expression,
     right: &Expression,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let left_reg = register_handler.lease_register()?;
-    let left = left.compile(
-        compile_scope,
-        &Address::Register(left_reg.clone()),
-        register_handler,
-    )?;
+    let left = left.compile(compile_scope, Address::Register(left_reg), register_handler)?;
 
     let right_reg = register_handler.lease_register()?;
     let right = right.compile(
         compile_scope,
-        &Address::Register(right_reg.clone()),
+        Address::Register(right_reg),
         register_handler,
     )?;
 
@@ -667,27 +656,27 @@ fn compile_divide(
     compile_scope: &Rc<RefCell<CompileScope>>,
     left: &Expression,
     right: &Expression,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let right_reg = register_handler.lease_register()?;
     let right = right.compile(
         compile_scope,
-        &Address::Register(right_reg.clone()),
+        Address::Register(right_reg),
         register_handler,
     )?;
 
-    let rax = register_handler.request_register(&Register::RAX)?;
-    let left = left.compile(
-        compile_scope,
-        &Address::Register(rax.clone()),
-        register_handler,
-    )?;
+    let rax = {
+        register_handler.request_register(Register::RAX)?;
+        Register::RAX
+    };
+    let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
 
     let instructions = [left, right];
-    let div = register_handler.request_with_scope(&Register::RDX, |rdx| {
+    let div = register_handler.request_with_scope(Register::RDX, |rdx| {
         Ok(format!(
-            "xor {rdx}, {rdx}\ndiv {right_reg}\nmov {dst}, {rax}"
+            "xor {rdx}, {rdx}\ndiv {}\nmov {dst}, {rax}",
+            right_reg.clone()
         ))
     })?;
 
@@ -701,24 +690,20 @@ fn compile_modulo(
     compile_scope: &Rc<RefCell<CompileScope>>,
     left: &Expression,
     right: &Expression,
-    dst: &Address,
+    dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let right_reg = register_handler.lease_register()?;
     let right = right.compile(
         compile_scope,
-        &Address::Register(right_reg.clone()),
+        Address::Register(right_reg),
         register_handler,
     )?;
 
-    let rax = register_handler.request_register(&Register::RAX)?;
-    let left = left.compile(
-        compile_scope,
-        &Address::Register(rax.clone()),
-        register_handler,
-    )?;
+    let rax = register_handler.request_register(Register::RAX)?;
+    let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
 
-    let rdx = register_handler.request_register(&Register::RDX)?;
+    let rdx = register_handler.request_register(Register::RDX)?;
     let instructions = [
         left,
         right,
