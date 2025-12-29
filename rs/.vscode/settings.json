@@ -21,7 +21,7 @@
                 {
                     "name": "Run",
                     "commands": [
-                        "nodemon -e rs,tan -x \"cargo run\""
+                        "nodemon -e rs,tan -x \"cargo run -- script.tan\""
                     ]
                 },
                 {

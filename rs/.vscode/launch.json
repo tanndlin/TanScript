@@ -19,7 +19,9 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "${workspaceFolder}/script.tan"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {
