@@ -469,4 +469,28 @@ mod test {
             "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
         );
     }
+
+    #[test]
+    fn parse_function_definition() {
+        integration_test!(
+            "def add(a, b) { return a + b; }",
+            "def add(a, b) {return (+ a b)}"
+        );
+    }
+
+    #[test]
+    fn parse_function_call() {
+        test_parse_expression!("add(1, 2)", "add(1, 2)");
+        test_parse_expression!("add(a, b + c)", "add(a, (+ b c))");
+    }
+
+    #[test]
+    fn parse_function_call_no_args() {
+        test_parse_expression!("foo()", "foo()");
+    }
+
+    #[test]
+    fn parse_nested_function_calls() {
+        test_parse_expression!("add(mul(2, 3), 4)", "add(mul(2, 3), 4)");
+    }
 }

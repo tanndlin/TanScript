@@ -266,7 +266,7 @@ impl fmt::Display for Expression {
                     .iter()
                     .map(ToString::to_string)
                     .collect::<Vec<String>>()
-                    .join(",")
+                    .join(", ")
             ),
         }
     }
