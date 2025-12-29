@@ -3,3 +3,4 @@ target/*
 *.asm
 *.exe
 *.o
+*.html

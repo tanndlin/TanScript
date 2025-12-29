@@ -95,7 +95,10 @@ fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, String> {
     let else_block = match lexer.peek() {
         None => None,
         Some(tok) => match &tok.token_type {
-            Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => Some(parse_block(lexer)?),
+            Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => {
+                lexer.expect("else")?;
+                Some(parse_block(lexer)?)
+            }
             _ => None,
         },
     };
@@ -387,6 +390,12 @@ mod test {
     }
 
     #[test]
+    fn expect_statement_semicolon() {
+        let program = parse("let a = 1 let b = 2;").unwrap_err();
+        assert!(program.starts_with("Expected ;"));
+    }
+
+    #[test]
     fn parse_modulo() {
         test_parse_expression!("5 % 2", "(% 5 2)");
     }
@@ -435,5 +444,29 @@ mod test {
     fn parse_boolean_negate() {
         test_parse_expression!("!1", "(! 1)");
         test_parse_expression!("!(1 < 2)", "(! (< 1 2))");
+    }
+
+    #[test]
+    fn parse_while_loop() {
+        integration_test!(
+            "while (a < 10) { a = a + 1; }",
+            "while (< a 10) {\na = (+ a 1)\n}"
+        );
+    }
+
+    #[test]
+    fn parse_if_statement() {
+        integration_test!(
+            "if (a < 10) { a = a + 1; }",
+            "if (< a 10) {\na = (+ a 1)\n}"
+        );
+    }
+
+    #[test]
+    fn parse_if_else_statement() {
+        integration_test!(
+            "if (a < 10) { a = a + 1; } else { a = a - 1; }",
+            "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
+        );
     }
 }

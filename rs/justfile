@@ -9,3 +9,6 @@ asm:
 
 watch:
     nodemon -e asm -x "just asm"
+
+coverage:
+    cargo tarpaulin --out Html
