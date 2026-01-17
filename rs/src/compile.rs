@@ -308,7 +308,7 @@ impl IfStatement {
 
         register_handler.release_register(dst);
         Ok(format!(
-            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}endif{id}:",
+            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}\nendif{id}:",
             else_block.unwrap_or(String::new())
         ))
     }
