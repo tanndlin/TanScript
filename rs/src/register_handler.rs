@@ -2,11 +2,27 @@ use std::collections::HashMap;
 
 use crate::compile::{Address, Register};
 
+#[derive(Clone, Copy, Debug)]
+struct RegisterState {
+    used: bool,
+    last_used: u64,
+}
+
+impl RegisterState {
+    fn new() -> Self {
+        RegisterState {
+            used: false,
+            last_used: 0,
+        }
+    }
+}
+
 pub struct RegisterHandler {
     pub data: Vec<String>,
-    registers: HashMap<Register, bool>,
+    registers: HashMap<Register, RegisterState>,
     reserved_registers: Vec<Register>,
     unique_id: u32,
+    usage_counter: u64,
 }
 
 impl RegisterHandler {
@@ -14,39 +30,50 @@ impl RegisterHandler {
         RegisterHandler {
             data: vec![],
             registers: HashMap::from([
-                (Register::RAX, false),
-                (Register::RBX, false),
-                (Register::RCX, false),
-                (Register::RDX, false),
-                (Register::R8, false),
-                (Register::R9, false),
-                (Register::R10, false),
-                (Register::R11, false),
-                (Register::R12, false),
-                (Register::R13, false),
-                (Register::R14, false),
-                (Register::R15, false),
+                (Register::RAX, RegisterState::new()),
+                (Register::RBX, RegisterState::new()),
+                (Register::RCX, RegisterState::new()),
+                (Register::RDX, RegisterState::new()),
+                (Register::R8, RegisterState::new()),
+                (Register::R9, RegisterState::new()),
+                (Register::R10, RegisterState::new()),
+                (Register::R11, RegisterState::new()),
+                (Register::R12, RegisterState::new()),
+                (Register::R13, RegisterState::new()),
+                (Register::R14, RegisterState::new()),
+                (Register::R15, RegisterState::new()),
             ]),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
             unique_id: 0,
+            usage_counter: 0,
         }
     }
 
     pub fn lease_register(&mut self) -> Result<Register, String> {
-        let reg = self
+        // Choose the least-recently-used free register (LRU heuristic) that is not reserved.
+        let candidate = self
             .registers
             .iter()
-            .find(|(reg, used)| !*used && !self.reserved_registers.contains(reg))
-            .map(|(reg, _)| *reg)
-            .ok_or_else(|| "No registers available".to_string())?;
+            .filter(|(r, st)| !st.used && !self.reserved_registers.contains(r))
+            .min_by_key(|(_, st)| st.last_used)
+            .map(|(r, _)| *r);
 
-        *self.registers.get_mut(&reg).unwrap() = true;
+        let reg = candidate.ok_or_else(|| "No registers available".to_string())?;
+        let state = self.registers.get_mut(&reg).unwrap();
+        state.used = true;
+        self.usage_counter = self.usage_counter.wrapping_add(1);
+        state.last_used = self.usage_counter;
         Ok(reg)
     }
 
     pub fn release_register(&mut self, register: Register) {
         match self.registers.get_mut(&register) {
-            Some(used) => *used = false,
+            Some(state) => {
+                state.used = false;
+                // mark as recently used so LRU prefers other registers next
+                self.usage_counter = self.usage_counter.wrapping_add(1);
+                state.last_used = self.usage_counter;
+            }
             None => panic!("Released unleasable register? {register}"),
         }
     }
@@ -92,9 +119,11 @@ impl RegisterHandler {
     pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
         match self.registers.get_mut(&register) {
             None => Err(format!("Register {register} not leasable")),
-            Some(used) if *used => Err(format!("Register {register} not available")),
-            Some(used) => {
-                *used = true;
+            Some(state) if state.used => Err(format!("Register {register} not available")),
+            Some(state) => {
+                state.used = true;
+                self.usage_counter = self.usage_counter.wrapping_add(1);
+                state.last_used = self.usage_counter;
                 Ok(register)
             }
         }
