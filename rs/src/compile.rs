@@ -383,7 +383,12 @@ impl Expression {
 
 fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler) -> String {
     let handle = register_handler.add_data(s);
-    format!("mov {dst}, {handle}")
+    match dst {
+        Address::Register(_) => format!("mov QWORD {dst}, {handle}"),
+        Address::Stack(_) => register_handler
+            .lease_with_scope(|reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}")))
+            .unwrap(),
+    }
 }
 
 fn compile_function_call(
