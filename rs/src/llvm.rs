@@ -5,7 +5,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    types::BasicTypeEnum,
+    types::{BasicMetadataTypeEnum, BasicTypeEnum},
     values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue},
 };
 
@@ -35,6 +35,15 @@ impl<'ctx> Compiler<'ctx> {
     }
 
     pub fn compile_program(&mut self, program: &Program) -> Result<(), String> {
+        // Pass 1: compile all function definitions before main
+        for stmt_or_expr in &program.block.children {
+            if let StatementOrExpression::Statement(Statement::FunctionDefintion(fd)) = stmt_or_expr
+            {
+                self.compile_function_definition(fd)?;
+            }
+        }
+
+        // Pass 2: compile main function with all defs available
         let i32_type = self.context.i32_type();
         let main_fn = self
             .module
@@ -42,14 +51,23 @@ impl<'ctx> Compiler<'ctx> {
         let entry = self.context.append_basic_block(main_fn, "entry");
         self.builder.position_at_end(entry);
 
-        // Compile the program's block
         for stmt_or_expr in &program.block.children {
+            // Skip defs
+            if let StatementOrExpression::Statement(Statement::FunctionDefintion(_)) = stmt_or_expr
+            {
+                continue;
+            }
             self.compile_statement_or_expression(stmt_or_expr)?;
         }
 
-        self.builder
-            .build_return(Some(&i32_type.const_int(0, false)))
-            .map_err(|e| e.to_string())?;
+        // Only add implicit return if block didn't already terminate
+        let current_block = self.builder.get_insert_block().unwrap();
+        if current_block.get_terminator().is_none() {
+            self.builder
+                .build_return(Some(&i32_type.const_int(0, false)))
+                .map_err(|e| e.to_string())?;
+        }
+
         Ok(())
     }
 
@@ -229,10 +247,60 @@ impl<'ctx> Compiler<'ctx> {
         todo!()
     }
 
-    fn compile_function_definition(
-        &mut self,
-        _func_def: &FunctionDefinition,
-    ) -> Result<(), String> {
-        todo!()
+    fn compile_function_definition(&mut self, func_def: &FunctionDefinition) -> Result<(), String> {
+        let i32_type = self.context.i32_type();
+        let param_types: Vec<BasicMetadataTypeEnum<'ctx>> =
+            func_def.args.iter().map(|_| i32_type.into()).collect();
+        let fn_type = i32_type.fn_type(&param_types, false);
+        let function = self.module.add_function(&func_def.name, fn_type, None);
+
+        // Save outer context
+        let saved_vars = self.variables.clone();
+        let saved_block = self.builder.get_insert_block();
+
+        let entry = self.context.append_basic_block(function, "entry");
+        self.builder.position_at_end(entry);
+
+        // Clear variables so function scope is isolated
+        self.variables.clear();
+
+        for (i, arg) in func_def.args.iter().enumerate() {
+            let param = function.get_nth_param(i as u32).unwrap();
+            param.set_name(arg);
+            let ptr = self
+                .builder
+                .build_alloca(i32_type, arg)
+                .map_err(|e| e.to_string())?;
+            self.builder
+                .build_store(ptr, param)
+                .map_err(|e| e.to_string())?;
+            self.variables.insert(arg.clone(), (ptr, i32_type.into()));
+        }
+
+        self.compile_block(&func_def.body)?;
+
+        // Implicit return if no explicit one
+        let current_block = self.builder.get_insert_block().unwrap();
+        if current_block.get_terminator().is_none() {
+            self.builder
+                .build_return(Some(&i32_type.const_int(0, false)))
+                .map_err(|e| e.to_string())?;
+        }
+
+        // Restore outer context
+        self.variables = saved_vars;
+        if let Some(block) = saved_block {
+            self.builder.position_at_end(block);
+        }
+
+        Ok(())
+    }
+
+    fn compile_block(&mut self, block: &crate::ast::Block) -> Result<(), String> {
+        for stmt_or_expr in &block.children {
+            dbg!(&stmt_or_expr);
+            self.compile_statement_or_expression(stmt_or_expr)?;
+        }
+        Ok(())
     }
 }

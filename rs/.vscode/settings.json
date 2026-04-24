@@ -3,44 +3,18 @@
         {
             "splitTerminals": [
                 {
-                    "name": "Lint",
-                    "commands": [
-                        "nodemon --watch src -e rs -x \"cargo clippy -- -D clippy::pedantic\""
-                    ]
-                },
-                {
-                    "name": "Test",
-                    "commands": [
-                        "nodemon --watch src -e rs -x \"cargo test\""
-                    ]
-                }
-            ]
-        },
-        {
-            "splitTerminals": [
-                {
                     "name": "Run",
                     "commands": [
-                        "nodemon -e rs,tan -x \"cargo run -- script.tan\""
+                        "docker compose -f .\\docker-compose.dev.yml up"
                     ]
                 },
-                {
-                    "name": "ASM",
-                    "commands": [
-                        "nodemon -e asm -x \"just asm\""
-                    ]
-                }
-            ],
-        },
-        {
-            "splitTerminals": [
                 {
                     "name": "Git",
                     "commands": [
                         "git status"
                     ]
                 }
-            ],
-        }
+            ]
+        },
     ],
 }
