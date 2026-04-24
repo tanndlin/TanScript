@@ -1,0 +1,15 @@
+services:
+  compiler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    working_dir: /app
+    command: cargo watch --poll --ignore "out/" --ignore "*.ll" --ignore "*.o" -x "run -- script.tan"
+
+volumes:
+  cargo-cache:
+  target-cache:

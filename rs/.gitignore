@@ -4,3 +4,5 @@ target/*
 *.exe
 *.o
 *.html
+*.ll
+out

@@ -23,31 +23,22 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh '''
-                cd rs
-                cargo build --release
-                '''
+                sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo build --release'
             }
         }
 
         stage('Lint') {
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh '''
-                    cd rs
-                    cargo fmt -- --check
-                    cargo clippy -- -D clippy::pedantic
-                    '''
+                    sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo fmt -- --check'
+                    sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo clippy -- -D clippy::pedantic'
                 }
             }
         }
 
         stage('Test') {
             steps {
-                sh '''
-                cd rs
-                cargo test
-                '''
+                sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo test'
             }
         }
     }
@@ -77,3 +68,4 @@ pipeline {
         }
     }
 }
+gitre

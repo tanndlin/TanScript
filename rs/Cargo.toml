@@ -3,5 +3,8 @@ name = "tanscript"
 version = "0.1.0"
 edition = "2024"
 
+[dependencies]
+inkwell = { version = "0.4", features = ["llvm17-0"] }
+
 [lints.clippy]
 pedantic = "warn"
