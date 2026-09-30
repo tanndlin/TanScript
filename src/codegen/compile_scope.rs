@@ -14,7 +14,7 @@ impl<'a> CompileScope<'a> {
         Self {
             parent,
             variables: HashMap::new(),
-            num_variables: 0,
+            num_variables: parent.map_or(0, |p| p.num_variables),
         }
     }
 
