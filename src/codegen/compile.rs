@@ -119,11 +119,11 @@ impl StatementOrExpression {
             StatementOrExpression::Statement(statement) => {
                 statement.compile(compile_scope, register_handler)
             }
-            StatementOrExpression::Expression(expression) => expression.compile(
-                compile_scope,
-                Address::Register(Register::R15),
-                register_handler,
-            ),
+            StatementOrExpression::Expression(expression) => {
+                register_handler.lease_with_scope(|register_handler, dst| {
+                    expression.compile(compile_scope, dst, register_handler)
+                })
+            }
         }
     }
 }
