@@ -6,7 +6,6 @@ mod ast;
 mod lexer;
 mod llvm;
 mod parser;
-mod symbol_table;
 mod types;
 
 use crate::llvm::Compiler;

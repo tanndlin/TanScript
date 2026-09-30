@@ -9,12 +9,9 @@ use inkwell::{
     values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue, ValueKind},
 };
 
-use crate::{
-    ast::{
-        Assignment, AtomType, Declaration, Expression, IfStatement, OperatorType, Program,
-        Statement, StatementOrExpression, WhileLoop,
-    },
-    symbol_table::FunctionDefinition,
+use crate::ast::{
+    Assignment, AtomType, Declaration, Expression, FunctionDefinition, IfStatement, OperatorType,
+    Program, Statement, StatementOrExpression, WhileLoop,
 };
 
 pub struct Compiler<'ctx> {

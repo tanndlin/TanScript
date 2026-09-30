@@ -1,10 +1,9 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
-        Statement, StatementOrExpression, WhileLoop,
+        Assignment, AtomType, Block, Declaration, Expression, FunctionDefinition, IfStatement,
+        OperatorType, Program, Statement, StatementOrExpression, WhileLoop,
     },
     lexer::Lexer,
-    symbol_table::FunctionDefinition,
     types::{LexerAtomType, Token},
 };
 

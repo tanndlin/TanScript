@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{symbol_table::FunctionDefinition, types::LexerAtomType};
+use crate::types::LexerAtomType;
 
 #[derive(Debug)]
 pub struct Program {
@@ -11,6 +11,13 @@ impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.block)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionDefinition {
+    pub name: String,
+    pub args: Vec<String>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone)]
