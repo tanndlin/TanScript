@@ -31,7 +31,8 @@ impl Statement for ForLoop {
                 .compile(compile_scope, condition_dst_reg, register_handler)?;
         register_handler.release_register(condition_dst_reg);
 
-        let block = self.block.compile(compile_scope, register_handler)?;
+        let mut new_scope = CompileScope::new(Some(compile_scope));
+        let block = self.block.compile(&mut new_scope, register_handler)?;
         // Indent the update to match the block it runs with
         let update = self
             .update
