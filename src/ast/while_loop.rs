@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement},
-    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
@@ -22,9 +22,9 @@ impl Statement for WhileLoop {
         let end_label = format!("while_end_{unique_id}");
 
         let reg = register_handler.lease_register()?;
-        let condition =
-            self.condition
-                .compile(compile_scope, Address::Register(reg), register_handler)?;
+        let condition = self
+            .condition
+            .compile(compile_scope, reg, register_handler)?;
         register_handler.release_register(reg);
 
         let block = self.block.compile(compile_scope, register_handler)?;

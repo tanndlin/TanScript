@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{AtomType, Expression, Statement},
-    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
@@ -25,13 +25,9 @@ impl Statement for Assignment {
             }
             Expression::Index(lhs, index) => {
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
-                    // let lhs = lhs.compile(compile_scope, Address::Register(ptr), register_handler)?;
+                    // let lhs = lhs.compile(compile_scope, ptr), register_handler);
                     let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
-                    let index_asm = index.compile(
-                        compile_scope,
-                        Address::Register(offset_ptr),
-                        register_handler,
-                    )?;
+                    let index_asm = index.compile(compile_scope, offset_ptr, register_handler)?;
                     register_handler.lease_with_scope(|register_handler, ptr| {
                         let lhs = lhs.compile(compile_scope, ptr, register_handler)?;
 

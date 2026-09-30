@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Expression, Statement},
-    codegen::{Address, CompileScope, Register, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, Register, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
@@ -16,11 +16,9 @@ impl Statement for ReturnStatement {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let instructions = self.expr.compile(
-            compile_scope,
-            Address::Register(Register::RAX),
-            register_handler,
-        )?;
+        let instructions = self
+            .expr
+            .compile(compile_scope, Register::RAX, register_handler)?;
         Ok(format!("{instructions}\nmov rsp, rbp\npop rbp\nret"))
     }
 

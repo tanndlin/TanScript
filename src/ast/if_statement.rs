@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement},
-    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
@@ -20,9 +20,9 @@ impl Statement for IfStatement {
     ) -> Result<String, String> {
         let id = register_handler.get_unique_id();
         let dst = register_handler.lease_register()?;
-        let condition =
-            self.condition
-                .compile(compile_scope, Address::Register(dst), register_handler)?;
+        let condition = self
+            .condition
+            .compile(compile_scope, dst, register_handler)?;
 
         let mut new_scope = CompileScope::new(Some(compile_scope));
         let block = self.block.compile(&mut new_scope, register_handler)?;

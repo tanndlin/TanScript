@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement, StatementOrExpression},
-    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
@@ -26,11 +26,9 @@ impl Statement for ForLoop {
         let init = self.init.compile(compile_scope, register_handler)?;
 
         let condition_dst_reg = register_handler.lease_register()?;
-        let condition = self.condition.compile(
-            compile_scope,
-            Address::Register(condition_dst_reg),
-            register_handler,
-        )?;
+        let condition =
+            self.condition
+                .compile(compile_scope, condition_dst_reg, register_handler)?;
         register_handler.release_register(condition_dst_reg);
 
         let block = self.block.compile(compile_scope, register_handler)?;

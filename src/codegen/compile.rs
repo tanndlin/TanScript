@@ -191,11 +191,7 @@ fn compile_function_call(
     let mut moved_registers = vec![];
     let zipped = args.iter().zip(target_registers);
     for (arg, dst_reg) in zipped {
-        instructions.push(arg.compile(
-            compile_scope,
-            Address::Register(dst_reg),
-            register_handler,
-        )?);
+        instructions.push(arg.compile(compile_scope, dst_reg, register_handler)?);
         //  Prevent register from being modified
         if register_handler.request_register(dst_reg).is_err() {
             // if the destination is leased, move temporarily
@@ -243,9 +239,9 @@ fn compile_index(
 ) -> Result<String, String> {
     register_handler.lease_with_scope(|register_handler, ptr| {
         let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
-        let index = index.compile(compile_scope, Address::Register(ptr), register_handler)?;
+        let index = index.compile(compile_scope, ptr, register_handler)?;
         register_handler.lease_with_scope(|register_handler, lhs_dst| {
-            let lhs = lhs.compile(compile_scope, Address::Register(lhs_dst), register_handler)?;
+            let lhs = lhs.compile(compile_scope, lhs_dst, register_handler)?;
 
             let load = match dst {
                 Address::Register(_) => format!("mov {dst}, [{lhs_dst}+{ptr}]"),
@@ -358,11 +354,7 @@ fn compile_simple_binary(
 ) -> Result<String, String> {
     let left = left.compile(compile_scope, dst, register_handler)?;
     let right = register_handler.lease_with_scope(|register_handler, right_reg| {
-        let right = right.compile(
-            compile_scope,
-            Address::Register(right_reg),
-            register_handler,
-        )?;
+        let right = right.compile(compile_scope, right_reg, register_handler)?;
         Ok(format!("{right}\n{instruction} {dst}, {right_reg}"))
     })?;
 
@@ -416,14 +408,10 @@ fn compile_multiply(
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     register_handler.lease_with_scope(|register_handler, left_reg| {
-        let left = left.compile(compile_scope, Address::Register(left_reg), register_handler)?;
+        let left = left.compile(compile_scope, left_reg, register_handler)?;
 
         register_handler.lease_with_scope(|register_handler, right_reg| {
-            let right = right.compile(
-                compile_scope,
-                Address::Register(right_reg),
-                register_handler,
-            )?;
+            let right = right.compile(compile_scope, right_reg, register_handler)?;
 
             Ok([
                 left,
@@ -451,15 +439,11 @@ fn compile_divide(
             return Err("Ran out of registers compiling division".to_string());
         }
 
-        let right = right.compile(
-            compile_scope,
-            Address::Register(right_reg),
-            register_handler,
-        )?;
+        let right = right.compile(compile_scope, right_reg, register_handler)?;
 
         let divide =
             register_handler.request_with_scope(Register::RAX, dst, |register_handler, rax| {
-                let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
+                let left = left.compile(compile_scope, rax, register_handler)?;
 
                 let divide = register_handler.request_with_scope(Register::RDX, dst, |_, _| {
                     Ok([
