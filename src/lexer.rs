@@ -1,5 +1,5 @@
 use crate::{
-    ast::OperatorType,
+    ast::{OPERATORS, OperatorType},
     types::{LexerAtomType, LexerToken, Token},
 };
 
@@ -14,7 +14,7 @@ impl Lexer {
         let mut chars = input.chars().rev().collect::<Vec<char>>();
 
         let mut tokens = vec![];
-        while let Some(cur) = chars.last() {
+        while let Some(&cur) = chars.last() {
             if cur.is_whitespace() {
                 chars.pop();
                 continue;
@@ -36,6 +36,11 @@ impl Lexer {
                 continue;
             }
 
+            if let Some(op) = get_operator(&mut chars) {
+                tokens.push(LexerToken::new(Token::Op(op), line_number));
+                continue;
+            }
+
             match cur {
                 '"' => {
                     tokens.push(LexerToken::new(
@@ -49,11 +54,6 @@ impl Lexer {
                         Token::Atom(LexerAtomType::Semicolon),
                         line_number,
                     ));
-                }
-                '+' | '-' | '*' | '/' | '%' | '=' | '(' | ')' | ',' | '}' | '{' | '<' | '>'
-                | '!' | '|' | '&' => {
-                    let op = get_operator(&mut chars);
-                    tokens.push(LexerToken::new(Token::Op(op), line_number));
                 }
                 '\n' => {
                     line_number += 1;
@@ -175,30 +175,18 @@ fn get_string(input: &mut Vec<char>) -> Result<String, String> {
     Ok(chars.into_iter().collect())
 }
 
-fn get_operator(chars: &mut Vec<char>) -> OperatorType {
-    let cur = chars
-        .pop()
-        .expect("Expected an operator, ran out of tokens");
-    if let Some(next) = chars.last()
-        && let Some(compound_op) = match format!("{cur}{next}").as_str() {
-            "<=" => Some(OperatorType::LessOrEqual),
-            ">=" => Some(OperatorType::GreaterOrEqual),
-            "==" => Some(OperatorType::Equal),
-            "+=" => Some(OperatorType::AddAssign),
-            "-=" => Some(OperatorType::SubAssign),
-            "++" => Some(OperatorType::Increment),
-            "--" => Some(OperatorType::Decrement),
-            "!=" => Some(OperatorType::NotEqual),
-            "||" => Some(OperatorType::Or),
-            "&&" => Some(OperatorType::And),
-            _ => None,
-        }
-    {
-        chars.pop();
-        compound_op
-    } else {
-        OperatorType::from_char(cur)
-    }
+/// Pops the longest operator at the front of `chars`, if there is one
+fn get_operator(chars: &mut Vec<char>) -> Option<OperatorType> {
+    // `chars` is reversed, so the upcoming characters are at the end
+    let upcoming = chars.iter().rev();
+    let (symbol, op) = OPERATORS
+        .iter()
+        .filter(|(symbol, _)| symbol.chars().zip(upcoming.clone()).all(|(s, c)| s == *c))
+        .filter(|(symbol, _)| symbol.len() <= chars.len())
+        .max_by_key(|(symbol, _)| symbol.len())?;
+
+    chars.truncate(chars.len() - symbol.len());
+    Some(op.clone())
 }
 
 #[cfg(test)]
@@ -533,5 +521,11 @@ mod test {
     #[test]
     fn lex_number_in_whitespace() {
         lex_token!("   \n\t  42  ", Token::Atom(LexerAtomType::Number(42)));
+    }
+
+    #[test]
+    fn reject_incomplete_operator() {
+        assert!(Lexer::new("a | b").is_err());
+        assert!(Lexer::new("a & b").is_err());
     }
 }

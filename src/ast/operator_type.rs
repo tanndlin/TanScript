@@ -28,55 +28,40 @@ pub enum OperatorType {
     Decrement,
 }
 
-impl OperatorType {
-    pub fn from_char(op: char) -> OperatorType {
-        match op {
-            '+' => OperatorType::Add,
-            '-' => OperatorType::Subtract,
-            '*' => OperatorType::Multiply,
-            '/' => OperatorType::Divide,
-            '%' => OperatorType::Modulo,
-            '<' => OperatorType::LessThan,
-            '>' => OperatorType::GreaterThan,
-            '!' => OperatorType::Not,
-            '=' => OperatorType::Assign,
-            '{' => OperatorType::OpenCurly,
-            '}' => OperatorType::CloseCurly,
-            '(' => OperatorType::OpenParen,
-            ')' => OperatorType::CloseParen,
-            ',' => OperatorType::Comma,
-            _ => panic!("Unknown operator: {op}"),
-        }
-    }
-}
+/// Every operator's spelling. The lexer takes the longest match, so order doesn't matter
+pub const OPERATORS: &[(&str, OperatorType)] = &[
+    ("+", OperatorType::Add),
+    ("-", OperatorType::Subtract),
+    ("*", OperatorType::Multiply),
+    ("/", OperatorType::Divide),
+    ("%", OperatorType::Modulo),
+    ("<", OperatorType::LessThan),
+    ("<=", OperatorType::LessOrEqual),
+    (">", OperatorType::GreaterThan),
+    (">=", OperatorType::GreaterOrEqual),
+    ("==", OperatorType::Equal),
+    ("!=", OperatorType::NotEqual),
+    ("||", OperatorType::Or),
+    ("&&", OperatorType::And),
+    ("=", OperatorType::Assign),
+    ("{", OperatorType::OpenCurly),
+    ("}", OperatorType::CloseCurly),
+    ("(", OperatorType::OpenParen),
+    (")", OperatorType::CloseParen),
+    ("!", OperatorType::Not),
+    (",", OperatorType::Comma),
+    ("+=", OperatorType::AddAssign),
+    ("-=", OperatorType::SubAssign),
+    ("++", OperatorType::Increment),
+    ("--", OperatorType::Decrement),
+];
 
 impl fmt::Display for OperatorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OperatorType::Add => write!(f, "+"),
-            OperatorType::Subtract => write!(f, "-"),
-            OperatorType::Multiply => write!(f, "*"),
-            OperatorType::Divide => write!(f, "/"),
-            OperatorType::Modulo => write!(f, "%"),
-            OperatorType::LessThan => write!(f, "<"),
-            OperatorType::LessOrEqual => write!(f, "<="),
-            OperatorType::GreaterThan => write!(f, ">"),
-            OperatorType::GreaterOrEqual => write!(f, ">="),
-            OperatorType::Equal => write!(f, "=="),
-            OperatorType::NotEqual => write!(f, "!="),
-            OperatorType::Or => write!(f, "||"),
-            OperatorType::And => write!(f, "&&"),
-            OperatorType::Assign => write!(f, "="),
-            OperatorType::OpenCurly => write!(f, "{{"),
-            OperatorType::CloseCurly => write!(f, "}}"),
-            OperatorType::OpenParen => write!(f, "("),
-            OperatorType::CloseParen => write!(f, ")"),
-            OperatorType::Not => write!(f, "!"),
-            OperatorType::Comma => write!(f, ","),
-            OperatorType::AddAssign => write!(f, "+="),
-            OperatorType::SubAssign => write!(f, "-="),
-            OperatorType::Increment => write!(f, "++"),
-            OperatorType::Decrement => write!(f, "--"),
-        }
+        let (symbol, _) = OPERATORS
+            .iter()
+            .find(|(_, op)| op == self)
+            .expect("Every operator is in OPERATORS");
+        write!(f, "{symbol}")
     }
 }

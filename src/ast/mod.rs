@@ -20,7 +20,7 @@ pub use declaration::Declaration;
 pub use expression::Expression;
 pub use function_definition::FunctionDefinition;
 pub use if_statement::IfStatement;
-pub use operator_type::OperatorType;
+pub use operator_type::{OPERATORS, OperatorType};
 pub use operators::{AssignOp, BinaryOp, PostfixOp, UnaryOp};
 pub use program::Program;
 pub use return_statement::ReturnStatement;
