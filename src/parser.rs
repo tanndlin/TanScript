@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression,
+        AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression, ForLoop,
         FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program, ReturnStatement,
         Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
@@ -25,10 +25,7 @@ fn parse_statement_or_expression(
     if lexer.peek().is_none() {
         Ok(None)
     } else {
-        let result = match parse_statement(lexer)? {
-            Some(statement) => StatementOrExpression::Statement(statement),
-            None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
-        };
+        let result = parse_unterminated_statement_or_expression(lexer)?;
         // Do not expect semicolon for certain statements
         match &result {
             StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => (),
@@ -36,6 +33,16 @@ fn parse_statement_or_expression(
         }
         Ok(Some(result))
     }
+}
+
+/// Parses a statement or expression without consuming a trailing semicolon.
+fn parse_unterminated_statement_or_expression(
+    lexer: &mut Lexer,
+) -> Result<StatementOrExpression, String> {
+    Ok(match parse_statement(lexer)? {
+        Some(statement) => StatementOrExpression::Statement(statement),
+        None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
+    })
 }
 
 fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, String> {
@@ -49,6 +56,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, Stri
                     let keyword: Option<Box<dyn Statement>> = match s.as_str() {
                         "let" => Some(Box::new(parse_declaration(lexer)?)),
                         "while" => Some(Box::new(parse_while_loop(lexer)?)),
+                        "for" => Some(Box::new(parse_for_loop(lexer)?)),
                         "if" => Some(Box::new(parse_if_statement(lexer)?)),
                         "def" => Some(Box::new(parse_function_definition(lexer)?)),
                         "return" => Some(Box::new(parse_return(lexer)?)),
@@ -82,6 +90,24 @@ fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, String> {
     let condition = parse_expression(lexer, 0)?;
     let block = parse_block(lexer)?;
     Ok(WhileLoop { condition, block })
+}
+
+fn parse_for_loop(lexer: &mut Lexer) -> Result<ForLoop, String> {
+    lexer.expect("for")?;
+    lexer.expect("(")?;
+    let init = parse_unterminated_statement_or_expression(lexer)?;
+    lexer.expect(";")?;
+    let condition = parse_expression(lexer, 0)?;
+    lexer.expect(";")?;
+    let update = parse_unterminated_statement_or_expression(lexer)?;
+    lexer.expect(")")?;
+    let block = parse_block(lexer)?;
+    Ok(ForLoop {
+        init,
+        condition,
+        update,
+        block,
+    })
 }
 
 fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, String> {

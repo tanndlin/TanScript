@@ -182,7 +182,7 @@ impl Block {
 }
 
 impl StatementOrExpression {
-    fn compile(
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
