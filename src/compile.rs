@@ -505,7 +505,7 @@ fn compile_operator(
         | OperatorType::CloseCurly
         | OperatorType::OpenParen
         | OperatorType::CloseParen
-        | OperatorType::Comma => panic!("Unexpected operator: {}", op),
+        | OperatorType::Comma => panic!("Unexpected operator: {op}"),
     }
 }
 
@@ -597,7 +597,7 @@ fn compile_infix_operator(
                 | OperatorType::OpenParen
                 | OperatorType::CloseParen
                 | OperatorType::Not
-                | OperatorType::Comma => panic!("Somehow called compile operator on {}", op),
+                | OperatorType::Comma => panic!("Somehow called compile operator on {op}"),
             };
 
             register_handler.release_register(right_reg);
@@ -621,7 +621,7 @@ fn compile_prefix_operator(
         OperatorType::Not => {
             format!("xor {dst}, 1\n")
         }
-        _ => panic!("Unexpected operator in compile_prefix_operator: {}", op),
+        _ => panic!("Unexpected operator in compile_prefix_operator: {op}"),
     };
 
     Ok(format!("{child_asm}\n{asm}"))
