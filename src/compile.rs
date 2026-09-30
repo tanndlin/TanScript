@@ -2,13 +2,10 @@ use core::panic;
 use std::{cell::RefCell, fmt, rc::Rc};
 
 use crate::{
-    ast::{
-        Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
-        Statement, StatementOrExpression, WhileLoop,
-    },
+    ast::{AtomType, Block, Expression, OperatorType, Program, StatementOrExpression},
     compile_scope::CompileScope,
     register_handler::RegisterHandler,
-    symbol_table::{FunctionDefinition, SymbolTable},
+    symbol_table::SymbolTable,
 };
 
 #[allow(clippy::upper_case_acronyms)]
@@ -152,12 +149,7 @@ impl Block {
         let mut instructions = self
             .children
             .iter()
-            .map(|child| match child {
-                StatementOrExpression::Statement(Statement::FunctionDefintion(_)) => {
-                    Ok(String::new())
-                }
-                _ => child.compile(&new_scope, register_handler),
-            })
+            .map(|child| child.compile(&new_scope, register_handler))
             .collect::<Result<Vec<String>, String>>()?
             .join("\n");
 
@@ -203,161 +195,8 @@ impl StatementOrExpression {
     }
 }
 
-impl Statement {
-    fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        match &self {
-            Statement::Declaration(declaration) => {
-                declaration.compile(compile_scope, register_handler)
-            }
-            Statement::Assign(assignment) => assignment.compile(compile_scope, register_handler),
-            Statement::WhileLoop(while_loop) => while_loop.compile(compile_scope, register_handler),
-            Statement::IfStatement(if_statement) => {
-                if_statement.compile(compile_scope, register_handler)
-            }
-            Statement::FunctionDefintion(_) => Ok(String::new()),
-            Statement::Return(expr) => {
-                let instructions = expr.compile(
-                    compile_scope,
-                    Address::Register(Register::RAX),
-                    register_handler,
-                )?;
-                Ok(format!("{instructions}\nmov rsp, rbp\npop rbp\nret"))
-            }
-        }
-    }
-}
-
-impl Declaration {
-    pub fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        compile_scope
-            .borrow_mut()
-            .add_variable(self.assign.identifier.clone(), None)?;
-        self.assign.compile(compile_scope, register_handler)
-    }
-}
-
-impl Assignment {
-    pub fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        let address = compile_scope.borrow().get_variable(&self.identifier)?;
-        self.expression
-            .compile(compile_scope, address, register_handler)
-    }
-}
-
-impl WhileLoop {
-    pub fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut crate::compile::RegisterHandler,
-    ) -> Result<String, String> {
-        let unique_id = register_handler.get_unique_id();
-        let start_label = format!("while_start_{unique_id}");
-        let end_label = format!("while_end_{unique_id}");
-
-        let reg = register_handler.lease_register()?;
-        let condition =
-            self.condition
-                .compile(compile_scope, Address::Register(reg), register_handler)?;
-        register_handler.release_register(reg);
-
-        let block = self.block.compile(compile_scope, register_handler)?;
-
-        Ok(format!(
-            "{start_label}:\n\
-            {condition}\n\
-            cmp {reg}, 0\n\
-            je {end_label}\n\
-            {block}\n\
-            jmp {start_label}\n\
-            {end_label}:"
-        ))
-    }
-}
-
-impl IfStatement {
-    pub fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        let id = register_handler.get_unique_id();
-        let dst = register_handler.lease_register()?;
-        let condition =
-            self.condition
-                .compile(compile_scope, Address::Register(dst), register_handler)?;
-
-        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
-        let block = self.block.compile(&new_scope, register_handler)?;
-        let else_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
-        let else_block = match &self.else_block {
-            None => None,
-            Some(else_block) => Some(else_block.compile(&else_scope, register_handler)?),
-        };
-
-        register_handler.release_register(dst);
-        Ok(format!(
-            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}\nendif{id}:",
-            else_block.unwrap_or(String::new())
-        ))
-    }
-}
-
-impl FunctionDefinition {
-    pub fn compile(
-        &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        let scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
-
-        let mut arg_setup = vec![];
-        // TODO: Support more than 4 args with the stack
-        let arg_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
-        for (i, (arg, reg)) in self.args.iter().zip(arg_registers).enumerate() {
-            if i >= 4 {
-                break;
-            }
-
-            // Move the arg to the shadow space
-            let new_address =
-                Address::Stack((i32::try_from(i).map_err(|_| "Index out of range")? + 1) * 8);
-            arg_setup.push(format!("mov {new_address}, {reg}"));
-            let mut scope_borrow = scope.borrow_mut();
-
-            // Update its location in the scope
-            scope_borrow.add_variable(arg.clone(), Some(new_address))?;
-            // This is not a variable that needs to be deallocated later
-            scope_borrow.num_variables -= 1;
-        }
-        let arg_setup = arg_setup.join("\n\t");
-        let instructions = self.body.compile(&scope, register_handler)?;
-        let ret = if instructions.ends_with("ret") {
-            ""
-        } else {
-            "pop rbp\n\tret"
-        };
-
-        let preamble = format!("{}:\n\tpush rbp\n\tmov rbp, rsp", self.name);
-        Ok(format!(
-            "{preamble}\n\t{arg_setup}\n{instructions}\n\t{ret}",
-        ))
-    }
-}
-
 impl Expression {
-    fn compile(
+    pub fn compile(
         &self,
         compile_scope: &Rc<RefCell<CompileScope>>,
         dst: Address,

@@ -1,10 +1,9 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, Expression, IfStatement, OperatorType, Program,
-        Statement, StatementOrExpression, WhileLoop,
+        Assignment, AtomType, Block, Declaration, Expression, FunctionDefinition, IfStatement,
+        OperatorType, Program, ReturnStatement, Statement, StatementOrExpression, WhileLoop,
     },
     lexer::Lexer,
-    symbol_table::FunctionDefinition,
     types::{LexerAtomType, Token},
 };
 
@@ -31,18 +30,14 @@ fn parse_statement_or_expression(
         };
         // Do not expect semicolon for certain statements
         match &result {
-            StatementOrExpression::Statement(
-                Statement::WhileLoop(_)
-                | Statement::IfStatement(_)
-                | Statement::FunctionDefintion(_),
-            ) => (),
+            StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => (),
             _ => lexer.expect(";")?,
         }
         Ok(Some(result))
     }
 }
 
-fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
+fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, String> {
     match &lexer.peek() {
         None => Err("Ran out of tokens".to_string()),
 
@@ -50,21 +45,21 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, String> {
             Token::Op(_) => None,
             Token::Atom(atom) => match atom {
                 LexerAtomType::Identifier(s) => {
-                    if let Some(keyword) = match s.as_str() {
-                        "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
-                        "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
-                        "if" => Some(Statement::IfStatement(parse_if_statement(lexer)?)),
-                        "def" => Some(Statement::FunctionDefintion(parse_function_definition(
-                            lexer,
-                        )?)),
-                        "return" => Some(Statement::Return(parse_return(lexer)?)),
+                    let keyword: Option<Box<dyn Statement>> = match s.as_str() {
+                        "let" => Some(Box::new(parse_declaration(lexer)?)),
+                        "while" => Some(Box::new(parse_while_loop(lexer)?)),
+                        "if" => Some(Box::new(parse_if_statement(lexer)?)),
+                        "def" => Some(Box::new(parse_function_definition(lexer)?)),
+                        "return" => Some(Box::new(parse_return(lexer)?)),
                         _ => None,
-                    } {
-                        Some(keyword)
+                    };
+
+                    if keyword.is_some() {
+                        keyword
                     } else if let Some(next) = lexer.peek_next() {
                         match &next.token_type {
                             Token::Op(OperatorType::Assign) => {
-                                Some(Statement::Assign(parse_assignment(lexer)?))
+                                Some(Box::new(parse_assignment(lexer)?))
                             }
                             _ => None,
                         }
@@ -358,11 +353,7 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
 
             // Statements still require their normal semicolon rules.
             match children.last().unwrap() {
-                StatementOrExpression::Statement(
-                    Statement::WhileLoop(_)
-                    | Statement::IfStatement(_)
-                    | Statement::FunctionDefintion(_),
-                ) => {}
+                StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => {}
 
                 _ => lexer.expect(";")?,
             }
@@ -373,8 +364,8 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
             match lexer.peek() {
                 // Final expression: implicit return.
                 Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
-                    children.push(StatementOrExpression::Statement(Statement::Return(
-                        expression,
+                    children.push(StatementOrExpression::Statement(Box::new(
+                        ReturnStatement { expr: expression },
                     )));
                     break;
                 }
@@ -393,9 +384,11 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
     Ok(Block { children })
 }
 
-fn parse_return(lexer: &mut Lexer) -> Result<Expression, String> {
+fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, String> {
     lexer.expect("return")?;
-    parse_expression(lexer, 0)
+    Ok(ReturnStatement {
+        expr: parse_expression(lexer, 0)?,
+    })
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{AtomType, Block, Declaration, Expression, Statement, StatementOrExpression};
+use crate::ast::{AtomType, Block, Expression, FunctionDefinition, StatementOrExpression};
 
 pub struct SymbolTable {
     pub functions: HashMap<String, FunctionDefinition>,
@@ -13,13 +13,6 @@ impl SymbolTable {
             externs: HashSet::new(),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct FunctionDefinition {
-    pub name: String,
-    pub args: Vec<String>,
-    pub body: Block,
 }
 
 impl Block {
@@ -35,49 +28,6 @@ impl StatementOrExpression {
                 statement.discover(symbols);
             }
             StatementOrExpression::Expression(expression) => {
-                expression.discover(symbols);
-            }
-        }
-    }
-}
-
-impl FunctionDefinition {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        symbols.functions.insert(self.name.clone(), self.clone());
-        self.body.discover(symbols);
-    }
-}
-
-impl Declaration {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        self.assign.expression.discover(symbols);
-    }
-}
-
-impl Statement {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        match self {
-            Statement::FunctionDefintion(function_definition) => {
-                function_definition.discover(symbols);
-            }
-            Statement::IfStatement(if_statement) => {
-                if_statement.condition.discover(symbols);
-                if_statement.block.discover(symbols);
-                if let Some(else_block) = &if_statement.else_block {
-                    else_block.discover(symbols);
-                }
-            }
-            Statement::Declaration(declaration) => {
-                declaration.discover(symbols);
-            }
-            Statement::Assign(assign) => {
-                assign.expression.discover(symbols);
-            }
-            Statement::WhileLoop(while_loop) => {
-                while_loop.condition.discover(symbols);
-                while_loop.block.discover(symbols);
-            }
-            Statement::Return(expression) => {
                 expression.discover(symbols);
             }
         }
