@@ -24,7 +24,6 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                cd rs
                 cargo build --release
                 '''
             }
@@ -34,7 +33,6 @@ pipeline {
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
-                    cd rs
                     cargo fmt -- --check
                     cargo clippy -- -D clippy::pedantic
                     '''
@@ -45,7 +43,6 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                cd rs
                 cargo test
                 '''
             }

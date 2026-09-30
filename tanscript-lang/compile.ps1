@@ -1,1 +1,0 @@
-npx js-yaml syntaxes/tanscript.tmLanguage.yaml | Out-File -FilePath .\syntaxes\tanscript.tmLanguage.json -Encoding utf8
