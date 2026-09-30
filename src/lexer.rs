@@ -34,7 +34,7 @@ impl Lexer {
                 continue;
             }
 
-            if cur.is_alphabetic() {
+            if cur.is_alphabetic() || cur == '_' {
                 tokens.push(LexerToken::new(
                     Token::Atom(LexerAtomType::Identifier(get_identifier(&mut chars))),
                     line_number,
@@ -137,7 +137,7 @@ fn get_identifier(input: &mut Vec<char>) -> String {
     let mut string_vec = vec![];
 
     while let Some(c) = &input.last() {
-        if !c.is_alphanumeric() {
+        if !c.is_alphanumeric() && **c != '_' {
             break;
         }
 
@@ -245,6 +245,23 @@ mod test {
         token_eq!(
             lexer,
             Token::Atom(LexerAtomType::Identifier("abc123".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_identifier_with_underscores() {
+        let mut lexer = Lexer::new("my_var _private __x1_").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("my_var".to_string()))
+        );
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("_private".to_string()))
+        );
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("__x1_".to_string()))
         );
     }
 
