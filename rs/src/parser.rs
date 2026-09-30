@@ -303,48 +303,108 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, String> {
     lexer.expect("def")?;
+
     let name = match lexer.next() {
-        None => Err("Ran out of tokens parsing function defintion"),
-        Some(tok) => Ok(match tok.token_type {
-            Token::Atom(LexerAtomType::Identifier(name)) => Ok(name),
-            _ => Err("Expected function name".to_string()),
-        }?),
-    }?;
+        None => return Err("Ran out of tokens parsing function definition".to_string()),
+        Some(tok) => match tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(name)) => name,
+            _ => return Err("Expected function name".to_string()),
+        },
+    };
 
     lexer.expect("(")?;
-    let mut args = vec![];
-    loop {
-        let next_arg = match lexer.peek() {
-            None => Err("Ran out of tokens parsing function definition"),
-            Some(tok) => Ok(match &tok.token_type {
-                Token::Atom(LexerAtomType::Identifier(arg_name)) => Some(arg_name),
-                _ => None,
-            }),
-        }?;
 
-        match next_arg {
-            None => {
-                lexer.expect(")")?;
-                break;
-            }
-            Some(arg_name) => {
+    let mut args = vec![];
+
+    loop {
+        let next_arg = lexer
+            .peek()
+            .ok_or("Ran out of tokens parsing function definition")?;
+
+        match &next_arg.token_type {
+            Token::Atom(LexerAtomType::Identifier(arg_name)) => {
                 args.push(arg_name.clone());
-                lexer.next(); // consume the identifier
+                lexer.next();
 
                 match lexer.next() {
-                    None => return Err("Ran out of tokens parsing function definition".to_string()),
                     Some(tok) => match tok.token_type {
-                        Token::Op(OperatorType::Comma) => (),
+                        Token::Op(OperatorType::Comma) => {}
                         Token::Op(OperatorType::CloseParen) => break,
                         _ => return Err(format!("Unexpected token: {tok}")),
                     },
+                    None => return Err("Ran out of tokens parsing function definition".to_string()),
+                }
+            }
+
+            Token::Op(OperatorType::CloseParen) => {
+                lexer.next();
+                break;
+            }
+
+            _ => return Err(format!("Unexpected token: {next_arg}")),
+        }
+    }
+
+    let body = parse_function_body(lexer)?;
+
+    Ok(FunctionDefinition { name, args, body })
+}
+
+fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
+    lexer.expect("{")?;
+
+    let mut children = vec![];
+
+    loop {
+        let token = lexer
+            .peek()
+            .ok_or("Ran out of tokens parsing function body")?;
+
+        // `}` means the function has no implicit return expression.
+        if token.token_type == Token::Op(OperatorType::CloseCurly) {
+            break;
+        }
+
+        let item = parse_statement(lexer)?;
+
+        if let Some(statement) = item {
+            children.push(StatementOrExpression::Statement(statement));
+
+            // Statements still require their normal semicolon rules.
+            match children.last().unwrap() {
+                StatementOrExpression::Statement(
+                    Statement::WhileLoop(_)
+                    | Statement::IfStatement(_)
+                    | Statement::FunctionDefintion(_),
+                ) => {}
+
+                _ => lexer.expect(";")?,
+            }
+        } else {
+            // We have an expression.
+            let expression = parse_expression(lexer, 0)?;
+
+            match lexer.peek() {
+                // Final expression: implicit return.
+                Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
+                    children.push(StatementOrExpression::Statement(Statement::Return(
+                        expression,
+                    )));
+                    break;
+                }
+
+                // Non-final expression must have a semicolon.
+                _ => {
+                    lexer.expect(";")?;
+                    children.push(StatementOrExpression::Expression(expression));
                 }
             }
         }
     }
 
-    let body = parse_block(lexer)?;
-    Ok(FunctionDefinition { name, args, body })
+    lexer.expect("}")?;
+
+    Ok(Block { children })
 }
 
 fn parse_return(lexer: &mut Lexer) -> Result<Expression, String> {
@@ -506,5 +566,10 @@ mod test {
     #[test]
     fn parse_nested_function_calls() {
         test_parse_expression!("add(mul(2, 3), 4)", "add(mul(2, 3), 4)");
+    }
+
+    #[test]
+    fn parse_function_implicit_return() {
+        integration_test!("def add(a, b) { a + b }", "def add(a, b) {return (+ a b)}");
     }
 }
