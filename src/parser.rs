@@ -303,7 +303,7 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         match next.token_type {
             Token::Op(OperatorType::CloseParen) => break,
             Token::Op(OperatorType::Comma) => (),
-            _ => panic!("Invalid token {next}"),
+            _ => return Err(format!("Invalid token {next}")),
         }
     }
 
