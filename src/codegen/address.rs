@@ -39,13 +39,13 @@ impl fmt::Display for Register {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Address {
     Register(Register),
-    Stack(i32), // Offset in the stack
+    Stack(i32), // Offset below rbp; negative offsets are above rbp (e.g. function args)
 }
 
 impl Address {
     pub fn lower_8_bits(self) -> String {
         match self {
-            Address::Stack(off) => format!("[rbp - {off}]"),
+            Address::Stack(_) => self.to_string(),
             Address::Register(reg) => match reg {
                 Register::RAX => "al".to_string(),
                 Register::RBX => "bl".to_string(),
@@ -68,6 +68,7 @@ impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Address::Register(reg) => write!(f, "{reg}"),
+            Address::Stack(off) if *off < 0 => write!(f, "[rbp + {}]", -off),
             Address::Stack(off) => write!(f, "[rbp - {off}]"),
         }
     }

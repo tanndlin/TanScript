@@ -165,6 +165,17 @@ impl Expression {
     }
 }
 
+/// Registers the Win64 calling convention allows a callee to clobber
+const VOLATILE_REGISTERS: [Register; 7] = [
+    Register::RAX,
+    Register::RCX,
+    Register::RDX,
+    Register::R8,
+    Register::R9,
+    Register::R10,
+    Register::R11,
+];
+
 fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler) -> String {
     let handle = register_handler.add_data(s);
     match dst {
@@ -182,51 +193,57 @@ fn compile_function_call(
     args: &[Expression],
     dst: Address,
 ) -> Result<String, String> {
-    if args.len() > 4 {
-        todo!("More than 4 args not supported")
-    }
-
-    let mut instructions = vec![];
-
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
-    let mut moved_registers = vec![];
-    let zipped = args.iter().zip(target_registers);
-    for (arg, dst_reg) in zipped {
+    let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
+
+    // The callee may clobber any volatile register, so save the ones in use. dst is left out, as
+    // the caller wants it overwritten
+    let saved_registers = VOLATILE_REGISTERS
+        .into_iter()
+        .filter(|reg| register_handler.is_used(*reg) && dst != Address::Register(*reg))
+        .collect::<Vec<_>>();
+    let mut instructions = saved_registers
+        .iter()
+        .map(|reg| format!("push {reg}"))
+        .collect::<Vec<_>>();
+
+    // Registers already in use were saved above, so only the free ones need to be claimed
+    let mut requested_registers = vec![];
+    for (arg, dst_reg) in register_args.iter().zip(target_registers) {
         instructions.push(arg.compile(compile_scope, dst_reg, register_handler)?);
         //  Prevent register from being modified
-        if register_handler.request_register(dst_reg).is_err() {
-            // if the destination is leased, move temporarily
-            instructions.insert(instructions.len() - 1, format!("push {dst_reg}"));
-            moved_registers.push(dst_reg);
+        if register_handler.request_register(dst_reg).is_ok() {
+            requested_registers.push(dst_reg);
         }
     }
 
-    instructions.push(
-        register_handler.request_with_scope(Register::RAX, dst, |_, rax| {
-            Ok([
-                "sub rsp, 32".to_string(),
-                format!("call {name}"),
-                "add rsp, 32".to_string(),
-                format!("mov {dst}, {rax}"),
-            ]
-            .join("\n"))
-        })?,
-    );
+    // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
+    // aligned at the call, including the saved registers
+    let saved_size = saved_registers.len() * 8;
+    let stack_size = (saved_size + 32 + stack_args.len() * 8).next_multiple_of(16) - saved_size;
+    instructions.push(format!("sub rsp, {stack_size}"));
+
+    // Register args are already in place, so evaluate these directly into their slots
+    for (i, arg) in stack_args.iter().enumerate() {
+        let offset = 32 + i * 8;
+        instructions.push(register_handler.lease_with_scope(|register_handler, tmp| {
+            let arg = arg.compile(compile_scope, tmp, register_handler)?;
+            Ok(format!("{arg}\nmov [rsp + {offset}], {tmp}"))
+        })?);
+    }
+
+    instructions.push(format!("call {name}"));
+    instructions.push(format!("add rsp, {stack_size}"));
+    if dst != Address::Register(Register::RAX) {
+        instructions.push(format!("mov {dst}, rax"));
+    }
 
     // Give back the registers
-    target_registers
-        .iter()
-        .take(args.len())
-        .filter(|reg| !moved_registers.contains(reg))
-        .for_each(|r| register_handler.release_register(*r));
+    for reg in requested_registers {
+        register_handler.release_register(reg);
+    }
 
-    let undo = moved_registers
-        .iter()
-        .rev()
-        .map(|reg| format!("pop {reg}"))
-        .collect::<Vec<_>>();
-
-    instructions.extend(undo);
+    instructions.extend(saved_registers.iter().rev().map(|reg| format!("pop {reg}")));
 
     Ok(instructions.join("\n"))
 }
@@ -507,5 +524,38 @@ mod test {
     fn compile_call_into_busy_rax_keeps_result() {
         let asm = compile("def five() { 5 } let a = five() / 2;");
         assert!(!asm.contains("pop rax"), "{asm}");
+    }
+
+    #[test]
+    fn compile_call_with_stack_args() {
+        let asm = compile("printf(\"%d %d %d %d %d\", 1, 2, 3, 4, 5);");
+        // 32 shadow + 2 stack args, rounded up to 16
+        assert!(asm.contains("sub rsp, 48"), "{asm}");
+        assert!(asm.contains("mov [rsp + 32], "), "{asm}");
+        assert!(asm.contains("mov [rsp + 40], "), "{asm}");
+        assert!(asm.contains("add rsp, 48"), "{asm}");
+    }
+
+    #[test]
+    fn compile_function_reads_args_from_caller_frame() {
+        let asm = compile("def f(a, b, c, d, e) { a + e } f(1, 2, 3, 4, 5);");
+        assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
+        assert!(asm.contains("mov [rbp + 40], r9"), "{asm}");
+        assert!(asm.contains("[rbp + 48]"), "{asm}");
+    }
+
+    #[test]
+    fn compile_function_args_dont_collide_with_locals() {
+        let asm = compile("def f(a) { let b = 1; a + b } f(1);");
+        assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
+    }
+
+    #[test]
+    fn compile_nested_call_saves_loaded_args() {
+        // r8 already holds 2 when f is called, and f is free to clobber it
+        let asm = compile("def f(a, b) { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
+        assert!(asm.contains("push r8"), "{asm}");
+        assert!(asm.contains("pop r8"), "{asm}");
     }
 }

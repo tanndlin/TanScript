@@ -21,17 +21,17 @@ impl FunctionDefinition {
         let mut scope = CompileScope::new(Some(compile_scope));
 
         let mut arg_setup = vec![];
-        // TODO: Support more than 4 args with the stack
         let arg_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
-        for (i, (arg, reg)) in self.args.iter().zip(arg_registers).enumerate() {
-            if i >= 4 {
-                break;
-            }
+        for (i, arg) in self.args.iter().enumerate() {
+            // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
+            // and any further args were placed directly after it by the caller
+            let offset = 16 + i32::try_from(i).map_err(|_| "Index out of range")? * 8;
+            let new_address = Address::Stack(-offset);
 
-            // Move the arg to the shadow space
-            let new_address =
-                Address::Stack((i32::try_from(i).map_err(|_| "Index out of range")? + 1) * 8);
-            arg_setup.push(format!("mov {new_address}, {reg}"));
+            // Move register args to their home in the shadow space
+            if let Some(reg) = arg_registers.get(i) {
+                arg_setup.push(format!("mov {new_address}, {reg}"));
+            }
 
             // Update its location in the scope
             scope.add_variable(arg.clone(), Some(new_address))?;

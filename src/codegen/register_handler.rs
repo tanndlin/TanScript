@@ -142,6 +142,12 @@ impl RegisterHandler {
         }
     }
 
+    pub fn is_used(&self, register: Register) -> bool {
+        self.registers
+            .get(&register)
+            .is_some_and(|state| state.used)
+    }
+
     pub fn get_unique_id(&mut self) -> u32 {
         let id = self.unique_id;
         self.unique_id += 1;
