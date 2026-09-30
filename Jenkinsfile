@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')
+        IMAGE = 'tanscript-llvm'
     }
 
     stages {
@@ -23,22 +24,22 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo build --release'
+                sh 'docker build -t $IMAGE -f rs/dockerfile rs'
+                sh 'docker run --rm -v jenkins_jenkins_home:/var/jenkins_home -v cargo-registry-cache:/usr/local/cargo/registry -w $WORKSPACE/rs $IMAGE sh -c "cargo build --release"'
             }
         }
 
         stage('Lint') {
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo fmt -- --check'
-                    sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo clippy -- -D clippy::pedantic'
+                    sh 'docker run --rm -v jenkins_jenkins_home:/var/jenkins_home -v cargo-registry-cache:/usr/local/cargo/registry -w $WORKSPACE/rs $IMAGE sh -c "rustup component add rustfmt clippy && cargo fmt -- --check && cargo clippy -- -D clippy::pedantic"'
                 }
             }
         }
 
         stage('Test') {
             steps {
-                sh 'docker compose -f rs/docker-compose.yml run --rm compiler cargo test'
+                sh 'docker run --rm -v jenkins_jenkins_home:/var/jenkins_home -v cargo-registry-cache:/usr/local/cargo/registry -w $WORKSPACE/rs $IMAGE sh -c "cargo test"'
             }
         }
     }
@@ -68,4 +69,3 @@ pipeline {
         }
     }
 }
-gitre
