@@ -15,6 +15,12 @@ impl Lexer {
 
         let mut tokens = vec![];
         while let Some(&cur) = chars.last() {
+            if cur == '\n' {
+                line_number += 1;
+                chars.pop();
+                continue;
+            }
+
             if cur.is_whitespace() {
                 chars.pop();
                 continue;
@@ -54,10 +60,6 @@ impl Lexer {
                         Token::Atom(LexerAtomType::Semicolon),
                         line_number,
                     ));
-                }
-                '\n' => {
-                    line_number += 1;
-                    chars.pop();
                 }
                 _ => {
                     return Err(format!(
@@ -521,6 +523,15 @@ mod test {
     #[test]
     fn lex_number_in_whitespace() {
         lex_token!("   \n\t  42  ", Token::Atom(LexerAtomType::Number(42)));
+    }
+
+    #[test]
+    fn lex_line_numbers() {
+        let mut lexer = Lexer::new("a;\n\nb;\r\nc").unwrap();
+        let lines: Vec<u32> = std::iter::from_fn(|| lexer.next())
+            .map(|token| token.line_number)
+            .collect();
+        assert_eq!(lines, vec![0, 0, 2, 2, 3]);
     }
 
     #[test]
