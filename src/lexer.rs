@@ -406,6 +406,21 @@ mod test {
     }
 
     #[test]
+    fn lex_mul_assign() {
+        lex_token!("*=", Token::Op(OperatorType::MulAssign));
+    }
+
+    #[test]
+    fn lex_div_assign() {
+        lex_token!("/=", Token::Op(OperatorType::DivAssign));
+    }
+
+    #[test]
+    fn lex_mod_assign() {
+        lex_token!("%=", Token::Op(OperatorType::ModAssign));
+    }
+
+    #[test]
     fn lex_compound_assignment_statement() {
         let mut lexer = Lexer::new("a += 1; b -= 2;").unwrap();
         token_eq!(

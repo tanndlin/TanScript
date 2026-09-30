@@ -142,6 +142,9 @@ impl OperatorType {
             OperatorType::Assign => AssignOp::Assign,
             OperatorType::AddAssign => AssignOp::Compound(BinaryOp::Add),
             OperatorType::SubAssign => AssignOp::Compound(BinaryOp::Subtract),
+            OperatorType::MulAssign => AssignOp::Compound(BinaryOp::Multiply),
+            OperatorType::DivAssign => AssignOp::Compound(BinaryOp::Divide),
+            OperatorType::ModAssign => AssignOp::Compound(BinaryOp::Modulo),
             _ => return None,
         })
     }

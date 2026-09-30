@@ -186,12 +186,12 @@ fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assig
 
     let tok = lexer
         .next()
-        .ok_or("Expected =, += or -= but ran out of tokens")?;
+        .ok_or("Expected an assignment operator but ran out of tokens")?;
     let op = match &tok.token_type {
         Token::Op(op) => op.as_assign(),
         Token::Atom(_) => None,
     }
-    .ok_or_else(|| format!("Expected =, += or -=, got {tok}"))?;
+    .ok_or_else(|| format!("Expected an assignment operator, got {tok}"))?;
 
     let rhs = parse_expression(lexer, 0)?;
     let expression = match op {
@@ -484,11 +484,29 @@ mod test {
     }
 
     #[test]
+    fn parse_mul_assign() {
+        integration_test!("a *= 2;", "a = (* a 2)");
+    }
+
+    #[test]
+    fn parse_div_assign() {
+        integration_test!("a /= 2;", "a = (/ a 2)");
+    }
+
+    #[test]
+    fn parse_mod_assign() {
+        integration_test!("a %= 2;", "a = (% a 2)");
+    }
+
+    #[test]
     fn parse_compound_assign_groups_right_side() {
         // The whole right side is the operand, not just the first term
         integration_test!("a -= 1 + 2;", "a = (- a (+ 1 2))");
         integration_test!("a += b * 2;", "a = (+ a (* b 2))");
         integration_test!("a -= b - c;", "a = (- a (- b c))");
+        integration_test!("a *= 1 + 2;", "a = (* a (+ 1 2))");
+        integration_test!("a /= b - c;", "a = (/ a (- b c))");
+        integration_test!("a %= b + 1;", "a = (% a (+ b 1))");
     }
 
     #[test]
@@ -801,6 +819,7 @@ mod test {
     fn parse_compound_assign_to_index() {
         integration_test!("a[0] += 1;", "(a[0]) = (+ (a[0]) 1)");
         integration_test!("a[i] -= 2;", "(a[i]) = (- (a[i]) 2)");
+        integration_test!("a[i] *= 3;", "(a[i]) = (* (a[i]) 3)");
     }
 
     #[test]
