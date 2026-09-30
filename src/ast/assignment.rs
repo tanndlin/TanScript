@@ -11,8 +11,9 @@ pub struct Assignment {
     pub expression: Expression,
 }
 
-impl Statement for Assignment {
-    fn compile(
+impl Assignment {
+    /// Compiles without the leading debug comment, for callers that print their own
+    pub fn compile_uncommented(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -38,7 +39,6 @@ impl Statement for Assignment {
                                 register_handler,
                             )?;
                             Ok([
-                                format!("; {} = {}", self.lhs, self.expression),
                                 index_asm,
                                 format!("imul {offset_ptr}, {offset_ptr}, {data_size}"),
                                 lhs,
@@ -52,6 +52,20 @@ impl Statement for Assignment {
             }
             _ => Err("Invalid LHS for assign".to_string()),
         }
+    }
+}
+
+impl Statement for Assignment {
+    fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<String, String> {
+        let asm = self.compile_uncommented(compile_scope, register_handler)?;
+        Ok(format!(
+            "; {self}
+{asm}"
+        ))
     }
 
     fn discover(&self, symbols: &mut SymbolTable) {

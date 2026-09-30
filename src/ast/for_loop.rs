@@ -42,15 +42,19 @@ impl Statement for ForLoop {
             .join("\n");
 
         Ok(format!(
-            "{init}\n\
+            "; for ({}; {}; {})\n\
+            {init}\n\
             {start_label}:\n\
             {condition}\n\
             cmp {condition_dst_reg}, 0\n\
             je {end_label}\n\
+            ; body\n\
             {block}\n\
+            \t; update\n\
             {update}\n\
             jmp {start_label}\n\
-            {end_label}:"
+            {end_label}:",
+            self.init, self.condition, self.update
         ))
     }
 

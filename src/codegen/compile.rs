@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        Assignment, AtomType, BinaryOp, Block, Expression, PostfixOp, Program, Statement,
+        Assignment, AtomType, BinaryOp, Block, Expression, PostfixOp, Program,
         StatementOrExpression::{self},
         UnaryOp,
     },
@@ -120,9 +120,10 @@ impl StatementOrExpression {
                 statement.compile(compile_scope, register_handler)
             }
             StatementOrExpression::Expression(expression) => {
-                register_handler.lease_with_scope(|register_handler, dst| {
+                let asm = register_handler.lease_with_scope(|register_handler, dst| {
                     expression.compile(compile_scope, dst, register_handler)
-                })
+                })?;
+                Ok(format!("; {expression}\n{asm}"))
             }
         }
     }
@@ -390,7 +391,7 @@ fn compile_postfix(
             Box::new(Expression::Atom(AtomType::Number(1))),
         ),
     }
-    .compile(compile_scope, register_handler)?;
+    .compile_uncommented(compile_scope, register_handler)?;
 
     Ok(format!("{old_value}\n{update}"))
 }

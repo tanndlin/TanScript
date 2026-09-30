@@ -30,13 +30,16 @@ impl Statement for WhileLoop {
         let block = self.block.compile(compile_scope, register_handler)?;
 
         Ok(format!(
-            "{start_label}:\n\
+            "; while {}\n\
+            {start_label}:\n\
             {condition}\n\
             cmp {reg}, 0\n\
             je {end_label}\n\
+            ; body\n\
             {block}\n\
             jmp {start_label}\n\
-            {end_label}:"
+            {end_label}:",
+            self.condition
         ))
     }
 

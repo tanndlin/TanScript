@@ -21,7 +21,10 @@ impl Statement for Declaration {
         };
 
         compile_scope.add_variable(ident.clone(), None)?;
-        self.assign.compile(compile_scope, register_handler)
+        let assign = self
+            .assign
+            .compile_uncommented(compile_scope, register_handler)?;
+        Ok(format!("; {self}\n{assign}"))
     }
 
     fn discover(&self, symbols: &mut SymbolTable) {

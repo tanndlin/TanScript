@@ -34,7 +34,17 @@ impl Statement for IfStatement {
 
         register_handler.release_register(dst);
         Ok(format!(
-            "{condition}\ntest {dst}, {dst}\njz else{id}\n{block}\njmp endif{id}\nelse{id}:\n{}\nendif{id}:",
+            "; if {}\n\
+            {condition}\n\
+            test {dst}, {dst}\n\
+            jz else{id}\n\
+            ; then\n\
+            {block}\n\
+            jmp endif{id}\n\
+            else{id}:\n\
+            {}\n\
+            endif{id}:",
+            self.condition,
             else_block.unwrap_or(String::new())
         ))
     }

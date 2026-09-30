@@ -19,7 +19,9 @@ impl Statement for ReturnStatement {
         let instructions = self
             .expr
             .compile(compile_scope, Register::RAX, register_handler)?;
-        Ok(format!("{instructions}\nmov rsp, rbp\npop rbp\nret"))
+        Ok(format!(
+            "; {self}\n{instructions}\nmov rsp, rbp\npop rbp\nret"
+        ))
     }
 
     fn discover(&self, symbols: &mut SymbolTable) {
