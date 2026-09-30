@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')
+        CARGO = 'docker run --rm -v jenkins_jenkins_home:/var/jenkins_home -v cargo-registry-cache:/usr/local/cargo/registry -w /var/jenkins_home/workspace/TanScript rust:latest sh -c'
     }
 
     stages {
@@ -24,7 +25,7 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                cargo build --release
+                $CARGO 'cargo build --release'
                 '''
             }
         }
@@ -33,8 +34,7 @@ pipeline {
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh '''
-                    cargo fmt -- --check
-                    cargo clippy -- -D clippy::pedantic
+                    $CARGO 'rustup component add rustfmt clippy && cargo fmt -- --check && cargo clippy -- -D clippy::pedantic'
                     '''
                 }
             }
@@ -43,7 +43,7 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                cargo test
+                $CARGO 'cargo test'
                 '''
             }
         }
