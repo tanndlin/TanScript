@@ -22,9 +22,8 @@ pub fn parse(input: &str) -> Result<Program, String> {
 fn parse_statement_or_expression(
     lexer: &mut Lexer,
 ) -> Result<Option<StatementOrExpression>, String> {
-    if lexer.peek().is_none() {
-        Ok(None)
-    } else {
+    if let Some(first) = lexer.peek() {
+        let line_number = first.line_number;
         let result = match parse_statement(lexer)? {
             Some(statement) => StatementOrExpression::Statement(statement),
             None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
@@ -36,9 +35,24 @@ fn parse_statement_or_expression(
                 | Statement::IfStatement(_)
                 | Statement::FunctionDefintion(_),
             ) => (),
+            // A lone identifier followed by another atom is most likely a misspelled keyword
+            StatementOrExpression::Expression(Expression::Atom(AtomType::Identifier(s)))
+                if matches!(
+                    lexer.peek().map(|tok| &tok.token_type),
+                    Some(Token::Atom(
+                        LexerAtomType::Identifier(_)
+                            | LexerAtomType::Number(_)
+                            | LexerAtomType::String(_)
+                    ))
+                ) =>
+            {
+                return Err(format!("Unknown keyword: {s} on line: {line_number}"));
+            }
             _ => lexer.expect(";")?,
         }
         Ok(Some(result))
+    } else {
+        Ok(None)
     }
 }
 
