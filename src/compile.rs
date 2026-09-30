@@ -345,6 +345,8 @@ fn compile_operator(
         | OperatorType::CloseCurly
         | OperatorType::OpenParen
         | OperatorType::CloseParen
+        | OperatorType::AddAssign
+        | OperatorType::SubAssign
         | OperatorType::Comma => panic!("Unexpected operator: {op}"),
     }
 }
@@ -437,6 +439,8 @@ fn compile_infix_operator(
                 | OperatorType::OpenParen
                 | OperatorType::CloseParen
                 | OperatorType::Not
+                | OperatorType::AddAssign
+                | OperatorType::SubAssign
                 | OperatorType::Comma => panic!("Somehow called compile operator on {op}"),
             };
 

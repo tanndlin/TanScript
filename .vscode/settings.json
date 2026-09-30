@@ -5,13 +5,13 @@
                 {
                     "name": "Lint",
                     "commands": [
-                        "nodemon --watch src -e rs -x \"cargo clippy -- -D clippy::pedantic\""
+                        "bacon clippy"
                     ]
                 },
                 {
                     "name": "Test",
                     "commands": [
-                        "nodemon --watch src -e rs -x \"cargo test\""
+                        "bacon test"
                     ]
                 }
             ]

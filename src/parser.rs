@@ -58,9 +58,11 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, Stri
                         keyword
                     } else if let Some(next) = lexer.peek_next() {
                         match &next.token_type {
-                            Token::Op(OperatorType::Assign) => {
-                                Some(Box::new(parse_assignment(lexer)?))
-                            }
+                            Token::Op(
+                                OperatorType::Assign
+                                | OperatorType::AddAssign
+                                | OperatorType::SubAssign,
+                            ) => Some(Box::new(parse_assignment(lexer)?)),
                             _ => None,
                         }
                     } else {
@@ -134,6 +136,12 @@ fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
 fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
     lexer.expect("let")?;
 
+    if let Some(tok) = lexer.peek_next()
+        && tok.token_type != Token::Op(OperatorType::Assign)
+    {
+        return Err(format!("Expected = in declaration, got {tok}"));
+    }
+
     Ok(Declaration {
         assign: parse_assignment(lexer)?,
     })
@@ -148,11 +156,31 @@ fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
         panic!("Expected identifier");
     };
 
-    lexer.expect("=")?;
+    let tok = lexer
+        .next()
+        .ok_or("Expected =, += or -= but ran out of tokens")?;
+    let op = match tok.token_type {
+        Token::Op(OperatorType::Assign) => None,
+        Token::Op(OperatorType::AddAssign) => Some(OperatorType::Add),
+        Token::Op(OperatorType::SubAssign) => Some(OperatorType::Subtract),
+        _ => return Err(format!("Expected =, += or -=, got {tok}")),
+    };
+
+    let rhs = parse_expression(lexer, 0)?;
+    let expression = match op {
+        Some(op) => Expression::Operation(
+            op,
+            vec![
+                Expression::Atom(AtomType::Identifier(identifier.clone())),
+                rhs,
+            ],
+        ),
+        None => rhs,
+    };
 
     Ok(Assignment {
         identifier,
-        expression: parse_expression(lexer, 0)?,
+        expression,
     })
 }
 
@@ -434,6 +462,59 @@ mod test {
     fn parse_assignment() {
         integration_test!("a = 1;", "a = 1");
         integration_test!("a = 1 + 2;", "a = (+ 1 2)");
+    }
+
+    #[test]
+    fn parse_add_assign() {
+        integration_test!("a += 1;", "a = (+ a 1)");
+    }
+
+    #[test]
+    fn parse_sub_assign() {
+        integration_test!("a -= 1;", "a = (- a 1)");
+    }
+
+    #[test]
+    fn parse_compound_assign_groups_right_side() {
+        // The whole right side is the operand, not just the first term
+        integration_test!("a -= 1 + 2;", "a = (- a (+ 1 2))");
+        integration_test!("a += b * 2;", "a = (+ a (* b 2))");
+        integration_test!("a -= b - c;", "a = (- a (- b c))");
+    }
+
+    #[test]
+    fn parse_compound_assign_function_call() {
+        integration_test!("a += add(1, 2);", "a = (+ a add(1, 2))");
+    }
+
+    #[test]
+    fn parse_compound_assign_in_while_loop() {
+        integration_test!(
+            "while (a < 10) { a += 1; }",
+            "while (< a 10) {\na = (+ a 1)\n}"
+        );
+    }
+
+    #[test]
+    fn parse_compound_assign_in_if_else() {
+        integration_test!(
+            "if (a < 10) { a += 1; } else { a -= 1; }",
+            "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
+        );
+    }
+
+    #[test]
+    fn reject_compound_assign_in_declaration() {
+        let err = parse("let a += 1;").unwrap_err();
+        assert!(err.starts_with("Expected = in declaration"));
+        let err = parse("let a -= 1;").unwrap_err();
+        assert!(err.starts_with("Expected = in declaration"));
+    }
+
+    #[test]
+    fn expect_compound_assign_semicolon() {
+        let program = parse("a += 1 b -= 2;").unwrap_err();
+        assert!(program.starts_with("Expected ;"));
     }
 
     #[test]

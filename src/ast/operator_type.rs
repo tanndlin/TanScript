@@ -22,6 +22,8 @@ pub enum OperatorType {
     CloseParen,
     Not,
     Comma,
+    AddAssign,
+    SubAssign,
 }
 
 impl OperatorType {
@@ -69,6 +71,8 @@ impl fmt::Display for OperatorType {
             OperatorType::CloseParen => write!(f, ")"),
             OperatorType::Not => write!(f, "!"),
             OperatorType::Comma => write!(f, ","),
+            OperatorType::AddAssign => write!(f, "+="),
+            OperatorType::SubAssign => write!(f, "-="),
         }
     }
 }

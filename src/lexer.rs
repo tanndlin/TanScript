@@ -184,6 +184,8 @@ fn get_operator(chars: &mut Vec<char>) -> OperatorType {
             "<=" => Some(OperatorType::LessOrEqual),
             ">=" => Some(OperatorType::GreaterOrEqual),
             "==" => Some(OperatorType::Equal),
+            "+=" => Some(OperatorType::AddAssign),
+            "-=" => Some(OperatorType::SubAssign),
             "!=" => Some(OperatorType::NotEqual),
             "||" => Some(OperatorType::Or),
             "&&" => Some(OperatorType::And),
@@ -382,6 +384,76 @@ mod test {
     #[test]
     fn lex_logical_and() {
         lex_token!("&&", Token::Op(OperatorType::And));
+    }
+
+    #[test]
+    fn lex_add_assign() {
+        lex_token!("+=", Token::Op(OperatorType::AddAssign));
+    }
+
+    #[test]
+    fn lex_sub_assign() {
+        lex_token!("-=", Token::Op(OperatorType::SubAssign));
+    }
+
+    #[test]
+    fn lex_compound_assignment_statement() {
+        let mut lexer = Lexer::new("a += 1; b -= 2;").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::AddAssign));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("b".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::SubAssign));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(2)));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+    }
+
+    #[test]
+    fn lex_compound_assignment_without_spaces() {
+        let mut lexer = Lexer::new("a+=b-=c").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::AddAssign));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("b".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::SubAssign));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("c".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_split_compound_assignment() {
+        // Whitespace between the characters means two separate operators
+        let mut lexer = Lexer::new("+ = - =").unwrap();
+        token_eq!(lexer, Token::Op(OperatorType::Add));
+        token_eq!(lexer, Token::Op(OperatorType::Assign));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+        token_eq!(lexer, Token::Op(OperatorType::Assign));
+    }
+
+    #[test]
+    fn lex_sub_assign_negative_number() {
+        let mut lexer = Lexer::new("a -= -1").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::SubAssign));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
     }
 
     #[test]
