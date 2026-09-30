@@ -245,8 +245,7 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             }
             let op_token = lexer.next().ok_or("Ran out of tokens")?;
             let operand = match lhs {
-                Expression::Atom(AtomType::Identifier(_)) => lhs,
-                Expression::Index(_, _) => lhs,
+                Expression::Atom(AtomType::Identifier(_)) | Expression::Index(_, _) => lhs,
                 _ => {
                     return Err(format!(
                         "{op} can only be applied to a a valid lhs, got {lhs} at {op_token}"
