@@ -112,7 +112,7 @@ impl Lexer {
     }
 }
 
-fn get_number(input: &mut Vec<char>) -> i32 {
+fn get_number(input: &mut Vec<char>) -> i64 {
     let mut chars = vec![];
 
     while let Some(c) = input.last() {
@@ -126,7 +126,7 @@ fn get_number(input: &mut Vec<char>) -> i32 {
     chars
         .into_iter()
         .collect::<String>()
-        .parse::<i32>()
+        .parse::<i64>()
         .unwrap()
 }
 

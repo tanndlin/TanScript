@@ -106,17 +106,16 @@ impl<'ctx> Compiler<'ctx> {
 
     fn compile_assign(&mut self, assign: &Assignment) -> Result<(), String> {
         let value = self.compile_expression(&assign.expression)?;
-        let ptr = match self.variables.get(&assign.identifier).copied() {
-            Some((ptr, _)) => ptr,
-            None => {
-                let ptr = self
-                    .builder
-                    .build_alloca(value.get_type(), &assign.identifier)
-                    .map_err(|e| e.to_string())?;
-                self.variables
-                    .insert(assign.identifier.clone(), (ptr, value.get_type()));
-                ptr
-            }
+        let ptr = if let Some((ptr, _)) = self.variables.get(&assign.identifier).copied() {
+            ptr
+        } else {
+            let ptr = self
+                .builder
+                .build_alloca(value.get_type(), &assign.identifier)
+                .map_err(|e| e.to_string())?;
+            self.variables
+                .insert(assign.identifier.clone(), (ptr, value.get_type()));
+            ptr
         };
         self.builder
             .build_store(ptr, value)
@@ -134,7 +133,11 @@ impl<'ctx> Compiler<'ctx> {
 
     fn compile_atom(&mut self, atom: &AtomType) -> Result<BasicValueEnum<'ctx>, String> {
         match atom {
-            AtomType::Number(n) => Ok(self.context.i32_type().const_int(*n as u64, true).into()),
+            AtomType::Number(n) => Ok(self
+                .context
+                .i32_type()
+                .const_int(n.cast_unsigned(), true)
+                .into()),
             AtomType::Identifier(name) => {
                 let (ptr, ty) = self
                     .variables
@@ -266,7 +269,7 @@ impl<'ctx> Compiler<'ctx> {
         self.variables.clear();
 
         for (i, arg) in func_def.args.iter().enumerate() {
-            let param = function.get_nth_param(i as u32).unwrap();
+            let param = function.get_nth_param(u32::try_from(i).unwrap()).unwrap();
             param.set_name(arg);
             let ptr = self
                 .builder

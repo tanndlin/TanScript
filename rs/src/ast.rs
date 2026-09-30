@@ -138,7 +138,7 @@ impl fmt::Display for StatementOrExpression {
 
 #[derive(Debug, Clone)]
 pub enum AtomType {
-    Number(i32),
+    Number(i64),
     Identifier(String),
     String(String),
 }

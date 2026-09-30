@@ -4,7 +4,7 @@ use crate::ast::OperatorType;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LexerAtomType {
-    Number(i32),
+    Number(i64),
     Identifier(String),
     String(String),
     Semicolon,
