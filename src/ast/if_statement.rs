@@ -2,10 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement},
-    compile::Address,
-    compile_scope::CompileScope,
-    register_handler::RegisterHandler,
-    symbol_table::SymbolTable,
+    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]

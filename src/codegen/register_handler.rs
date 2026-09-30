@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::compile::{Address, Register};
+use crate::codegen::address::{Address, Register};
 
 #[derive(Clone, Copy, Debug)]
 struct RegisterState {
@@ -167,7 +167,7 @@ fn format_data(name: &String, s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{compile::Register, register_handler::RegisterHandler};
+    use crate::codegen::{address::Register, register_handler::RegisterHandler};
 
     #[test]
     fn prevent_double_lease() {

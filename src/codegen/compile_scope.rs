@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::compile::Address;
+use crate::codegen::address::Address;
 
 #[allow(dead_code)]
 pub struct CompileScope<'a> {

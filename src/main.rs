@@ -1,12 +1,9 @@
 use std::{env::args, fs, path::PathBuf};
 
 mod ast;
-mod compile;
-mod compile_scope;
+mod codegen;
 mod lexer;
 mod parser;
-mod register_handler;
-mod symbol_table;
 mod types;
 
 use crate::parser::parse;

@@ -1,8 +1,6 @@
 use std::fmt;
 
-use crate::{
-    compile_scope::CompileScope, register_handler::RegisterHandler, symbol_table::SymbolTable,
-};
+use crate::codegen::{CompileScope, RegisterHandler, SymbolTable};
 
 pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
     fn compile(

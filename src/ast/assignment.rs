@@ -2,9 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{Expression, Statement},
-    compile_scope::CompileScope,
-    register_handler::RegisterHandler,
-    symbol_table::SymbolTable,
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
