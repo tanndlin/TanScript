@@ -10,12 +10,15 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(input: &str) -> Result<Lexer, String> {
-        let mut line_number = 0u32;
+        let mut line_number = 1u32;
         let mut chars = input.chars().rev().collect::<Vec<char>>();
 
         let mut tokens = vec![];
         while let Some(cur) = chars.last() {
             if cur.is_whitespace() {
+                if *cur == '\n' {
+                    line_number += 1;
+                }
                 chars.pop();
                 continue;
             }
@@ -54,10 +57,6 @@ impl Lexer {
                 | '!' | '|' | '&' => {
                     let op = get_operator(&mut chars);
                     tokens.push(LexerToken::new(Token::Op(op), line_number));
-                }
-                '\n' => {
-                    line_number += 1;
-                    chars.pop();
                 }
                 _ => {
                     return Err(format!(
