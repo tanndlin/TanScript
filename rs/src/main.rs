@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .status()
         .expect("failed to run the compiled binary");
 
-    println!("result: {}", result.code().unwrap());
+    println!("Exit Code: {}", result.code().unwrap());
 
     Ok(())
 }
