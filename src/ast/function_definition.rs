@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{Block, Statement},
@@ -18,10 +18,10 @@ pub struct FunctionDefinition {
 impl FunctionDefinition {
     pub fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+        let mut scope = CompileScope::new(Some(compile_scope));
 
         let mut arg_setup = vec![];
         // TODO: Support more than 4 args with the stack
@@ -35,15 +35,14 @@ impl FunctionDefinition {
             let new_address =
                 Address::Stack((i32::try_from(i).map_err(|_| "Index out of range")? + 1) * 8);
             arg_setup.push(format!("mov {new_address}, {reg}"));
-            let mut scope_borrow = scope.borrow_mut();
 
             // Update its location in the scope
-            scope_borrow.add_variable(arg.clone(), Some(new_address))?;
+            scope.add_variable(arg.clone(), Some(new_address))?;
             // This is not a variable that needs to be deallocated later
-            scope_borrow.num_variables -= 1;
+            scope.num_variables -= 1;
         }
         let arg_setup = arg_setup.join("\n\t");
-        let instructions = self.body.compile(&scope, register_handler)?;
+        let instructions = self.body.compile(&mut scope, register_handler)?;
         let ret = if instructions.ends_with("ret") {
             ""
         } else {
@@ -65,7 +64,7 @@ impl Statement for FunctionDefinition {
 
     fn compile(
         &self,
-        _compile_scope: &Rc<RefCell<CompileScope>>,
+        _compile_scope: &mut CompileScope,
         _register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         Ok(String::new())

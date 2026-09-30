@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement},
@@ -17,7 +17,7 @@ pub struct WhileLoop {
 impl Statement for WhileLoop {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         let unique_id = register_handler.get_unique_id();

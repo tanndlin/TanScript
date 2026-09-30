@@ -1,22 +1,18 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::collections::HashMap;
 
 use crate::compile::Address;
 
 #[allow(dead_code)]
-pub struct CompileScope {
-    pub parent: Option<Weak<RefCell<CompileScope>>>,
+pub struct CompileScope<'a> {
+    pub parent: Option<&'a CompileScope<'a>>,
     pub variables: HashMap<String, Address>,
     pub num_variables: i32,
 }
 
-impl CompileScope {
-    pub fn new(parent: Option<&Rc<RefCell<Self>>>) -> Self {
+impl<'a> CompileScope<'a> {
+    pub fn new(parent: Option<&'a CompileScope<'a>>) -> Self {
         Self {
-            parent: parent.map(Rc::downgrade),
+            parent,
             variables: HashMap::new(),
             num_variables: 0,
         }
@@ -30,10 +26,9 @@ impl CompileScope {
         let parent = self
             .parent
             .as_ref()
-            .and_then(Weak::upgrade)
             .ok_or_else(|| format!("Variable '{name}' not found"))?;
 
-        parent.borrow().get_variable(name)
+        parent.get_variable(name)
     }
 
     pub fn add_variable(&mut self, name: String, address: Option<Address>) -> Result<(), String> {

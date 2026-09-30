@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{Block, Expression, Statement},
@@ -18,7 +18,7 @@ pub struct IfStatement {
 impl Statement for IfStatement {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         let id = register_handler.get_unique_id();
@@ -27,12 +27,12 @@ impl Statement for IfStatement {
             self.condition
                 .compile(compile_scope, Address::Register(dst), register_handler)?;
 
-        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
-        let block = self.block.compile(&new_scope, register_handler)?;
-        let else_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+        let mut new_scope = CompileScope::new(Some(compile_scope));
+        let block = self.block.compile(&mut new_scope, register_handler)?;
+        let mut else_scope = CompileScope::new(Some(compile_scope));
         let else_block = match &self.else_block {
             None => None,
-            Some(else_block) => Some(else_block.compile(&else_scope, register_handler)?),
+            Some(else_block) => Some(else_block.compile(&mut else_scope, register_handler)?),
         };
 
         register_handler.release_register(dst);

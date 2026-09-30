@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{Expression, Statement},
@@ -16,7 +16,7 @@ pub struct ReturnStatement {
 impl Statement for ReturnStatement {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         let instructions = self.expr.compile(

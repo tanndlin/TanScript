@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{Assignment, Statement},
@@ -15,12 +15,10 @@ pub struct Declaration {
 impl Statement for Declaration {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        compile_scope
-            .borrow_mut()
-            .add_variable(self.assign.identifier.clone(), None)?;
+        compile_scope.add_variable(self.assign.identifier.clone(), None)?;
         self.assign.compile(compile_scope, register_handler)
     }
 

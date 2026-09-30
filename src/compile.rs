@@ -1,5 +1,5 @@
 use core::panic;
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     ast::{AtomType, Block, Expression, OperatorType, Program, StatementOrExpression},
@@ -83,17 +83,19 @@ impl fmt::Display for Address {
 
 impl Program {
     pub fn compile(&self) -> Result<String, String> {
-        let global_scope = Rc::new(RefCell::new(CompileScope::new(None)));
+        let mut global_scope = CompileScope::new(None);
         let mut register_handler = RegisterHandler::new();
 
         let mut symbol_table = SymbolTable::new();
         self.block.discover(&mut symbol_table);
-        let instructions = self.block.compile(&global_scope, &mut register_handler)?;
+        let instructions = self
+            .block
+            .compile(&mut global_scope, &mut register_handler)?;
 
         let functions = symbol_table
             .functions
             .values()
-            .map(|def| def.compile(&global_scope, &mut register_handler))
+            .map(|def| def.compile(&mut global_scope, &mut register_handler))
             .collect::<Result<Vec<_>, _>>()?
             .join("\n");
         let extern_functions = symbol_table
@@ -141,20 +143,20 @@ main:
 impl Block {
     pub fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let new_scope = Rc::new(RefCell::new(CompileScope::new(Some(compile_scope))));
+        let mut new_scope = CompileScope::new(Some(compile_scope));
 
         let mut instructions = self
             .children
             .iter()
-            .map(|child| child.compile(&new_scope, register_handler))
+            .map(|child| child.compile(&mut new_scope, register_handler))
             .collect::<Result<Vec<String>, String>>()?
             .join("\n");
 
-        if new_scope.borrow().num_variables > 0 {
-            let alloc_size = new_scope.borrow().num_variables * 8;
+        if new_scope.num_variables > 0 {
+            let alloc_size = new_scope.num_variables * 8;
             // Align stack
             let alloc_size = if alloc_size % 16 != 0 {
                 alloc_size + (16 - alloc_size % 16)
@@ -179,7 +181,7 @@ impl Block {
 impl StatementOrExpression {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
         match &self {
@@ -198,7 +200,7 @@ impl StatementOrExpression {
 impl Expression {
     pub fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         dst: Address,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
@@ -231,7 +233,7 @@ fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler)
 }
 
 fn compile_function_call(
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
     name: &str,
     args: &[Expression],
@@ -293,13 +295,12 @@ fn compile_number(n: i32, dst: Address) -> String {
 }
 
 fn compile_variable(
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
     name: &str,
     dst: Address,
 ) -> Result<String, String> {
-    let binding = compile_scope.borrow();
-    let address = binding.get_variable(name)?;
+    let address = compile_scope.get_variable(name)?;
     match dst {
         //  You can always move to a register
         Address::Register(_) => Ok(format!("mov {dst}, {address}")),
@@ -316,7 +317,7 @@ fn compile_variable(
 fn compile_operator(
     op: &OperatorType,
     children: &[Expression],
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
@@ -351,7 +352,7 @@ fn compile_operator(
 fn compile_infix_operator(
     op: &OperatorType,
     children: &[Expression],
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
@@ -449,7 +450,7 @@ fn compile_infix_operator(
 fn compile_prefix_operator(
     op: &OperatorType,
     children: &[Expression],
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
@@ -467,7 +468,7 @@ fn compile_prefix_operator(
 }
 
 fn compile_multiply(
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
     dst: Address,
@@ -497,7 +498,7 @@ fn compile_multiply(
 }
 
 fn compile_divide(
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
     dst: Address,
@@ -531,7 +532,7 @@ fn compile_divide(
 }
 
 fn compile_modulo(
-    compile_scope: &Rc<RefCell<CompileScope>>,
+    compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
     dst: Address,

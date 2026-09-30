@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use crate::{
     compile_scope::CompileScope, register_handler::RegisterHandler, symbol_table::SymbolTable,
@@ -7,7 +7,7 @@ use crate::{
 pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
     fn compile(
         &self,
-        compile_scope: &Rc<RefCell<CompileScope>>,
+        compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String>;
 
