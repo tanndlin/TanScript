@@ -186,6 +186,8 @@ fn get_operator(chars: &mut Vec<char>) -> OperatorType {
             "==" => Some(OperatorType::Equal),
             "+=" => Some(OperatorType::AddAssign),
             "-=" => Some(OperatorType::SubAssign),
+            "++" => Some(OperatorType::Increment),
+            "--" => Some(OperatorType::Decrement),
             "!=" => Some(OperatorType::NotEqual),
             "||" => Some(OperatorType::Or),
             "&&" => Some(OperatorType::And),
@@ -454,6 +456,73 @@ mod test {
         token_eq!(lexer, Token::Op(OperatorType::SubAssign));
         token_eq!(lexer, Token::Op(OperatorType::Subtract));
         token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+    }
+
+    #[test]
+    fn lex_increment() {
+        lex_token!("++", Token::Op(OperatorType::Increment));
+    }
+
+    #[test]
+    fn lex_decrement() {
+        lex_token!("--", Token::Op(OperatorType::Decrement));
+    }
+
+    #[test]
+    fn lex_increment_decrement_statements() {
+        let mut lexer = Lexer::new("a++; b--;").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::Increment));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("b".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::Decrement));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+    }
+
+    #[test]
+    fn lex_split_increment_decrement() {
+        // Whitespace between the characters means two separate operators
+        let mut lexer = Lexer::new("+ + - -").unwrap();
+        token_eq!(lexer, Token::Op(OperatorType::Add));
+        token_eq!(lexer, Token::Op(OperatorType::Add));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+    }
+
+    #[test]
+    fn lex_increment_is_greedy() {
+        // Like C, `a+++b` is `a++ + b`
+        let mut lexer = Lexer::new("a+++b").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("a".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::Increment));
+        token_eq!(lexer, Token::Op(OperatorType::Add));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("b".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_subtract_negative_needs_space() {
+        let mut lexer = Lexer::new("5--3").unwrap();
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(5)));
+        token_eq!(lexer, Token::Op(OperatorType::Decrement));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(3)));
+
+        let mut lexer = Lexer::new("5 - -3").unwrap();
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(5)));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+        token_eq!(lexer, Token::Op(OperatorType::Subtract));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Number(3)));
     }
 
     #[test]

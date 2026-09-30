@@ -2,7 +2,10 @@ use core::panic;
 use std::fmt;
 
 use crate::{
-    ast::{AtomType, Block, Expression, OperatorType, Program, StatementOrExpression},
+    ast::{
+        Assignment, AtomType, Block, Expression, OperatorType, Program, Statement,
+        StatementOrExpression::{self},
+    },
     compile_scope::CompileScope,
     register_handler::RegisterHandler,
     symbol_table::SymbolTable,
@@ -340,6 +343,9 @@ fn compile_operator(
         OperatorType::Not => {
             compile_prefix_operator(op, children, compile_scope, dst, register_handler)
         }
+        OperatorType::Increment | OperatorType::Decrement => {
+            compile_postfix_operator(op, children, compile_scope, dst, register_handler)
+        }
         OperatorType::Assign
         | OperatorType::OpenCurly
         | OperatorType::CloseCurly
@@ -441,6 +447,8 @@ fn compile_infix_operator(
                 | OperatorType::Not
                 | OperatorType::AddAssign
                 | OperatorType::SubAssign
+                | OperatorType::Increment
+                | OperatorType::Decrement
                 | OperatorType::Comma => panic!("Somehow called compile operator on {op}"),
             };
 
@@ -469,6 +477,38 @@ fn compile_prefix_operator(
     };
 
     Ok(format!("{child_asm}\n{asm}"))
+}
+
+fn compile_postfix_operator(
+    op: &OperatorType,
+    children: &[Expression],
+    compile_scope: &mut CompileScope,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<String, String> {
+    let operand = children.first().ok_or("Postfix operator missing child")?;
+    let Expression::Atom(AtomType::Identifier(identifier)) = operand else {
+        return Err("Can only inc/dec on an identifier".to_string());
+    };
+
+    let arithmetic_op = match op {
+        OperatorType::Increment => OperatorType::Add,
+        OperatorType::Decrement => OperatorType::Subtract,
+        _ => panic!("Unexpected operator in compile_postfix_operator: {op}"),
+    };
+
+    // Postfix evaluates to the value before the update
+    let old_value = operand.compile(compile_scope, dst, register_handler)?;
+    let update = Assignment {
+        identifier: identifier.clone(),
+        expression: Expression::Operation(
+            arithmetic_op,
+            vec![operand.clone(), Expression::Atom(AtomType::Number(1))],
+        ),
+    }
+    .compile(compile_scope, register_handler)?;
+
+    Ok(format!("{old_value}\n{update}"))
 }
 
 fn compile_multiply(

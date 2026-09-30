@@ -217,7 +217,12 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             if l_bp < min_bp {
                 break;
             }
-            lexer.next();
+            let op_token = lexer.next().ok_or("Ran out of tokens")?;
+            if !matches!(lhs, Expression::Atom(AtomType::Identifier(_))) {
+                return Err(format!(
+                    "{op} can only be applied to a variable, got {lhs} at {op_token}"
+                ));
+            }
             lhs = Expression::Operation(op, vec![lhs]);
             continue;
         }
@@ -245,13 +250,11 @@ fn prefix_binding_power(op: &OperatorType) -> ((), u8) {
     }
 }
 
-fn postfix_binding_power(_: &OperatorType) -> Option<(u8, ())> {
-    // let res = match op {
-    //     '!' => (9, ()),
-    //     _ => return None,
-    // };
-    // Some(res)
-    None
+fn postfix_binding_power(op: &OperatorType) -> Option<(u8, ())> {
+    Some(match op {
+        OperatorType::Increment | OperatorType::Decrement => (11, ()),
+        _ => return None,
+    })
 }
 
 fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
@@ -572,6 +575,75 @@ mod test {
     #[test]
     fn parse_logical_and() {
         test_parse_expression!("1 && 0", "(&& 1 0)");
+    }
+
+    #[test]
+    fn parse_increment() {
+        test_parse_expression!("a++", "(++ a)");
+    }
+
+    #[test]
+    fn parse_decrement() {
+        test_parse_expression!("a--", "(-- a)");
+    }
+
+    #[test]
+    fn parse_increment_decrement_binds_tighter_than_infix() {
+        test_parse_expression!("a++ + 1", "(+ (++ a) 1)");
+        test_parse_expression!("1 + a++", "(+ 1 (++ a))");
+        test_parse_expression!("a-- * 2", "(* (-- a) 2)");
+        test_parse_expression!("a++ < b--", "(< (++ a) (-- b))");
+    }
+
+    #[test]
+    fn parse_increment_binds_tighter_than_prefix() {
+        test_parse_expression!("-a++", "(- (++ a))");
+        test_parse_expression!("!a--", "(! (-- a))");
+    }
+
+    #[test]
+    fn parse_increment_followed_by_add() {
+        test_parse_expression!("a+++b", "(+ (++ a) b)");
+    }
+
+    #[test]
+    fn parse_increment_decrement_statement() {
+        integration_test!("a++;", "(++ a)");
+        integration_test!("a--;", "(-- a)");
+    }
+
+    #[test]
+    fn parse_increment_in_declaration() {
+        integration_test!("let b = a++;", "let b = (++ a)");
+    }
+
+    #[test]
+    fn parse_increment_in_assignment() {
+        integration_test!("b = a--;", "b = (-- a)");
+    }
+
+    #[test]
+    fn parse_increment_as_function_arg() {
+        test_parse_expression!("foo(a++)", "foo((++ a))");
+        test_parse_expression!("foo(a++, b--)", "foo((++ a), (-- b))");
+    }
+
+    #[test]
+    fn parse_increment_in_while_loop() {
+        integration_test!("while (i < 10) { i++; }", "while (< i 10) {\n(++ i)\n}");
+    }
+
+    #[test]
+    fn expect_increment_statement_semicolon() {
+        let program = parse("a++ b--;").unwrap_err();
+        assert!(program.starts_with("Expected ;"));
+    }
+
+    #[test]
+    fn reject_increment_on_non_identifier() {
+        assert!(parse("5++;").is_err());
+        assert!(parse("(a + b)--;").is_err());
+        assert!(parse("foo()++;").is_err());
     }
 
     #[test]

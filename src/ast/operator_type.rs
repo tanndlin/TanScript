@@ -24,6 +24,8 @@ pub enum OperatorType {
     Comma,
     AddAssign,
     SubAssign,
+    Increment,
+    Decrement,
 }
 
 impl OperatorType {
@@ -73,6 +75,8 @@ impl fmt::Display for OperatorType {
             OperatorType::Comma => write!(f, ","),
             OperatorType::AddAssign => write!(f, "+="),
             OperatorType::SubAssign => write!(f, "-="),
+            OperatorType::Increment => write!(f, "++"),
+            OperatorType::Decrement => write!(f, "--"),
         }
     }
 }
