@@ -41,7 +41,23 @@ fn parse_unterminated_statement_or_expression(
 ) -> Result<StatementOrExpression, String> {
     Ok(match parse_statement(lexer)? {
         Some(statement) => StatementOrExpression::Statement(statement),
-        None => StatementOrExpression::Expression(parse_expression(lexer, 0)?),
+        None => parse_expression_or_assignment(lexer)?,
+    })
+}
+
+/// Parses an expression, then treats it as the lhs of an assignment if an assign op follows.
+fn parse_expression_or_assignment(lexer: &mut Lexer) -> Result<StatementOrExpression, String> {
+    let expression = parse_expression(lexer, 0)?;
+
+    let is_assign = matches!(
+        lexer.peek().map(|tok| &tok.token_type),
+        Some(Token::Op(op)) if op.as_assign().is_some()
+    );
+
+    Ok(if is_assign {
+        StatementOrExpression::Statement(Box::new(parse_assignment_with_lhs(lexer, expression)?))
+    } else {
+        StatementOrExpression::Expression(expression)
     })
 }
 
@@ -52,30 +68,15 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, Stri
         Some(tok) => Ok(match &tok.token_type {
             Token::Op(_) => None,
             Token::Atom(atom) => match atom {
-                LexerAtomType::Identifier(s) => {
-                    let keyword: Option<Box<dyn Statement>> = match s.as_str() {
-                        "let" => Some(Box::new(parse_declaration(lexer)?)),
-                        "while" => Some(Box::new(parse_while_loop(lexer)?)),
-                        "for" => Some(Box::new(parse_for_loop(lexer)?)),
-                        "if" => Some(Box::new(parse_if_statement(lexer)?)),
-                        "def" => Some(Box::new(parse_function_definition(lexer)?)),
-                        "return" => Some(Box::new(parse_return(lexer)?)),
-                        _ => None,
-                    };
-
-                    if keyword.is_some() {
-                        keyword
-                    } else if let Some(next) = lexer.peek_next() {
-                        match &next.token_type {
-                            Token::Op(op) if op.as_assign().is_some() => {
-                                Some(Box::new(parse_assignment(lexer)?))
-                            }
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                }
+                LexerAtomType::Identifier(s) => match s.as_str() {
+                    "let" => Some(Box::new(parse_declaration(lexer)?)),
+                    "while" => Some(Box::new(parse_while_loop(lexer)?)),
+                    "for" => Some(Box::new(parse_for_loop(lexer)?)),
+                    "if" => Some(Box::new(parse_if_statement(lexer)?)),
+                    "def" => Some(Box::new(parse_function_definition(lexer)?)),
+                    "return" => Some(Box::new(parse_return(lexer)?)),
+                    _ => None,
+                },
                 LexerAtomType::Semicolon => {
                     panic!("Hanging semicolon got left over")
                 }
@@ -173,13 +174,15 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
 }
 
 fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
-    let Token::Atom(LexerAtomType::Identifier(identifier)) = lexer
-        .next()
-        .ok_or("Expected identifier after declaration")?
-        .token_type
-    else {
-        panic!("Expected identifier");
-    };
+    let lhs = parse_expression(lexer, 0)?;
+    parse_assignment_with_lhs(lexer, lhs)
+}
+
+fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assignment, String> {
+    match lhs {
+        Expression::Atom(AtomType::Identifier(_)) | Expression::Index(_, _) => {}
+        _ => return Err(format!("Cannot assign to lhs: {lhs}")),
+    }
 
     let tok = lexer
         .next()
@@ -192,18 +195,11 @@ fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
 
     let rhs = parse_expression(lexer, 0)?;
     let expression = match op {
-        AssignOp::Compound(op) => Expression::Binary(
-            op,
-            Box::new(Expression::Atom(AtomType::Identifier(identifier.clone()))),
-            Box::new(rhs),
-        ),
+        AssignOp::Compound(op) => Expression::Binary(op, Box::new(lhs.clone()), Box::new(rhs)),
         AssignOp::Assign => rhs,
     };
 
-    Ok(Assignment {
-        identifier,
-        expression,
-    })
+    Ok(Assignment { lhs, expression })
 }
 
 fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String> {
@@ -230,17 +226,35 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             break;
         };
 
+        if let OperatorType::OpenBracket = op {
+            const INDEX_BINDING_POWER: u8 = 13;
+            if INDEX_BINDING_POWER < min_bp {
+                break;
+            }
+
+            lexer.next();
+            let index = parse_expression(lexer, 0)?;
+            lexer.expect("]")?;
+            lhs = Expression::Index(Box::new(lhs), Box::new(index));
+            continue;
+        }
+
         if let Some(op) = PostfixOp::from_token(op) {
             if PostfixOp::BINDING_POWER < min_bp {
                 break;
             }
             let op_token = lexer.next().ok_or("Ran out of tokens")?;
-            let Expression::Atom(AtomType::Identifier(identifier)) = lhs else {
-                return Err(format!(
-                    "{op} can only be applied to a variable, got {lhs} at {op_token}"
-                ));
+            let operand = match lhs {
+                Expression::Atom(AtomType::Identifier(_)) => lhs,
+                Expression::Index(_, _) => lhs,
+                _ => {
+                    return Err(format!(
+                        "{op} can only be applied to a a valid lhs, got {lhs} at {op_token}"
+                    ));
+                }
             };
-            lhs = Expression::Postfix(op, identifier);
+
+            lhs = Expression::Postfix(op, Box::new(operand));
             continue;
         }
 
@@ -377,23 +391,28 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
                 _ => lexer.expect(";")?,
             }
         } else {
-            // We have an expression.
-            let expression = parse_expression(lexer, 0)?;
-
-            match lexer.peek() {
-                // Final expression: implicit return.
-                Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
-                    children.push(StatementOrExpression::Statement(Box::new(
-                        ReturnStatement { expr: expression },
-                    )));
-                    break;
-                }
-
-                // Non-final expression must have a semicolon.
-                _ => {
+            match parse_expression_or_assignment(lexer)? {
+                // Assignments are statements, never an implicit return.
+                StatementOrExpression::Statement(assign) => {
+                    children.push(StatementOrExpression::Statement(assign));
                     lexer.expect(";")?;
-                    children.push(StatementOrExpression::Expression(expression));
                 }
+
+                StatementOrExpression::Expression(expression) => match lexer.peek() {
+                    // Final expression: implicit return.
+                    Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
+                        children.push(StatementOrExpression::Statement(Box::new(
+                            ReturnStatement { expr: expression },
+                        )));
+                        break;
+                    }
+
+                    // Non-final expression must have a semicolon.
+                    _ => {
+                        lexer.expect(";")?;
+                        children.push(StatementOrExpression::Expression(expression));
+                    }
+                },
             }
         }
     }
@@ -691,5 +710,123 @@ mod test {
     #[test]
     fn parse_function_implicit_return() {
         integration_test!("def add(a, b) { a + b }", "def add(a, b) {return (+ a b)}");
+    }
+
+    #[test]
+    fn parse_index() {
+        test_parse_expression!("a[0]", "(a[0])");
+        test_parse_expression!("a [ 0 ]", "(a[0])");
+    }
+
+    #[test]
+    fn parse_index_with_expression() {
+        test_parse_expression!("a[i]", "(a[i])");
+        test_parse_expression!("a[i + 1]", "(a[(+ i 1)])");
+        test_parse_expression!("a[(i + 1) * 2]", "(a[(* (+ i 1) 2)])");
+    }
+
+    #[test]
+    fn parse_chained_index() {
+        test_parse_expression!("a[0][1]", "((a[0])[1])");
+        test_parse_expression!("a[0][1][2]", "(((a[0])[1])[2])");
+    }
+
+    #[test]
+    fn parse_nested_index() {
+        test_parse_expression!("a[b[0]]", "(a[(b[0])])");
+        test_parse_expression!("a[b[c[0]]]", "(a[(b[(c[0])])])");
+    }
+
+    #[test]
+    fn parse_index_binds_tighter_than_infix() {
+        test_parse_expression!("a[0] + 1", "(+ (a[0]) 1)");
+        test_parse_expression!("1 + a[0]", "(+ 1 (a[0]))");
+        test_parse_expression!("a[0] + b[1]", "(+ (a[0]) (b[1]))");
+        test_parse_expression!("1 + a[0] * 2", "(+ 1 (* (a[0]) 2))");
+        test_parse_expression!("a[0] < b[1] && c[2]", "(&& (< (a[0]) (b[1])) (c[2]))");
+    }
+
+    #[test]
+    fn parse_index_binds_tighter_than_prefix() {
+        test_parse_expression!("-a[0]", "(- (a[0]))");
+        test_parse_expression!("!a[0]", "(! (a[0]))");
+    }
+
+    #[test]
+    fn parse_index_on_parenthesized_expression() {
+        test_parse_expression!("(a)[0]", "(a[0])");
+        test_parse_expression!("(a + b)[0]", "((+ a b)[0])");
+    }
+
+    #[test]
+    fn parse_index_on_function_call() {
+        test_parse_expression!("foo()[0]", "(foo()[0])");
+        test_parse_expression!("foo(1, 2)[i]", "(foo(1, 2)[i])");
+    }
+
+    #[test]
+    fn parse_index_as_function_arg() {
+        test_parse_expression!("foo(a[0])", "foo((a[0]))");
+        test_parse_expression!("foo(a[0], b[i + 1])", "foo((a[0]), (b[(+ i 1)]))");
+    }
+
+    #[test]
+    fn parse_increment_on_index() {
+        test_parse_expression!("a[0]++", "(++ (a[0]))");
+        test_parse_expression!("a[i]--", "(-- (a[i]))");
+        integration_test!("a[0]++;", "(++ (a[0]))");
+    }
+
+    #[test]
+    fn parse_increment_inside_index() {
+        test_parse_expression!("a[i++]", "(a[(++ i)])");
+    }
+
+    #[test]
+    fn parse_index_in_declaration() {
+        integration_test!("let x = a[0];", "let x = (a[0])");
+        integration_test!(
+            "let x = a[i] + a[i + 1];",
+            "let x = (+ (a[i]) (a[(+ i 1)]))"
+        );
+    }
+
+    #[test]
+    fn parse_assign_to_index() {
+        integration_test!("a[0] = 5;", "(a[0]) = 5");
+        integration_test!("a[i] = a[i] + 1;", "(a[i]) = (+ (a[i]) 1)");
+        integration_test!("a[0][1] = 5;", "((a[0])[1]) = 5");
+    }
+
+    #[test]
+    fn parse_compound_assign_to_index() {
+        integration_test!("a[0] += 1;", "(a[0]) = (+ (a[0]) 1)");
+        integration_test!("a[i] -= 2;", "(a[i]) = (- (a[i]) 2)");
+    }
+
+    #[test]
+    fn parse_index_in_while_loop() {
+        integration_test!(
+            "while (a[i] < 10) { a[i] = a[i] + 1; }",
+            "while (< (a[i]) 10) {\n(a[i]) = (+ (a[i]) 1)\n}"
+        );
+    }
+
+    #[test]
+    fn reject_unclosed_index() {
+        assert!(parse("a[0;").is_err());
+        assert!(parse("let x = a[0;").is_err());
+        assert!(parse("a[b[0];").is_err());
+    }
+
+    #[test]
+    fn reject_empty_index() {
+        assert!(parse("a[];").is_err());
+    }
+
+    #[test]
+    fn reject_unmatched_close_bracket() {
+        assert!(parse("a];").is_err());
+        assert!(parse("a[0]];").is_err());
     }
 }

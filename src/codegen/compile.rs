@@ -132,9 +132,11 @@ impl Expression {
     pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
-        dst: Address,
+        dst: impl Into<Address>,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
+        let dst = dst.into();
+
         match self {
             Expression::Atom(a) => match a {
                 AtomType::Number(n) => Ok(compile_number(*n, dst)),
@@ -149,11 +151,14 @@ impl Expression {
             Expression::Unary(op, child) => {
                 compile_unary(*op, child, compile_scope, dst, register_handler)
             }
-            Expression::Postfix(op, identifier) => {
-                compile_postfix(*op, identifier, compile_scope, dst, register_handler)
+            Expression::Postfix(op, lhs) => {
+                compile_postfix(*op, lhs, compile_scope, dst, register_handler)
             }
             Expression::FunctionCall(name, args) => {
                 compile_function_call(compile_scope, register_handler, name, args, dst)
+            }
+            Expression::Index(lhs, index) => {
+                compile_index(compile_scope, register_handler, dst, lhs, index)
             }
         }
     }
@@ -227,6 +232,36 @@ fn compile_function_call(
     instructions.extend(undo);
 
     Ok(instructions.join("\n"))
+}
+
+fn compile_index(
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+    dst: Address,
+    lhs: &Expression,
+    index: &Expression,
+) -> Result<String, String> {
+    register_handler.lease_with_scope(|register_handler, ptr| {
+        let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
+        let index = index.compile(compile_scope, Address::Register(ptr), register_handler)?;
+        register_handler.lease_with_scope(|register_handler, lhs_dst| {
+            let lhs = lhs.compile(compile_scope, Address::Register(lhs_dst), register_handler)?;
+
+            let load = match dst {
+                Address::Register(_) => format!("mov {dst}, [{lhs_dst}+{ptr}]"),
+                Address::Stack(_) => {
+                    format!("mov {lhs_dst}, [{lhs_dst}+{ptr}]\nmov {dst}, {lhs_dst}")
+                }
+            };
+
+            Ok(format!(
+                "{index}\n\
+                imul {ptr}, {ptr}, {data_size}\n\
+                {lhs}
+                {load}\n"
+            ))
+        })
+    })
 }
 
 fn compile_number(n: i32, dst: Address) -> String {
@@ -353,20 +388,18 @@ fn compile_unary(
 
 fn compile_postfix(
     op: PostfixOp,
-    identifier: &str,
+    lhs: &Expression,
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let operand = Expression::Atom(AtomType::Identifier(identifier.to_string()));
-
     // Postfix evaluates to the value before the update
-    let old_value = operand.compile(compile_scope, dst, register_handler)?;
+    let old_value = lhs.compile(compile_scope, dst, register_handler)?;
     let update = Assignment {
-        identifier: identifier.to_string(),
+        lhs: lhs.clone(),
         expression: Expression::Binary(
             op.arithmetic(),
-            Box::new(operand),
+            Box::new(lhs.clone()),
             Box::new(Expression::Atom(AtomType::Number(1))),
         ),
     }

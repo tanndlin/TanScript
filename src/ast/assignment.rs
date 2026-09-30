@@ -1,13 +1,13 @@
 use std::fmt;
 
 use crate::{
-    ast::{Expression, Statement},
-    codegen::{CompileScope, RegisterHandler, SymbolTable},
+    ast::{AtomType, Expression, Statement},
+    codegen::{Address, CompileScope, RegisterHandler, SymbolTable},
 };
 
 #[derive(Debug, Clone)]
 pub struct Assignment {
-    pub identifier: String,
+    pub lhs: Expression,
     pub expression: Expression,
 }
 
@@ -17,9 +17,45 @@ impl Statement for Assignment {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let address = compile_scope.get_variable(&self.identifier)?;
-        self.expression
-            .compile(compile_scope, address, register_handler)
+        match &self.lhs {
+            Expression::Atom(AtomType::Identifier(ident)) => {
+                let address = compile_scope.get_variable(ident)?;
+                self.expression
+                    .compile(compile_scope, address, register_handler)
+            }
+            Expression::Index(lhs, index) => {
+                register_handler.lease_with_scope(|register_handler, offset_ptr| {
+                    // let lhs = lhs.compile(compile_scope, Address::Register(ptr), register_handler)?;
+                    let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
+                    let index_asm = index.compile(
+                        compile_scope,
+                        Address::Register(offset_ptr),
+                        register_handler,
+                    )?;
+                    register_handler.lease_with_scope(|register_handler, ptr| {
+                        let lhs = lhs.compile(compile_scope, ptr, register_handler)?;
+
+                        register_handler.lease_with_scope(|register_handler, value_dst| {
+                            let rhs = self.expression.compile(
+                                compile_scope,
+                                value_dst,
+                                register_handler,
+                            )?;
+                            Ok(format!(
+                                "; {} = {}
+                                {index_asm}\n\
+                                imul {offset_ptr}, {offset_ptr}, {data_size}\n\
+                                {lhs}
+                                {rhs}
+                                mov [{ptr}+{offset_ptr}], {value_dst}\n",
+                                self.lhs, self.expression
+                            ))
+                        })
+                    })
+                })
+            }
+            _ => Err("Invalid LHS for assign".to_string()),
+        }
     }
 
     fn discover(&self, symbols: &mut SymbolTable) {
@@ -29,6 +65,6 @@ impl Statement for Assignment {
 
 impl fmt::Display for Assignment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = {}", self.identifier, self.expression)
+        write!(f, "{} = {}", self.lhs, self.expression)
     }
 }

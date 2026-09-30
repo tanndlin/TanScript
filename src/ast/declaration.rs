@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Assignment, Statement},
+    ast::{Assignment, AtomType, Expression, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
@@ -16,7 +16,11 @@ impl Statement for Declaration {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        compile_scope.add_variable(self.assign.identifier.clone(), None)?;
+        let Expression::Atom(AtomType::Identifier(ident)) = &self.assign.lhs else {
+            return Err("Declaration LHS can only be a identifier".to_string());
+        };
+
+        compile_scope.add_variable(ident.clone(), None)?;
         self.assign.compile(compile_scope, register_handler)
     }
 

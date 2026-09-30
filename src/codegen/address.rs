@@ -72,3 +72,9 @@ impl fmt::Display for Address {
         }
     }
 }
+
+impl From<Register> for Address {
+    fn from(reg: Register) -> Self {
+        Address::Register(reg)
+    }
+}

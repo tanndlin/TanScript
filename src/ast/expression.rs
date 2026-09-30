@@ -7,8 +7,9 @@ pub enum Expression {
     Atom(AtomType),
     Binary(BinaryOp, Box<Expression>, Box<Expression>),
     Unary(UnaryOp, Box<Expression>),
-    Postfix(PostfixOp, String),
+    Postfix(PostfixOp, Box<Expression>),
     FunctionCall(String, Vec<Expression>),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -28,6 +29,7 @@ impl fmt::Display for Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Expression::Index(lhs, index) => write!(f, "({lhs}[{index}])"),
         }
     }
 }

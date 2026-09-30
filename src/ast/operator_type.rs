@@ -26,6 +26,8 @@ pub enum OperatorType {
     SubAssign,
     Increment,
     Decrement,
+    OpenBracket,
+    CloseBracket,
 }
 
 /// Every operator's spelling. The lexer takes the longest match, so order doesn't matter
@@ -48,6 +50,8 @@ pub const OPERATORS: &[(&str, OperatorType)] = &[
     ("}", OperatorType::CloseCurly),
     ("(", OperatorType::OpenParen),
     (")", OperatorType::CloseParen),
+    ("[", OperatorType::OpenBracket),
+    ("]", OperatorType::CloseBracket),
     ("!", OperatorType::Not),
     (",", OperatorType::Comma),
     ("+=", OperatorType::AddAssign),

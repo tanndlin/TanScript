@@ -55,6 +55,10 @@ impl Expression {
             }
             Expression::Unary(_, child) => child.discover(symbols),
             Expression::Postfix(_, _) => {}
+            Expression::Index(lhs, index) => {
+                lhs.discover(symbols);
+                index.discover(symbols);
+            }
         }
     }
 }
