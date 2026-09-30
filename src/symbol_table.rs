@@ -49,11 +49,12 @@ impl Expression {
             Expression::Atom(atom_type) => match atom_type {
                 AtomType::Identifier(_) | AtomType::Number(_) | AtomType::String(_) => {}
             },
-            Expression::Operation(_, expressions) => {
-                for expr in expressions {
-                    expr.discover(symbols);
-                }
+            Expression::Binary(_, left, right) => {
+                left.discover(symbols);
+                right.discover(symbols);
             }
+            Expression::Unary(_, child) => child.discover(symbols),
+            Expression::Postfix(_, _) => {}
         }
     }
 }

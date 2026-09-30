@@ -1,7 +1,8 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, Expression, FunctionDefinition, IfStatement,
-        OperatorType, Program, ReturnStatement, Statement, StatementOrExpression, WhileLoop,
+        AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression,
+        FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program, ReturnStatement,
+        Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
     lexer::Lexer,
     types::{LexerAtomType, Token},
@@ -58,11 +59,9 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, Stri
                         keyword
                     } else if let Some(next) = lexer.peek_next() {
                         match &next.token_type {
-                            Token::Op(
-                                OperatorType::Assign
-                                | OperatorType::AddAssign
-                                | OperatorType::SubAssign,
-                            ) => Some(Box::new(parse_assignment(lexer)?)),
+                            Token::Op(op) if op.as_assign().is_some() => {
+                                Some(Box::new(parse_assignment(lexer)?))
+                            }
                             _ => None,
                         }
                     } else {
@@ -159,23 +158,20 @@ fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
     let tok = lexer
         .next()
         .ok_or("Expected =, += or -= but ran out of tokens")?;
-    let op = match tok.token_type {
-        Token::Op(OperatorType::Assign) => None,
-        Token::Op(OperatorType::AddAssign) => Some(OperatorType::Add),
-        Token::Op(OperatorType::SubAssign) => Some(OperatorType::Subtract),
-        _ => return Err(format!("Expected =, += or -=, got {tok}")),
-    };
+    let op = match &tok.token_type {
+        Token::Op(op) => op.as_assign(),
+        Token::Atom(_) => None,
+    }
+    .ok_or_else(|| format!("Expected =, += or -=, got {tok}"))?;
 
     let rhs = parse_expression(lexer, 0)?;
     let expression = match op {
-        Some(op) => Expression::Operation(
+        AssignOp::Compound(op) => Expression::Binary(
             op,
-            vec![
-                Expression::Atom(AtomType::Identifier(identifier.clone())),
-                rhs,
-            ],
+            Box::new(Expression::Atom(AtomType::Identifier(identifier.clone()))),
+            Box::new(rhs),
         ),
-        None => rhs,
+        AssignOp::Assign => rhs,
     };
 
     Ok(Assignment {
@@ -196,44 +192,40 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             lhs
         }
         Token::Op(op) => {
-            let ((), r_bp) = prefix_binding_power(op);
-            let rhs = parse_expression(lexer, r_bp)?;
-            Expression::Operation(op.clone(), vec![rhs])
+            let op = UnaryOp::from_token(op)
+                .ok_or_else(|| format!("Unexpected operator {token} at start of expression"))?;
+            let rhs = parse_expression(lexer, UnaryOp::BINDING_POWER)?;
+            Expression::Unary(op, Box::new(rhs))
         }
     };
 
-    loop {
-        if lexer.peek().is_none() {
+    while let Some(op_token) = lexer.peek() {
+        let Token::Op(op) = &op_token.token_type else {
             break;
-        }
-
-        let op_token = lexer.peek().unwrap();
-        let op = match &op_token.token_type {
-            Token::Op(OperatorType::CloseParen) | Token::Atom(_) => break,
-            Token::Op(op) => op.clone(),
         };
 
-        if let Some((l_bp, ())) = postfix_binding_power(&op) {
-            if l_bp < min_bp {
+        if let Some(op) = PostfixOp::from_token(op) {
+            if PostfixOp::BINDING_POWER < min_bp {
                 break;
             }
             let op_token = lexer.next().ok_or("Ran out of tokens")?;
-            if !matches!(lhs, Expression::Atom(AtomType::Identifier(_))) {
+            let Expression::Atom(AtomType::Identifier(identifier)) = lhs else {
                 return Err(format!(
                     "{op} can only be applied to a variable, got {lhs} at {op_token}"
                 ));
-            }
-            lhs = Expression::Operation(op, vec![lhs]);
+            };
+            lhs = Expression::Postfix(op, identifier);
             continue;
         }
 
-        if let Some((l_bp, r_bp)) = infix_binding_power(&op) {
+        if let Some(op) = BinaryOp::from_token(op) {
+            let (l_bp, r_bp) = op.binding_power();
             if l_bp < min_bp {
                 break;
             }
             lexer.next();
             let rhs = parse_expression(lexer, r_bp)?;
-            lhs = Expression::Operation(op.clone(), vec![lhs, rhs]);
+            lhs = Expression::Binary(op, Box::new(lhs), Box::new(rhs));
             continue;
         }
 
@@ -241,36 +233,6 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
     }
 
     Ok(lhs)
-}
-
-fn prefix_binding_power(op: &OperatorType) -> ((), u8) {
-    match op {
-        OperatorType::Subtract | OperatorType::Not => ((), 9),
-        _ => panic!("bad op: {op:?}"),
-    }
-}
-
-fn postfix_binding_power(op: &OperatorType) -> Option<(u8, ())> {
-    Some(match op {
-        OperatorType::Increment | OperatorType::Decrement => (11, ()),
-        _ => return None,
-    })
-}
-
-fn infix_binding_power(op: &OperatorType) -> Option<(u8, u8)> {
-    let res = match op {
-        OperatorType::And | OperatorType::Or => (1, 2),
-        OperatorType::Equal | OperatorType::NotEqual => (3, 4),
-        OperatorType::LessThan
-        | OperatorType::LessOrEqual
-        | OperatorType::GreaterThan
-        | OperatorType::GreaterOrEqual => (5, 6),
-        OperatorType::Add | OperatorType::Subtract => (7, 8),
-        OperatorType::Multiply | OperatorType::Divide | OperatorType::Modulo => (9, 10),
-        _ => return None,
-    };
-
-    Some(res)
 }
 
 fn parse_identifier_or_function_call(lexer: &mut Lexer, s: &str) -> Result<Expression, String> {

@@ -1,10 +1,10 @@
-use core::panic;
 use std::fmt;
 
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Expression, OperatorType, Program, Statement,
+        Assignment, AtomType, BinaryOp, Block, Expression, PostfixOp, Program, Statement,
         StatementOrExpression::{self},
+        UnaryOp,
     },
     compile_scope::CompileScope,
     register_handler::RegisterHandler,
@@ -215,8 +215,14 @@ impl Expression {
                 }
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
             },
-            Expression::Operation(v, children) => {
-                compile_operator(v, children, compile_scope, dst, register_handler)
+            Expression::Binary(op, left, right) => {
+                compile_binary(*op, left, right, compile_scope, dst, register_handler)
+            }
+            Expression::Unary(op, child) => {
+                compile_unary(*op, child, compile_scope, dst, register_handler)
+            }
+            Expression::Postfix(op, identifier) => {
+                compile_postfix(*op, identifier, compile_scope, dst, register_handler)
             }
             Expression::FunctionCall(name, args) => {
                 compile_function_call(compile_scope, register_handler, name, args, dst)
@@ -317,193 +323,121 @@ fn compile_variable(
     }
 }
 
-fn compile_operator(
-    op: &OperatorType,
-    children: &[Expression],
+fn compile_binary(
+    op: BinaryOp,
+    left: &Expression,
+    right: &Expression,
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    match op {
-        OperatorType::Add
-        | OperatorType::Subtract
-        | OperatorType::Multiply
-        | OperatorType::Divide
-        | OperatorType::Modulo
-        | OperatorType::LessThan
-        | OperatorType::LessOrEqual
-        | OperatorType::GreaterThan
-        | OperatorType::GreaterOrEqual
-        | OperatorType::Equal
-        | OperatorType::NotEqual
-        | OperatorType::Or
-        | OperatorType::And => {
-            compile_infix_operator(op, children, compile_scope, dst, register_handler)
+    let set_condition = match op {
+        BinaryOp::Multiply => {
+            return compile_multiply(compile_scope, left, right, dst, register_handler);
         }
-        OperatorType::Not => {
-            compile_prefix_operator(op, children, compile_scope, dst, register_handler)
-        }
-        OperatorType::Increment | OperatorType::Decrement => {
-            compile_postfix_operator(op, children, compile_scope, dst, register_handler)
-        }
-        OperatorType::Assign
-        | OperatorType::OpenCurly
-        | OperatorType::CloseCurly
-        | OperatorType::OpenParen
-        | OperatorType::CloseParen
-        | OperatorType::AddAssign
-        | OperatorType::SubAssign
-        | OperatorType::Comma => panic!("Unexpected operator: {op}"),
-    }
-}
-
-fn compile_infix_operator(
-    op: &OperatorType,
-    children: &[Expression],
-    compile_scope: &mut CompileScope,
-    dst: Address,
-    register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
-    let left = children
-        .first()
-        .ok_or("Infix operator missing left operand")?;
-    let right = children
-        .get(1)
-        .ok_or("Infix operator missing right operand")?;
-    match op {
-        OperatorType::Divide => compile_divide(compile_scope, left, right, dst, register_handler),
-        OperatorType::Modulo => compile_modulo(compile_scope, left, right, dst, register_handler),
-        OperatorType::Multiply => {
-            compile_multiply(compile_scope, left, right, dst, register_handler)
-        }
-        _ => {
-            let left = left.compile(compile_scope, dst, register_handler)?;
-            let right_reg = register_handler.lease_register()?;
-            let right = right.compile(
+        BinaryOp::Divide => {
+            return compile_divide(
                 compile_scope,
-                Address::Register(right_reg),
+                left,
+                right,
+                dst,
                 register_handler,
-            )?;
-
-            let perform = match op {
-                OperatorType::Add => format!("add {dst}, {right_reg}"),
-                OperatorType::Subtract => format!("sub {dst}, {right_reg}"),
-                OperatorType::Multiply => {
-                    return Err("This shouldn't be possible. Use compile_multiply".to_string());
-                }
-                OperatorType::Divide => {
-                    return Err("This shouldn't be possible. Use compile_divide".to_string());
-                }
-                OperatorType::Modulo => {
-                    return Err("This shouldn't be possible. Use compile_modulo".to_string());
-                }
-                OperatorType::LessThan => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetl {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::LessOrEqual => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetle {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::GreaterThan => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetg {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::GreaterOrEqual => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetge {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::Equal => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsete {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::NotEqual => {
-                    format!(
-                        "cmp {dst}, {right_reg}\nmov {dst}, 0\nsetne {}",
-                        dst.lower_8_bits()
-                    )
-                }
-                OperatorType::Or => {
-                    format!("or {dst}, {right_reg}")
-                }
-                OperatorType::And => {
-                    format!("and {dst}, {right_reg}")
-                }
-                OperatorType::Assign
-                | OperatorType::OpenCurly
-                | OperatorType::CloseCurly
-                | OperatorType::OpenParen
-                | OperatorType::CloseParen
-                | OperatorType::Not
-                | OperatorType::AddAssign
-                | OperatorType::SubAssign
-                | OperatorType::Increment
-                | OperatorType::Decrement
-                | OperatorType::Comma => panic!("Somehow called compile operator on {op}"),
-            };
-
-            register_handler.release_register(right_reg);
-
-            Ok(format!("{left}\n{right}\n{perform}"))
+                Register::RAX,
+            );
         }
-    }
+        BinaryOp::Modulo => {
+            return compile_divide(
+                compile_scope,
+                left,
+                right,
+                dst,
+                register_handler,
+                Register::RDX,
+            );
+        }
+        BinaryOp::Add => {
+            return compile_simple_binary("add", compile_scope, left, right, dst, register_handler);
+        }
+        BinaryOp::Subtract => {
+            return compile_simple_binary("sub", compile_scope, left, right, dst, register_handler);
+        }
+        BinaryOp::Or => {
+            return compile_simple_binary("or", compile_scope, left, right, dst, register_handler);
+        }
+        BinaryOp::And => {
+            return compile_simple_binary("and", compile_scope, left, right, dst, register_handler);
+        }
+        BinaryOp::LessThan => "setl",
+        BinaryOp::LessOrEqual => "setle",
+        BinaryOp::GreaterThan => "setg",
+        BinaryOp::GreaterOrEqual => "setge",
+        BinaryOp::Equal => "sete",
+        BinaryOp::NotEqual => "setne",
+    };
+
+    let compare = compile_simple_binary("cmp", compile_scope, left, right, dst, register_handler)?;
+    Ok(format!(
+        "{compare}\nmov QWORD {dst}, 0\n{set_condition} {}",
+        dst.lower_8_bits()
+    ))
 }
 
-fn compile_prefix_operator(
-    op: &OperatorType,
-    children: &[Expression],
+/// Compiles `left` into `dst`, `right` into a scratch register, then runs `{instruction} dst, scratch`
+fn compile_simple_binary(
+    instruction: &str,
+    compile_scope: &mut CompileScope,
+    left: &Expression,
+    right: &Expression,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<String, String> {
+    let left = left.compile(compile_scope, dst, register_handler)?;
+    let right_reg = register_handler.lease_register()?;
+    let right = right.compile(
+        compile_scope,
+        Address::Register(right_reg),
+        register_handler,
+    )?;
+
+    register_handler.release_register(right_reg);
+
+    Ok(format!("{left}\n{right}\n{instruction} {dst}, {right_reg}"))
+}
+
+fn compile_unary(
+    op: UnaryOp,
+    child: &Expression,
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let child = children.first().ok_or("Prefix operator missing child")?;
     let child_asm = child.compile(compile_scope, dst, register_handler)?;
 
     let asm = match op {
-        OperatorType::Not => {
-            format!("xor {dst}, 1\n")
-        }
-        _ => panic!("Unexpected operator in compile_prefix_operator: {op}"),
+        UnaryOp::Negate => format!("neg QWORD {dst}"),
+        UnaryOp::Not => format!("xor QWORD {dst}, 1"),
     };
 
     Ok(format!("{child_asm}\n{asm}"))
 }
 
-fn compile_postfix_operator(
-    op: &OperatorType,
-    children: &[Expression],
+fn compile_postfix(
+    op: PostfixOp,
+    identifier: &str,
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let operand = children.first().ok_or("Postfix operator missing child")?;
-    let Expression::Atom(AtomType::Identifier(identifier)) = operand else {
-        return Err("Can only inc/dec on an identifier".to_string());
-    };
-
-    let arithmetic_op = match op {
-        OperatorType::Increment => OperatorType::Add,
-        OperatorType::Decrement => OperatorType::Subtract,
-        _ => panic!("Unexpected operator in compile_postfix_operator: {op}"),
-    };
+    let operand = Expression::Atom(AtomType::Identifier(identifier.to_string()));
 
     // Postfix evaluates to the value before the update
     let old_value = operand.compile(compile_scope, dst, register_handler)?;
     let update = Assignment {
-        identifier: identifier.clone(),
-        expression: Expression::Operation(
-            arithmetic_op,
-            vec![operand.clone(), Expression::Atom(AtomType::Number(1))],
+        identifier: identifier.to_string(),
+        expression: Expression::Binary(
+            op.arithmetic(),
+            Box::new(operand),
+            Box::new(Expression::Atom(AtomType::Number(1))),
         ),
     }
     .compile(compile_scope, register_handler)?;
@@ -541,46 +475,14 @@ fn compile_multiply(
     Ok(instructions.join("\n"))
 }
 
+/// `idiv` leaves the quotient in rax and the remainder in rdx, so `result` picks between / and %
 fn compile_divide(
     compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
-    let right_reg = register_handler.lease_register()?;
-    let right = right.compile(
-        compile_scope,
-        Address::Register(right_reg),
-        register_handler,
-    )?;
-
-    let rax = {
-        register_handler.request_register(Register::RAX)?;
-        Register::RAX
-    };
-    let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
-
-    let instructions = [left, right];
-    let div = register_handler.request_with_scope(Register::RDX, |rdx| {
-        Ok(format!(
-            "xor {rdx}, {rdx}\ndiv {}\nmov {dst}, {rax}",
-            right_reg.clone()
-        ))
-    })?;
-
-    register_handler.release_register(right_reg);
-    register_handler.release_register(rax);
-
-    Ok(instructions.join("\n") + &div)
-}
-
-fn compile_modulo(
-    compile_scope: &mut CompileScope,
-    left: &Expression,
-    right: &Expression,
-    dst: Address,
-    register_handler: &mut RegisterHandler,
+    result: Register,
 ) -> Result<String, String> {
     let right_reg = register_handler.lease_register()?;
     let right = right.compile(
@@ -596,9 +498,9 @@ fn compile_modulo(
     let instructions = [
         left,
         right,
-        format!("xor {rdx}, {rdx}"),
-        format!("div {right_reg}"),
-        format!("mov {dst}, {rdx}"),
+        "cqo".to_string(),
+        format!("idiv {right_reg}"),
+        format!("mov {dst}, {result}"),
     ];
 
     register_handler.release_register(right_reg);
@@ -606,4 +508,34 @@ fn compile_modulo(
     register_handler.release_register(rdx);
 
     Ok(instructions.join("\n"))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::parser::parse;
+
+    fn compile(input: &str) -> String {
+        parse(input).unwrap().compile().unwrap()
+    }
+
+    #[test]
+    fn compile_negate() {
+        let asm = compile("let a = 5; let b = -a;");
+        assert!(asm.contains("neg QWORD"));
+    }
+
+    #[test]
+    fn compile_divide_uses_separate_lines() {
+        for input in ["let a = 7 / 2;", "let a = 7 % 2;"] {
+            let asm = compile(input);
+            assert!(asm.lines().any(|l| l.trim() == "cqo"), "{asm}");
+            assert!(asm.lines().any(|l| l.trim().starts_with("idiv ")), "{asm}");
+        }
+    }
+
+    #[test]
+    fn compile_divide_and_modulo_pick_result_register() {
+        assert!(compile("let a = 7 / 2;").contains("mov [rbp - 8], rax"));
+        assert!(compile("let a = 7 % 2;").contains("mov [rbp - 8], rdx"));
+    }
 }
