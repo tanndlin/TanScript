@@ -114,7 +114,7 @@ impl RegisterHandler {
         }
 
         let ret = function(self, reg)?;
-        if matches!(dst, Address::Register(dst_reg) if dst_reg == reg) {
+        if dst == Address::Register(reg) {
             Ok(ret)
         } else {
             Ok(format!("push {reg}\n{ret}\npop {reg}"))

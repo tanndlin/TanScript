@@ -36,7 +36,7 @@ impl fmt::Display for Register {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset in the stack
