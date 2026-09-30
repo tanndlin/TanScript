@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all("out").unwrap();
     module.print_to_file("out/output.ll").unwrap();
 
-    Command::new("clang-17")
+    Command::new("clang-22")
         .args(["out/output.ll", "-o", "out/output"])
         .status()
         .expect("failed to invoke clang");

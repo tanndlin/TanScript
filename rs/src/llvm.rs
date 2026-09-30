@@ -6,7 +6,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{BasicMetadataTypeEnum, BasicTypeEnum},
-    values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue},
+    values::{BasicMetadataValueEnum, BasicValueEnum, PointerValue, ValueKind},
 };
 
 use crate::{
@@ -219,7 +219,7 @@ impl<'ctx> Compiler<'ctx> {
             .collect::<Result<_, _>>()?;
 
         let function = self.module.get_function(name).unwrap_or_else(|| {
-            let ptr_type = self.context.i8_type().ptr_type(AddressSpace::default());
+            let ptr_type = self.context.ptr_type(AddressSpace::default());
             self.module
                 .add_function(name, ptr_type.fn_type(&[], true), None)
         });
@@ -230,13 +230,14 @@ impl<'ctx> Compiler<'ctx> {
             .map_err(|e| e.to_string())?;
 
         // If the function returns void, yield a null ptr so callers have a BasicValueEnum
-        Ok(call.try_as_basic_value().left().unwrap_or_else(|| {
-            self.context
-                .i8_type()
+        Ok(match call.try_as_basic_value() {
+            ValueKind::Basic(value) => value,
+            ValueKind::Instruction(_) => self
+                .context
                 .ptr_type(AddressSpace::default())
                 .const_null()
-                .into()
-        }))
+                .into(),
+        })
     }
 
     fn compile_while_loop(&mut self, _while_loop: &WhileLoop) -> Result<(), String> {

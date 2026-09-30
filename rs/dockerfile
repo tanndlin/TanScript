@@ -9,20 +9,20 @@ RUN apt-get update && apt-get install -y \
 
 # Add official LLVM apt repo
 RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
-    && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-17 main" \
+    && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-22 main" \
     | tee /etc/apt/sources.list.d/llvm.list
 
 RUN apt-get update && apt-get install -y \
-    llvm-17-dev \
-    libclang-17-dev \
-    clang-17 \
-    lld-17 \
-    libpolly-17-dev \
+    llvm-22-dev \
+    libclang-22-dev \
+    clang-22 \
+    lld-22 \
+    libpolly-22-dev \
     zlib1g-dev \
     libzstd-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-17 100
+RUN update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-22 100
 
 WORKDIR /app
 
