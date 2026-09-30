@@ -32,7 +32,14 @@ impl Statement for ForLoop {
         register_handler.release_register(condition_dst_reg);
 
         let block = self.block.compile(compile_scope, register_handler)?;
-        let update = self.update.compile(compile_scope, register_handler)?;
+        // Indent the update to match the block it runs with
+        let update = self
+            .update
+            .compile(compile_scope, register_handler)?
+            .lines()
+            .map(|line| format!("\t{line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
 
         Ok(format!(
             "{init}\n\

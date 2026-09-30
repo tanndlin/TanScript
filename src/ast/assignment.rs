@@ -37,15 +37,15 @@ impl Statement for Assignment {
                                 value_dst,
                                 register_handler,
                             )?;
-                            Ok(format!(
-                                "; {} = {}
-                                {index_asm}\n\
-                                imul {offset_ptr}, {offset_ptr}, {data_size}\n\
-                                {lhs}
-                                {rhs}
-                                mov [{ptr}+{offset_ptr}], {value_dst}\n",
-                                self.lhs, self.expression
-                            ))
+                            Ok([
+                                format!("; {} = {}", self.lhs, self.expression),
+                                index_asm,
+                                format!("imul {offset_ptr}, {offset_ptr}, {data_size}"),
+                                lhs,
+                                rhs,
+                                format!("mov [{ptr}+{offset_ptr}], {value_dst}"),
+                            ]
+                            .join("\n"))
                         })
                     })
                 })

@@ -250,12 +250,7 @@ fn compile_index(
                 }
             };
 
-            Ok(format!(
-                "{index}\n\
-                imul {ptr}, {ptr}, {data_size}\n\
-                {lhs}
-                {load}\n"
-            ))
+            Ok([index, format!("imul {ptr}, {ptr}, {data_size}"), lhs, load].join("\n"))
         })
     })
 }
