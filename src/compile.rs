@@ -236,7 +236,7 @@ fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler)
     match dst {
         Address::Register(_) => format!("mov QWORD {dst}, {handle}"),
         Address::Stack(_) => register_handler
-            .lease_with_scope(|reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}")))
+            .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}")))
             .unwrap(),
     }
 }
@@ -271,15 +271,17 @@ fn compile_function_call(
         }
     }
 
-    instructions.push(register_handler.request_with_scope(Register::RAX, |rax| {
-        Ok([
-            "sub rsp, 32".to_string(),
-            format!("call {name}"),
-            "add rsp, 32".to_string(),
-            format!("mov {dst}, {rax}"),
-        ]
-        .join("\n"))
-    })?);
+    instructions.push(
+        register_handler.request_with_scope(Register::RAX, dst, |_, rax| {
+            Ok([
+                "sub rsp, 32".to_string(),
+                format!("call {name}"),
+                "add rsp, 32".to_string(),
+                format!("mov {dst}, {rax}"),
+            ]
+            .join("\n"))
+        })?,
+    );
 
     // Give back the registers
     target_registers
@@ -318,7 +320,7 @@ fn compile_variable(
 
             // Need an intermediate register
             Address::Stack(_) => register_handler
-                .lease_with_scope(|reg| Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))),
+                .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))),
         },
     }
 }
@@ -392,16 +394,16 @@ fn compile_simple_binary(
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
     let left = left.compile(compile_scope, dst, register_handler)?;
-    let right_reg = register_handler.lease_register()?;
-    let right = right.compile(
-        compile_scope,
-        Address::Register(right_reg),
-        register_handler,
-    )?;
+    let right = register_handler.lease_with_scope(|register_handler, right_reg| {
+        let right = right.compile(
+            compile_scope,
+            Address::Register(right_reg),
+            register_handler,
+        )?;
+        Ok(format!("{right}\n{instruction} {dst}, {right_reg}"))
+    })?;
 
-    register_handler.release_register(right_reg);
-
-    Ok(format!("{left}\n{right}\n{instruction} {dst}, {right_reg}"))
+    Ok(format!("{left}\n{right}"))
 }
 
 fn compile_unary(
@@ -452,27 +454,25 @@ fn compile_multiply(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<String, String> {
-    let left_reg = register_handler.lease_register()?;
-    let left = left.compile(compile_scope, Address::Register(left_reg), register_handler)?;
+    register_handler.lease_with_scope(|register_handler, left_reg| {
+        let left = left.compile(compile_scope, Address::Register(left_reg), register_handler)?;
 
-    let right_reg = register_handler.lease_register()?;
-    let right = right.compile(
-        compile_scope,
-        Address::Register(right_reg),
-        register_handler,
-    )?;
+        register_handler.lease_with_scope(|register_handler, right_reg| {
+            let right = right.compile(
+                compile_scope,
+                Address::Register(right_reg),
+                register_handler,
+            )?;
 
-    let instructions = [
-        left,
-        right,
-        format!("imul {left_reg}, {right_reg}"),
-        format!("mov {dst}, {left_reg}"),
-    ];
-
-    register_handler.release_register(left_reg);
-    register_handler.release_register(right_reg);
-
-    Ok(instructions.join("\n"))
+            Ok([
+                left,
+                right,
+                format!("imul {left_reg}, {right_reg}"),
+                format!("mov {dst}, {left_reg}"),
+            ]
+            .join("\n"))
+        })
+    })
 }
 
 /// `idiv` leaves the quotient in rax and the remainder in rdx, so `result` picks between / and %
@@ -484,30 +484,37 @@ fn compile_divide(
     register_handler: &mut RegisterHandler,
     result: Register,
 ) -> Result<String, String> {
-    let right_reg = register_handler.lease_register()?;
-    let right = right.compile(
-        compile_scope,
-        Address::Register(right_reg),
-        register_handler,
-    )?;
+    register_handler.lease_with_scope(|register_handler, right_reg| {
+        // Only happens when every other register is leased, and idiv overwrites both
+        if matches!(right_reg, Register::RAX | Register::RDX) {
+            return Err("Ran out of registers compiling division".to_string());
+        }
 
-    let rax = register_handler.request_register(Register::RAX)?;
-    let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
+        let right = right.compile(
+            compile_scope,
+            Address::Register(right_reg),
+            register_handler,
+        )?;
 
-    let rdx = register_handler.request_register(Register::RDX)?;
-    let instructions = [
-        left,
-        right,
-        "cqo".to_string(),
-        format!("idiv {right_reg}"),
-        format!("mov {dst}, {result}"),
-    ];
+        let divide =
+            register_handler.request_with_scope(Register::RAX, dst, |register_handler, rax| {
+                let left = left.compile(compile_scope, Address::Register(rax), register_handler)?;
 
-    register_handler.release_register(right_reg);
-    register_handler.release_register(rax);
-    register_handler.release_register(rdx);
+                let divide = register_handler.request_with_scope(Register::RDX, dst, |_, _| {
+                    Ok([
+                        "cqo".to_string(),
+                        format!("idiv {right_reg}"),
+                        format!("mov {dst}, {result}"),
+                    ]
+                    .join("\n"))
+                })?;
 
-    Ok(instructions.join("\n"))
+                Ok(format!("{left}\n{divide}"))
+            })?;
+
+        // right was compiled first so it has to run first, or its own rax use clobbers left
+        Ok(format!("{right}\n{divide}"))
+    })
 }
 
 #[cfg(test)]
@@ -537,5 +544,27 @@ mod test {
     fn compile_divide_and_modulo_pick_result_register() {
         assert!(compile("let a = 7 / 2;").contains("mov [rbp - 8], rax"));
         assert!(compile("let a = 7 % 2;").contains("mov [rbp - 8], rdx"));
+    }
+
+    #[test]
+    fn compile_nested_division() {
+        compile("let a = 100; let b = (a / 5) / 2;");
+        compile("printf(\"%d %d %d\", 1, 2, 7 / 2);");
+        compile("printf(\"%d %d %d\", 1, 2, 17 % 5);");
+    }
+
+    #[test]
+    fn compile_division_runs_right_side_first() {
+        // The right side's division uses rax, so it must finish before left is loaded into rax
+        let asm = compile("let a = 100; let b = a / (20 / 2);");
+        let load_right = asm.find("rax, 20").unwrap();
+        let load_left = asm.find("rax, [rbp - 8]").unwrap();
+        assert!(load_right < load_left, "{asm}");
+    }
+
+    #[test]
+    fn compile_call_into_busy_rax_keeps_result() {
+        let asm = compile("def five() { 5 } let a = five() / 2;");
+        assert!(!asm.contains("pop rax"), "{asm}");
     }
 }

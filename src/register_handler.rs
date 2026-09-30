@@ -80,30 +80,43 @@ impl RegisterHandler {
 
     pub fn lease_with_scope(
         &mut self,
-        function: impl Fn(Address) -> Result<String, String>,
+        function: impl FnOnce(&mut Self, Register) -> Result<String, String>,
     ) -> Result<String, String> {
-        if let Ok(reg) = &self.lease_register() {
-            let ret = function(Address::Register(*reg));
-            self.release_register(*reg);
-            ret
-        } else {
-            let reg = &self.reserved_registers[0]; // Use the first reserved register as a fallback
-            let ret = function(Address::Register(*reg))?;
-            Ok(format!("push {reg}\n{ret}\npop {reg}"))
+        if let Ok(reg) = self.lease_register() {
+            let ret = function(self, reg);
+            self.release_register(reg);
+            return ret;
         }
+
+        // Everything is leased, so borrow the first reserved register and save its value around
+        // the use. Holding it means nested code can't `request_register` it out from under us
+        let reg = self.reserved_registers[0];
+        let was_free = self.request_register(reg).is_ok();
+        let ret = function(self, reg);
+        if was_free {
+            self.release_register(reg);
+        }
+        Ok(format!("push {reg}\n{}\npop {reg}", ret?))
     }
 
+    /// Like `lease_with_scope`, but for a specific register. If it's already in use, its value is
+    /// saved around `function`, unless `dst` is that register: the caller wants it overwritten
     pub fn request_with_scope(
         &mut self,
         reg: Register,
-        function: impl Fn(Address) -> Result<String, String>,
+        dst: Address,
+        function: impl FnOnce(&mut Self, Register) -> Result<String, String>,
     ) -> Result<String, String> {
-        if let Ok(reg) = self.request_register(reg) {
-            let ret = function(Address::Register(reg));
+        if self.request_register(reg).is_ok() {
+            let ret = function(self, reg);
             self.release_register(reg);
-            ret
+            return ret;
+        }
+
+        let ret = function(self, reg)?;
+        if matches!(dst, Address::Register(dst_reg) if dst_reg == reg) {
+            Ok(ret)
         } else {
-            let ret = function(Address::Register(reg))?;
             Ok(format!("push {reg}\n{ret}\npop {reg}"))
         }
     }
@@ -176,5 +189,35 @@ mod tests {
 
         rh.release_register(rax);
         assert!(rh.request_register(rax).is_ok());
+    }
+
+    fn exhaust(rh: &mut RegisterHandler) -> Vec<Register> {
+        std::iter::from_fn(|| rh.lease_register().ok()).collect()
+    }
+
+    #[test]
+    fn lease_with_scope_releases_on_error() {
+        let mut rh = RegisterHandler::new();
+        let before = exhaust(&mut rh).len();
+        let mut rh = RegisterHandler::new();
+
+        let _ = rh.lease_with_scope(|_, _| Err("fail".to_string()));
+        assert_eq!(exhaust(&mut rh).len(), before);
+    }
+
+    #[test]
+    fn lease_with_scope_fallback_blocks_nested_request() {
+        let mut rh = RegisterHandler::new();
+        exhaust(&mut rh);
+
+        let asm = rh
+            .lease_with_scope(|rh, reg| {
+                assert_eq!(reg, Register::RAX);
+                assert!(rh.request_register(Register::RAX).is_err());
+                Ok(format!("mov {reg}, 1"))
+            })
+            .unwrap();
+        assert_eq!(asm, "push rax\nmov rax, 1\npop rax");
+        assert!(rh.request_register(Register::RAX).is_ok());
     }
 }
