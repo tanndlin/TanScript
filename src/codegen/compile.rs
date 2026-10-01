@@ -96,9 +96,12 @@ impl Block {
             };
 
             let alloc = format!("sub rsp, {alloc_size}");
-            let dealloc = format!("add rsp, {alloc_size}");
+            instructions = format!("{alloc}\n{instructions}");
 
-            instructions = format!("{alloc}\n{instructions}\n{dealloc}");
+            // A trailing return already restores rsp, so a dealloc after it is unreachable
+            if !instructions.ends_with("ret") {
+                instructions = format!("{instructions}\nadd rsp, {alloc_size}");
+            }
         }
 
         Ok(instructions
@@ -549,6 +552,16 @@ mod test {
         let asm = compile("def f(a) { let b = 1; a + b } f(1);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
+    }
+
+    #[test]
+    fn compile_function_with_locals_has_single_ret() {
+        let asm = compile("def f(a) { let b = 1; a + b } f(1);");
+        assert_eq!(
+            asm.lines().filter(|l| l.trim() == "ret").count(),
+            1,
+            "{asm}"
+        );
     }
 
     #[test]
