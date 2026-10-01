@@ -62,6 +62,13 @@ impl Lexer {
                         line_number,
                     ));
                 }
+                ':' => {
+                    chars.pop();
+                    tokens.push(LexerToken::new(
+                        Token::Atom(LexerAtomType::Colon),
+                        line_number,
+                    ));
+                }
                 _ => {
                     return Err(format!(
                         "Lexer: Unknown character: {cur} on line: {line_number}"
@@ -101,6 +108,7 @@ impl Lexer {
                 LexerAtomType::Number(n) => n.to_string(),
                 LexerAtomType::Identifier(s) | LexerAtomType::String(s) => s.clone(),
                 LexerAtomType::Semicolon => ";".to_string(),
+                LexerAtomType::Colon => ":".to_string(),
             },
             Token::Op(cur) => cur.to_string(),
         };

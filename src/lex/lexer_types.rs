@@ -8,6 +8,7 @@ pub enum LexerAtomType {
     Identifier(String),
     String(String),
     Semicolon,
+    Colon,
 }
 
 impl fmt::Display for LexerAtomType {
@@ -17,6 +18,7 @@ impl fmt::Display for LexerAtomType {
             LexerAtomType::Identifier(s) => write!(f, "{s}"),
             LexerAtomType::String(s) => write!(f, "\"{s}\""),
             LexerAtomType::Semicolon => write!(f, ";"),
+            LexerAtomType::Colon => write!(f, ":"),
         }
     }
 }

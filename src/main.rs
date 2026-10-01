@@ -4,6 +4,7 @@ mod ast;
 mod codegen;
 mod lex;
 mod parser;
+mod type_check;
 mod types;
 
 use crate::parser::parse;

@@ -3,12 +3,13 @@ use std::fmt;
 use crate::{
     ast::{Block, Statement},
     codegen::{Address, CompileScope, Register, RegisterHandler, SymbolTable},
+    type_check::Type,
 };
 
 #[derive(Debug, Clone)]
 pub struct FunctionDefinition {
     pub name: String,
-    pub args: Vec<String>,
+    pub args: Vec<Arg>,
     pub body: Block,
 }
 
@@ -34,7 +35,7 @@ impl FunctionDefinition {
             }
 
             // Update its location in the scope
-            scope.add_variable(arg.clone(), Some(new_address))?;
+            scope.add_variable(arg.name.clone(), Some(new_address))?;
             // This is not a variable that needs to be deallocated later
             scope.num_variables -= 1;
         }
@@ -78,8 +79,27 @@ impl fmt::Display for FunctionDefinition {
             f,
             "def {}({}) {{{}}}",
             self.name,
-            self.args.join(", "),
+            self.args
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", "),
             self.body
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Arg {
+    pub name: String,
+    pub atype: Option<Type>,
+}
+
+impl fmt::Display for Arg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.atype {
+            Some(t) => write!(f, "{}: {t}", self.name),
+            None => write!(f, "{}", self.name),
+        }
     }
 }

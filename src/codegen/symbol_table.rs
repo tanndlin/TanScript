@@ -47,7 +47,10 @@ impl Expression {
                 }
             }
             Expression::Atom(atom_type) => match atom_type {
-                AtomType::Identifier(_) | AtomType::Number(_) | AtomType::String(_) => {}
+                AtomType::Identifier(_)
+                | AtomType::Number(_)
+                | AtomType::String(_)
+                | AtomType::Colon => {}
             },
             Expression::Binary(_, left, right) => {
                 left.discover(symbols);

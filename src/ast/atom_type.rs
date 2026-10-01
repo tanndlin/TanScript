@@ -7,6 +7,7 @@ pub enum AtomType {
     Number(i32),
     Identifier(String),
     String(String),
+    Colon,
 }
 
 impl AtomType {
@@ -16,6 +17,7 @@ impl AtomType {
             LexerAtomType::Identifier(s) => AtomType::Identifier(s.clone()),
             LexerAtomType::String(s) => AtomType::String(s.clone()),
             LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
+            LexerAtomType::Colon => AtomType::Colon,
         }
     }
 }
@@ -26,6 +28,7 @@ impl fmt::Display for AtomType {
             AtomType::Number(n) => write!(f, "{n}"),
             AtomType::Identifier(c) => write!(f, "{c}"),
             AtomType::String(s) => write!(f, "{s}"),
+            AtomType::Colon => write!(f, ":"),
         }
     }
 }

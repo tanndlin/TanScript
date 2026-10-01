@@ -3,11 +3,13 @@ use std::fmt;
 use crate::{
     ast::{Assignment, AtomType, Expression, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
+    type_check::Type,
 };
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub assign: Assignment,
+    pub dtype: Option<Type>,
 }
 
 impl Statement for Declaration {

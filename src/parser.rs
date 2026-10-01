@@ -1,10 +1,13 @@
+use std::str::FromStr;
+
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression, ForLoop,
+        Arg, AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression, ForLoop,
         FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program, ReturnStatement,
         Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
     lex::{Lexer, LexerAtomType},
+    type_check::Type,
     types::Token,
 };
 
@@ -80,7 +83,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Box<dyn Statement>>, Stri
                 LexerAtomType::Semicolon => {
                     panic!("Hanging semicolon got left over")
                 }
-                LexerAtomType::Number(_) | LexerAtomType::String(_) => None,
+                LexerAtomType::Number(_) | LexerAtomType::String(_) | LexerAtomType::Colon => None,
             },
         }),
     }
@@ -162,20 +165,46 @@ fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
 fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
     lexer.expect("let")?;
 
-    if let Some(tok) = lexer.peek_next()
-        && tok.token_type != Token::Op(OperatorType::Assign)
-    {
+    let tok = lexer
+        .next()
+        .ok_or("Expected identifier in declaration, got EOF")?;
+    let Token::Atom(LexerAtomType::Identifier(ident)) = tok.token_type else {
+        return Err(format!("Expected identifier in declaration, got {tok}"));
+    };
+
+    let dtype = parse_type_annotation(lexer)?;
+
+    // Only a plain `=` is allowed; compound assigns need an existing value
+    let tok = lexer.next().ok_or("Expected = in declaration, got EOF")?;
+    if tok.token_type != Token::Op(OperatorType::Assign) {
         return Err(format!("Expected = in declaration, got {tok}"));
     }
 
     Ok(Declaration {
-        assign: parse_assignment(lexer)?,
+        assign: Assignment {
+            lhs: Expression::Atom(AtomType::Identifier(ident)),
+            expression: parse_expression(lexer, 0)?,
+        },
+        dtype,
     })
 }
 
-fn parse_assignment(lexer: &mut Lexer) -> Result<Assignment, String> {
-    let lhs = parse_expression(lexer, 0)?;
-    parse_assignment_with_lhs(lexer, lhs)
+/// Parses an optional `: type` annotation
+fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, String> {
+    if let Some(Token::Atom(LexerAtomType::Colon)) = lexer.peek().map(|tok| &tok.token_type) {
+        lexer.next();
+        Ok(Some(parse_type(lexer)?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn parse_type(lexer: &mut Lexer) -> Result<Type, String> {
+    let tok = lexer.next().ok_or("Expected type identifier, got EOF")?;
+    let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
+        return Err(format!("Expected type identifier, got {tok}"));
+    };
+    Type::from_str(&type_name)
 }
 
 fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assignment, String> {
@@ -330,31 +359,27 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, St
     let mut args = vec![];
 
     loop {
-        let next_arg = lexer
-            .peek()
+        let tok = lexer
+            .next()
             .ok_or("Ran out of tokens parsing function definition")?;
+        let name = match tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(name)) => name,
+            Token::Op(OperatorType::CloseParen) => break,
+            _ => return Err(format!("Expected argument name or ), got {tok}")),
+        };
 
-        match &next_arg.token_type {
-            Token::Atom(LexerAtomType::Identifier(arg_name)) => {
-                args.push(arg_name.clone());
-                lexer.next();
+        args.push(Arg {
+            name,
+            atype: parse_type_annotation(lexer)?,
+        });
 
-                match lexer.next() {
-                    Some(tok) => match tok.token_type {
-                        Token::Op(OperatorType::Comma) => {}
-                        Token::Op(OperatorType::CloseParen) => break,
-                        _ => return Err(format!("Unexpected token: {tok}")),
-                    },
-                    None => return Err("Ran out of tokens parsing function definition".to_string()),
-                }
-            }
-
-            Token::Op(OperatorType::CloseParen) => {
-                lexer.next();
-                break;
-            }
-
-            _ => return Err(format!("Unexpected token: {next_arg}")),
+        let tok = lexer
+            .next()
+            .ok_or("Ran out of tokens parsing function definition")?;
+        match tok.token_type {
+            Token::Op(OperatorType::Comma) => {}
+            Token::Op(OperatorType::CloseParen) => break,
+            _ => return Err(format!("Expected , or ) after argument, got {tok}")),
         }
     }
 

@@ -148,6 +148,7 @@ impl Expression {
                     compile_variable(compile_scope, register_handler, name, dst)
                 }
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
+                AtomType::Colon => panic!("Unexpected colon"),
             },
             Expression::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)

@@ -20,7 +20,7 @@ pub use block::Block;
 pub use declaration::Declaration;
 pub use expression::Expression;
 pub use for_loop::ForLoop;
-pub use function_definition::FunctionDefinition;
+pub use function_definition::{Arg, FunctionDefinition};
 pub use if_statement::IfStatement;
 pub use operator_type::{OPERATORS, OperatorType};
 pub use operators::{AssignOp, BinaryOp, PostfixOp, UnaryOp};
