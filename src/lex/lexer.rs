@@ -1,6 +1,7 @@
 use crate::{
     ast::{OPERATORS, OperatorType},
-    types::{LexerAtomType, LexerToken, Token},
+    lex::{LexerAtomType, LexerToken},
+    types::Token,
 };
 
 #[derive(Debug)]
@@ -195,8 +196,8 @@ fn get_operator(chars: &mut Vec<char>) -> Option<OperatorType> {
 mod test {
     use crate::{
         ast::OperatorType,
-        lexer::Lexer,
-        types::{LexerAtomType, Token},
+        lex::{Lexer, LexerAtomType},
+        types::Token,
     };
 
     macro_rules! token_eq {

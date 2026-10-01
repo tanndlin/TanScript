@@ -1,25 +1,6 @@
 use std::fmt::{self};
 
-use crate::ast::OperatorType;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LexerAtomType {
-    Number(i32),
-    Identifier(String),
-    String(String),
-    Semicolon,
-}
-
-impl fmt::Display for LexerAtomType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LexerAtomType::Number(n) => write!(f, "{n}"),
-            LexerAtomType::Identifier(s) => write!(f, "{s}"),
-            LexerAtomType::String(s) => write!(f, "\"{s}\""),
-            LexerAtomType::Semicolon => write!(f, ";"),
-        }
-    }
-}
+use crate::{ast::OperatorType, lex::LexerAtomType};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -33,26 +14,5 @@ impl fmt::Display for Token {
             Token::Atom(lexer_atom_type) => write!(f, "{lexer_atom_type}"),
             Token::Op(c) => write!(f, "{c}"),
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct LexerToken {
-    pub token_type: Token,
-    pub line_number: u32,
-}
-
-impl LexerToken {
-    pub fn new(token_type: Token, line_number: u32) -> LexerToken {
-        LexerToken {
-            token_type,
-            line_number,
-        }
-    }
-}
-
-impl fmt::Display for LexerToken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} on line {}", self.token_type, self.line_number)
     }
 }

@@ -4,8 +4,8 @@ use crate::{
         FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program, ReturnStatement,
         Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
-    lexer::Lexer,
-    types::{LexerAtomType, Token},
+    lex::{Lexer, LexerAtomType},
+    types::Token,
 };
 
 pub fn parse(input: &str) -> Result<Program, String> {
@@ -431,7 +431,7 @@ fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, String> {
 #[cfg(test)]
 mod test {
     use crate::{
-        lexer::Lexer,
+        lex::Lexer,
         parser::{parse, parse_expression},
     };
 

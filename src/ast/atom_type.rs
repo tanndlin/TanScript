@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::types::LexerAtomType;
+use crate::lex::LexerAtomType;
 
 #[derive(Debug, Clone)]
 pub enum AtomType {
