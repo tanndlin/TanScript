@@ -9,7 +9,14 @@ mod types;
 
 use crate::{parser::parse, type_check::check_types};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let file: PathBuf = args()
         .nth(1)
         .expect("Expected .tan file as positional arg")

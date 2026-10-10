@@ -2,7 +2,6 @@ use std::{error::Error, fmt};
 
 use crate::{lex::Span, type_check::Type};
 
-#[derive(Debug)]
 pub enum TypeCheckError {
     TypeMismatch {
         expected: Type,
@@ -20,6 +19,12 @@ impl fmt::Display for TypeCheckError {
                 span,
             } => write!(f, "Type mismatch at {span}: expected {expected}, got {got}"),
         }
+    }
+}
+
+impl fmt::Debug for TypeCheckError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
