@@ -1,10 +1,12 @@
 mod check_types;
 mod infer_type;
 mod type_check_error;
+mod type_scope;
 
 pub use check_types::check_types;
 pub use infer_type::infer_type_from_expression;
 pub use type_check_error::TypeCheckError;
+pub use type_scope::TypeScope;
 
 use core::fmt;
 use std::str::FromStr;
@@ -54,7 +56,7 @@ impl From<&AtomType> for Type {
             AtomType::Number(NumberType::I64(_)) => Type::I64,
             AtomType::Number(NumberType::U64(_)) => Type::U64,
             AtomType::Number(NumberType::Coercible(_)) => Type::CoercibleNumber,
-            AtomType::Identifier(_) => todo!(),
+            AtomType::Identifier(_) => unreachable!(),
             AtomType::String(_) => todo!(), // Type::String,
             AtomType::Colon => panic!("Colon as rhs for expression in type check"),
         }

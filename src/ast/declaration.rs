@@ -4,7 +4,7 @@ use crate::{
     ast::{Assignment, AtomType, ExpressionKind, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     lex::Span,
-    type_check::{Type, TypeCheckError, infer_type_from_expression},
+    type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression},
 };
 
 #[derive(Debug, Clone)]
@@ -35,21 +35,27 @@ impl Statement for Declaration {
         self.assign.discover(symbols);
     }
 
-    fn check_types(&self) -> Result<(), TypeCheckError> {
+    fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
+            panic!("Declaration LHS can only be a identifier");
+        };
+
+        let got = infer_type_from_expression(&self.assign.expression, type_scope);
         let Some(dtype) = &self.dtype else {
+            type_scope.insert(ident.clone(), got);
             return Ok(());
         };
 
-        let got = infer_type_from_expression(&self.assign.expression);
-        if got == Type::CoercibleNumber || got == *dtype {
-            Ok(())
-        } else {
-            Err(TypeCheckError::TypeMismatch {
+        if got != Type::CoercibleNumber && got != *dtype {
+            return Err(TypeCheckError::TypeMismatch {
                 expected: dtype.clone(),
                 got,
                 span: self.assign.expression.span,
-            })
+            });
         }
+
+        type_scope.insert(ident.clone(), dtype.clone());
+        Ok(())
     }
 }
 

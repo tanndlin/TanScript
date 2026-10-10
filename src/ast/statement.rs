@@ -1,11 +1,11 @@
-use std::fmt;
+use std::{any::Any, fmt};
 
 use crate::{
     codegen::{CompileScope, RegisterHandler, SymbolTable},
-    type_check::TypeCheckError,
+    type_check::{TypeCheckError, TypeScope},
 };
 
-pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
+pub trait Statement: fmt::Display + fmt::Debug + StatementClone + AsAny {
     fn compile(
         &self,
         compile_scope: &mut CompileScope,
@@ -19,8 +19,24 @@ pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
         true
     }
 
-    fn check_types(&self) -> Result<(), TypeCheckError> {
+    fn check_types(&self, _type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         Ok(())
+    }
+}
+
+impl dyn Statement {
+    pub fn downcast_ref<T: Statement + 'static>(&self) -> Option<&T> {
+        self.as_any().downcast_ref()
+    }
+}
+
+pub trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: Any> AsAny for T {
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
