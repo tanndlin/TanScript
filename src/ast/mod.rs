@@ -18,7 +18,7 @@ pub use assignment::Assignment;
 pub use atom_type::AtomType;
 pub use block::Block;
 pub use declaration::Declaration;
-pub use expression::Expression;
+pub use expression::{Expression, ExpressionKind};
 pub use for_loop::ForLoop;
 pub use function_definition::{Arg, FunctionDefinition};
 pub use if_statement::IfStatement;

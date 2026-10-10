@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{AtomType, Block, Expression, FunctionDefinition, StatementOrExpression};
+use crate::ast::{
+    AtomType, Block, Expression, ExpressionKind, FunctionDefinition, StatementOrExpression,
+};
 
 pub struct SymbolTable {
     pub functions: HashMap<String, FunctionDefinition>,
@@ -36,8 +38,8 @@ impl StatementOrExpression {
 
 impl Expression {
     pub fn discover(&self, symbols: &mut SymbolTable) {
-        match self {
-            Expression::FunctionCall(function_call, args) => {
+        match &self.kind {
+            ExpressionKind::FunctionCall(function_call, args) => {
                 if !symbols.functions.contains_key(function_call) {
                     symbols.externs.insert(function_call.clone());
                 }
@@ -46,19 +48,19 @@ impl Expression {
                     arg.discover(symbols);
                 }
             }
-            Expression::Atom(atom_type) => match atom_type {
+            ExpressionKind::Atom(atom_type) => match atom_type {
                 AtomType::Identifier(_)
                 | AtomType::Number(_)
                 | AtomType::String(_)
                 | AtomType::Colon => {}
             },
-            Expression::Binary(_, left, right) => {
+            ExpressionKind::Binary(_, left, right) => {
                 left.discover(symbols);
                 right.discover(symbols);
             }
-            Expression::Unary(_, child) => child.discover(symbols),
-            Expression::Postfix(_, _) => {}
-            Expression::Index(lhs, index) => {
+            ExpressionKind::Unary(_, child) => child.discover(symbols),
+            ExpressionKind::Postfix(_, _) => {}
+            ExpressionKind::Index(lhs, index) => {
                 lhs.discover(symbols);
                 index.discover(symbols);
             }

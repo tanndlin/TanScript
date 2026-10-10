@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{AtomType, Expression, Statement},
+    ast::{AtomType, Expression, ExpressionKind, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
 };
 
@@ -18,13 +18,13 @@ impl Assignment {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        match &self.lhs {
-            Expression::Atom(AtomType::Identifier(ident)) => {
+        match &self.lhs.kind {
+            ExpressionKind::Atom(AtomType::Identifier(ident)) => {
                 let address = compile_scope.get_variable(ident)?;
                 self.expression
                     .compile(compile_scope, address, register_handler)
             }
-            Expression::Index(lhs, index) => {
+            ExpressionKind::Index(lhs, index) => {
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
                     // let lhs = lhs.compile(compile_scope, ptr), register_handler);
                     let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes

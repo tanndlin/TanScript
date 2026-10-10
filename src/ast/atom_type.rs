@@ -1,10 +1,10 @@
 use std::fmt;
 
-use crate::lex::LexerAtomType;
+use crate::{lex::LexerAtomType, types::NumberType};
 
 #[derive(Debug, Clone)]
 pub enum AtomType {
-    Number(i32),
+    Number(NumberType),
     Identifier(String),
     String(String),
     Colon,

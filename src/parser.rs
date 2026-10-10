@@ -2,11 +2,11 @@ use std::str::FromStr;
 
 use crate::{
     ast::{
-        Arg, AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression, ForLoop,
-        FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program, ReturnStatement,
-        Statement, StatementOrExpression, UnaryOp, WhileLoop,
+        Arg, AssignOp, Assignment, AtomType, BinaryOp, Block, Declaration, Expression,
+        ExpressionKind, ForLoop, FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program,
+        ReturnStatement, Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
-    lex::{Lexer, LexerAtomType},
+    lex::{Lexer, LexerAtomType, Span},
     type_check::Type,
     types::Token,
 };
@@ -163,11 +163,13 @@ fn parse_block(lexer: &mut Lexer) -> Result<Block, String> {
 }
 
 fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
+    let span = lexer.peek().ok_or("Expected let, got EOF")?.span;
     lexer.expect("let")?;
 
     let tok = lexer
         .next()
         .ok_or("Expected identifier in declaration, got EOF")?;
+    let ident_span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(ident)) = tok.token_type else {
         return Err(format!("Expected identifier in declaration, got {tok}"));
     };
@@ -182,10 +184,14 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
 
     Ok(Declaration {
         assign: Assignment {
-            lhs: Expression::Atom(AtomType::Identifier(ident)),
+            lhs: Expression::new(
+                ExpressionKind::Atom(AtomType::Identifier(ident)),
+                ident_span,
+            ),
             expression: parse_expression(lexer, 0)?,
         },
         dtype,
+        span,
     })
 }
 
@@ -208,8 +214,8 @@ fn parse_type(lexer: &mut Lexer) -> Result<Type, String> {
 }
 
 fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assignment, String> {
-    match lhs {
-        Expression::Atom(AtomType::Identifier(_)) | Expression::Index(_, _) => {}
+    match lhs.kind {
+        ExpressionKind::Atom(AtomType::Identifier(_)) | ExpressionKind::Index(_, _) => {}
         _ => return Err(format!("Cannot assign to lhs: {lhs}")),
     }
 
@@ -224,7 +230,10 @@ fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assig
 
     let rhs = parse_expression(lexer, 0)?;
     let expression = match op {
-        AssignOp::Compound(op) => Expression::Binary(op, Box::new(lhs.clone()), Box::new(rhs)),
+        AssignOp::Compound(op) => Expression::new(
+            ExpressionKind::Binary(op, Box::new(lhs.clone()), Box::new(rhs)),
+            lhs.span,
+        ),
         AssignOp::Assign => rhs,
     };
 
@@ -235,18 +244,24 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
     let token = lexer.next().ok_or("Ran out of tokens")?;
 
     let mut lhs = match &token.token_type {
-        Token::Atom(LexerAtomType::Identifier(s)) => parse_identifier_or_function_call(lexer, s)?,
-        Token::Atom(it) => Expression::Atom(AtomType::from_lexer_atom(it)),
+        Token::Atom(LexerAtomType::Identifier(s)) => {
+            parse_identifier_or_function_call(lexer, s, token.span)?
+        }
+        Token::Atom(it) => Expression::new(
+            ExpressionKind::Atom(AtomType::from_lexer_atom(it)),
+            token.span,
+        ),
         Token::Op(OperatorType::OpenParen) => {
-            let lhs = parse_expression(lexer, 0)?;
+            let mut lhs = parse_expression(lexer, 0)?;
             lexer.expect(")")?;
+            lhs.span = token.span;
             lhs
         }
         Token::Op(op) => {
             let op = UnaryOp::from_token(op)
                 .ok_or_else(|| format!("Unexpected operator {token} at start of expression"))?;
             let rhs = parse_expression(lexer, UnaryOp::BINDING_POWER)?;
-            Expression::Unary(op, Box::new(rhs))
+            Expression::new(ExpressionKind::Unary(op, Box::new(rhs)), token.span)
         }
     };
 
@@ -264,7 +279,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             lexer.next();
             let index = parse_expression(lexer, 0)?;
             lexer.expect("]")?;
-            lhs = Expression::Index(Box::new(lhs), Box::new(index));
+            let span = lhs.span;
+            lhs = Expression::new(ExpressionKind::Index(Box::new(lhs), Box::new(index)), span);
             continue;
         }
 
@@ -273,8 +289,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
                 break;
             }
             let op_token = lexer.next().ok_or("Ran out of tokens")?;
-            let operand = match lhs {
-                Expression::Atom(AtomType::Identifier(_)) | Expression::Index(_, _) => lhs,
+            let operand = match lhs.kind {
+                ExpressionKind::Atom(AtomType::Identifier(_)) | ExpressionKind::Index(_, _) => lhs,
                 _ => {
                     return Err(format!(
                         "{op} can only be applied to a a valid lhs, got {lhs} at {op_token}"
@@ -282,7 +298,8 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
                 }
             };
 
-            lhs = Expression::Postfix(op, Box::new(operand));
+            let span = operand.span;
+            lhs = Expression::new(ExpressionKind::Postfix(op, Box::new(operand)), span);
             continue;
         }
 
@@ -293,7 +310,11 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
             }
             lexer.next();
             let rhs = parse_expression(lexer, r_bp)?;
-            lhs = Expression::Binary(op, Box::new(lhs), Box::new(rhs));
+            let span = lhs.span;
+            lhs = Expression::new(
+                ExpressionKind::Binary(op, Box::new(lhs), Box::new(rhs)),
+                span,
+            );
             continue;
         }
 
@@ -303,18 +324,28 @@ fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, String>
     Ok(lhs)
 }
 
-fn parse_identifier_or_function_call(lexer: &mut Lexer, s: &str) -> Result<Expression, String> {
+fn parse_identifier_or_function_call(
+    lexer: &mut Lexer,
+    s: &str,
+    span: Span,
+) -> Result<Expression, String> {
     Ok(if let Some(next) = lexer.peek() {
         match next.token_type {
-            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.to_string())?,
-            _ => Expression::Atom(AtomType::Identifier(s.to_string())),
+            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.to_string(), span)?,
+            _ => Expression::new(
+                ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
+                span,
+            ),
         }
     } else {
-        Expression::Atom(AtomType::Identifier(s.to_string()))
+        Expression::new(
+            ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
+            span,
+        )
     })
 }
 
-fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, String> {
+fn parse_function_call(lexer: &mut Lexer, s: String, span: Span) -> Result<Expression, String> {
     lexer.expect("(")?;
 
     let mut args = vec![];
@@ -340,7 +371,7 @@ fn parse_function_call(lexer: &mut Lexer, s: String) -> Result<Expression, Strin
         }
     }
 
-    Ok(Expression::FunctionCall(s, args))
+    Ok(Expression::new(ExpressionKind::FunctionCall(s, args), span))
 }
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, String> {
@@ -456,6 +487,7 @@ fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, String> {
 #[cfg(test)]
 mod test {
     use crate::{
+        ast::ExpressionKind,
         lex::Lexer,
         parser::{parse, parse_expression},
     };
@@ -871,5 +903,27 @@ mod test {
     fn reject_unmatched_close_bracket() {
         assert!(parse("a];").is_err());
         assert!(parse("a[0]];").is_err());
+    }
+
+    #[test]
+    fn expression_spans() {
+        let mut lexer = Lexer::new(
+            "1 +
+  foo(-a, (b)[0])",
+        )
+        .unwrap();
+        let expr = parse_expression(&mut lexer, 0).unwrap();
+        assert_eq!((expr.span.line, expr.span.col), (0, 0));
+
+        let ExpressionKind::Binary(_, _, rhs) = &expr.kind else {
+            panic!("expected binary, got {expr}");
+        };
+        assert_eq!((rhs.span.line, rhs.span.col), (1, 2));
+
+        let ExpressionKind::FunctionCall(_, args) = &rhs.kind else {
+            panic!("expected function call, got {rhs}");
+        };
+        let spans: Vec<_> = args.iter().map(|a| (a.span.line, a.span.col)).collect();
+        assert_eq!(spans, vec![(1, 6), (1, 10)]);
     }
 }

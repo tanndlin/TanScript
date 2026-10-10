@@ -1,15 +1,17 @@
 use std::fmt;
 
 use crate::{
-    ast::{Assignment, AtomType, Expression, Statement},
+    ast::{Assignment, AtomType, ExpressionKind, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
-    type_check::Type,
+    lex::Span,
+    type_check::{Type, TypeCheckError, infer_type_from_expression},
 };
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub assign: Assignment,
     pub dtype: Option<Type>,
+    pub span: Span,
 }
 
 impl Statement for Declaration {
@@ -18,7 +20,7 @@ impl Statement for Declaration {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, String> {
-        let Expression::Atom(AtomType::Identifier(ident)) = &self.assign.lhs else {
+        let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
             return Err("Declaration LHS can only be a identifier".to_string());
         };
 
@@ -31,6 +33,23 @@ impl Statement for Declaration {
 
     fn discover(&self, symbols: &mut SymbolTable) {
         self.assign.discover(symbols);
+    }
+
+    fn check_types(&self) -> Result<(), TypeCheckError> {
+        let Some(dtype) = &self.dtype else {
+            return Ok(());
+        };
+
+        let got = infer_type_from_expression(&self.assign.expression);
+        if got == Type::CoercibleNumber || got == *dtype {
+            Ok(())
+        } else {
+            Err(TypeCheckError::TypeMismatch {
+                expected: dtype.clone(),
+                got,
+                span: self.assign.expression.span,
+            })
+        }
     }
 }
 

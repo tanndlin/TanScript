@@ -1,10 +1,10 @@
 use std::fmt;
 
-use crate::types::Token;
+use crate::types::{NumberType, Token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LexerAtomType {
-    Number(i32),
+    Number(NumberType),
     Identifier(String),
     String(String),
     Semicolon,
@@ -23,23 +23,38 @@ impl fmt::Display for LexerAtomType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Span {
+    pub line: u32,
+    pub col: u32,
+}
+
+impl Span {
+    pub fn new(line: u32, col: u32) -> Self {
+        Self { line, col }
+    }
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.col + 1)
+    }
+}
+
+#[derive(Debug)]
 pub struct LexerToken {
     pub token_type: Token,
-    pub line_number: u32,
+    pub span: Span,
 }
 
 impl LexerToken {
-    pub fn new(token_type: Token, line_number: u32) -> LexerToken {
-        LexerToken {
-            token_type,
-            line_number,
-        }
+    pub fn new(token_type: Token, span: Span) -> LexerToken {
+        LexerToken { token_type, span }
     }
 }
 
 impl fmt::Display for LexerToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} on line {}", self.token_type, self.line_number)
+        write!(f, "{} at line {}", self.token_type, self.span)
     }
 }

@@ -1,7 +1,7 @@
 use crate::{
     ast::{OPERATORS, OperatorType},
-    lex::{LexerAtomType, LexerToken},
-    types::Token,
+    lex::{LexerAtomType, LexerToken, Span},
+    types::{NumberType, Token},
 };
 
 #[derive(Debug)]
@@ -13,12 +13,14 @@ impl Lexer {
     pub fn new(input: &str) -> Result<Lexer, String> {
         let mut line_number = 0u32;
         let mut chars = input.chars().rev().collect::<Vec<char>>();
+        let mut line_start = chars.len();
 
         let mut tokens = vec![];
         while let Some(&cur) = chars.last() {
             if cur == '\n' {
                 line_number += 1;
                 chars.pop();
+                line_start = chars.len();
                 continue;
             }
 
@@ -27,10 +29,13 @@ impl Lexer {
                 continue;
             }
 
+            let col = u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX);
+            let span = Span::new(line_number, col);
+
             if cur.is_ascii_digit() {
                 tokens.push(LexerToken::new(
                     Token::Atom(LexerAtomType::Number(get_number(&mut chars))),
-                    line_number,
+                    span,
                 ));
                 continue;
             }
@@ -38,13 +43,13 @@ impl Lexer {
             if cur.is_alphabetic() || cur == '_' {
                 tokens.push(LexerToken::new(
                     Token::Atom(LexerAtomType::Identifier(get_identifier(&mut chars))),
-                    line_number,
+                    span,
                 ));
                 continue;
             }
 
             if let Some(op) = get_operator(&mut chars) {
-                tokens.push(LexerToken::new(Token::Op(op), line_number));
+                tokens.push(LexerToken::new(Token::Op(op), span));
                 continue;
             }
 
@@ -52,27 +57,19 @@ impl Lexer {
                 '"' => {
                     tokens.push(LexerToken::new(
                         Token::Atom(LexerAtomType::String(get_string(&mut chars)?)),
-                        line_number,
+                        span,
                     ));
                 }
                 ';' => {
                     chars.pop();
-                    tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::Semicolon),
-                        line_number,
-                    ));
+                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Semicolon), span));
                 }
                 ':' => {
                     chars.pop();
-                    tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::Colon),
-                        line_number,
-                    ));
+                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Colon), span));
                 }
                 _ => {
-                    return Err(format!(
-                        "Lexer: Unknown character: {cur} on line: {line_number}"
-                    ));
+                    return Err(format!("Lexer: Unknown character: {cur} at {span}"));
                 }
             }
         }
@@ -117,14 +114,14 @@ impl Lexer {
             Ok(())
         } else {
             Err(format!(
-                "Expected {}, got {} on line: {}",
-                expected, got, token.line_number
+                "Expected {}, got {} at {}",
+                expected, got, token.span
             ))
         }
     }
 }
 
-fn get_number(input: &mut Vec<char>) -> i32 {
+fn get_number(input: &mut Vec<char>) -> NumberType {
     let mut chars = vec![];
 
     while let Some(c) = input.last() {
@@ -135,11 +132,15 @@ fn get_number(input: &mut Vec<char>) -> i32 {
         chars.push(input.pop().unwrap());
     }
 
-    chars
+    let n = chars
         .into_iter()
         .collect::<String>()
-        .parse::<i32>()
-        .unwrap()
+        .parse::<i64>()
+        .unwrap();
+
+    // TODO: Parse as coercible for now, but may want to delegate out actual number type later
+    // if we want to support 0u32 type syntax
+    NumberType::Coercible(n)
 }
 
 fn get_identifier(input: &mut Vec<char>) -> String {
@@ -205,7 +206,7 @@ mod test {
     use crate::{
         ast::OperatorType,
         lex::{Lexer, LexerAtomType},
-        types::Token,
+        types::{NumberType, Token},
     };
 
     macro_rules! token_eq {
@@ -245,7 +246,10 @@ mod test {
     #[test]
     fn lex_number() {
         let mut lexer = Lexer::new("123").unwrap();
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(123)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(123)))
+        );
     }
 
     #[test]
@@ -300,7 +304,10 @@ mod test {
             Token::Atom(LexerAtomType::Identifier("a".to_string()))
         );
         token_eq!(lexer, Token::Op(OperatorType::Assign));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(1)))
+        );
     }
 
     #[test]
@@ -437,14 +444,20 @@ mod test {
             Token::Atom(LexerAtomType::Identifier("a".to_string()))
         );
         token_eq!(lexer, Token::Op(OperatorType::AddAssign));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(1)))
+        );
         token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
         token_eq!(
             lexer,
             Token::Atom(LexerAtomType::Identifier("b".to_string()))
         );
         token_eq!(lexer, Token::Op(OperatorType::SubAssign));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(2)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(2)))
+        );
         token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
     }
 
@@ -486,7 +499,10 @@ mod test {
         );
         token_eq!(lexer, Token::Op(OperatorType::SubAssign));
         token_eq!(lexer, Token::Op(OperatorType::Subtract));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(1)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(1)))
+        );
     }
 
     #[test]
@@ -545,15 +561,27 @@ mod test {
     #[test]
     fn lex_subtract_negative_needs_space() {
         let mut lexer = Lexer::new("5--3").unwrap();
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(5)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(5)))
+        );
         token_eq!(lexer, Token::Op(OperatorType::Decrement));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(3)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(3)))
+        );
 
         let mut lexer = Lexer::new("5 - -3").unwrap();
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(5)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(5)))
+        );
         token_eq!(lexer, Token::Op(OperatorType::Subtract));
         token_eq!(lexer, Token::Op(OperatorType::Subtract));
-        token_eq!(lexer, Token::Atom(LexerAtomType::Number(3)));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(3)))
+        );
     }
 
     #[test]
@@ -563,16 +591,42 @@ mod test {
 
     #[test]
     fn lex_number_in_whitespace() {
-        lex_token!("   \n\t  42  ", Token::Atom(LexerAtomType::Number(42)));
+        lex_token!(
+            "   \n\t  42  ",
+            Token::Atom(LexerAtomType::Number(NumberType::Coercible(42)))
+        );
     }
 
     #[test]
     fn lex_line_numbers() {
         let mut lexer = Lexer::new("a;\n\nb;\r\nc").unwrap();
         let lines: Vec<u32> = std::iter::from_fn(|| lexer.next())
-            .map(|token| token.line_number)
+            .map(|token| token.span.line)
             .collect();
         assert_eq!(lines, vec![0, 0, 2, 2, 3]);
+    }
+
+    #[test]
+    fn lex_columns() {
+        let mut lexer = Lexer::new("let x = 10;\n  foo(\"hi\");").unwrap();
+        let spans: Vec<(u32, u32)> = std::iter::from_fn(|| lexer.next())
+            .map(|token| (token.span.line, token.span.col))
+            .collect();
+        assert_eq!(
+            spans,
+            vec![
+                (0, 0),
+                (0, 4),
+                (0, 6),
+                (0, 8),
+                (0, 10),
+                (1, 2),
+                (1, 5),
+                (1, 6),
+                (1, 10),
+                (1, 11),
+            ]
+        );
     }
 
     #[test]

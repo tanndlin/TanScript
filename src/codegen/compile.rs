@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        Assignment, AtomType, BinaryOp, Block, Expression, PostfixOp, Program,
+        Assignment, AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
         StatementOrExpression::{self},
         UnaryOp,
     },
@@ -10,6 +10,7 @@ use crate::{
         register_handler::RegisterHandler,
         symbol_table::SymbolTable,
     },
+    types::NumberType,
 };
 
 impl Program {
@@ -141,8 +142,8 @@ impl Expression {
     ) -> Result<String, String> {
         let dst = dst.into();
 
-        match self {
-            Expression::Atom(a) => match a {
+        match &self.kind {
+            ExpressionKind::Atom(a) => match a {
                 AtomType::Number(n) => Ok(compile_number(*n, dst)),
                 AtomType::Identifier(name) => {
                     compile_variable(compile_scope, register_handler, name, dst)
@@ -150,19 +151,19 @@ impl Expression {
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
                 AtomType::Colon => panic!("Unexpected colon"),
             },
-            Expression::Binary(op, left, right) => {
+            ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)
             }
-            Expression::Unary(op, child) => {
+            ExpressionKind::Unary(op, child) => {
                 compile_unary(*op, child, compile_scope, dst, register_handler)
             }
-            Expression::Postfix(op, lhs) => {
+            ExpressionKind::Postfix(op, lhs) => {
                 compile_postfix(*op, lhs, compile_scope, dst, register_handler)
             }
-            Expression::FunctionCall(name, args) => {
+            ExpressionKind::FunctionCall(name, args) => {
                 compile_function_call(compile_scope, register_handler, name, args, dst)
             }
-            Expression::Index(lhs, index) => {
+            ExpressionKind::Index(lhs, index) => {
                 compile_index(compile_scope, register_handler, dst, lhs, index)
             }
         }
@@ -277,8 +278,13 @@ fn compile_index(
     })
 }
 
-fn compile_number(n: i32, dst: Address) -> String {
-    format!("mov QWORD {dst}, {n}")
+fn compile_number(n: NumberType, dst: Address) -> String {
+    match n {
+        NumberType::I32(n) => format!("mov  {dst}, {n}"),
+        NumberType::U32(n) => format!("mov  {dst}, {n}"),
+        NumberType::U64(n) => format!("mov QWORD {dst}, {n}"),
+        NumberType::I64(n) | NumberType::Coercible(n) => format!("mov QWORD {dst}, {n}"),
+    }
 }
 
 fn compile_variable(
@@ -406,10 +412,16 @@ fn compile_postfix(
     let old_value = lhs.compile(compile_scope, dst, register_handler)?;
     let update = Assignment {
         lhs: lhs.clone(),
-        expression: Expression::Binary(
-            op.arithmetic(),
-            Box::new(lhs.clone()),
-            Box::new(Expression::Atom(AtomType::Number(1))),
+        expression: Expression::new(
+            ExpressionKind::Binary(
+                op.arithmetic(),
+                Box::new(lhs.clone()),
+                Box::new(Expression::new(
+                    ExpressionKind::Atom(AtomType::Number(NumberType::I32(1))),
+                    lhs.span,
+                )),
+            ),
+            lhs.span,
         ),
     }
     .compile_uncommented(compile_scope, register_handler)?;

@@ -1,4 +1,4 @@
-use std::fmt::{self};
+use std::fmt::{self, Display};
 
 use crate::{ast::OperatorType, lex::LexerAtomType};
 
@@ -13,6 +13,26 @@ impl fmt::Display for Token {
         match self {
             Token::Atom(lexer_atom_type) => write!(f, "{lexer_atom_type}"),
             Token::Op(c) => write!(f, "{c}"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum NumberType {
+    I32(i32),
+    I64(i64),
+    U32(u32),
+    U64(u64),
+    Coercible(i64),
+}
+
+impl Display for NumberType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NumberType::I32(n) => write!(f, "{n}"),
+            NumberType::U32(n) => write!(f, "{n}"),
+            NumberType::U64(n) => write!(f, "{n}"),
+            NumberType::I64(n) | NumberType::Coercible(n) => write!(f, "{n}"),
         }
     }
 }

@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::codegen::{CompileScope, RegisterHandler, SymbolTable};
+use crate::{
+    codegen::{CompileScope, RegisterHandler, SymbolTable},
+    type_check::TypeCheckError,
+};
 
 pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
     fn compile(
@@ -14,6 +17,10 @@ pub trait Statement: fmt::Display + fmt::Debug + StatementClone {
     // Block statements (while, if, def) are not terminated by a semicolon
     fn requires_semicolon(&self) -> bool {
         true
+    }
+
+    fn check_types(&self) -> Result<(), TypeCheckError> {
+        Ok(())
     }
 }
 

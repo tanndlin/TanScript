@@ -1,9 +1,30 @@
 use std::fmt;
 
-use crate::ast::{AtomType, BinaryOp, PostfixOp, UnaryOp};
+use crate::{
+    ast::{AtomType, BinaryOp, PostfixOp, UnaryOp},
+    lex::Span,
+};
 
 #[derive(Debug, Clone)]
-pub enum Expression {
+pub struct Expression {
+    pub kind: ExpressionKind,
+    pub span: Span,
+}
+
+impl Expression {
+    pub fn new(kind: ExpressionKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ExpressionKind {
     Atom(AtomType),
     Binary(BinaryOp, Box<Expression>, Box<Expression>),
     Unary(UnaryOp, Box<Expression>),
@@ -12,14 +33,14 @@ pub enum Expression {
     Index(Box<Expression>, Box<Expression>),
 }
 
-impl fmt::Display for Expression {
+impl fmt::Display for ExpressionKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expression::Atom(i) => write!(f, "{i}"),
-            Expression::Binary(op, left, right) => write!(f, "({op} {left} {right})"),
-            Expression::Unary(op, child) => write!(f, "({op} {child})"),
-            Expression::Postfix(op, identifier) => write!(f, "({op} {identifier})"),
-            Expression::FunctionCall(name, expressions) => write!(
+            ExpressionKind::Atom(i) => write!(f, "{i}"),
+            ExpressionKind::Binary(op, left, right) => write!(f, "({op} {left} {right})"),
+            ExpressionKind::Unary(op, child) => write!(f, "({op} {child})"),
+            ExpressionKind::Postfix(op, identifier) => write!(f, "({op} {identifier})"),
+            ExpressionKind::FunctionCall(name, expressions) => write!(
                 f,
                 "{}({})",
                 name,
@@ -29,7 +50,7 @@ impl fmt::Display for Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            Expression::Index(lhs, index) => write!(f, "({lhs}[{index}])"),
+            ExpressionKind::Index(lhs, index) => write!(f, "({lhs}[{index}])"),
         }
     }
 }

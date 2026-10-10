@@ -7,7 +7,7 @@ mod parser;
 mod type_check;
 mod types;
 
-use crate::parser::parse;
+use crate::{parser::parse, type_check::check_types};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file: PathBuf = args()
@@ -17,6 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file_as_string = fs::read_to_string(&file)?;
 
     let ast = parse(&file_as_string)?;
+    check_types(&ast)?;
+
     println!("{ast}");
     let code = ast.compile()?;
 
