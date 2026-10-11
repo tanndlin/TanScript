@@ -21,6 +21,7 @@ pub enum Type {
     U64,
     CoercibleNumber,
     Function(Vec<Type>), // Types of args
+    Unknown,
 }
 
 impl FromStr for Type {
@@ -46,6 +47,7 @@ impl fmt::Display for Type {
             Type::U64 => write!(f, "u64"),
             Type::CoercibleNumber => write!(f, "CoercibleNumber"),
             Type::Function(_) => write!(f, "fn"),
+            Type::Unknown => write!(f, "Unknown"),
         }
     }
 }

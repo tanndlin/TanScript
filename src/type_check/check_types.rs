@@ -19,25 +19,28 @@ pub fn check_types_expression(
         ExpressionKind::Unary(unary_op, expression) => todo!(),
         ExpressionKind::Postfix(postfix_op, expression) => todo!(),
         ExpressionKind::FunctionCall(function_name, given_args) => {
-            let Type::Function(expected_args) = type_scope.lookup(function_name)? else {
-                return Err(TypeCheckError::NotCallableIdentifer(function_name.clone()));
-            };
-
-            given_args
-                .iter()
-                .zip(expected_args.clone())
-                .try_for_each(|(given, expected)| {
-                    let infered_type = infer_type_from_expression(given, type_scope);
-                    if infered_type == expected {
-                        Ok(())
-                    } else {
-                        Err(TypeCheckError::TypeMismatch {
-                            expected,
-                            got: infered_type,
-                            span: expression.span,
-                        })
-                    }
-                })
+            match type_scope.lookup(function_name) {
+                Ok(Type::Function(expected_args)) => given_args
+                    .iter()
+                    .zip(expected_args.clone())
+                    .try_for_each(|(given, expected)| {
+                        let infered_type = infer_type_from_expression(given, type_scope);
+                        if infered_type == expected {
+                            Ok(())
+                        } else {
+                            Err(TypeCheckError::TypeMismatch {
+                                expected,
+                                got: infered_type,
+                                span: expression.span,
+                            })
+                        }
+                    }),
+                Ok(_) => Err(TypeCheckError::NotCallableIdentifer(function_name.clone())),
+                Err(_) => {
+                    // Treat the function as an unknown extern
+                    Ok(())
+                }
+            }
         }
         ExpressionKind::Index(expression, expression1) => todo!(),
     }
