@@ -6,7 +6,7 @@ use crate::{
     type_check::{
         FunctionType,
         Type::{self, Function},
-        TypeCheckError, TypeScope, check_types,
+        TypeCheckError, TypeScope,
     },
 };
 
@@ -15,6 +15,7 @@ pub struct FunctionDefinition {
     pub name: String,
     pub args: Vec<Arg>,
     pub body: Block,
+    pub return_type: Type,
 }
 
 impl FunctionDefinition {
@@ -81,7 +82,7 @@ impl Statement for FunctionDefinition {
             self.name.clone(),
             Function(Box::new(FunctionType {
                 args: self.args.iter().map(|a| a.atype.clone()).collect(),
-                return_type: Type::Unknown,
+                return_type: self.return_type.clone(),
             })),
         );
 
@@ -91,15 +92,20 @@ impl Statement for FunctionDefinition {
 
 impl fmt::Display for FunctionDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let return_type = match &self.return_type {
+            Type::Unknown => String::new(),
+            t => format!(": {t}"),
+        };
         write!(
             f,
-            "def {}({}) {{{}}}",
+            "def {}({}){} {{{}}}",
             self.name,
             self.args
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(", "),
+            return_type,
             self.body
         )
     }

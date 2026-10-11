@@ -415,9 +415,15 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, St
         }
     }
 
+    let return_type = parse_type_annotation(lexer)?.unwrap_or(Type::Unknown);
     let body = parse_function_body(lexer)?;
 
-    Ok(FunctionDefinition { name, args, body })
+    Ok(FunctionDefinition {
+        name,
+        args,
+        body,
+        return_type,
+    })
 }
 
 fn parse_function_body(lexer: &mut Lexer) -> Result<Block, String> {
@@ -764,6 +770,19 @@ mod test {
             "def add(a: i32, b: i32) { return a + b; }",
             "def add(a: i32, b: i32) {return (+ a b)}"
         );
+    }
+
+    #[test]
+    fn parse_function_definition_with_return_type() {
+        integration_test!(
+            "def add(a: i32, b: i32): i32 { return a + b; }",
+            "def add(a: i32, b: i32): i32 {return (+ a b)}"
+        );
+    }
+
+    #[test]
+    fn parse_function_definition_no_args_with_return_type() {
+        integration_test!("def one(): u64 { 1 }", "def one(): u64 {return 1}");
     }
 
     #[test]

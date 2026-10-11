@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomType, BinaryOp, Expression, ExpressionKind},
+    ast::{AtomType, Expression, ExpressionKind},
     type_check::{Type, TypeCheckError, TypeScope},
 };
 
@@ -66,7 +66,10 @@ pub fn infer_type_from_expression(
         }
         ExpressionKind::Unary(unary_op, expression) => todo!(),
         ExpressionKind::Postfix(postfix_op, expression) => todo!(),
-        ExpressionKind::FunctionCall(_, expressions) => todo!(),
+        ExpressionKind::FunctionCall(name, _) => match type_scope.lookup(name)? {
+            Type::Function(f) => f.return_type.clone(),
+            t => t.clone(),
+        },
         ExpressionKind::Index(expression, expression1) => todo!(),
     })
 }
@@ -74,10 +77,25 @@ pub fn infer_type_from_expression(
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::{Expression, StatementOrExpression},
+        ast::StatementOrExpression,
         parser::parse,
-        type_check::{Type, TypeScope, infer_type_from_expression},
+        type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression},
     };
+
+    fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
+        let program = parse(code).unwrap();
+        let mut type_scope = TypeScope::default();
+        let (last, rest) = program.block.children.split_last().unwrap();
+        for child in rest {
+            if let StatementOrExpression::Statement(statement) = child {
+                statement.check_types(&mut type_scope).unwrap();
+            }
+        }
+        let StatementOrExpression::Expression(expression) = last else {
+            panic!("expected an expression");
+        };
+        infer_type_from_expression(expression, &mut type_scope)
+    }
 
     #[test]
     fn infers_type_from_literal() {
@@ -124,5 +142,80 @@ mod test {
             infer_type_from_expression(expr, &mut type_scope).unwrap(),
             Type::CoercibleNumber
         );
+    }
+
+    #[test]
+    fn infers_type_from_untyped_variable() {
+        assert_eq!(infer_last("let a = 1; a;").unwrap(), Type::CoercibleNumber);
+    }
+
+    #[test]
+    fn infers_type_from_typed_variable_plus_literal() {
+        assert_eq!(infer_last("let a: i32 = 1; a + 2;").unwrap(), Type::I32);
+    }
+
+    #[test]
+    fn infers_type_from_literal_plus_typed_variable() {
+        assert_eq!(infer_last("let a: u64 = 1; 2 + a;").unwrap(), Type::U64);
+    }
+
+    #[test]
+    fn infers_type_from_same_typed_variables() {
+        assert_eq!(
+            infer_last("let a: i64 = 1; let b: i64 = 2; a + b;").unwrap(),
+            Type::I64
+        );
+    }
+
+    #[test]
+    fn infers_type_from_nested_binary_ops() {
+        assert_eq!(
+            infer_last("let a: u32 = 1; let b: u32 = 2; a + b * 3;").unwrap(),
+            Type::U32
+        );
+    }
+
+    #[test]
+    fn type_error_for_mismatched_variables() {
+        let result = infer_last("let a: u32 = 1; let b: i32 = 2; a + b;");
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_mismatched_nested_binary_ops() {
+        let result = infer_last("let a: u32 = 1; let b: i64 = 2; (a + 1) * (b + 2);");
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn infers_type_from_function_call() {
+        assert_eq!(
+            infer_last("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap(),
+            Type::U32
+        );
+    }
+
+    #[test]
+    fn infers_type_from_function_call_plus_variable() {
+        assert_eq!(
+            infer_last("def add (a: u32, b: u32): u32 {a + b} let c: u32 = 3; add(1, 2) + c;").unwrap(),
+            Type::U32
+        );
+    }
+
+    #[test]
+    fn infers_type_from_unary_op() {
+        assert_eq!(infer_last("let a: i32 = 1; -a;").unwrap(), Type::I32);
+    }
+
+    #[test]
+    fn infers_type_from_postfix_op() {
+        assert_eq!(infer_last("let a: i32 = 1; a++;").unwrap(), Type::I32);
     }
 }
