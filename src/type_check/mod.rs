@@ -3,7 +3,7 @@ mod infer_type;
 mod type_check_error;
 mod type_scope;
 
-pub use check_types::check_types;
+pub use check_types::{check_types, check_types_expression};
 pub use infer_type::infer_type_from_expression;
 pub use type_check_error::TypeCheckError;
 pub use type_scope::TypeScope;
@@ -20,6 +20,7 @@ pub enum Type {
     U32,
     U64,
     CoercibleNumber,
+    Function(Vec<Type>), // Types of args
 }
 
 impl FromStr for Type {
@@ -44,6 +45,7 @@ impl fmt::Display for Type {
             Type::U32 => write!(f, "u32"),
             Type::U64 => write!(f, "u64"),
             Type::CoercibleNumber => write!(f, "CoercibleNumber"),
+            Type::Function(_) => write!(f, "fn"),
         }
     }
 }

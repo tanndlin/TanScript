@@ -3,7 +3,10 @@ use std::fmt;
 use crate::{
     ast::{Block, Statement},
     codegen::{Address, CompileScope, Register, RegisterHandler, SymbolTable},
-    type_check::Type,
+    type_check::{
+        Type::{self, Function},
+        TypeCheckError, TypeScope, check_types,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -70,6 +73,15 @@ impl Statement for FunctionDefinition {
 
     fn requires_semicolon(&self) -> bool {
         false
+    }
+
+    fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        type_scope.insert(
+            self.name.clone(),
+            Function(self.args.iter().map(|a| a.atype.clone()).collect()),
+        );
+
+        self.body.check_types(type_scope)
     }
 }
 

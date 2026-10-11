@@ -8,6 +8,8 @@ pub enum TypeCheckError {
         got: Type,
         span: Span,
     },
+    NotCallableIdentifer(String),
+    IdentifierNotFound(String),
 }
 
 impl fmt::Display for TypeCheckError {
@@ -17,7 +19,16 @@ impl fmt::Display for TypeCheckError {
                 expected,
                 got,
                 span,
-            } => write!(f, "Type mismatch at {span}: expected {expected}, got {got}"),
+            } => write!(
+                f,
+                "Type mismatch at {span}: expected ({expected}), got ({got})"
+            ),
+            TypeCheckError::NotCallableIdentifer(ident) => {
+                write!(f, "Identifier: ({ident}) is not callable")
+            }
+            TypeCheckError::IdentifierNotFound(ident) => {
+                write!(f, "Identifer: ({ident}) not found")
+            } // TODO: This error probably isn't completely helpful
         }
     }
 }
