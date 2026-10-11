@@ -4,6 +4,7 @@ use crate::{
     ast::{Block, Statement},
     codegen::{Address, CompileScope, Register, RegisterHandler, SymbolTable},
     type_check::{
+        FunctionType,
         Type::{self, Function},
         TypeCheckError, TypeScope, check_types,
     },
@@ -78,7 +79,10 @@ impl Statement for FunctionDefinition {
     fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.insert(
             self.name.clone(),
-            Function(self.args.iter().map(|a| a.atype.clone()).collect()),
+            Function(Box::new(FunctionType {
+                args: self.args.iter().map(|a| a.atype.clone()).collect(),
+                return_type: Type::Unknown,
+            })),
         );
 
         self.body.check_types(type_scope)

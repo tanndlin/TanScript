@@ -14,13 +14,19 @@ use std::str::FromStr;
 use crate::{ast::AtomType, types::NumberType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionType {
+    pub args: Vec<Type>,
+    pub return_type: Type,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     I32,
     I64,
     U32,
     U64,
     CoercibleNumber,
-    Function(Vec<Type>), // Types of args
+    Function(Box<FunctionType>), // Types of args
     Unknown,
 }
 

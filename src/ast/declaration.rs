@@ -40,7 +40,7 @@ impl Statement for Declaration {
             panic!("Declaration LHS can only be a identifier");
         };
 
-        let got = infer_type_from_expression(&self.assign.expression, type_scope);
+        let got = infer_type_from_expression(&self.assign.expression, type_scope)?;
         let Some(dtype) = &self.dtype else {
             type_scope.insert(ident.clone(), got);
             return Ok(());

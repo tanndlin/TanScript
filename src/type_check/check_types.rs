@@ -20,11 +20,11 @@ pub fn check_types_expression(
         ExpressionKind::Postfix(postfix_op, expression) => todo!(),
         ExpressionKind::FunctionCall(function_name, given_args) => {
             match type_scope.lookup(function_name) {
-                Ok(Type::Function(expected_args)) => given_args
+                Ok(Type::Function(function_type)) => given_args
                     .iter()
-                    .zip(expected_args.clone())
+                    .zip(function_type.args.clone())
                     .try_for_each(|(given, expected)| {
-                        let infered_type = infer_type_from_expression(given, type_scope);
+                        let infered_type = infer_type_from_expression(given, type_scope)?;
                         if infered_type == expected {
                             Ok(())
                         } else {
