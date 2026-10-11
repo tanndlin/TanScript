@@ -87,4 +87,30 @@ mod test {
             "expected TypeMismatch, got {result:?}"
         );
     }
+
+    #[test]
+    fn type_error_for_coerced_variable_used_as_arg_then_assigned_to_different_type() {
+        let program = parse(
+            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; add(a, b); let c: i32 = a;",
+        )
+        .unwrap();
+        let result = check_types(&program);
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_coerced_variable_assigned_then_used_as_arg_of_different_type() {
+        let program = parse(
+            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; let c: i32 = a; add(a, b);",
+        )
+        .unwrap();
+        let result = check_types(&program);
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
 }
