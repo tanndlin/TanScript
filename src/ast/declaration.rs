@@ -11,7 +11,7 @@ use crate::{
 pub struct Declaration {
     pub assign: Assignment,
     pub dtype: Option<Type>,
-    pub span: Span,
+    pub _span: Span,
 }
 
 impl Statement for Declaration {

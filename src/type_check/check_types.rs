@@ -15,9 +15,9 @@ pub fn check_types_expression(
 ) -> Result<(), TypeCheckError> {
     match &expression.kind {
         ExpressionKind::Atom(_) => Ok(()), // Don't need to check types on inert atom
-        ExpressionKind::Binary(binary_op, expression, expression1) => todo!(),
-        ExpressionKind::Unary(unary_op, expression) => todo!(),
-        ExpressionKind::Postfix(postfix_op, expression) => todo!(),
+        ExpressionKind::Binary(_, _, _) => todo!(),
+        ExpressionKind::Unary(_, _) => todo!(),
+        ExpressionKind::Postfix(_, _) => todo!(),
         ExpressionKind::FunctionCall(function_name, given_args) => {
             given_args
                 .iter()
@@ -49,7 +49,7 @@ pub fn check_types_expression(
                 }
             }
         }
-        ExpressionKind::Index(expression, expression1) => todo!(),
+        ExpressionKind::Index(_, _) => todo!(),
     }
 }
 

@@ -86,14 +86,6 @@ impl Lexer {
         self.tokens.last()
     }
 
-    pub fn peek_next(&self) -> Option<&LexerToken> {
-        if self.tokens.len() >= 2 {
-            Some(&self.tokens[self.tokens.len() - 2])
-        } else {
-            None
-        }
-    }
-
     pub fn expect(&mut self, expected: &str) -> Result<(), String> {
         let token = self
             .next()

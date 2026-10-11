@@ -15,7 +15,7 @@ pub fn infer_type_from_expression(
                 Type::from(atom_type)
             }
         }
-        ExpressionKind::Binary(binary_op, lhs, rhs) => {
+        ExpressionKind::Binary(_, lhs, rhs) => {
             // TODO: There are probably cases where 2 non-exact types are ok in binary op
             let lhs = infer_type_from_expression(lhs, type_scope)?;
             let rhs = infer_type_from_expression(rhs, type_scope)?;
@@ -64,13 +64,15 @@ pub fn infer_type_from_expression(
                 }
             }
         }
-        ExpressionKind::Unary(unary_op, expression) => todo!(),
-        ExpressionKind::Postfix(postfix_op, expression) => todo!(),
+        ExpressionKind::Unary(_, expression) => infer_type_from_expression(expression, type_scope)?,
+        ExpressionKind::Postfix(_, expression) => {
+            infer_type_from_expression(expression, type_scope)?
+        }
         ExpressionKind::FunctionCall(name, _) => match type_scope.lookup(name)? {
             Type::Function(f) => f.return_type.clone(),
             t => t.clone(),
         },
-        ExpressionKind::Index(expression, expression1) => todo!(),
+        ExpressionKind::Index(_, _) => todo!(),
     })
 }
 
@@ -204,7 +206,8 @@ mod test {
     #[test]
     fn infers_type_from_function_call_plus_variable() {
         assert_eq!(
-            infer_last("def add (a: u32, b: u32): u32 {a + b} let c: u32 = 3; add(1, 2) + c;").unwrap(),
+            infer_last("def add (a: u32, b: u32): u32 {a + b} let c: u32 = 3; add(1, 2) + c;")
+                .unwrap(),
             Type::U32
         );
     }
