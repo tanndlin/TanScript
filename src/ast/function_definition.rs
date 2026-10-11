@@ -92,14 +92,11 @@ impl fmt::Display for FunctionDefinition {
 #[derive(Debug, Clone)]
 pub struct Arg {
     pub name: String,
-    pub atype: Option<Type>,
+    pub atype: Type,
 }
 
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.atype {
-            Some(t) => write!(f, "{}: {t}", self.name),
-            None => write!(f, "{}", self.name),
-        }
+        write!(f, "{}: {}", self.name, self.atype)
     }
 }

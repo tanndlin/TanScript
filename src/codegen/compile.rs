@@ -554,7 +554,8 @@ mod test {
 
     #[test]
     fn compile_function_reads_args_from_caller_frame() {
-        let asm = compile("def f(a, b, c, d, e) { a + e } f(1, 2, 3, 4, 5);");
+        let asm =
+            compile("def f(a: i32, b: i32, c: i32, d: i32, e: i32) { a + e } f(1, 2, 3, 4, 5);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov [rbp + 40], r9"), "{asm}");
         assert!(asm.contains("[rbp + 48]"), "{asm}");
@@ -562,14 +563,14 @@ mod test {
 
     #[test]
     fn compile_function_args_dont_collide_with_locals() {
-        let asm = compile("def f(a) { let b = 1; a + b } f(1);");
+        let asm = compile("def f(a: i32) { let b = 1; a + b } f(1);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
     }
 
     #[test]
     fn compile_function_with_locals_has_single_ret() {
-        let asm = compile("def f(a) { let b = 1; a + b } f(1);");
+        let asm = compile("def f(a: i32) { let b = 1; a + b } f(1);");
         assert_eq!(
             asm.lines().filter(|l| l.trim() == "ret").count(),
             1,
@@ -580,7 +581,7 @@ mod test {
     #[test]
     fn compile_nested_call_saves_loaded_args() {
         // r8 already holds 2 when f is called, and f is free to clobber it
-        let asm = compile("def f(a, b) { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
+        let asm = compile("def f(a: i32, b: i32) { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
         assert!(asm.contains("push r8"), "{asm}");
         assert!(asm.contains("pop r8"), "{asm}");
     }

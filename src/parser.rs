@@ -399,9 +399,10 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, St
             _ => return Err(format!("Expected argument name or ), got {tok}")),
         };
 
+        lexer.expect(":")?;
         args.push(Arg {
             name,
-            atype: parse_type_annotation(lexer)?,
+            atype: parse_type(lexer)?,
         });
 
         let tok = lexer
@@ -760,8 +761,8 @@ mod test {
     #[test]
     fn parse_function_definition() {
         integration_test!(
-            "def add(a, b) { return a + b; }",
-            "def add(a, b) {return (+ a b)}"
+            "def add(a: i32, b: i32) { return a + b; }",
+            "def add(a: i32, b: i32) {return (+ a b)}"
         );
     }
 
@@ -783,7 +784,10 @@ mod test {
 
     #[test]
     fn parse_function_implicit_return() {
-        integration_test!("def add(a, b) { a + b }", "def add(a, b) {return (+ a b)}");
+        integration_test!(
+            "def add(a: i32, b: i32) { a + b }",
+            "def add(a: i32, b: i32) {return (+ a b)}"
+        );
     }
 
     #[test]
