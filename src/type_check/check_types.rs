@@ -19,6 +19,11 @@ pub fn check_types_expression(
         ExpressionKind::Unary(unary_op, expression) => todo!(),
         ExpressionKind::Postfix(postfix_op, expression) => todo!(),
         ExpressionKind::FunctionCall(function_name, given_args) => {
+            given_args
+                .iter()
+                .map(|a| check_types_expression(a, type_scope))
+                .collect::<Result<Vec<_>, _>>()?;
+
             match type_scope.lookup(function_name) {
                 Ok(Type::Function(function_type)) => given_args
                     .iter()
