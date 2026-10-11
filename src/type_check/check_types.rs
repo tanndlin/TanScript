@@ -30,7 +30,9 @@ pub fn check_types_expression(
                     .zip(function_type.args.clone())
                     .try_for_each(|(given, expected)| {
                         let infered_type = infer_type_from_expression(given, type_scope)?;
-                        if infered_type == expected {
+                        if infered_type == expected
+                            || (expected.is_number_type() && infered_type == Type::CoercibleNumber)
+                        {
                             Ok(())
                         } else {
                             Err(TypeCheckError::TypeMismatch {

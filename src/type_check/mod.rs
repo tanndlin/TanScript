@@ -30,6 +30,15 @@ pub enum Type {
     Unknown,
 }
 
+impl Type {
+    pub fn is_number_type(&self) -> bool {
+        matches!(
+            self,
+            Self::I32 | Self::I64 | Self::U32 | Self::U64 | Self::CoercibleNumber
+        )
+    }
+}
+
 impl FromStr for Type {
     type Err = String;
 
