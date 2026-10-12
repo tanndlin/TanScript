@@ -11,6 +11,7 @@ need_stdout = false
 [jobs.test]
 command = ["cargo", "test"]
 need_stdout = true
+env.RUST_BACKTRACE = "0"
 
 [jobs.fmt]
 command = ["cargo", "fmt", "--", "--check"]
