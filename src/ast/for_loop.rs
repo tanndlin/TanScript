@@ -23,20 +23,20 @@ impl Statement for ForLoop {
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
 
-        let init = self.init.compile(compile_scope, register_handler)?;
+        let mut new_scope = CompileScope::new(Some(compile_scope));
+        let init = self.init.compile(&mut new_scope, register_handler)?;
 
         let condition_dst_reg = register_handler.lease_register()?;
         let condition =
             self.condition
-                .compile(compile_scope, condition_dst_reg, register_handler)?;
+                .compile(&mut new_scope, condition_dst_reg, register_handler)?;
         register_handler.release_register(condition_dst_reg);
 
-        let mut new_scope = CompileScope::new(Some(compile_scope));
         let block = self.block.compile(&mut new_scope, register_handler)?;
         // Indent the update to match the block it runs with
         let update = self
             .update
-            .compile(compile_scope, register_handler)?
+            .compile(&mut new_scope, register_handler)?
             .lines()
             .map(|line| format!("\t{line}"))
             .collect::<Vec<_>>()
