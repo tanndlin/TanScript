@@ -4,7 +4,7 @@ use crate::{
     ast::{Assignment, AtomType, ExpressionKind, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     lex::Span,
-    type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression},
+    type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression, narrow_expression},
 };
 
 #[derive(Debug, Clone)]
@@ -52,6 +52,10 @@ impl Statement for Declaration {
                 got,
                 span: self.assign.expression.span,
             });
+        }
+
+        if got == Type::CoercibleNumber {
+            narrow_expression(&self.assign.expression, dtype.clone(), type_scope);
         }
 
         type_scope.insert(ident.clone(), dtype.clone());

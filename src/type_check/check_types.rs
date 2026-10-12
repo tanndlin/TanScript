@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, ExpressionKind, Program},
+    ast::{AtomType, Expression, ExpressionKind, Program},
     type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression},
 };
 
@@ -30,9 +30,11 @@ pub fn check_types_expression(
                     .zip(function_type.args.clone())
                     .try_for_each(|(given, expected)| {
                         let infered_type = infer_type_from_expression(given, type_scope)?;
-                        if infered_type == expected
-                            || (expected.is_number_type() && infered_type == Type::CoercibleNumber)
+                        if infered_type == expected {
+                            Ok(())
+                        } else if expected.is_number_type() && infered_type == Type::CoercibleNumber
                         {
+                            narrow_expression(given, expected, type_scope);
                             Ok(())
                         } else {
                             Err(TypeCheckError::TypeMismatch {
@@ -50,6 +52,20 @@ pub fn check_types_expression(
             }
         }
         ExpressionKind::Index(_, _) => todo!(),
+    }
+}
+
+pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut TypeScope) {
+    match &expression.kind {
+        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope.narrow(ident, t),
+        ExpressionKind::Binary(_, lhs, rhs) => {
+            narrow_expression(lhs, t.clone(), type_scope);
+            narrow_expression(rhs, t, type_scope);
+        }
+        ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
+            narrow_expression(inner, t, type_scope);
+        }
+        _ => {}
     }
 }
 

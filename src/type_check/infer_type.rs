@@ -20,49 +20,13 @@ pub fn infer_type_from_expression(
             let lhs = infer_type_from_expression(lhs, type_scope)?;
             let rhs = infer_type_from_expression(rhs, type_scope)?;
 
-            match (&lhs, &rhs) {
-                (Type::I32, Type::I32) => Type::I32,
-                (Type::I32, Type::I64) | (Type::I64, Type::I32) => Type::I64,
-                (Type::U32, Type::U32) => Type::U32,
-                (Type::U32, Type::U64) | (Type::U64, Type::U32) => Type::U64,
-                (Type::I32, Type::U32 | Type::U64) | (Type::U32, Type::I32 | Type::I64) => {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: lhs,
-                        got: rhs,
-                        span: expression.span,
-                    });
-                }
-                (Type::I32 | Type::U32 | Type::I64 | Type::U64, Type::CoercibleNumber) => lhs,
-                (Type::CoercibleNumber, Type::I32 | Type::U32 | Type::I64 | Type::U64) => rhs,
-                (Type::CoercibleNumber, Type::CoercibleNumber) => Type::CoercibleNumber,
-                // TODO: This will need to get updated when we support floats
-                (_, Type::CoercibleNumber) => {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: Type::CoercibleNumber,
-                        got: lhs,
-                        span: expression.span,
-                    });
-                }
-                (Type::CoercibleNumber, _) => {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: Type::CoercibleNumber,
-                        got: rhs,
-                        span: expression.span,
-                    });
-                }
-                (Type::Function(f), _) if f.return_type == rhs => rhs,
-                (_, Type::Function(f)) if f.return_type == lhs => lhs,
-                (Type::Unknown, _) => rhs,
-                (_, Type::Unknown) => lhs,
-                (l, r) if l == r => lhs,
-                _ => {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: lhs,
-                        got: rhs,
-                        span: expression.span,
-                    });
-                }
-            }
+            unify(&lhs, &rhs)
+                .or_else(|| unify(&rhs, &lhs))
+                .ok_or_else(|| TypeCheckError::TypeMismatch {
+                    expected: lhs.clone(),
+                    got: rhs.clone(),
+                    span: expression.span,
+                })?
         }
         ExpressionKind::Unary(_, expression) => infer_type_from_expression(expression, type_scope)?,
         ExpressionKind::Postfix(_, expression) => {
@@ -74,6 +38,18 @@ pub fn infer_type_from_expression(
         },
         ExpressionKind::Index(_, _) => todo!(),
     })
+}
+
+fn unify(a: &Type, b: &Type) -> Option<Type> {
+    match (a, b) {
+        _ if a == b => Some(a.clone()),
+        (Type::I32, Type::I64) => Some(Type::I64),
+        (Type::U32, Type::U64) => Some(Type::U64),
+        (Type::I32 | Type::U32 | Type::I64 | Type::U64, Type::CoercibleNumber) => Some(a.clone()),
+        (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
+        (Type::Unknown, _) => Some(b.clone()),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

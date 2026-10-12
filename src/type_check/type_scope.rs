@@ -28,6 +28,14 @@ impl TypeScope {
         self.scopes.last_mut().unwrap().insert(name, t);
     }
 
+    pub fn narrow(&mut self, name: &str, t: Type) {
+        if let Some(existing) = self.scopes.iter_mut().rev().find_map(|s| s.get_mut(name))
+            && *existing == Type::CoercibleNumber
+        {
+            *existing = t;
+        }
+    }
+
     pub fn lookup(&self, name: &str) -> Result<&Type, TypeCheckError> {
         self.scopes
             .iter()

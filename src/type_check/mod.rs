@@ -3,7 +3,7 @@ mod infer_type;
 mod type_check_error;
 mod type_scope;
 
-pub use check_types::{check_types, check_types_expression};
+pub use check_types::{check_types, check_types_expression, narrow_expression};
 pub use infer_type::infer_type_from_expression;
 pub use type_check_error::TypeCheckError;
 pub use type_scope::TypeScope;
