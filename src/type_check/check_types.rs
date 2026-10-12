@@ -51,7 +51,32 @@ pub fn check_types_expression(
                 }
             }
         }
-        ExpressionKind::Index(_, _) => todo!(),
+        ExpressionKind::Index(lhs, rhs) => {
+            check_types_expression(lhs, type_scope)?;
+            check_types_expression(rhs, type_scope)?;
+
+            // LHS must be a pointer
+            let lhs_type = infer_type_from_expression(lhs, type_scope)?;
+            if !matches!(lhs_type, Type::Pointer(_) | Type::Unknown) {
+                return Err(TypeCheckError::TypeMismatch {
+                    expected: Type::Pointer(Box::new(Type::Unknown)),
+                    got: lhs_type,
+                    span: expression.span,
+                });
+            }
+
+            // RHS must come down to a number
+            let rhs_type = infer_type_from_expression(rhs, type_scope)?;
+            if !rhs_type.is_number_type() {
+                return Err(TypeCheckError::TypeMismatch {
+                    expected: Type::I64,
+                    got: rhs_type,
+                    span: expression.span,
+                });
+            }
+
+            Ok(())
+        }
     }
 }
 

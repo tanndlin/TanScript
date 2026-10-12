@@ -27,6 +27,7 @@ pub enum Type {
     U64,
     CoercibleNumber,
     Function(Box<FunctionType>), // Types of args
+    Pointer(Box<Type>),
     Unknown,
 }
 
@@ -63,6 +64,7 @@ impl fmt::Display for Type {
             Type::CoercibleNumber => write!(f, "CoercibleNumber"),
             Type::Function(_) => write!(f, "fn"),
             Type::Unknown => write!(f, "Unknown"),
+            Type::Pointer(t) => write!(f, "*{t}"),
         }
     }
 }

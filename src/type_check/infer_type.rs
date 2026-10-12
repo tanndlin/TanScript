@@ -32,11 +32,15 @@ pub fn infer_type_from_expression(
         ExpressionKind::Postfix(_, expression) => {
             infer_type_from_expression(expression, type_scope)?
         }
-        ExpressionKind::FunctionCall(name, _) => match type_scope.lookup(name)? {
-            Type::Function(f) => f.return_type.clone(),
-            t => t.clone(),
+        ExpressionKind::FunctionCall(name, _) => match type_scope.lookup(name) {
+            Ok(Type::Function(f)) => f.return_type.clone(),
+            Ok(t) => t.clone(),
+            Err(_) => Type::Unknown,
         },
-        ExpressionKind::Index(_, _) => todo!(),
+        ExpressionKind::Index(lhs, _) => match infer_type_from_expression(lhs, type_scope)? {
+            Type::Pointer(t) => *t,
+            _ => Type::Unknown,
+        },
     })
 }
 
