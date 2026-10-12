@@ -154,4 +154,46 @@ mod test {
             "expected TypeMismatch, got {result:?}"
         );
     }
+
+    #[test]
+    fn supports_boolean_declaration() -> Result<(), TypeCheckError> {
+        let program = parse("let a: bool = true; let b: bool = false; let c: bool = a;").unwrap();
+        check_types(&program)
+    }
+
+    #[test]
+    fn type_error_for_boolean_assigned_to_number() {
+        let program = parse("let a: u32 = true;").unwrap();
+        let result = check_types(&program);
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_number_assigned_to_boolean() {
+        let program = parse("let a: bool = 1;").unwrap();
+        let result = check_types(&program);
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_boolean_function_arg() {
+        let program = parse("def f (a: u32): u32 {a} f(true);").unwrap();
+        let result = check_types(&program);
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn supports_comparison_assigned_to_boolean() -> Result<(), TypeCheckError> {
+        let program = parse("let a: i32 = 1; let b: bool = a < 2;").unwrap();
+        check_types(&program)
+    }
 }

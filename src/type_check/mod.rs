@@ -26,6 +26,7 @@ pub enum Type {
     U32,
     U64,
     CoercibleNumber,
+    Boolean,
     Function(Box<FunctionType>), // Types of args
     Pointer(Box<Type>),
     Unknown,
@@ -49,6 +50,7 @@ impl FromStr for Type {
             "i64" => Ok(Type::I64),
             "u32" => Ok(Type::U32),
             "u64" => Ok(Type::U64),
+            "bool" => Ok(Type::Boolean),
             _ => Err(format!("Unknown type: {s}")),
         }
     }
@@ -65,6 +67,7 @@ impl fmt::Display for Type {
             Type::Function(_) => write!(f, "fn"),
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
+            Type::Boolean => write!(f, "bool"),
         }
     }
 }
@@ -80,6 +83,7 @@ impl From<&AtomType> for Type {
             AtomType::Identifier(_) => unreachable!(),
             AtomType::String(_) => todo!(), // Type::String,
             AtomType::Colon => panic!("Colon as rhs for expression in type check"),
+            AtomType::Boolean(_) => Type::Boolean,
         }
     }
 }

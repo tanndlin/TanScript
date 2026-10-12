@@ -52,6 +52,7 @@ impl Expression {
                 AtomType::Identifier(_)
                 | AtomType::Number(_)
                 | AtomType::String(_)
+                | AtomType::Boolean(_)
                 | AtomType::Colon => {}
             },
             ExpressionKind::Binary(_, left, right) => {

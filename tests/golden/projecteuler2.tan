@@ -1,4 +1,4 @@
-def isEven(n: u32): u32 {
+def isEven(n: u32): bool {
     n % 2 == 0
 }
 

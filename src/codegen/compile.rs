@@ -150,6 +150,7 @@ impl Expression {
                 }
                 AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
                 AtomType::Colon => panic!("Unexpected colon"),
+                AtomType::Boolean(b) => Ok(compile_boolean(*b, dst)),
             },
             ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)
@@ -491,6 +492,11 @@ fn compile_divide(
     })
 }
 
+fn compile_boolean(b: bool, dst: Address) -> String {
+    let n = i32::from(b);
+    format!("mov QWORD {dst}, {n}")
+}
+
 #[cfg(test)]
 mod test {
     use crate::parser::parse;
@@ -584,5 +590,18 @@ mod test {
         let asm = compile("def f(a: i32, b: i32) { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
         assert!(asm.contains("push r8"), "{asm}");
         assert!(asm.contains("pop r8"), "{asm}");
+    }
+
+    #[test]
+    fn compile_boolean_literals() {
+        let asm = compile("let a = true; let b = false;");
+        assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 16], 0"), "{asm}");
+    }
+
+    #[test]
+    fn compile_boolean_is_not_a_variable_lookup() {
+        compile("if (true) { printf(\"yes\"); }");
+        compile("let a = !false;");
     }
 }

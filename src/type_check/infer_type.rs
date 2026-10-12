@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind},
+    ast::{AtomType, Expression, ExpressionKind, UnaryOp},
     type_check::{Type, TypeCheckError, TypeScope},
 };
 
@@ -15,18 +15,28 @@ pub fn infer_type_from_expression(
                 Type::from(atom_type)
             }
         }
-        ExpressionKind::Binary(_, lhs, rhs) => {
+        ExpressionKind::Binary(op, lhs, rhs) => {
             // TODO: There are probably cases where 2 non-exact types are ok in binary op
             let lhs = infer_type_from_expression(lhs, type_scope)?;
             let rhs = infer_type_from_expression(rhs, type_scope)?;
 
-            unify(&lhs, &rhs)
+            let unified = unify(&lhs, &rhs)
                 .or_else(|| unify(&rhs, &lhs))
                 .ok_or_else(|| TypeCheckError::TypeMismatch {
                     expected: lhs.clone(),
                     got: rhs.clone(),
                     span: expression.span,
-                })?
+                })?;
+
+            if op.returns_boolean() {
+                Type::Boolean
+            } else {
+                unified
+            }
+        }
+        ExpressionKind::Unary(UnaryOp::Not, expression) => {
+            infer_type_from_expression(expression, type_scope)?;
+            Type::Boolean
         }
         ExpressionKind::Unary(_, expression) => infer_type_from_expression(expression, type_scope)?,
         ExpressionKind::Postfix(_, expression) => {
@@ -200,5 +210,55 @@ mod test {
     #[test]
     fn infers_type_from_postfix_op() {
         assert_eq!(infer_last("let a: i32 = 1; a++;").unwrap(), Type::I32);
+    }
+
+    #[test]
+    fn infers_type_from_boolean_literal() {
+        assert_eq!(infer_last("true;").unwrap(), Type::Boolean);
+        assert_eq!(infer_last("false;").unwrap(), Type::Boolean);
+    }
+
+    #[test]
+    fn infers_type_from_boolean_variable() {
+        assert_eq!(infer_last("let a = true; a;").unwrap(), Type::Boolean);
+    }
+
+    #[test]
+    fn infers_type_from_boolean_binary_op() {
+        assert_eq!(infer_last("true && false;").unwrap(), Type::Boolean);
+    }
+
+    #[test]
+    fn type_error_for_boolean_plus_number() {
+        let result = infer_last("let a: i32 = 1; true + a;");
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn infers_boolean_from_comparison() {
+        for op in ["<", "<=", ">", ">=", "==", "!="] {
+            assert_eq!(
+                infer_last(&format!("let a: i32 = 1; let b: i32 = 2; a {op} b;")).unwrap(),
+                Type::Boolean,
+                "{op}"
+            );
+        }
+    }
+
+    #[test]
+    fn infers_boolean_from_not() {
+        assert_eq!(infer_last("let a: i32 = 1; !a;").unwrap(), Type::Boolean);
+    }
+
+    #[test]
+    fn type_error_for_comparing_mismatched_types() {
+        let result = infer_last("let a: u32 = 1; let b: i32 = 2; a < b;");
+        assert!(
+            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            "expected TypeMismatch, got {result:?}"
+        );
     }
 }

@@ -329,19 +329,21 @@ fn parse_identifier_or_function_call(
     s: &str,
     span: Span,
 ) -> Result<Expression, String> {
-    Ok(if let Some(next) = lexer.peek() {
-        match next.token_type {
-            Token::Op(OperatorType::OpenParen) => parse_function_call(lexer, s.to_string(), span)?,
-            _ => Expression::new(
-                ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
-                span,
-            ),
+    if matches!(s, "true" | "false") {
+        return Ok(Expression::new(
+            ExpressionKind::Atom(AtomType::Boolean(s == "true")),
+            span,
+        ));
+    }
+
+    Ok(match lexer.peek().map(|t| &t.token_type) {
+        Some(Token::Op(OperatorType::OpenParen)) => {
+            parse_function_call(lexer, s.to_string(), span)?
         }
-    } else {
-        Expression::new(
+        _ => Expression::new(
             ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
             span,
-        )
+        ),
     })
 }
 
@@ -494,7 +496,7 @@ fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, String> {
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::ExpressionKind,
+        ast::{AtomType, ExpressionKind, StatementOrExpression},
         lex::Lexer,
         parser::{parse, parse_expression},
     };
@@ -948,5 +950,66 @@ mod test {
         };
         let spans: Vec<_> = args.iter().map(|a| (a.span.line, a.span.col)).collect();
         assert_eq!(spans, vec![(1, 6), (1, 10)]);
+    }
+
+    #[test]
+    fn parse_boolean_literals() {
+        for input in ["true", "false"] {
+            let mut lexer = Lexer::new(input).unwrap();
+            let expression = parse_expression(&mut lexer, 0).unwrap();
+            assert!(
+                matches!(
+                    expression.kind,
+                    ExpressionKind::Atom(AtomType::Boolean(b)) if b == (input == "true")
+                ),
+                "{input} parsed as {expression:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_boolean_followed_by_token() {
+        let program = parse("true; false;").unwrap();
+        let values: Vec<_> = program
+            .block
+            .children
+            .iter()
+            .map(|child| match child {
+                StatementOrExpression::Expression(e) => &e.kind,
+                StatementOrExpression::Statement(s) => panic!("expected an expression, got {s}"),
+            })
+            .collect();
+        assert!(
+            matches!(
+                values.as_slice(),
+                [
+                    ExpressionKind::Atom(AtomType::Boolean(true)),
+                    ExpressionKind::Atom(AtomType::Boolean(false))
+                ]
+            ),
+            "{values:?}"
+        );
+    }
+
+    #[test]
+    fn parse_boolean_expressions() {
+        test_parse_expression!("!true", "(! true)");
+        test_parse_expression!("true && false", "(&& true false)");
+        test_parse_expression!("(true || false) && a", "(&& (|| true false) a)");
+    }
+
+    #[test]
+    fn parse_boolean_as_function_arg() {
+        integration_test!("f(true, false);", "f(true, false)");
+    }
+
+    #[test]
+    fn parse_boolean_in_if_condition() {
+        integration_test!(
+            "if (true) { a = 1; }",
+            "if true {
+a = 1
+}"
+        );
     }
 }

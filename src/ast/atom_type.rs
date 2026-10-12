@@ -6,6 +6,7 @@ use crate::{lex::LexerAtomType, types::NumberType};
 pub enum AtomType {
     Number(NumberType),
     Identifier(String),
+    Boolean(bool),
     String(String),
     Colon,
 }
@@ -29,6 +30,7 @@ impl fmt::Display for AtomType {
             AtomType::Identifier(c) => write!(f, "{c}"),
             AtomType::String(s) => write!(f, "{s}"),
             AtomType::Colon => write!(f, ":"),
+            AtomType::Boolean(b) => write!(f, "{b}"),
         }
     }
 }

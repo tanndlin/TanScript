@@ -1,0 +1,22 @@
+let t = true;
+let f = false;
+printf("%d %d\n", t, f);
+
+if (true) {
+    printf("if true\n");
+}
+
+if (false) {
+    printf("if false\n");
+} else {
+    printf("else false\n");
+}
+
+let n = 0;
+while (t) {
+    n++;
+    if n == 3 {
+        t = false;
+    }
+}
+printf("%d\n", n);

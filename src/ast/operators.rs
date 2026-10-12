@@ -71,6 +71,20 @@ impl BinaryOp {
         }
     }
 
+    pub fn returns_boolean(self) -> bool {
+        matches!(
+            self,
+            BinaryOp::LessThan
+                | BinaryOp::LessOrEqual
+                | BinaryOp::GreaterThan
+                | BinaryOp::GreaterOrEqual
+                | BinaryOp::Equal
+                | BinaryOp::NotEqual
+                | BinaryOp::Or
+                | BinaryOp::And
+        )
+    }
+
     fn symbol(self) -> &'static str {
         match self {
             BinaryOp::Add => "+",

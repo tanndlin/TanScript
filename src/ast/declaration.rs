@@ -46,7 +46,8 @@ impl Statement for Declaration {
             return Ok(());
         };
 
-        if got != Type::CoercibleNumber && got != *dtype {
+        let coercible = got == Type::CoercibleNumber && dtype.is_number_type();
+        if !coercible && got != *dtype {
             return Err(TypeCheckError::TypeMismatch {
                 expected: dtype.clone(),
                 got,
@@ -54,7 +55,7 @@ impl Statement for Declaration {
             });
         }
 
-        if got == Type::CoercibleNumber {
+        if coercible {
             narrow_expression(&self.assign.expression, dtype.clone(), type_scope);
         }
 
