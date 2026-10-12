@@ -3,6 +3,7 @@ use std::fmt;
 use crate::{
     ast::{Expression, Statement},
     codegen::{CompileScope, Register, RegisterHandler, SymbolTable},
+    type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,10 @@ impl Statement for ReturnStatement {
 
     fn discover(&self, symbols: &mut SymbolTable) {
         self.expr.discover(symbols);
+    }
+
+    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        check_types_expression(&self.expr, type_scope).map(|_| ())
     }
 }
 

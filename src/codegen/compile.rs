@@ -10,6 +10,7 @@ use crate::{
         register_handler::RegisterHandler,
         symbol_table::SymbolTable,
     },
+    type_check::Type,
     types::NumberType,
 };
 
@@ -261,22 +262,42 @@ fn compile_index(
     lhs: &Expression,
     index: &Expression,
 ) -> Result<String, String> {
+    let element = compile_scope.element_type(lhs)?;
     register_handler.lease_with_scope(|register_handler, ptr| {
-        let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
+        let data_size = element.size();
         let index = index.compile(compile_scope, ptr, register_handler)?;
         register_handler.lease_with_scope(|register_handler, lhs_dst| {
             let lhs = lhs.compile(compile_scope, lhs_dst, register_handler)?;
 
+            let memory = format!("[{lhs_dst}+{ptr}]");
             let load = match dst {
-                Address::Register(_) => format!("mov {dst}, [{lhs_dst}+{ptr}]"),
-                Address::Stack(_) => {
-                    format!("mov {lhs_dst}, [{lhs_dst}+{ptr}]\nmov {dst}, {lhs_dst}")
-                }
+                Address::Register(reg) => load_element(&element, reg, &memory),
+                Address::Stack(_) => format!(
+                    "{}\nmov {dst}, {lhs_dst}",
+                    load_element(&element, lhs_dst, &memory)
+                ),
             };
 
             Ok([index, format!("imul {ptr}, {ptr}, {data_size}"), lhs, load].join("\n"))
         })
     })
+}
+
+fn load_element(element: &Type, dst: Register, memory: &str) -> String {
+    match element {
+        Type::I32 => format!("movsxd {dst}, DWORD {memory}"),
+        Type::U32 => format!("mov {}, DWORD {memory}", dst.lower_32_bits()),
+        Type::Boolean => format!("movzx {dst}, BYTE {memory}"),
+        _ => format!("mov {dst}, {memory}"),
+    }
+}
+
+pub fn store_element(element: &Type, memory: &str, src: Register) -> String {
+    match element {
+        Type::I32 | Type::U32 => format!("mov DWORD {memory}, {}", src.lower_32_bits()),
+        Type::Boolean => format!("mov BYTE {memory}, {}", Address::from(src).lower_8_bits()),
+        _ => format!("mov {memory}, {src}"),
+    }
 }
 
 fn compile_number(n: NumberType, dst: Address) -> String {

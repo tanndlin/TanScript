@@ -3,6 +3,7 @@ use std::fmt;
 use crate::{
     ast::{Block, Expression, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
+    type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,22 @@ impl Statement for IfStatement {
 
     fn requires_semicolon(&self) -> bool {
         false
+    }
+
+    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        check_types_expression(&self.condition, type_scope)?;
+        self.block.check_types(type_scope)?;
+        if let Some(else_block) = &mut self.else_block {
+            else_block.check_types(type_scope)?;
+        }
+        Ok(())
+    }
+
+    fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.block.resolve_types(type_scope);
+        if let Some(else_block) = &mut self.else_block {
+            else_block.resolve_types(type_scope);
+        }
     }
 }
 

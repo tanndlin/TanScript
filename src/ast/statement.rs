@@ -19,9 +19,11 @@ pub trait Statement: fmt::Display + fmt::Debug + StatementClone + AsAny {
         true
     }
 
-    fn check_types(&self, _type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    fn check_types(&mut self, _type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         Ok(())
     }
+
+    fn resolve_types(&mut self, _type_scope: &TypeScope) {}
 }
 
 impl dyn Statement {

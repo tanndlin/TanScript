@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
-use crate::codegen::address::Address;
+use crate::{
+    ast::{AtomType, Expression, ExpressionKind},
+    codegen::address::Address,
+    type_check::Type,
+};
 
 #[allow(dead_code)]
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
-    pub variables: HashMap<String, Address>,
+    pub variables: HashMap<String, (Address, Type)>,
     pub num_variables: i32,
 }
 
@@ -18,9 +22,9 @@ impl<'a> CompileScope<'a> {
         }
     }
 
-    pub fn get_variable(&self, name: &str) -> Result<Address, String> {
-        if let Some(addr) = self.variables.get(name) {
-            return Ok(*addr);
+    fn lookup(&self, name: &str) -> Result<&(Address, Type), String> {
+        if let Some(variable) = self.variables.get(name) {
+            return Ok(variable);
         }
 
         let parent = self
@@ -28,20 +32,40 @@ impl<'a> CompileScope<'a> {
             .as_ref()
             .ok_or_else(|| format!("Variable '{name}' not found"))?;
 
-        parent.get_variable(name)
+        parent.lookup(name)
     }
 
-    pub fn add_variable(&mut self, name: String, address: Option<Address>) -> Result<(), String> {
+    pub fn get_variable(&self, name: &str) -> Result<Address, String> {
+        self.lookup(name).map(|(address, _)| *address)
+    }
+
+    pub fn get_type(&self, name: &str) -> Result<&Type, String> {
+        self.lookup(name).map(|(_, t)| t)
+    }
+
+    pub fn element_type(&self, expr: &Expression) -> Result<Type, String> {
+        let ExpressionKind::Atom(AtomType::Identifier(name)) = &expr.kind else {
+            return Ok(Type::Unknown);
+        };
+
+        Ok(match self.get_type(name)? {
+            Type::Pointer(inner) => (**inner).clone(),
+            _ => Type::Unknown,
+        })
+    }
+
+    pub fn add_variable(
+        &mut self,
+        name: String,
+        address: Option<Address>,
+        t: Type,
+    ) -> Result<(), String> {
         if self.variables.contains_key(&name) {
             return Err(format!("Variable '{name}' already declared"));
         }
 
-        if let Some(address) = address {
-            self.variables.insert(name, address);
-        } else {
-            self.variables
-                .insert(name, Address::Stack((self.num_variables + 1) * 8));
-        }
+        let address = address.unwrap_or(Address::Stack((self.num_variables + 1) * 8));
+        self.variables.insert(name, (address, t));
 
         self.num_variables += 1;
         Ok(())

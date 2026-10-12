@@ -2,7 +2,10 @@ use std::fmt;
 
 use crate::{
     ast::{AtomType, Expression, ExpressionKind, Statement},
-    codegen::{CompileScope, RegisterHandler, SymbolTable},
+    codegen::{CompileScope, RegisterHandler, SymbolTable, store_element},
+    type_check::{
+        Type, TypeCheckError, TypeScope, check_types_expression, expect_type, narrow_expression,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -25,9 +28,9 @@ impl Assignment {
                     .compile(compile_scope, address, register_handler)
             }
             ExpressionKind::Index(lhs, index) => {
+                let element = compile_scope.element_type(lhs)?;
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
-                    // let lhs = lhs.compile(compile_scope, ptr), register_handler);
-                    let data_size = 8; // TODO: This will have to change at some point. Assuming 8 bytes
+                    let data_size = element.size();
                     let index_asm = index.compile(compile_scope, offset_ptr, register_handler)?;
                     register_handler.lease_with_scope(|register_handler, ptr| {
                         let lhs = lhs.compile(compile_scope, ptr, register_handler)?;
@@ -43,7 +46,11 @@ impl Assignment {
                                 format!("imul {offset_ptr}, {offset_ptr}, {data_size}"),
                                 lhs,
                                 rhs,
-                                format!("mov [{ptr}+{offset_ptr}], {value_dst}"),
+                                store_element(
+                                    &element,
+                                    &format!("[{ptr}+{offset_ptr}]"),
+                                    value_dst,
+                                ),
                             ]
                             .join("\n"))
                         })
@@ -70,6 +77,17 @@ impl Statement for Assignment {
 
     fn discover(&self, symbols: &mut SymbolTable) {
         self.expression.discover(symbols);
+    }
+
+    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let expected = check_types_expression(&self.lhs, type_scope)?;
+        let got = check_types_expression(&self.expression, type_scope)?;
+
+        if expected == Type::CoercibleNumber && got.is_number_type() {
+            narrow_expression(&self.lhs, got, type_scope);
+            return Ok(());
+        }
+        expect_type(&self.expression, &expected, &got, type_scope)
     }
 }
 

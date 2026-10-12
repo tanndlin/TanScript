@@ -1,60 +1,6 @@
-use crate::{
-    ast::{AtomType, Expression, ExpressionKind, UnaryOp},
-    type_check::{Type, TypeCheckError, TypeScope},
-};
+use crate::type_check::Type;
 
-pub fn infer_type_from_expression(
-    expression: &Expression,
-    type_scope: &mut TypeScope,
-) -> Result<Type, TypeCheckError> {
-    Ok(match &expression.kind {
-        ExpressionKind::Atom(atom_type) => {
-            if let AtomType::Identifier(ident) = atom_type {
-                type_scope.lookup(ident).unwrap().clone() // TODO: This shouldn't be falible because the parser checks for this i think maybe
-            } else {
-                Type::from(atom_type)
-            }
-        }
-        ExpressionKind::Binary(op, lhs, rhs) => {
-            // TODO: There are probably cases where 2 non-exact types are ok in binary op
-            let lhs = infer_type_from_expression(lhs, type_scope)?;
-            let rhs = infer_type_from_expression(rhs, type_scope)?;
-
-            let unified = unify(&lhs, &rhs)
-                .or_else(|| unify(&rhs, &lhs))
-                .ok_or_else(|| TypeCheckError::TypeMismatch {
-                    expected: lhs.clone(),
-                    got: rhs.clone(),
-                    span: expression.span,
-                })?;
-
-            if op.returns_boolean() {
-                Type::Boolean
-            } else {
-                unified
-            }
-        }
-        ExpressionKind::Unary(UnaryOp::Not, expression) => {
-            infer_type_from_expression(expression, type_scope)?;
-            Type::Boolean
-        }
-        ExpressionKind::Unary(_, expression) => infer_type_from_expression(expression, type_scope)?,
-        ExpressionKind::Postfix(_, expression) => {
-            infer_type_from_expression(expression, type_scope)?
-        }
-        ExpressionKind::FunctionCall(name, _) => match type_scope.lookup(name) {
-            Ok(Type::Function(f)) => f.return_type.clone(),
-            Ok(t) => t.clone(),
-            Err(_) => Type::Unknown,
-        },
-        ExpressionKind::Index(lhs, _) => match infer_type_from_expression(lhs, type_scope)? {
-            Type::Pointer(t) => *t,
-            _ => Type::Unknown,
-        },
-    })
-}
-
-fn unify(a: &Type, b: &Type) -> Option<Type> {
+pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
     match (a, b) {
         _ if a == b => Some(a.clone()),
         (Type::I32, Type::I64) => Some(Type::I64),
@@ -71,13 +17,13 @@ mod test {
     use crate::{
         ast::StatementOrExpression,
         parser::parse,
-        type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression},
+        type_check::{Type, TypeCheckError, TypeScope, check_types_expression},
     };
 
     fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
-        let program = parse(code).unwrap();
+        let mut program = parse(code).unwrap();
         let mut type_scope = TypeScope::default();
-        let (last, rest) = program.block.children.split_last().unwrap();
+        let (last, rest) = program.block.children.split_last_mut().unwrap();
         for child in rest {
             if let StatementOrExpression::Statement(statement) = child {
                 statement.check_types(&mut type_scope).unwrap();
@@ -86,7 +32,7 @@ mod test {
         let StatementOrExpression::Expression(expression) = last else {
             panic!("expected an expression");
         };
-        infer_type_from_expression(expression, &mut type_scope)
+        check_types_expression(expression, &mut type_scope)
     }
 
     #[test]
@@ -97,17 +43,17 @@ mod test {
             panic!("expected an expression");
         };
         assert_eq!(
-            infer_type_from_expression(expression, &mut TypeScope::default()).unwrap(),
+            check_types_expression(expression, &mut TypeScope::default()).unwrap(),
             Type::CoercibleNumber
         );
     }
 
     #[test]
     fn infers_type_from_variable() {
-        let program = parse("let a: u32 = 1; a;").unwrap();
+        let mut program = parse("let a: u32 = 1; a;").unwrap();
         let mut type_scope = TypeScope::default();
 
-        let StatementOrExpression::Statement(declaration) = &program.block.children[0] else {
+        let StatementOrExpression::Statement(declaration) = &mut program.block.children[0] else {
             panic!("expected a statement");
         };
         declaration.check_types(&mut type_scope).unwrap();
@@ -116,7 +62,7 @@ mod test {
             panic!("expected an expression");
         };
         assert_eq!(
-            infer_type_from_expression(expression, &mut type_scope).unwrap(),
+            check_types_expression(expression, &mut type_scope).unwrap(),
             Type::U32
         );
     }
@@ -131,7 +77,7 @@ mod test {
         };
 
         assert_eq!(
-            infer_type_from_expression(expr, &mut type_scope).unwrap(),
+            check_types_expression(expr, &mut type_scope).unwrap(),
             Type::CoercibleNumber
         );
     }

@@ -191,6 +191,7 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, String> {
             expression: parse_expression(lexer, 0)?,
         },
         dtype,
+        binding: None,
         _span: span,
     })
 }

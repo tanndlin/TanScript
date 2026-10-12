@@ -4,13 +4,14 @@ use crate::{
     ast::{Assignment, AtomType, ExpressionKind, Statement},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     lex::Span,
-    type_check::{Type, TypeCheckError, TypeScope, infer_type_from_expression, narrow_expression},
+    type_check::{Type, TypeCheckError, TypeScope, check_types_expression, expect_type},
 };
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub assign: Assignment,
     pub dtype: Option<Type>,
+    pub binding: Option<usize>,
     pub _span: Span,
 }
 
@@ -24,7 +25,8 @@ impl Statement for Declaration {
             return Err("Declaration LHS can only be a identifier".to_string());
         };
 
-        compile_scope.add_variable(ident.clone(), None)?;
+        let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
+        compile_scope.add_variable(ident.clone(), None, dtype)?;
         let assign = self
             .assign
             .compile_uncommented(compile_scope, register_handler)?;
@@ -35,33 +37,26 @@ impl Statement for Declaration {
         self.assign.discover(symbols);
     }
 
-    fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
             panic!("Declaration LHS can only be a identifier");
         };
 
-        let got = infer_type_from_expression(&self.assign.expression, type_scope)?;
+        let got = check_types_expression(&self.assign.expression, type_scope)?;
         let Some(expected) = self.dtype.clone() else {
-            type_scope.insert(ident.clone(), got);
+            self.binding = Some(type_scope.insert(ident.clone(), got));
             return Ok(());
         };
 
-        let coercible =
-            got == Type::CoercibleNumber && expected.is_number_type() || got == Type::Unknown;
-        if !coercible && got != expected {
-            return Err(TypeCheckError::TypeMismatch {
-                expected,
-                got,
-                span: self.assign.expression.span,
-            });
-        }
-
-        if coercible {
-            narrow_expression(&self.assign.expression, expected.clone(), type_scope);
-        }
-
-        type_scope.insert(ident.clone(), expected.clone());
+        expect_type(&self.assign.expression, &expected, &got, type_scope)?;
+        self.binding = Some(type_scope.insert(ident.clone(), expected));
         Ok(())
+    }
+
+    fn resolve_types(&mut self, type_scope: &TypeScope) {
+        if let Some(id) = self.binding {
+            self.dtype = Some(type_scope.binding(id).clone());
+        }
     }
 }
 

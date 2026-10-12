@@ -40,7 +40,7 @@ impl FunctionDefinition {
             }
 
             // Update its location in the scope
-            scope.add_variable(arg.name.clone(), Some(new_address))?;
+            scope.add_variable(arg.name.clone(), Some(new_address), arg.atype.clone())?;
             // This is not a variable that needs to be deallocated later
             scope.num_variables -= 1;
         }
@@ -77,7 +77,7 @@ impl Statement for FunctionDefinition {
         false
     }
 
-    fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.insert(
             self.name.clone(),
             Function(Box::new(FunctionType {
@@ -86,7 +86,17 @@ impl Statement for FunctionDefinition {
             })),
         );
 
-        self.body.check_types(type_scope)
+        type_scope.push();
+        for arg in &self.args {
+            type_scope.insert(arg.name.clone(), arg.atype.clone());
+        }
+        let result = self.body.check_types(type_scope);
+        type_scope.pop();
+        result
+    }
+
+    fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.body.resolve_types(type_scope);
     }
 }
 

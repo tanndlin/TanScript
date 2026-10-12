@@ -23,8 +23,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .into();
     let file_as_string = fs::read_to_string(&file)?;
 
-    let ast = parse(&file_as_string)?;
-    check_types(&ast)?;
+    let mut ast = parse(&file_as_string)?;
+    check_types(&mut ast)?;
 
     println!("{ast}");
     let code = ast.compile()?;

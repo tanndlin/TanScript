@@ -36,6 +36,25 @@ impl fmt::Display for Register {
     }
 }
 
+impl Register {
+    pub fn lower_32_bits(self) -> &'static str {
+        match self {
+            Register::RAX => "eax",
+            Register::RBX => "ebx",
+            Register::RCX => "ecx",
+            Register::RDX => "edx",
+            Register::R8 => "r8d",
+            Register::R9 => "r9d",
+            Register::R10 => "r10d",
+            Register::R11 => "r11d",
+            Register::R12 => "r12d",
+            Register::R13 => "r13d",
+            Register::R14 => "r14d",
+            Register::R15 => "r15d",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Address {
     Register(Register),
