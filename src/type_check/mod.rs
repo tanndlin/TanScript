@@ -45,13 +45,21 @@ impl FromStr for Type {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "i32" => Ok(Type::I32),
-            "i64" => Ok(Type::I64),
-            "u32" => Ok(Type::U32),
-            "u64" => Ok(Type::U64),
-            "bool" => Ok(Type::Boolean),
-            _ => Err(format!("Unknown type: {s}")),
+        if let Some(t) = match s {
+            "i32" => Some(Type::I32),
+            "i64" => Some(Type::I64),
+            "u32" => Some(Type::U32),
+            "u64" => Some(Type::U64),
+            "bool" => Some(Type::Boolean),
+            _ => None,
+        } {
+            return Ok(t);
+        }
+
+        if let Some(inner) = s.strip_prefix('*') {
+            Ok(Type::Pointer(Box::new(Type::from_str(inner)?)))
+        } else {
+            Err(format!("Unknown type: {s}"))
         }
     }
 }

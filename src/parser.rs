@@ -207,6 +207,10 @@ fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, String> {
 
 fn parse_type(lexer: &mut Lexer) -> Result<Type, String> {
     let tok = lexer.next().ok_or("Expected type identifier, got EOF")?;
+    if let Token::Op(OperatorType::Multiply) = tok.token_type {
+        return Ok(Type::Pointer(Box::new(parse_type(lexer)?)));
+    }
+
     let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
         return Err(format!("Expected type identifier, got {tok}"));
     };
