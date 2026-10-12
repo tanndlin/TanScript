@@ -1,0 +1,19 @@
+def isEven(n: u32): u32 {
+    n % 2 == 0
+}
+
+let a = 1;
+let b = 1;
+let sum = 0;
+
+while b < 4000000 {
+    let temp = a;
+    a = b;
+    b = a + temp;
+    
+    if isEven(b) {
+        sum  += b;
+    }
+}
+
+printf("%d\n", sum);

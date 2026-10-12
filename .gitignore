@@ -4,3 +4,4 @@ target/*
 *.exe
 *.o
 *.html
+!tests/golden/*.tan

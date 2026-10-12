@@ -12,6 +12,42 @@
 				"isDefault": true
 			},
 			"label": "rust: cargo build",
+		},
+		{
+			"label": "golden: new",
+			"type": "process",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$tan = 'tests/golden/${input:goldenName}.tan'; if (Test-Path $tan) { Write-Error \"$tan already exists\"; exit 1 }; New-Item -ItemType File $tan | Out-Null; code $tan"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "golden: bless",
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--test",
+				"golden"
+			],
+			"options": {
+				"env": {
+					"BLESS": "1"
+				}
+			},
+			"problemMatcher": [
+				"$rustc"
+			]
+		}
+	],
+	"inputs": [
+		{
+			"id": "goldenName",
+			"type": "promptString",
+			"description": "Golden script name (no extension)"
 		}
 	]
 }

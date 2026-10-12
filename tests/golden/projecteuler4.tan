@@ -1,0 +1,26 @@
+def reversed(n: u32): u32 {
+    let r = 0;
+    while n > 0 {
+        r = r * 10 + n % 10;
+        n /= 10;
+    }
+
+    r
+}
+
+def isPalindrome(n: u32): u32 {
+    reversed(n) == n
+}
+
+let max = 0;
+
+for(let a = 100; a <= 999; a++) {
+    for(let b = a; b <= 999; b++) {
+        let p = a * b;
+        if isPalindrome(p) && p > max {
+            max = p;
+        }
+    }
+}
+
+printf("%d\n", max);
