@@ -41,25 +41,26 @@ impl Statement for Declaration {
         };
 
         let got = infer_type_from_expression(&self.assign.expression, type_scope)?;
-        let Some(dtype) = &self.dtype else {
+        let Some(expected) = self.dtype.clone() else {
             type_scope.insert(ident.clone(), got);
             return Ok(());
         };
 
-        let coercible = got == Type::CoercibleNumber && dtype.is_number_type();
-        if !coercible && got != *dtype {
+        let coercible =
+            got == Type::CoercibleNumber && expected.is_number_type() || got == Type::Unknown;
+        if !coercible && got != expected {
             return Err(TypeCheckError::TypeMismatch {
-                expected: dtype.clone(),
+                expected,
                 got,
                 span: self.assign.expression.span,
             });
         }
 
         if coercible {
-            narrow_expression(&self.assign.expression, dtype.clone(), type_scope);
+            narrow_expression(&self.assign.expression, expected.clone(), type_scope);
         }
 
-        type_scope.insert(ident.clone(), dtype.clone());
+        type_scope.insert(ident.clone(), expected.clone());
         Ok(())
     }
 }
