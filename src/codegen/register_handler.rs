@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::codegen::{
     CodegenErrorKind,
     address::{Address, Register},
+    instruction::Instruction,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -83,8 +84,8 @@ impl RegisterHandler {
 
     pub fn lease_with_scope<E>(
         &mut self,
-        function: impl FnOnce(&mut Self, Register) -> Result<String, E>,
-    ) -> Result<String, E> {
+        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
+    ) -> Result<Vec<Instruction>, E> {
         if let Ok(reg) = self.lease_register() {
             let ret = function(self, reg);
             self.release_register(reg);
@@ -95,11 +96,15 @@ impl RegisterHandler {
         // the use. Holding it means nested code can't `request_register` it out from under us
         let reg = self.reserved_registers[0];
         let was_free = self.request_register(reg).is_ok();
-        let ret = function(self, reg);
+        let ret = function(self, reg)?;
         if was_free {
             self.release_register(reg);
         }
-        Ok(format!("push {reg}\n{}\npop {reg}", ret?))
+
+        let mut out = vec![Instruction::push(reg)];
+        out.extend(ret);
+        out.push(Instruction::pop(reg));
+        Ok(out)
     }
 
     /// Like `lease_with_scope`, but for a specific register. If it's already in use, its value is
@@ -108,8 +113,8 @@ impl RegisterHandler {
         &mut self,
         reg: Register,
         dst: Address,
-        function: impl FnOnce(&mut Self, Register) -> Result<String, E>,
-    ) -> Result<String, E> {
+        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
+    ) -> Result<Vec<Instruction>, E> {
         if self.request_register(reg).is_ok() {
             let ret = function(self, reg);
             self.release_register(reg);
@@ -120,7 +125,10 @@ impl RegisterHandler {
         if dst == Address::Register(reg) {
             Ok(ret)
         } else {
-            Ok(format!("push {reg}\n{ret}\npop {reg}"))
+            let mut out = vec![Instruction::push(reg)];
+            out.extend(ret);
+            out.push(Instruction::pop(reg));
+            Ok(out)
         }
     }
 
@@ -176,7 +184,9 @@ fn format_data(name: &String, s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::codegen::{address::Register, register_handler::RegisterHandler};
+    use crate::codegen::{
+        address::Register, instruction::Instruction, register_handler::RegisterHandler,
+    };
 
     #[test]
     fn prevent_double_lease() {
@@ -223,10 +233,17 @@ mod tests {
             .lease_with_scope(|rh, reg| {
                 assert_eq!(reg, Register::RAX);
                 assert!(rh.request_register(Register::RAX).is_err());
-                Ok::<_, String>(format!("mov {reg}, 1"))
+                Ok::<_, String>(vec![Instruction::mov(reg, 1)])
             })
             .unwrap();
-        assert_eq!(asm, "push rax\nmov rax, 1\npop rax");
+        assert_eq!(
+            asm,
+            [
+                Instruction::push(Register::RAX),
+                Instruction::mov(Register::RAX, 1),
+                Instruction::pop(Register::RAX),
+            ]
+        );
         assert!(rh.request_register(Register::RAX).is_ok());
     }
 }

@@ -8,6 +8,7 @@ use crate::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile_scope::CompileScope,
+        instruction::{Condition, Instruction, Operand, Size},
         register_handler::RegisterHandler,
         symbol_table::SymbolTable,
     },
@@ -23,14 +24,19 @@ impl Program {
 
         let mut symbol_table = SymbolTable::new();
         self.block.discover(&mut symbol_table);
-        let instructions = self
-            .block
-            .compile(&mut global_scope, &mut register_handler)?;
+        let instructions = render(
+            &self
+                .block
+                .compile(&mut global_scope, &mut register_handler)?,
+        );
 
         let functions = symbol_table
             .functions
             .values()
-            .map(|def| def.compile(&mut global_scope, &mut register_handler))
+            .map(|def| {
+                def.compile(&mut global_scope, &mut register_handler)
+                    .map(|instructions| render(&instructions))
+            })
             .collect::<Result<Vec<_>, _>>()?
             .join("\n");
         let globals = symbol_table
@@ -78,9 +84,16 @@ main:
 \tpop rbp
 \txor rcx, rcx
 \tcall ExitProcess"
-        )
-        .to_string())
+        ))
     }
+}
+
+pub fn render(instructions: &[Instruction]) -> String {
+    instructions
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 impl Block {
@@ -88,27 +101,23 @@ impl Block {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let mut new_scope = CompileScope::new(Some(compile_scope));
 
         let mut instructions = self
             .children
             .iter()
             .map(|child| child.compile(&mut new_scope, register_handler))
-            .collect::<Result<Vec<String>, CodegenError>>()?
-            .join("\n");
+            .collect::<Result<Vec<_>, CodegenError>>()?
+            .concat();
 
         let alloc_size = new_scope.stack_depth - compile_scope.stack_depth;
         // A trailing return already restores rsp, so a dealloc after it is unreachable
-        if alloc_size > 0 && !instructions.ends_with("ret") {
-            instructions = format!("{instructions}\nadd rsp, {alloc_size}");
+        if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Ret)) {
+            instructions.push(Instruction::add(Register::RSP, NumberType::I32(alloc_size)));
         }
 
-        Ok(instructions
-            .split('\n')
-            .map(|s| format!("\t{s}"))
-            .collect::<Vec<String>>()
-            .join("\n"))
+        Ok(instructions)
     }
 }
 
@@ -117,16 +126,18 @@ impl StatementOrExpression {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         match &self {
             StatementOrExpression::Statement(statement) => {
                 statement.compile(compile_scope, register_handler)
             }
             StatementOrExpression::Expression(expression) => {
-                let asm = register_handler.lease_with_scope(|register_handler, dst| {
+                let mut asm = register_handler.lease_with_scope(|register_handler, dst| {
                     expression.compile(compile_scope, dst, register_handler)
                 })?;
-                Ok(format!("; {expression}\n{asm}"))
+
+                asm.insert(0, Instruction::comment(expression.to_string()));
+                Ok(asm)
             }
         }
     }
@@ -138,18 +149,18 @@ impl Expression {
         compile_scope: &mut CompileScope,
         dst: impl Into<Address>,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let dst = dst.into();
 
         match &self.kind {
             ExpressionKind::Atom(a) => match a {
-                AtomType::Number(n) => Ok(compile_number(*n, dst)),
+                AtomType::Number(n) => Ok(vec![compile_number(*n, dst)]),
                 AtomType::Identifier(name) => {
                     compile_variable(compile_scope, register_handler, name, self.span, dst)
                 }
                 AtomType::String(s) => compile_string(s, dst, register_handler),
                 AtomType::Colon => panic!("Unexpected colon"),
-                AtomType::Boolean(b) => Ok(compile_boolean(*b, dst)),
+                AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
             },
             ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)
@@ -185,12 +196,17 @@ fn compile_string(
     s: &str,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     let handle = register_handler.add_data(s);
     match dst {
-        Address::Register(_) => Ok(format!("mov QWORD {dst}, {handle}")),
-        Address::Stack(_) => register_handler
-            .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}"))),
+        Address::Register(_) => Ok(vec![Instruction::mov(dst, Operand::Label(handle))]),
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
+            .lease_with_scope(|_, reg| {
+                Ok(vec![
+                    Instruction::mov(reg, Operand::Label(handle)),
+                    Instruction::mov(dst, reg),
+                ])
+            }),
     }
 }
 
@@ -200,7 +216,7 @@ fn compile_function_call(
     name: &str,
     args: &[Expression],
     dst: Address,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
 
@@ -212,13 +228,13 @@ fn compile_function_call(
         .collect::<Vec<_>>();
     let mut instructions = saved_registers
         .iter()
-        .map(|reg| format!("push {reg}"))
+        .map(|reg| Instruction::push(*reg))
         .collect::<Vec<_>>();
 
     // Registers already in use were saved above, so only the free ones need to be claimed
     let mut requested_registers = vec![];
     for (arg, dst_reg) in register_args.iter().zip(target_registers) {
-        instructions.push(arg.compile(compile_scope, dst_reg, register_handler)?);
+        instructions.extend(arg.compile(compile_scope, dst_reg, register_handler)?);
         //  Prevent register from being modified
         if register_handler.request_register(dst_reg).is_ok() {
             requested_registers.push(dst_reg);
@@ -227,24 +243,27 @@ fn compile_function_call(
 
     // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
     // aligned at the call, including the locals and saved registers
-    let pushed_size = usize::try_from(compile_scope.stack_depth).expect("stack depth is positive")
-        + saved_registers.len() * 8;
-    let stack_size = (pushed_size + 32 + stack_args.len() * 8).next_multiple_of(16) - pushed_size;
-    instructions.push(format!("sub rsp, {stack_size}"));
+    let pushed_size = u32::try_from(compile_scope.stack_depth).expect("stack depth is positive")
+        + u32::try_from(saved_registers.len()).unwrap() * 8;
+    let stack_size: u32 = (pushed_size + 32 + u32::try_from(stack_args.len()).unwrap() * 8)
+        .next_multiple_of(16)
+        - pushed_size;
+    instructions.push(Instruction::sub(Register::RSP, stack_size));
 
     // Register args are already in place, so evaluate these directly into their slots
     for (i, arg) in stack_args.iter().enumerate() {
-        let offset = 32 + i * 8;
-        instructions.push(register_handler.lease_with_scope(|register_handler, tmp| {
-            let arg = arg.compile(compile_scope, tmp, register_handler)?;
-            Ok(format!("{arg}\nmov [rsp + {offset}], {tmp}"))
+        let offset = 32 + i32::try_from(i).unwrap() * 8;
+        instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
+            let mut arg = arg.compile(compile_scope, tmp, register_handler)?;
+            arg.push(Instruction::mov(Address::StackArg(offset), tmp));
+            Ok(arg)
         })?);
     }
 
-    instructions.push(format!("call {name}"));
-    instructions.push(format!("add rsp, {stack_size}"));
+    instructions.push(Instruction::call(name));
+    instructions.push(Instruction::add(Register::RSP, stack_size));
     if dst != Address::Register(Register::RAX) {
-        instructions.push(format!("mov {dst}, rax"));
+        instructions.push(Instruction::mov(dst, Register::RAX));
     }
 
     // Give back the registers
@@ -252,9 +271,14 @@ fn compile_function_call(
         register_handler.release_register(reg);
     }
 
-    instructions.extend(saved_registers.iter().rev().map(|reg| format!("pop {reg}")));
+    instructions.extend(
+        saved_registers
+            .iter()
+            .rev()
+            .map(|reg| Instruction::pop(*reg)),
+    );
 
-    Ok(instructions.join("\n"))
+    Ok(instructions)
 }
 
 fn compile_index(
@@ -263,52 +287,57 @@ fn compile_index(
     dst: Address,
     lhs: &Expression,
     index: &Expression,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     let element = compile_scope.element_type(lhs).at(lhs.span)?;
     register_handler.lease_with_scope(|register_handler, ptr| {
-        let data_size = element.size();
-        let index = index.compile(compile_scope, ptr, register_handler)?;
-        register_handler.lease_with_scope(|register_handler, lhs_dst| {
-            let lhs = lhs.compile(compile_scope, lhs_dst, register_handler)?;
+        let data_size = u32::try_from(element.size()).unwrap();
+        let mut instructions = index.compile(compile_scope, ptr, register_handler)?;
+        instructions.push(Instruction::imul(ptr, data_size));
+        instructions.extend(
+            register_handler.lease_with_scope(|register_handler, lhs_dst| {
+                let mut instructions = lhs.compile(compile_scope, lhs_dst, register_handler)?;
 
-            let memory = format!("[{lhs_dst}+{ptr}]");
-            let load = match dst {
-                Address::Register(reg) => load_element(&element, reg, &memory),
-                Address::Stack(_) => format!(
-                    "{}\nmov {dst}, {lhs_dst}",
-                    load_element(&element, lhs_dst, &memory)
-                ),
-            };
+                let memory = Address::Indexed {
+                    base: lhs_dst,
+                    index: ptr,
+                };
+                match dst {
+                    Address::Register(reg) => {
+                        instructions.push(load_element(&element, reg, memory));
+                    }
+                    Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => {
+                        instructions.push(load_element(&element, lhs_dst, memory));
+                        instructions.push(Instruction::mov(dst, lhs_dst));
+                    }
+                }
 
-            Ok([index, format!("imul {ptr}, {ptr}, {data_size}"), lhs, load].join("\n"))
-        })
+                Ok(instructions)
+            })?,
+        );
+
+        Ok(instructions)
     })
 }
 
-fn load_element(element: &Type, dst: Register, memory: &str) -> String {
+fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     match element {
-        Type::I32 => format!("movsxd {dst}, DWORD {memory}"),
-        Type::U32 => format!("mov {}, DWORD {memory}", dst.lower_32_bits()),
-        Type::Boolean => format!("movzx {dst}, BYTE {memory}"),
-        _ => format!("mov {dst}, {memory}"),
+        Type::I32 => Instruction::movsx(dst, memory, Size::Dword),
+        Type::U32 => Instruction::movzx(dst, memory, Size::Dword),
+        Type::Boolean => Instruction::movzx(dst, memory, Size::Byte),
+        _ => Instruction::mov(dst, memory),
     }
 }
 
-pub fn store_element(element: &Type, memory: &str, src: Register) -> String {
+pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
     match element {
-        Type::I32 | Type::U32 => format!("mov DWORD {memory}, {}", src.lower_32_bits()),
-        Type::Boolean => format!("mov BYTE {memory}, {}", Address::from(src).lower_8_bits()),
-        _ => format!("mov {memory}, {src}"),
+        Type::I32 | Type::U32 => Instruction::store(memory, src, Size::Dword),
+        Type::Boolean => Instruction::store(memory, src, Size::Byte),
+        _ => Instruction::mov(memory, src),
     }
 }
 
-fn compile_number(n: NumberType, dst: Address) -> String {
-    match n {
-        NumberType::I32(n) => format!("mov  {dst}, {n}"),
-        NumberType::U32(n) => format!("mov  {dst}, {n}"),
-        NumberType::U64(n) => format!("mov QWORD {dst}, {n}"),
-        NumberType::I64(n) | NumberType::Coercible(n) => format!("mov QWORD {dst}, {n}"),
-    }
+fn compile_number(n: NumberType, dst: Address) -> Instruction {
+    Instruction::mov(dst, n)
 }
 
 fn compile_variable(
@@ -317,17 +346,22 @@ fn compile_variable(
     name: &str,
     span: Span,
     dst: Address,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     let address = compile_scope.get_variable(name).at(span)?;
     match dst {
         //  You can always move to a register
-        Address::Register(_) => Ok(format!("mov {dst}, {address}")),
-        Address::Stack(_) => match address {
-            Address::Register(_) => Ok(format!("mov {dst}, {address}")),
+        Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => match address {
+            Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
 
             // Need an intermediate register
-            Address::Stack(_) => register_handler
-                .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {address}\nmov {dst}, {reg}"))),
+            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
+                .lease_with_scope(|_, reg| {
+                    Ok(vec![
+                        Instruction::mov(reg, address),
+                        Instruction::mov(dst, reg),
+                    ])
+                }),
         },
     }
 }
@@ -339,8 +373,8 @@ fn compile_binary(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
-    let set_condition = match op {
+) -> Result<Vec<Instruction>, CodegenError> {
+    let cond = match op {
         BinaryOp::Multiply => {
             return compile_multiply(compile_scope, left, right, dst, register_handler);
         }
@@ -365,48 +399,85 @@ fn compile_binary(
             );
         }
         BinaryOp::Add => {
-            return compile_simple_binary("add", compile_scope, left, right, dst, register_handler);
+            return compile_simple_binary(
+                Instruction::add,
+                compile_scope,
+                left,
+                right,
+                dst,
+                register_handler,
+            );
         }
         BinaryOp::Subtract => {
-            return compile_simple_binary("sub", compile_scope, left, right, dst, register_handler);
+            return compile_simple_binary(
+                Instruction::sub,
+                compile_scope,
+                left,
+                right,
+                dst,
+                register_handler,
+            );
         }
         BinaryOp::Or => {
-            return compile_simple_binary("or", compile_scope, left, right, dst, register_handler);
+            return compile_simple_binary(
+                Instruction::or,
+                compile_scope,
+                left,
+                right,
+                dst,
+                register_handler,
+            );
         }
         BinaryOp::And => {
-            return compile_simple_binary("and", compile_scope, left, right, dst, register_handler);
+            return compile_simple_binary(
+                Instruction::and,
+                compile_scope,
+                left,
+                right,
+                dst,
+                register_handler,
+            );
         }
-        BinaryOp::LessThan => "setl",
-        BinaryOp::LessOrEqual => "setle",
-        BinaryOp::GreaterThan => "setg",
-        BinaryOp::GreaterOrEqual => "setge",
-        BinaryOp::Equal => "sete",
-        BinaryOp::NotEqual => "setne",
+        BinaryOp::LessThan => Condition::Less,
+        BinaryOp::LessOrEqual => Condition::LessEqual,
+        BinaryOp::GreaterThan => Condition::Greater,
+        BinaryOp::GreaterOrEqual => Condition::GreaterEqual,
+        BinaryOp::Equal => Condition::Equal,
+        BinaryOp::NotEqual => Condition::NotEqual,
     };
 
-    let compare = compile_simple_binary("cmp", compile_scope, left, right, dst, register_handler)?;
-    Ok(format!(
-        "{compare}\nmov QWORD {dst}, 0\n{set_condition} {}",
-        dst.lower_8_bits()
-    ))
+    let mut instructions = compile_simple_binary(
+        Instruction::cmp,
+        compile_scope,
+        left,
+        right,
+        dst,
+        register_handler,
+    )?;
+    instructions.push(Instruction::mov(dst, NumberType::I64(0)));
+    instructions.push(Instruction::set(cond, dst));
+    Ok(instructions)
 }
 
-/// Compiles `left` into `dst`, `right` into a scratch register, then runs `{instruction} dst, scratch`
+/// Compiles `left` into `dst`, `right` into a scratch register, then runs `instruction(dst, scratch)`
 fn compile_simple_binary(
-    instruction: &str,
+    instruction: impl FnOnce(Address, Register) -> Instruction,
     compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
-    let left = left.compile(compile_scope, dst, register_handler)?;
-    let right = register_handler.lease_with_scope(|register_handler, right_reg| {
-        let right = right.compile(compile_scope, right_reg, register_handler)?;
-        Ok(format!("{right}\n{instruction} {dst}, {right_reg}"))
-    })?;
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = left.compile(compile_scope, dst, register_handler)?;
+    instructions.extend(
+        register_handler.lease_with_scope(|register_handler, right_reg| {
+            let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+            right.push(instruction(dst, right_reg));
+            Ok(right)
+        })?,
+    );
 
-    Ok(format!("{left}\n{right}"))
+    Ok(instructions)
 }
 
 fn compile_unary(
@@ -415,15 +486,14 @@ fn compile_unary(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
-    let child_asm = child.compile(compile_scope, dst, register_handler)?;
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = child.compile(compile_scope, dst, register_handler)?;
+    instructions.push(match op {
+        UnaryOp::Negate => Instruction::neg(dst),
+        UnaryOp::Not => Instruction::xor(dst, NumberType::I64(1)),
+    });
 
-    let asm = match op {
-        UnaryOp::Negate => format!("neg QWORD {dst}"),
-        UnaryOp::Not => format!("xor QWORD {dst}, 1"),
-    };
-
-    Ok(format!("{child_asm}\n{asm}"))
+    Ok(instructions)
 }
 
 fn compile_postfix(
@@ -432,9 +502,9 @@ fn compile_postfix(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     // Postfix evaluates to the value before the update
-    let old_value = lhs.compile(compile_scope, dst, register_handler)?;
+    let mut instructions = lhs.compile(compile_scope, dst, register_handler)?;
     let update = Assignment {
         lhs: lhs.clone(),
         expression: Expression::new(
@@ -450,8 +520,9 @@ fn compile_postfix(
         ),
     }
     .compile_uncommented(compile_scope, register_handler)?;
+    instructions.extend(update);
 
-    Ok(format!("{old_value}\n{update}"))
+    Ok(instructions)
 }
 
 fn compile_multiply(
@@ -460,21 +531,20 @@ fn compile_multiply(
     right: &Expression,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     register_handler.lease_with_scope(|register_handler, left_reg| {
-        let left = left.compile(compile_scope, left_reg, register_handler)?;
+        let mut instructions = left.compile(compile_scope, left_reg, register_handler)?;
 
-        register_handler.lease_with_scope(|register_handler, right_reg| {
-            let right = right.compile(compile_scope, right_reg, register_handler)?;
+        instructions.extend(
+            register_handler.lease_with_scope(|register_handler, right_reg| {
+                let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+                right.push(Instruction::imul(left_reg, right_reg));
+                right.push(Instruction::mov(dst, left_reg));
+                Ok(right)
+            })?,
+        );
 
-            Ok([
-                left,
-                right,
-                format!("imul {left_reg}, {right_reg}"),
-                format!("mov {dst}, {left_reg}"),
-            ]
-            .join("\n"))
-        })
+        Ok(instructions)
     })
 }
 
@@ -486,39 +556,43 @@ fn compile_divide(
     dst: Address,
     register_handler: &mut RegisterHandler,
     result: Register,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     register_handler.lease_with_scope(|register_handler, right_reg| {
         // Only happens when every other register is leased, and idiv overwrites both
         if matches!(right_reg, Register::RAX | Register::RDX) {
             return Err(CodegenErrorKind::OutOfRegisters.at(left.span));
         }
 
-        let right = right.compile(compile_scope, right_reg, register_handler)?;
+        let mut instructions = right.compile(compile_scope, right_reg, register_handler)?;
 
         let divide =
             register_handler.request_with_scope(Register::RAX, dst, |register_handler, rax| {
-                let left = left.compile(compile_scope, rax, register_handler)?;
+                let mut instructions = left.compile(compile_scope, rax, register_handler)?;
 
-                let divide = register_handler.request_with_scope(Register::RDX, dst, |_, _| {
-                    Ok([
-                        "cqo".to_string(),
-                        format!("idiv {right_reg}"),
-                        format!("mov {dst}, {result}"),
-                    ]
-                    .join("\n"))
-                })?;
+                instructions.extend(register_handler.request_with_scope(
+                    Register::RDX,
+                    dst,
+                    |_, _| {
+                        Ok(vec![
+                            Instruction::Cqo,
+                            Instruction::idiv(right_reg),
+                            Instruction::mov(dst, result),
+                        ])
+                    },
+                )?);
 
-                Ok(format!("{left}\n{divide}"))
+                Ok(instructions)
             })?;
 
         // right was compiled first so it has to run first, or its own rax use clobbers left
-        Ok(format!("{right}\n{divide}"))
+        instructions.extend(divide);
+        Ok(instructions)
     })
 }
 
-fn compile_boolean(b: bool, dst: Address) -> String {
-    let n = i32::from(b);
-    format!("mov QWORD {dst}, {n}")
+fn compile_boolean(b: bool, dst: Address) -> Instruction {
+    let n = NumberType::I64(i64::from(b));
+    Instruction::mov(dst, n)
 }
 
 #[cfg(test)]

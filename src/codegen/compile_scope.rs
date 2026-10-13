@@ -2,7 +2,12 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{AtomType, Expression, ExpressionKind},
-    codegen::{CodegenErrorKind, address::Address, loop_context::LoopContext},
+    codegen::{
+        CodegenErrorKind,
+        address::{Address, Register},
+        instruction::Instruction,
+        loop_context::LoopContext,
+    },
     type_check::Type,
 };
 
@@ -87,11 +92,15 @@ impl<'a> CompileScope<'a> {
         Ok(())
     }
 
-    pub fn allocate_variable(&mut self, name: String, t: Type) -> Result<String, CodegenErrorKind> {
+    pub fn allocate_variable(
+        &mut self,
+        name: String,
+        t: Type,
+    ) -> Result<Instruction, CodegenErrorKind> {
         let address = Address::Stack(self.stack_depth + SLOT_SIZE);
         self.add_variable(name, address, t)?;
         self.stack_depth += SLOT_SIZE;
-        Ok(format!("sub rsp, {SLOT_SIZE}"))
+        Ok(Instruction::sub(Register::RSP, SLOT_SIZE))
     }
 
     pub fn loop_scope(&self) -> Option<&CompileScope<'a>> {

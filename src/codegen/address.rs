@@ -15,6 +15,8 @@ pub enum Register {
     R13,
     R14,
     R15,
+    RSP,
+    RBP,
 }
 
 impl fmt::Display for Register {
@@ -32,6 +34,8 @@ impl fmt::Display for Register {
             Register::R13 => write!(f, "r13"),
             Register::R14 => write!(f, "r14"),
             Register::R15 => write!(f, "r15"),
+            Register::RSP => write!(f, "rsp"),
+            Register::RBP => write!(f, "rbp"),
         }
     }
 }
@@ -51,6 +55,8 @@ impl Register {
             Register::R13 => "r13d",
             Register::R14 => "r14d",
             Register::R15 => "r15d",
+            Register::RSP => "esp",
+            Register::RBP => "ebp",
         }
     }
 }
@@ -59,12 +65,14 @@ impl Register {
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset below rbp; negative offsets are above rbp (e.g. function args)
+    StackArg(i32),
+    Indexed { base: Register, index: Register },
 }
 
 impl Address {
     pub fn lower_8_bits(self) -> String {
         match self {
-            Address::Stack(_) => self.to_string(),
+            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => self.to_string(),
             Address::Register(reg) => match reg {
                 Register::RAX => "al".to_string(),
                 Register::RBX => "bl".to_string(),
@@ -78,6 +86,8 @@ impl Address {
                 Register::R13 => "r13b".to_string(),
                 Register::R14 => "r14b".to_string(),
                 Register::R15 => "r15b".to_string(),
+                Register::RSP => "spl".to_string(),
+                Register::RBP => "bpl".to_string(),
             },
         }
     }
@@ -89,6 +99,8 @@ impl fmt::Display for Address {
             Address::Register(reg) => write!(f, "{reg}"),
             Address::Stack(off) if *off < 0 => write!(f, "[rbp + {}]", -off),
             Address::Stack(off) => write!(f, "[rbp - {off}]"),
+            Address::StackArg(off) => write!(f, "[rsp + {off}]"),
+            Address::Indexed { base, index } => write!(f, "[{base}+{index}]"),
         }
     }
 }

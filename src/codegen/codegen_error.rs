@@ -28,7 +28,9 @@ impl fmt::Display for CodegenErrorKind {
                 write!(f, "Cannot assign to ({target})")
             }
             CodegenErrorKind::OutOfRegisters => write!(f, "Ran out of registers"),
-            CodegenErrorKind::OutsideLoop(keyword) => write!(f, "({keyword}) used outside of a loop"),
+            CodegenErrorKind::OutsideLoop(keyword) => {
+                write!(f, "({keyword}) used outside of a loop")
+            }
         }
     }
 }

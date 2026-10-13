@@ -8,6 +8,7 @@ use crate::{
         address::{Address, Register},
         compile::store_element,
         compile_scope::CompileScope,
+        instruction::{Condition, Instruction},
         loop_context::LoopContext,
         register_handler::RegisterHandler,
     },
@@ -21,12 +22,12 @@ impl Statement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         match self {
             Statement::Assignment(s) => s.compile(compile_scope, register_handler),
             Statement::Declaration(s) => s.compile(compile_scope, register_handler),
             Statement::ForLoop(s) => s.compile(compile_scope, register_handler),
-            Statement::FunctionDefinition(_) => Ok(String::new()),
+            Statement::FunctionDefinition(_) => Ok(vec![]),
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),
@@ -42,7 +43,7 @@ impl Assignment {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         match &self.lhs.kind {
             ExpressionKind::Atom(AtomType::Identifier(ident)) => {
                 let address = compile_scope.get_variable(ident).at(self.lhs.span)?;
@@ -52,31 +53,36 @@ impl Assignment {
             ExpressionKind::Index(lhs, index) => {
                 let element = compile_scope.element_type(lhs).at(lhs.span)?;
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
-                    let data_size = element.size();
-                    let index_asm = index.compile(compile_scope, offset_ptr, register_handler)?;
-                    register_handler.lease_with_scope(|register_handler, ptr| {
-                        let lhs = lhs.compile(compile_scope, ptr, register_handler)?;
+                    let data_size = u32::try_from(element.size()).unwrap();
+                    let mut instructions =
+                        index.compile(compile_scope, offset_ptr, register_handler)?;
+                    instructions.push(Instruction::imul(offset_ptr, data_size));
+                    instructions.extend(register_handler.lease_with_scope(
+                        |register_handler, ptr| {
+                            let mut instructions =
+                                lhs.compile(compile_scope, ptr, register_handler)?;
 
-                        register_handler.lease_with_scope(|register_handler, value_dst| {
-                            let rhs = self.expression.compile(
-                                compile_scope,
-                                value_dst,
-                                register_handler,
-                            )?;
-                            Ok([
-                                index_asm,
-                                format!("imul {offset_ptr}, {offset_ptr}, {data_size}"),
-                                lhs,
-                                rhs,
-                                store_element(
-                                    &element,
-                                    &format!("[{ptr}+{offset_ptr}]"),
-                                    value_dst,
-                                ),
-                            ]
-                            .join("\n"))
-                        })
-                    })
+                            instructions.extend(register_handler.lease_with_scope(
+                                |register_handler, value_dst| {
+                                    let mut rhs = self.expression.compile(
+                                        compile_scope,
+                                        value_dst,
+                                        register_handler,
+                                    )?;
+                                    let memory = Address::Indexed {
+                                        base: ptr,
+                                        index: offset_ptr,
+                                    };
+                                    rhs.push(store_element(&element, memory, value_dst));
+                                    Ok(rhs)
+                                },
+                            )?);
+
+                            Ok(instructions)
+                        },
+                    )?);
+
+                    Ok(instructions)
                 })
             }
             _ => Err(CodegenErrorKind::InvalidAssignTarget(self.lhs.to_string()).at(self.lhs.span)),
@@ -87,12 +93,10 @@ impl Assignment {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
-        let asm = self.compile_uncommented(compile_scope, register_handler)?;
-        Ok(format!(
-            "; {self}
-{asm}"
-        ))
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let mut instructions = vec![Instruction::comment(self.to_string())];
+        instructions.extend(self.compile_uncommented(compile_scope, register_handler)?);
+        Ok(instructions)
     }
 }
 
@@ -101,7 +105,7 @@ impl Declaration {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
             return Err(
                 CodegenErrorKind::InvalidAssignTarget(self.assign.lhs.to_string())
@@ -113,10 +117,12 @@ impl Declaration {
         let alloc = compile_scope
             .allocate_variable(ident.clone(), dtype)
             .at(self.assign.lhs.span)?;
-        let assign = self
-            .assign
-            .compile_uncommented(compile_scope, register_handler)?;
-        Ok(format!("; {self}\n{alloc}\n{assign}"))
+        let mut instructions = vec![Instruction::comment(self.to_string()), alloc];
+        instructions.extend(
+            self.assign
+                .compile_uncommented(compile_scope, register_handler)?,
+        );
+        Ok(instructions)
     }
 }
 
@@ -125,7 +131,7 @@ impl ForLoop {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let unique_id = register_handler.get_unique_id();
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
@@ -148,36 +154,28 @@ impl ForLoop {
 
         let block = self.block.compile(&mut new_scope, register_handler)?;
         let init_size = new_scope.stack_depth - compile_scope.stack_depth;
-        let dealloc = if init_size > 0 {
-            format!("\nadd rsp, {init_size}")
-        } else {
-            String::new()
-        };
-        // Indent the update to match the block it runs with
-        let update = self
-            .update
-            .compile(&mut new_scope, register_handler)?
-            .lines()
-            .map(|line| format!("\t{line}"))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let update = self.update.compile(&mut new_scope, register_handler)?;
 
-        Ok(format!(
-            "; for ({}; {}; {})\n\
-            {init}\n\
-            {start_label}:\n\
-            {condition}\n\
-            cmp {condition_dst_reg}, 0\n\
-            je {end_label}\n\
-            ; body\n\
-            {block}\n\
-            {continue_label}:\n\
-            \t; update\n\
-            {update}\n\
-            jmp {start_label}\n\
-            {end_label}:{dealloc}",
+        let mut instructions = vec![Instruction::comment(format!(
+            "for ({}; {}; {})",
             self.init, self.condition, self.update
-        ))
+        ))];
+        instructions.extend(init);
+        instructions.push(Instruction::label(&start_label));
+        instructions.extend(condition);
+        instructions.push(Instruction::cmp(condition_dst_reg, 0));
+        instructions.push(Instruction::jcc(Condition::Equal, &end_label));
+        instructions.push(Instruction::comment("body"));
+        instructions.extend(block);
+        instructions.push(Instruction::label(continue_label));
+        instructions.push(Instruction::comment("update"));
+        instructions.extend(update);
+        instructions.push(Instruction::jmp(start_label));
+        instructions.push(Instruction::label(end_label));
+        if init_size > 0 {
+            instructions.push(Instruction::add(Register::RSP, init_size));
+        }
+        Ok(instructions)
     }
 }
 
@@ -186,10 +184,14 @@ impl FunctionDefinition {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let mut scope = CompileScope::new(Some(compile_scope));
 
-        let mut arg_setup = vec![];
+        let mut instructions = vec![
+            Instruction::label(&self.name),
+            Instruction::push(Register::RBP),
+            Instruction::mov(Register::RBP, Register::RSP),
+        ];
         let arg_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
         for (i, arg) in self.args.iter().enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
@@ -199,7 +201,7 @@ impl FunctionDefinition {
 
             // Move register args to their home in the shadow space
             if let Some(reg) = arg_registers.get(i) {
-                arg_setup.push(format!("mov {new_address}, {reg}"));
+                instructions.push(Instruction::mov(new_address, *reg));
             }
 
             // Update its location in the scope
@@ -207,18 +209,13 @@ impl FunctionDefinition {
                 .add_variable(arg.name.clone(), new_address, arg.atype.clone())
                 .at(arg.span)?;
         }
-        let arg_setup = arg_setup.join("\n\t");
-        let instructions = self.body.compile(&mut scope, register_handler)?;
-        let ret = if instructions.ends_with("ret") {
-            ""
-        } else {
-            "pop rbp\n\tret"
-        };
+        instructions.extend(self.body.compile(&mut scope, register_handler)?);
+        if !matches!(instructions.last(), Some(Instruction::Ret)) {
+            instructions.push(Instruction::pop(Register::RBP));
+            instructions.push(Instruction::Ret);
+        }
 
-        let preamble = format!("{}:\n\tpush rbp\n\tmov rbp, rsp", self.name);
-        Ok(format!(
-            "{preamble}\n\t{arg_setup}\n{instructions}\n\t{ret}",
-        ))
+        Ok(instructions)
     }
 }
 
@@ -227,7 +224,7 @@ impl IfStatement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let id = register_handler.get_unique_id();
         let dst = register_handler.lease_register().at(self.condition.span)?;
         let condition = self
@@ -243,20 +240,17 @@ impl IfStatement {
         };
 
         register_handler.release_register(dst);
-        Ok(format!(
-            "; if {}\n\
-            {condition}\n\
-            test {dst}, {dst}\n\
-            jz else{id}\n\
-            ; then\n\
-            {block}\n\
-            jmp endif{id}\n\
-            else{id}:\n\
-            {}\n\
-            endif{id}:",
-            self.condition,
-            else_block.unwrap_or(String::new())
-        ))
+        let mut instructions = vec![Instruction::comment(format!("if {}", self.condition))];
+        instructions.extend(condition);
+        instructions.push(Instruction::test(dst, dst));
+        instructions.push(Instruction::jcc(Condition::Equal, format!("else{id}")));
+        instructions.push(Instruction::comment("then"));
+        instructions.extend(block);
+        instructions.push(Instruction::jmp(format!("endif{id}")));
+        instructions.push(Instruction::label(format!("else{id}")));
+        instructions.extend(else_block.unwrap_or_default());
+        instructions.push(Instruction::label(format!("endif{id}")));
+        Ok(instructions)
     }
 }
 
@@ -265,15 +259,17 @@ impl ReturnStatement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
-        let instructions = register_handler.request_with_scope(
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let mut instructions = vec![Instruction::comment(self.to_string())];
+        instructions.extend(register_handler.request_with_scope(
             Register::RAX,
             Register::RAX.into(),
             |register_handler, rax| self.expr.compile(compile_scope, rax, register_handler),
-        )?;
-        Ok(format!(
-            "; {self}\n{instructions}\nmov rsp, rbp\npop rbp\nret"
-        ))
+        )?);
+        instructions.push(Instruction::mov(Register::RSP, Register::RBP));
+        instructions.push(Instruction::pop(Register::RBP));
+        instructions.push(Instruction::Ret);
+        Ok(instructions)
     }
 }
 
@@ -282,7 +278,7 @@ impl WhileLoop {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, CodegenError> {
+    ) -> Result<Vec<Instruction>, CodegenError> {
         let unique_id = register_handler.get_unique_id();
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
@@ -302,18 +298,18 @@ impl WhileLoop {
         );
         let block = self.block.compile(&mut loop_scope, register_handler)?;
 
-        Ok(format!(
-            "; while {}\n\
-            {start_label}:\n\
-            {condition}\n\
-            cmp {reg}, 0\n\
-            je {end_label}\n\
-            ; body\n\
-            {block}\n\
-            jmp {start_label}\n\
-            {end_label}:",
-            self.condition
-        ))
+        let mut instructions = vec![
+            Instruction::comment(format!("while {}", self.condition)),
+            Instruction::label(&start_label),
+        ];
+        instructions.extend(condition);
+        instructions.push(Instruction::cmp(reg, 0));
+        instructions.push(Instruction::jcc(Condition::Equal, &end_label));
+        instructions.push(Instruction::comment("body"));
+        instructions.extend(block);
+        instructions.push(Instruction::jmp(start_label));
+        instructions.push(Instruction::label(end_label));
+        Ok(instructions)
     }
 }
 
@@ -322,7 +318,7 @@ fn jump_out_of_loop(
     keyword: &'static str,
     span: Span,
     label: impl Fn(&LoopContext) -> &str,
-) -> Result<String, CodegenError> {
+) -> Result<Vec<Instruction>, CodegenError> {
     let loop_scope = compile_scope
         .loop_scope()
         .ok_or_else(|| CodegenErrorKind::OutsideLoop(keyword).at(span))?;
@@ -330,23 +326,23 @@ fn jump_out_of_loop(
         .loop_context()
         .expect("loop scope has a loop context");
 
-    let mut instructions = vec![format!("; {keyword}")];
+    let mut instructions = vec![Instruction::comment(keyword)];
     let unwind = compile_scope.stack_depth - loop_scope.stack_depth;
     if unwind > 0 {
-        instructions.push(format!("add rsp, {unwind}"));
+        instructions.push(Instruction::add(Register::RSP, unwind));
     }
-    instructions.push(format!("jmp {}", label(loop_context)));
-    Ok(instructions.join("\n"))
+    instructions.push(Instruction::jmp(label(loop_context)));
+    Ok(instructions)
 }
 
 impl BreakStatement {
-    pub fn compile(&self, compile_scope: &CompileScope) -> Result<String, CodegenError> {
+    pub fn compile(&self, compile_scope: &CompileScope) -> Result<Vec<Instruction>, CodegenError> {
         jump_out_of_loop(compile_scope, "break", self.span, |l| &l.break_label)
     }
 }
 
 impl ContinueStatement {
-    pub fn compile(&self, compile_scope: &CompileScope) -> Result<String, CodegenError> {
+    pub fn compile(&self, compile_scope: &CompileScope) -> Result<Vec<Instruction>, CodegenError> {
         jump_out_of_loop(compile_scope, "continue", self.span, |l| &l.continue_label)
     }
 }
