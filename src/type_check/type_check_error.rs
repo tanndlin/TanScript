@@ -2,34 +2,42 @@ use std::{error::Error, fmt};
 
 use crate::{lex::Span, type_check::Type};
 
-pub enum TypeCheckError {
-    TypeMismatch {
-        expected: Type,
-        got: Type,
-        span: Span,
-    },
+pub struct TypeCheckError {
+    pub kind: TypeCheckErrorKind,
+    pub span: Span,
+}
+
+impl TypeCheckError {
+    pub fn new(kind: TypeCheckErrorKind, span: Span) -> Self {
+        Self { kind, span }
+    }
+}
+
+pub enum TypeCheckErrorKind {
+    TypeMismatch { expected: Type, got: Type },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
 }
 
-impl fmt::Display for TypeCheckError {
+impl fmt::Display for TypeCheckErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeCheckError::TypeMismatch {
-                expected,
-                got,
-                span,
-            } => write!(
-                f,
-                "Type mismatch at {span}: expected ({expected}), got ({got})"
-            ),
-            TypeCheckError::NotCallableIdentifer(ident) => {
+            TypeCheckErrorKind::TypeMismatch { expected, got } => {
+                write!(f, "Type mismatch: expected ({expected}), got ({got})")
+            }
+            TypeCheckErrorKind::NotCallableIdentifer(ident) => {
                 write!(f, "Identifier: ({ident}) is not callable")
             }
-            TypeCheckError::IdentifierNotFound(ident) => {
+            TypeCheckErrorKind::IdentifierNotFound(ident) => {
                 write!(f, "Identifer: ({ident}) not found")
-            } // TODO: This error probably isn't completely helpful
+            }
         }
+    }
+}
+
+impl fmt::Display for TypeCheckError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} at {}", self.kind, self.span)
     }
 }
 

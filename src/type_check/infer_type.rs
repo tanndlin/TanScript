@@ -17,7 +17,7 @@ mod test {
     use crate::{
         ast::StatementOrExpression,
         parser::parse,
-        type_check::{Type, TypeCheckError, TypeScope, check_types_expression},
+        type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression},
     };
 
     fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
@@ -117,7 +117,13 @@ mod test {
     fn type_error_for_mismatched_variables() {
         let result = infer_last("let a: u32 = 1; let b: i32 = 2; a + b;");
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -126,7 +132,13 @@ mod test {
     fn type_error_for_mismatched_nested_binary_ops() {
         let result = infer_last("let a: u32 = 1; let b: i64 = 2; (a + 1) * (b + 2);");
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -178,7 +190,13 @@ mod test {
     fn type_error_for_boolean_plus_number() {
         let result = infer_last("let a: i32 = 1; true + a;");
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -203,7 +221,13 @@ mod test {
     fn type_error_for_comparing_mismatched_types() {
         let result = infer_last("let a: u32 = 1; let b: i32 = 2; a < b;");
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }

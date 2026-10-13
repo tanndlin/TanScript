@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::type_check::{Type, TypeCheckError};
+use crate::type_check::Type;
 
 #[derive(Debug)]
 pub struct TypeScope {
@@ -45,10 +45,8 @@ impl TypeScope {
         }
     }
 
-    pub fn lookup(&self, name: &str) -> Result<&Type, TypeCheckError> {
-        self.find(name)
-            .map(|id| &self.bindings[id])
-            .ok_or(TypeCheckError::IdentifierNotFound(name.to_string()))
+    pub fn lookup(&self, name: &str) -> Option<&Type> {
+        self.find(name).map(|id| &self.bindings[id])
     }
 
     pub fn binding(&self, id: usize) -> &Type {

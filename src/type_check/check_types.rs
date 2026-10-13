@@ -1,6 +1,6 @@
 use crate::{
     ast::{AtomType, Expression, ExpressionKind, Program, UnaryOp},
-    type_check::{Type, TypeCheckError, TypeScope, infer_type::unify},
+    type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
 };
 
 pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
@@ -16,7 +16,15 @@ pub fn check_types_expression(
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     Ok(match &expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope.lookup(ident)?.clone(),
+        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
+            .lookup(ident)
+            .ok_or_else(|| {
+                TypeCheckError::new(
+                    TypeCheckErrorKind::IdentifierNotFound(ident.clone()),
+                    expression.span,
+                )
+            })?
+            .clone(),
         ExpressionKind::Atom(AtomType::String(_)) => Type::Unknown,
         ExpressionKind::Atom(atom_type) => Type::from(atom_type),
         ExpressionKind::Binary(op, lhs, rhs) => {
@@ -25,10 +33,14 @@ pub fn check_types_expression(
 
             let unified = unify(&lhs, &rhs)
                 .or_else(|| unify(&rhs, &lhs))
-                .ok_or_else(|| TypeCheckError::TypeMismatch {
-                    expected: lhs.clone(),
-                    got: rhs.clone(),
-                    span: expression.span,
+                .ok_or_else(|| {
+                    TypeCheckError::new(
+                        TypeCheckErrorKind::TypeMismatch {
+                            expected: lhs.clone(),
+                            got: rhs.clone(),
+                        },
+                        expression.span,
+                    )
                 })?;
 
             if op.returns_boolean() {
@@ -51,7 +63,7 @@ pub fn check_types_expression(
                 .collect::<Result<Vec<_>, _>>()?;
 
             match type_scope.lookup(function_name) {
-                Ok(Type::Function(function_type)) => {
+                Some(Type::Function(function_type)) => {
                     let function_type = function_type.clone();
                     given_args
                         .iter()
@@ -62,9 +74,14 @@ pub fn check_types_expression(
                         })?;
                     function_type.return_type
                 }
-                Ok(_) => return Err(TypeCheckError::NotCallableIdentifer(function_name.clone())),
+                Some(_) => {
+                    return Err(TypeCheckError::new(
+                        TypeCheckErrorKind::NotCallableIdentifer(function_name.clone()),
+                        expression.span,
+                    ));
+                }
                 // Treat the function as an unknown extern
-                Err(_) => Type::Unknown,
+                None => Type::Unknown,
             }
         }
         ExpressionKind::Index(lhs, rhs) => {
@@ -76,21 +93,25 @@ pub fn check_types_expression(
                 Type::Pointer(t) => *t,
                 Type::Unknown => Type::Unknown,
                 _ => {
-                    return Err(TypeCheckError::TypeMismatch {
-                        expected: Type::Pointer(Box::new(Type::Unknown)),
-                        got: lhs_type,
-                        span: expression.span,
-                    });
+                    return Err(TypeCheckError::new(
+                        TypeCheckErrorKind::TypeMismatch {
+                            expected: Type::Pointer(Box::new(Type::Unknown)),
+                            got: lhs_type,
+                        },
+                        expression.span,
+                    ));
                 }
             };
 
             // RHS must come down to a number
             if !rhs_type.is_number_type() {
-                return Err(TypeCheckError::TypeMismatch {
-                    expected: Type::I64,
-                    got: rhs_type,
-                    span: expression.span,
-                });
+                return Err(TypeCheckError::new(
+                    TypeCheckErrorKind::TypeMismatch {
+                        expected: Type::I64,
+                        got: rhs_type,
+                    },
+                    expression.span,
+                ));
             }
 
             element_type
@@ -111,11 +132,13 @@ pub fn expect_type(
             narrow_expression(expression, expected.clone(), type_scope);
             Ok(())
         }
-        _ => Err(TypeCheckError::TypeMismatch {
-            expected: expected.clone(),
-            got: got.clone(),
-            span: expression.span,
-        }),
+        _ => Err(TypeCheckError::new(
+            TypeCheckErrorKind::TypeMismatch {
+                expected: expected.clone(),
+                got: got.clone(),
+            },
+            expression.span,
+        )),
     }
 }
 
@@ -138,7 +161,7 @@ mod test {
     use crate::{
         ast::{Statement, StatementOrExpression},
         parser::parse,
-        type_check::{Type, TypeCheckError, check_types},
+        type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
     };
 
     #[test]
@@ -152,7 +175,13 @@ mod test {
         let mut program = parse("let a: u32 = 1; let b: i32 = a;").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -164,7 +193,13 @@ mod test {
                 .unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -177,7 +212,13 @@ mod test {
         .unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -190,7 +231,13 @@ mod test {
         .unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -207,7 +254,13 @@ mod test {
         let mut program = parse("let a: u32 = true;").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -217,7 +270,13 @@ mod test {
         let mut program = parse("let a: bool = 1;").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -227,7 +286,13 @@ mod test {
         let mut program = parse("def f (a: u32): u32 {a} f(true);").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -270,7 +335,13 @@ mod test {
         let mut program = parse("let a: u32 = 1; while true { let b: i32 = a; }").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -280,7 +351,13 @@ mod test {
         let mut program = parse("let a: u32 = 1; let b: i32 = 2; a = b;").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
@@ -290,7 +367,13 @@ mod test {
         let mut program = parse("def f (flags: *bool) { flags[0] = 300; }").unwrap();
         let result = check_types(&mut program);
         assert!(
-            matches!(result, Err(TypeCheckError::TypeMismatch { .. })),
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
             "expected TypeMismatch, got {result:?}"
         );
     }
