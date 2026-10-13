@@ -1,7 +1,8 @@
 use crate::{
-    ast::{OPERATORS, OperatorType, ParseError, ParseErrorKind},
+    ast::{OPERATORS, OperatorType},
     error::At,
     lex::{LexError, LexErrorKind, LexerAtomType, LexerToken},
+    parse::{ParseError, ParseErrorKind},
     types::{NumberType, Span, Token},
 };
 

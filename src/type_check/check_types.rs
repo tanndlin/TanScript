@@ -151,7 +151,7 @@ mod test {
     use crate::{
         ast::{Statement, StatementOrExpression},
         lex::Lexer,
-        parser::parse,
+        parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
     };
 

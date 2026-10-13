@@ -1,0 +1,523 @@
+use crate::{
+    ast::{AtomType, ExpressionKind, StatementOrExpression},
+    lex::Lexer,
+    parse::{ParseErrorKind, parse, parse_expression::parse_expression},
+};
+
+macro_rules! test_parse_expression {
+    ($input:expr, $expected:expr) => {
+        let mut lexer = Lexer::new($input).unwrap();
+        let s = parse_expression(&mut lexer, 0).unwrap();
+        assert_eq!(s.to_string(), $expected);
+    };
+}
+
+macro_rules! integration_test {
+    ($input:expr, $expected:expr) => {
+        let program = parse(Lexer::new($input).unwrap()).unwrap();
+        assert_eq!(program.to_string(), $expected);
+    };
+}
+
+#[test]
+fn parse_basic_math() {
+    test_parse_expression!("1", "1");
+    test_parse_expression!("1 + 2 * 3", "(+ 1 (* 2 3))");
+    test_parse_expression!("a + b * c * d + e", "(+ (+ a (* (* b c) d)) e)");
+}
+
+#[test]
+fn parse_negative_numbers() {
+    test_parse_expression!("-9", "(- 9)");
+}
+
+#[test]
+fn parse_parentheses() {
+    test_parse_expression!("(1 + 2) * 3", "(* (+ 1 2) 3)");
+}
+
+#[test]
+fn parse_assignment() {
+    integration_test!("a = 1;", "a = 1");
+    integration_test!("a = 1 + 2;", "a = (+ 1 2)");
+}
+
+#[test]
+fn parse_add_assign() {
+    integration_test!("a += 1;", "a = (+ a 1)");
+}
+
+#[test]
+fn parse_sub_assign() {
+    integration_test!("a -= 1;", "a = (- a 1)");
+}
+
+#[test]
+fn parse_mul_assign() {
+    integration_test!("a *= 2;", "a = (* a 2)");
+}
+
+#[test]
+fn parse_div_assign() {
+    integration_test!("a /= 2;", "a = (/ a 2)");
+}
+
+#[test]
+fn parse_mod_assign() {
+    integration_test!("a %= 2;", "a = (% a 2)");
+}
+
+#[test]
+fn parse_compound_assign_groups_right_side() {
+    // The whole right side is the operand, not just the first term
+    integration_test!("a -= 1 + 2;", "a = (- a (+ 1 2))");
+    integration_test!("a += b * 2;", "a = (+ a (* b 2))");
+    integration_test!("a -= b - c;", "a = (- a (- b c))");
+    integration_test!("a *= 1 + 2;", "a = (* a (+ 1 2))");
+    integration_test!("a /= b - c;", "a = (/ a (- b c))");
+    integration_test!("a %= b + 1;", "a = (% a (+ b 1))");
+}
+
+#[test]
+fn parse_compound_assign_function_call() {
+    integration_test!("a += add(1, 2);", "a = (+ a add(1, 2))");
+}
+
+#[test]
+fn parse_compound_assign_in_while_loop() {
+    integration_test!(
+        "while (a < 10) { a += 1; }",
+        "while (< a 10) {\na = (+ a 1)\n}"
+    );
+}
+
+#[test]
+fn parse_compound_assign_in_if_else() {
+    integration_test!(
+        "if (a < 10) { a += 1; } else { a -= 1; }",
+        "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
+    );
+}
+
+#[test]
+fn reject_compound_assign_in_declaration() {
+    let err = parse(Lexer::new("let a += 1;").unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
+    let err = parse(Lexer::new("let a -= 1;").unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
+}
+
+#[test]
+fn expect_compound_assign_semicolon() {
+    let program = parse(Lexer::new("a += 1 b -= 2;").unwrap()).unwrap_err();
+    assert!(
+        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
+    );
+}
+
+#[test]
+fn parse_declaration() {
+    integration_test!("let a = 1;", "let a = 1");
+    integration_test!("let a = 1 + 2;", "let a = (+ 1 2)");
+}
+
+#[test]
+fn expect_statement_semicolon() {
+    let program = parse(Lexer::new("let a = 1 let b = 2;").unwrap()).unwrap_err();
+    assert!(
+        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
+    );
+}
+
+#[test]
+fn parse_modulo() {
+    test_parse_expression!("5 % 2", "(% 5 2)");
+}
+
+#[test]
+fn parse_less_than() {
+    test_parse_expression!("1 < 2", "(< 1 2)");
+}
+
+#[test]
+fn parse_less_than_or_equal() {
+    test_parse_expression!("1 <= 2", "(<= 1 2)");
+}
+
+#[test]
+fn parse_greater_than() {
+    test_parse_expression!("1 > 2", "(> 1 2)");
+}
+
+#[test]
+fn parse_greater_than_or_equal() {
+    test_parse_expression!("1 >= 2", "(>= 1 2)");
+}
+
+#[test]
+fn parse_equals() {
+    test_parse_expression!("1 == 2", "(== 1 2)");
+}
+
+#[test]
+fn parse_not_equal() {
+    test_parse_expression!("1 != 2", "(!= 1 2)");
+}
+
+#[test]
+fn parse_logical_or() {
+    test_parse_expression!("1 || 0", "(|| 1 0)");
+}
+
+#[test]
+fn parse_logical_and() {
+    test_parse_expression!("1 && 0", "(&& 1 0)");
+}
+
+#[test]
+fn parse_increment() {
+    test_parse_expression!("a++", "(++ a)");
+}
+
+#[test]
+fn parse_decrement() {
+    test_parse_expression!("a--", "(-- a)");
+}
+
+#[test]
+fn parse_increment_decrement_binds_tighter_than_infix() {
+    test_parse_expression!("a++ + 1", "(+ (++ a) 1)");
+    test_parse_expression!("1 + a++", "(+ 1 (++ a))");
+    test_parse_expression!("a-- * 2", "(* (-- a) 2)");
+    test_parse_expression!("a++ < b--", "(< (++ a) (-- b))");
+}
+
+#[test]
+fn parse_increment_binds_tighter_than_prefix() {
+    test_parse_expression!("-a++", "(- (++ a))");
+    test_parse_expression!("!a--", "(! (-- a))");
+}
+
+#[test]
+fn parse_increment_followed_by_add() {
+    test_parse_expression!("a+++b", "(+ (++ a) b)");
+}
+
+#[test]
+fn parse_increment_decrement_statement() {
+    integration_test!("a++;", "(++ a)");
+    integration_test!("a--;", "(-- a)");
+}
+
+#[test]
+fn parse_increment_in_declaration() {
+    integration_test!("let b = a++;", "let b = (++ a)");
+}
+
+#[test]
+fn parse_increment_in_assignment() {
+    integration_test!("b = a--;", "b = (-- a)");
+}
+
+#[test]
+fn parse_increment_as_function_arg() {
+    test_parse_expression!("foo(a++)", "foo((++ a))");
+    test_parse_expression!("foo(a++, b--)", "foo((++ a), (-- b))");
+}
+
+#[test]
+fn parse_increment_in_while_loop() {
+    integration_test!("while (i < 10) { i++; }", "while (< i 10) {\n(++ i)\n}");
+}
+
+#[test]
+fn expect_increment_statement_semicolon() {
+    let program = parse(Lexer::new("a++ b--;").unwrap()).unwrap_err();
+    assert!(
+        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
+    );
+}
+
+#[test]
+fn reject_increment_on_non_identifier() {
+    assert!(parse(Lexer::new("5++;").unwrap()).is_err());
+    assert!(parse(Lexer::new("(a + b)--;").unwrap()).is_err());
+    assert!(parse(Lexer::new("foo()++;").unwrap()).is_err());
+}
+
+#[test]
+fn parse_boolean_negate() {
+    test_parse_expression!("!1", "(! 1)");
+    test_parse_expression!("!(1 < 2)", "(! (< 1 2))");
+}
+
+#[test]
+fn parse_while_loop() {
+    integration_test!(
+        "while (a < 10) { a = a + 1; }",
+        "while (< a 10) {\na = (+ a 1)\n}"
+    );
+}
+
+#[test]
+fn parse_if_statement() {
+    integration_test!(
+        "if (a < 10) { a = a + 1; }",
+        "if (< a 10) {\na = (+ a 1)\n}"
+    );
+}
+
+#[test]
+fn parse_if_else_statement() {
+    integration_test!(
+        "if (a < 10) { a = a + 1; } else { a = a - 1; }",
+        "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
+    );
+}
+
+#[test]
+fn parse_function_definition() {
+    integration_test!(
+        "def add(a: i32, b: i32) { return a + b; }",
+        "def add(a: i32, b: i32) {return (+ a b)}"
+    );
+}
+
+#[test]
+fn parse_function_definition_with_return_type() {
+    integration_test!(
+        "def add(a: i32, b: i32): i32 { return a + b; }",
+        "def add(a: i32, b: i32): i32 {return (+ a b)}"
+    );
+}
+
+#[test]
+fn parse_function_definition_no_args_with_return_type() {
+    integration_test!("def one(): u64 { 1 }", "def one(): u64 {return 1}");
+}
+
+#[test]
+fn parse_function_call() {
+    test_parse_expression!("add(1, 2)", "add(1, 2)");
+    test_parse_expression!("add(a, b + c)", "add(a, (+ b c))");
+}
+
+#[test]
+fn parse_function_call_no_args() {
+    test_parse_expression!("foo()", "foo()");
+}
+
+#[test]
+fn parse_nested_function_calls() {
+    test_parse_expression!("add(mul(2, 3), 4)", "add(mul(2, 3), 4)");
+}
+
+#[test]
+fn parse_function_implicit_return() {
+    integration_test!(
+        "def add(a: i32, b: i32) { a + b }",
+        "def add(a: i32, b: i32) {return (+ a b)}"
+    );
+}
+
+#[test]
+fn parse_index() {
+    test_parse_expression!("a[0]", "(a[0])");
+    test_parse_expression!("a [ 0 ]", "(a[0])");
+}
+
+#[test]
+fn parse_index_with_expression() {
+    test_parse_expression!("a[i]", "(a[i])");
+    test_parse_expression!("a[i + 1]", "(a[(+ i 1)])");
+    test_parse_expression!("a[(i + 1) * 2]", "(a[(* (+ i 1) 2)])");
+}
+
+#[test]
+fn parse_chained_index() {
+    test_parse_expression!("a[0][1]", "((a[0])[1])");
+    test_parse_expression!("a[0][1][2]", "(((a[0])[1])[2])");
+}
+
+#[test]
+fn parse_nested_index() {
+    test_parse_expression!("a[b[0]]", "(a[(b[0])])");
+    test_parse_expression!("a[b[c[0]]]", "(a[(b[(c[0])])])");
+}
+
+#[test]
+fn parse_index_binds_tighter_than_infix() {
+    test_parse_expression!("a[0] + 1", "(+ (a[0]) 1)");
+    test_parse_expression!("1 + a[0]", "(+ 1 (a[0]))");
+    test_parse_expression!("a[0] + b[1]", "(+ (a[0]) (b[1]))");
+    test_parse_expression!("1 + a[0] * 2", "(+ 1 (* (a[0]) 2))");
+    test_parse_expression!("a[0] < b[1] && c[2]", "(&& (< (a[0]) (b[1])) (c[2]))");
+}
+
+#[test]
+fn parse_index_binds_tighter_than_prefix() {
+    test_parse_expression!("-a[0]", "(- (a[0]))");
+    test_parse_expression!("!a[0]", "(! (a[0]))");
+}
+
+#[test]
+fn parse_index_on_parenthesized_expression() {
+    test_parse_expression!("(a)[0]", "(a[0])");
+    test_parse_expression!("(a + b)[0]", "((+ a b)[0])");
+}
+
+#[test]
+fn parse_index_on_function_call() {
+    test_parse_expression!("foo()[0]", "(foo()[0])");
+    test_parse_expression!("foo(1, 2)[i]", "(foo(1, 2)[i])");
+}
+
+#[test]
+fn parse_index_as_function_arg() {
+    test_parse_expression!("foo(a[0])", "foo((a[0]))");
+    test_parse_expression!("foo(a[0], b[i + 1])", "foo((a[0]), (b[(+ i 1)]))");
+}
+
+#[test]
+fn parse_increment_on_index() {
+    test_parse_expression!("a[0]++", "(++ (a[0]))");
+    test_parse_expression!("a[i]--", "(-- (a[i]))");
+    integration_test!("a[0]++;", "(++ (a[0]))");
+}
+
+#[test]
+fn parse_increment_inside_index() {
+    test_parse_expression!("a[i++]", "(a[(++ i)])");
+}
+
+#[test]
+fn parse_index_in_declaration() {
+    integration_test!("let x = a[0];", "let x = (a[0])");
+    integration_test!(
+        "let x = a[i] + a[i + 1];",
+        "let x = (+ (a[i]) (a[(+ i 1)]))"
+    );
+}
+
+#[test]
+fn parse_assign_to_index() {
+    integration_test!("a[0] = 5;", "(a[0]) = 5");
+    integration_test!("a[i] = a[i] + 1;", "(a[i]) = (+ (a[i]) 1)");
+    integration_test!("a[0][1] = 5;", "((a[0])[1]) = 5");
+}
+
+#[test]
+fn parse_compound_assign_to_index() {
+    integration_test!("a[0] += 1;", "(a[0]) = (+ (a[0]) 1)");
+    integration_test!("a[i] -= 2;", "(a[i]) = (- (a[i]) 2)");
+    integration_test!("a[i] *= 3;", "(a[i]) = (* (a[i]) 3)");
+}
+
+#[test]
+fn parse_index_in_while_loop() {
+    integration_test!(
+        "while (a[i] < 10) { a[i] = a[i] + 1; }",
+        "while (< (a[i]) 10) {\n(a[i]) = (+ (a[i]) 1)\n}"
+    );
+}
+
+#[test]
+fn reject_unclosed_index() {
+    assert!(parse(Lexer::new("a[0;").unwrap()).is_err());
+    assert!(parse(Lexer::new("let x = a[0;").unwrap()).is_err());
+    assert!(parse(Lexer::new("a[b[0];").unwrap()).is_err());
+}
+
+#[test]
+fn reject_empty_index() {
+    assert!(parse(Lexer::new("a[];").unwrap()).is_err());
+}
+
+#[test]
+fn reject_unmatched_close_bracket() {
+    assert!(parse(Lexer::new("a];").unwrap()).is_err());
+    assert!(parse(Lexer::new("a[0]];").unwrap()).is_err());
+}
+
+#[test]
+fn expression_spans() {
+    let mut lexer = Lexer::new(
+        "1 +
+  foo(-a, (b)[0])",
+    )
+    .unwrap();
+    let expr = parse_expression(&mut lexer, 0).unwrap();
+    assert_eq!((expr.span.line, expr.span.col), (0, 0));
+
+    let ExpressionKind::Binary(_, _, rhs) = &expr.kind else {
+        panic!("expected binary, got {expr}");
+    };
+    assert_eq!((rhs.span.line, rhs.span.col), (1, 2));
+
+    let ExpressionKind::FunctionCall(_, args) = &rhs.kind else {
+        panic!("expected function call, got {rhs}");
+    };
+    let spans: Vec<_> = args.iter().map(|a| (a.span.line, a.span.col)).collect();
+    assert_eq!(spans, vec![(1, 6), (1, 10)]);
+}
+
+#[test]
+fn parse_boolean_literals() {
+    for input in ["true", "false"] {
+        let mut lexer = Lexer::new(input).unwrap();
+        let expression = parse_expression(&mut lexer, 0).unwrap();
+        assert!(
+            matches!(
+                expression.kind,
+                ExpressionKind::Atom(AtomType::Boolean(b)) if b == (input == "true")
+            ),
+            "{input} parsed as {expression:?}"
+        );
+    }
+}
+
+#[test]
+fn parse_boolean_followed_by_token() {
+    let program = parse(Lexer::new("true; false;").unwrap()).unwrap();
+    let values: Vec<_> = program
+        .block
+        .children
+        .iter()
+        .map(|child| match child {
+            StatementOrExpression::Expression(e) => &e.kind,
+            StatementOrExpression::Statement(s) => panic!("expected an expression, got {s}"),
+        })
+        .collect();
+    assert!(
+        matches!(
+            values.as_slice(),
+            [
+                ExpressionKind::Atom(AtomType::Boolean(true)),
+                ExpressionKind::Atom(AtomType::Boolean(false))
+            ]
+        ),
+        "{values:?}"
+    );
+}
+
+#[test]
+fn parse_boolean_expressions() {
+    test_parse_expression!("!true", "(! true)");
+    test_parse_expression!("true && false", "(&& true false)");
+    test_parse_expression!("(true || false) && a", "(&& (|| true false) a)");
+}
+
+#[test]
+fn parse_boolean_as_function_arg() {
+    integration_test!("f(true, false);", "f(true, false)");
+}
+
+#[test]
+fn parse_boolean_in_if_condition() {
+    integration_test!(
+        "if (true) { a = 1; }",
+        "if true {
+a = 1
+}"
+    );
+}

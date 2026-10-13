@@ -1,0 +1,303 @@
+use std::str::FromStr;
+
+use crate::{
+    ast::{
+        Arg, Assignment, AtomType, Block, Declaration, Expression, ExpressionKind, ForLoop,
+        FunctionDefinition, IfStatement, OperatorType, ReturnStatement, Statement,
+        StatementOrExpression, WhileLoop,
+    },
+    error::At,
+    lex::{Lexer, LexerAtomType},
+    parse::{
+        ParseError, ParseErrorKind, expected,
+        parse_expression::{parse_expression, parse_expression_or_assignment},
+    },
+    type_check::Type,
+    types::Token,
+};
+
+pub fn parse_statement_or_expression(
+    lexer: &mut Lexer,
+) -> Result<Option<StatementOrExpression>, ParseError> {
+    if lexer.peek().is_none() {
+        Ok(None)
+    } else {
+        let result = parse_unterminated_statement_or_expression(lexer)?;
+        // Do not expect semicolon for certain statements
+        match &result {
+            StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => (),
+            _ => lexer.expect(";")?,
+        }
+        Ok(Some(result))
+    }
+}
+
+/// Parses a statement or expression without consuming a trailing semicolon.
+pub fn parse_unterminated_statement_or_expression(
+    lexer: &mut Lexer,
+) -> Result<StatementOrExpression, ParseError> {
+    Ok(match parse_statement(lexer)? {
+        Some(statement) => StatementOrExpression::Statement(Box::new(statement)),
+        None => parse_expression_or_assignment(lexer)?,
+    })
+}
+
+fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
+    let tok = lexer.peek_or_eof("statement")?;
+    Ok(match &tok.token_type {
+        Token::Op(_) => None,
+        Token::Atom(atom) => match atom {
+            LexerAtomType::Identifier(s) => match s.as_str() {
+                "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
+                "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
+                "for" => Some(Statement::ForLoop(parse_for_loop(lexer)?)),
+                "if" => Some(Statement::IfStatement(parse_if_statement(lexer)?)),
+                "def" => Some(Statement::FunctionDefinition(parse_function_definition(
+                    lexer,
+                )?)),
+                "return" => Some(Statement::Return(parse_return(lexer)?)),
+                _ => None,
+            },
+            LexerAtomType::Semicolon => {
+                panic!("Hanging semicolon got left over")
+            }
+            LexerAtomType::Number(_) | LexerAtomType::String(_) | LexerAtomType::Colon => None,
+        },
+    })
+}
+
+fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, ParseError> {
+    lexer.expect("while")?;
+    let condition = parse_expression(lexer, 0)?;
+    let block = parse_block(lexer)?;
+    Ok(WhileLoop { condition, block })
+}
+
+fn parse_for_loop(lexer: &mut Lexer) -> Result<ForLoop, ParseError> {
+    lexer.expect("for")?;
+    lexer.expect("(")?;
+    let init = parse_unterminated_statement_or_expression(lexer)?;
+    lexer.expect(";")?;
+    let condition = parse_expression(lexer, 0)?;
+    lexer.expect(";")?;
+    let update = parse_unterminated_statement_or_expression(lexer)?;
+    lexer.expect(")")?;
+    let block = parse_block(lexer)?;
+    Ok(ForLoop {
+        init,
+        condition,
+        update,
+        block,
+    })
+}
+
+fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
+    lexer.expect("if")?;
+    let condition = parse_expression(lexer, 0)?;
+    let block = parse_block(lexer)?;
+    let else_block = match lexer.peek() {
+        None => None,
+        Some(tok) => match &tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => {
+                lexer.expect("else")?;
+                Some(parse_block(lexer)?)
+            }
+            _ => None,
+        },
+    };
+
+    Ok(IfStatement {
+        condition,
+        block,
+        else_block,
+    })
+}
+
+fn parse_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
+    lexer.expect("{")?;
+    let mut children = vec![];
+    // while let Some(statement) = parse_statement_or_expression(lexer)? {
+    //     children.push(statement)
+    // }
+
+    loop {
+        match lexer.peek_or_eof("}")?.token_type {
+            Token::Op(OperatorType::CloseCurly) => break,
+            _ => children.push(parse_statement_or_expression(lexer)?.ok_or_else(|| {
+                ParseErrorKind::UnexpectedEof {
+                    expected: "}".to_string(),
+                }
+                .at(lexer.eof)
+            })?),
+        }
+    }
+
+    lexer.expect("}")?;
+
+    Ok(Block { children })
+}
+
+fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, ParseError> {
+    let span = lexer.peek_or_eof("let")?.span;
+    lexer.expect("let")?;
+
+    let tok = lexer.next_or_eof("identifier")?;
+    let ident_span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(ident)) = tok.token_type else {
+        return Err(expected("identifier", tok));
+    };
+
+    let dtype = parse_type_annotation(lexer)?;
+
+    // Only a plain `=` is allowed; compound assigns need an existing value
+    let tok = lexer.next_or_eof("=")?;
+    if tok.token_type != Token::Op(OperatorType::Assign) {
+        return Err(expected("=", tok));
+    }
+
+    Ok(Declaration {
+        assign: Assignment {
+            lhs: Expression::new(
+                ExpressionKind::Atom(AtomType::Identifier(ident)),
+                ident_span,
+            ),
+            expression: parse_expression(lexer, 0)?,
+        },
+        dtype,
+        binding: None,
+        _span: span,
+    })
+}
+
+/// Parses an optional `: type` annotation
+fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, ParseError> {
+    if let Some(Token::Atom(LexerAtomType::Colon)) = lexer.peek().map(|tok| &tok.token_type) {
+        lexer.next();
+        Ok(Some(parse_type(lexer)?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
+    let tok = lexer.next_or_eof("type")?;
+    if let Token::Op(OperatorType::Multiply) = tok.token_type {
+        return Ok(Type::Pointer(Box::new(parse_type(lexer)?)));
+    }
+
+    let span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
+        return Err(expected("type", tok));
+    };
+    Type::from_str(&type_name).map_err(|_| ParseErrorKind::UnknownType(type_name).at(span))
+}
+
+fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {
+    lexer.expect("def")?;
+
+    let tok = lexer.next_or_eof("function name")?;
+    let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
+        return Err(expected("function name", tok));
+    };
+
+    lexer.expect("(")?;
+
+    let mut args = vec![];
+
+    loop {
+        let tok = lexer.next_or_eof("argument name or )")?;
+        let span = tok.span;
+        let name = match tok.token_type {
+            Token::Atom(LexerAtomType::Identifier(name)) => name,
+            Token::Op(OperatorType::CloseParen) => break,
+            _ => return Err(expected("argument name or )", tok)),
+        };
+
+        lexer.expect(":")?;
+        args.push(Arg {
+            name,
+            atype: parse_type(lexer)?,
+            span,
+        });
+
+        let tok = lexer.next_or_eof(", or )")?;
+        match tok.token_type {
+            Token::Op(OperatorType::Comma) => {}
+            Token::Op(OperatorType::CloseParen) => break,
+            _ => return Err(expected(", or )", tok)),
+        }
+    }
+
+    let return_type = parse_type_annotation(lexer)?.unwrap_or(Type::Unknown);
+    let body = parse_function_body(lexer)?;
+
+    Ok(FunctionDefinition {
+        name,
+        args,
+        body,
+        return_type,
+    })
+}
+
+fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
+    lexer.expect("{")?;
+
+    let mut children = vec![];
+
+    loop {
+        let token = lexer.peek_or_eof("}")?;
+
+        // `}` means the function has no implicit return expression.
+        if token.token_type == Token::Op(OperatorType::CloseCurly) {
+            break;
+        }
+
+        let item = parse_statement(lexer)?;
+
+        if let Some(statement) = item {
+            children.push(StatementOrExpression::Statement(Box::new(statement)));
+
+            // Statements still require their normal semicolon rules.
+            match children.last().unwrap() {
+                StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => {}
+
+                _ => lexer.expect(";")?,
+            }
+        } else {
+            match parse_expression_or_assignment(lexer)? {
+                // Assignments are statements, never an implicit return.
+                StatementOrExpression::Statement(assign) => {
+                    children.push(StatementOrExpression::Statement(assign));
+                    lexer.expect(";")?;
+                }
+
+                StatementOrExpression::Expression(expression) => match lexer.peek() {
+                    // Final expression: implicit return.
+                    Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
+                        children.push(StatementOrExpression::Statement(Box::new(
+                            Statement::Return(ReturnStatement { expr: expression }),
+                        )));
+                        break;
+                    }
+
+                    // Non-final expression must have a semicolon.
+                    _ => {
+                        lexer.expect(";")?;
+                        children.push(StatementOrExpression::Expression(expression));
+                    }
+                },
+            }
+        }
+    }
+
+    lexer.expect("}")?;
+
+    Ok(Block { children })
+}
+
+fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, ParseError> {
+    lexer.expect("return")?;
+    Ok(ReturnStatement {
+        expr: parse_expression(lexer, 0)?,
+    })
+}

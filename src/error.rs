@@ -1,9 +1,9 @@
 use std::{error::Error, fmt};
 
 use crate::{
-    ast::{ParseError, ParseErrorKind},
     codegen::{CodegenError, CodegenErrorKind},
     lex::{LexError, LexErrorKind},
+    parse::{ParseError, ParseErrorKind},
     type_check::{TypeCheckError, TypeCheckErrorKind},
     types::Span,
 };

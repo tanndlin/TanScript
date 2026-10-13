@@ -10,12 +10,12 @@ mod codegen;
 mod diagnostic;
 mod error;
 mod lex;
-mod parser;
+mod parse;
 mod type_check;
 mod types;
 
 use crate::{
-    diagnostic::Style, error::CompilerError, lex::Lexer, parser::parse, type_check::check_types,
+    diagnostic::Style, error::CompilerError, lex::Lexer, parse::parse, type_check::check_types,
 };
 
 fn main() {
