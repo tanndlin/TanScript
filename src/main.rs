@@ -2,6 +2,7 @@ use std::{env::args, fs, path::PathBuf};
 
 mod ast;
 mod codegen;
+mod error;
 mod lex;
 mod parser;
 mod type_check;

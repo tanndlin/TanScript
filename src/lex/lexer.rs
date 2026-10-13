@@ -1,7 +1,7 @@
 use crate::{
     ast::{OPERATORS, OperatorType},
-    lex::{LexerAtomType, LexerToken, Span},
-    types::{NumberType, Token},
+    lex::{LexerAtomType, LexerToken},
+    types::{NumberType, Span, Token},
 };
 
 #[derive(Debug)]

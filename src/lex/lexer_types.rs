@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::types::{NumberType, Token};
+use crate::types::{NumberType, Span, Token};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LexerAtomType {
@@ -20,24 +20,6 @@ impl fmt::Display for LexerAtomType {
             LexerAtomType::Semicolon => write!(f, ";"),
             LexerAtomType::Colon => write!(f, ":"),
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub struct Span {
-    pub line: u32,
-    pub col: u32,
-}
-
-impl Span {
-    pub fn new(line: u32, col: u32) -> Self {
-        Self { line, col }
-    }
-}
-
-impl fmt::Display for Span {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.line + 1, self.col + 1)
     }
 }
 

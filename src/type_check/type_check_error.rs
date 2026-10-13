@@ -1,23 +1,20 @@
-use std::{error::Error, fmt};
+use std::fmt;
 
-use crate::{lex::Span, type_check::Type};
+use crate::{
+    error::{At, Spanned},
+    type_check::Type,
+};
 
-pub struct TypeCheckError {
-    pub kind: TypeCheckErrorKind,
-    pub span: Span,
-}
-
-impl TypeCheckError {
-    pub fn new(kind: TypeCheckErrorKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-}
-
+#[derive(Debug)]
 pub enum TypeCheckErrorKind {
     TypeMismatch { expected: Type, got: Type },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
 }
+
+impl At for TypeCheckErrorKind {}
+
+pub type TypeCheckError = Spanned<TypeCheckErrorKind>;
 
 impl fmt::Display for TypeCheckErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -34,17 +31,3 @@ impl fmt::Display for TypeCheckErrorKind {
         }
     }
 }
-
-impl fmt::Display for TypeCheckError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} at {}", self.kind, self.span)
-    }
-}
-
-impl fmt::Debug for TypeCheckError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-impl Error for TypeCheckError {}

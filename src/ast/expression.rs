@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{AtomType, BinaryOp, PostfixOp, UnaryOp},
-    lex::Span,
+    types::Span,
 };
 
 #[derive(Debug, Clone)]

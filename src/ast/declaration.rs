@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{ast::Assignment, lex::Span, type_check::Type};
+use crate::{ast::Assignment, type_check::Type, types::Span};
 
 #[derive(Debug, Clone)]
 pub struct Declaration {

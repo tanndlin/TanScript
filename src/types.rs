@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use crate::{ast::OperatorType, lex::LexerAtomType};
+use crate::{ast::OperatorType, lex::LexerAtomType, type_check::TypeCheckError};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {
@@ -34,5 +34,23 @@ impl Display for NumberType {
             NumberType::U64(n) => write!(f, "{n}"),
             NumberType::I64(n) | NumberType::Coercible(n) => write!(f, "{n}"),
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Span {
+    pub line: u32,
+    pub col: u32,
+}
+
+impl Span {
+    pub fn new(line: u32, col: u32) -> Self {
+        Self { line, col }
+    }
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.col + 1)
     }
 }

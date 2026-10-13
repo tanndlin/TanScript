@@ -6,9 +6,9 @@ use crate::{
         ExpressionKind, ForLoop, FunctionDefinition, IfStatement, OperatorType, PostfixOp, Program,
         ReturnStatement, Statement, StatementOrExpression, UnaryOp, WhileLoop,
     },
-    lex::{Lexer, LexerAtomType, Span},
+    lex::{Lexer, LexerAtomType},
     type_check::Type,
-    types::Token,
+    types::{Span, Token},
 };
 
 pub fn parse(input: &str) -> Result<Program, String> {

@@ -1,5 +1,6 @@
 use crate::{
     ast::{AtomType, Expression, ExpressionKind, Program, UnaryOp},
+    error::At,
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
 };
 
@@ -19,10 +20,7 @@ pub fn check_types_expression(
         ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
             .lookup(ident)
             .ok_or_else(|| {
-                TypeCheckError::new(
-                    TypeCheckErrorKind::IdentifierNotFound(ident.clone()),
-                    expression.span,
-                )
+                TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(expression.span)
             })?
             .clone(),
         ExpressionKind::Atom(AtomType::String(_)) => Type::Unknown,
@@ -34,13 +32,11 @@ pub fn check_types_expression(
             let unified = unify(&lhs, &rhs)
                 .or_else(|| unify(&rhs, &lhs))
                 .ok_or_else(|| {
-                    TypeCheckError::new(
-                        TypeCheckErrorKind::TypeMismatch {
-                            expected: lhs.clone(),
-                            got: rhs.clone(),
-                        },
-                        expression.span,
-                    )
+                    TypeCheckErrorKind::TypeMismatch {
+                        expected: lhs.clone(),
+                        got: rhs.clone(),
+                    }
+                    .at(expression.span)
                 })?;
 
             if op.returns_boolean() {
@@ -75,10 +71,10 @@ pub fn check_types_expression(
                     function_type.return_type
                 }
                 Some(_) => {
-                    return Err(TypeCheckError::new(
-                        TypeCheckErrorKind::NotCallableIdentifer(function_name.clone()),
-                        expression.span,
-                    ));
+                    return Err(
+                        TypeCheckErrorKind::NotCallableIdentifer(function_name.clone())
+                            .at(expression.span),
+                    );
                 }
                 // Treat the function as an unknown extern
                 None => Type::Unknown,
@@ -93,25 +89,21 @@ pub fn check_types_expression(
                 Type::Pointer(t) => *t,
                 Type::Unknown => Type::Unknown,
                 _ => {
-                    return Err(TypeCheckError::new(
-                        TypeCheckErrorKind::TypeMismatch {
-                            expected: Type::Pointer(Box::new(Type::Unknown)),
-                            got: lhs_type,
-                        },
-                        expression.span,
-                    ));
+                    return Err(TypeCheckErrorKind::TypeMismatch {
+                        expected: Type::Pointer(Box::new(Type::Unknown)),
+                        got: lhs_type,
+                    }
+                    .at(expression.span));
                 }
             };
 
             // RHS must come down to a number
             if !rhs_type.is_number_type() {
-                return Err(TypeCheckError::new(
-                    TypeCheckErrorKind::TypeMismatch {
-                        expected: Type::I64,
-                        got: rhs_type,
-                    },
-                    expression.span,
-                ));
+                return Err(TypeCheckErrorKind::TypeMismatch {
+                    expected: Type::I64,
+                    got: rhs_type,
+                }
+                .at(expression.span));
             }
 
             element_type
@@ -132,13 +124,11 @@ pub fn expect_type(
             narrow_expression(expression, expected.clone(), type_scope);
             Ok(())
         }
-        _ => Err(TypeCheckError::new(
-            TypeCheckErrorKind::TypeMismatch {
-                expected: expected.clone(),
-                got: got.clone(),
-            },
-            expression.span,
-        )),
+        _ => Err(TypeCheckErrorKind::TypeMismatch {
+            expected: expected.clone(),
+            got: got.clone(),
+        }
+        .at(expression.span)),
     }
 }
 
