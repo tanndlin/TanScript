@@ -1,6 +1,8 @@
 mod assignment;
 mod atom_type;
 mod block;
+mod break_statement;
+mod continue_statement;
 mod declaration;
 mod expression;
 mod for_loop;
@@ -17,6 +19,8 @@ mod while_loop;
 pub use assignment::Assignment;
 pub use atom_type::AtomType;
 pub use block::Block;
+pub use break_statement::BreakStatement;
+pub use continue_statement::ContinueStatement;
 pub use declaration::Declaration;
 pub use expression::{Expression, ExpressionKind};
 pub use for_loop::ForLoop;

@@ -1,7 +1,8 @@
 use std::fmt;
 
 use crate::ast::{
-    Assignment, Declaration, ForLoop, FunctionDefinition, IfStatement, ReturnStatement, WhileLoop,
+    Assignment, BreakStatement, ContinueStatement, Declaration, ForLoop, FunctionDefinition,
+    IfStatement, ReturnStatement, WhileLoop,
 };
 
 #[derive(Debug, Clone)]
@@ -13,6 +14,8 @@ pub enum Statement {
     IfStatement(IfStatement),
     Return(ReturnStatement),
     WhileLoop(WhileLoop),
+    Break(BreakStatement),
+    Continue(ContinueStatement),
 }
 
 impl Statement {
@@ -36,8 +39,10 @@ impl fmt::Display for Statement {
             Statement::ForLoop(s) => write!(f, "{s}"),
             Statement::FunctionDefinition(s) => write!(f, "{s}"),
             Statement::IfStatement(s) => write!(f, "{s}"),
-            Statement::Return(s) => write!(f, "{s}"),
             Statement::WhileLoop(s) => write!(f, "{s}"),
+            Statement::Return(s) => write!(f, "{s}"),
+            Statement::Break(s) => write!(f, "{s}"),
+            Statement::Continue(s) => write!(f, "{s}"),
         }
     }
 }

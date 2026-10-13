@@ -1,0 +1,30 @@
+def numDivisors(n: u32): u32 {
+    let total = 0;
+
+    for(let i = 1; i * i <= n; i++) {
+        if n % i != 0 {
+            continue;
+        }
+
+        if i * i == n {
+            total++;
+        } else {
+            total += 2;
+        }
+    }
+
+    total
+}
+
+let n = 0;
+let i = 1;
+while true {
+    n = n + i;
+    i++;
+
+    if numDivisors(n) > 500 {
+        break;
+    }
+}
+
+printf("%d\n", n);

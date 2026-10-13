@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{AtomType, Expression, ExpressionKind},
-    codegen::{CodegenErrorKind, address::Address},
+    codegen::{CodegenErrorKind, address::Address, loop_context::LoopContext},
     type_check::Type,
 };
 
 #[allow(dead_code)]
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
-    pub variables: HashMap<String, (Address, Type)>,
+    variables: HashMap<String, (Address, Type)>,
     pub num_variables: i32,
+    loop_context: Option<LoopContext>,
+    pub stack_depth: i32,
 }
 
 impl<'a> CompileScope<'a> {
@@ -19,7 +21,20 @@ impl<'a> CompileScope<'a> {
             parent,
             variables: HashMap::new(),
             num_variables: parent.map_or(0, |p| p.num_variables),
+            loop_context: None,
+            stack_depth: parent.map_or(0, |p| p.stack_depth),
         }
+    }
+
+    pub fn new_loop(parent: &'a CompileScope<'a>, loop_context: LoopContext) -> Self {
+        Self {
+            loop_context: Some(loop_context),
+            ..Self::new(Some(parent))
+        }
+    }
+
+    pub fn loop_context(&self) -> Option<&LoopContext> {
+        self.loop_context.as_ref()
     }
 
     fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
@@ -69,5 +84,13 @@ impl<'a> CompileScope<'a> {
 
         self.num_variables += 1;
         Ok(())
+    }
+
+    pub fn loop_scope(&self) -> Option<&CompileScope<'a>> {
+        if self.loop_context.is_some() {
+            Some(self)
+        } else {
+            self.parent?.loop_scope()
+        }
     }
 }

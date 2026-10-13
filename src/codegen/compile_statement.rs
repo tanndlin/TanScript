@@ -1,17 +1,19 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Declaration, ExpressionKind, ForLoop, FunctionDefinition,
-        IfStatement, ReturnStatement, Statement, WhileLoop,
+        Assignment, AtomType, BreakStatement, ContinueStatement, Declaration, ExpressionKind,
+        ForLoop, FunctionDefinition, IfStatement, ReturnStatement, Statement, WhileLoop,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::store_element,
         compile_scope::CompileScope,
+        loop_context::LoopContext,
         register_handler::RegisterHandler,
     },
     error::{At, ResultAt},
     type_check::Type,
+    types::Span,
 };
 
 impl Statement {
@@ -28,6 +30,8 @@ impl Statement {
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),
+            Statement::Break(s) => s.compile(compile_scope),
+            Statement::Continue(s) => s.compile(compile_scope),
         }
     }
 }
@@ -125,8 +129,15 @@ impl ForLoop {
         let unique_id = register_handler.get_unique_id();
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
+        let continue_label = format!("for_continue_{unique_id}");
 
-        let mut new_scope = CompileScope::new(Some(compile_scope));
+        let mut new_scope = CompileScope::new_loop(
+            compile_scope,
+            LoopContext {
+                break_label: end_label.clone(),
+                continue_label: continue_label.clone(),
+            },
+        );
         let init = self.init.compile(&mut new_scope, register_handler)?;
 
         let condition_dst_reg = register_handler.lease_register().at(self.condition.span)?;
@@ -154,6 +165,7 @@ impl ForLoop {
             je {end_label}\n\
             ; body\n\
             {block}\n\
+            {continue_label}:\n\
             \t; update\n\
             {update}\n\
             jmp {start_label}\n\
@@ -275,7 +287,14 @@ impl WhileLoop {
             .compile(compile_scope, reg, register_handler)?;
         register_handler.release_register(reg);
 
-        let block = self.block.compile(compile_scope, register_handler)?;
+        let mut loop_scope = CompileScope::new_loop(
+            compile_scope,
+            LoopContext {
+                break_label: end_label.clone(),
+                continue_label: start_label.clone(),
+            },
+        );
+        let block = self.block.compile(&mut loop_scope, register_handler)?;
 
         Ok(format!(
             "; while {}\n\
@@ -289,5 +308,39 @@ impl WhileLoop {
             {end_label}:",
             self.condition
         ))
+    }
+}
+
+fn jump_out_of_loop(
+    compile_scope: &CompileScope,
+    keyword: &'static str,
+    span: Span,
+    label: impl Fn(&LoopContext) -> &str,
+) -> Result<String, CodegenError> {
+    let loop_scope = compile_scope
+        .loop_scope()
+        .ok_or_else(|| CodegenErrorKind::OutsideLoop(keyword).at(span))?;
+    let loop_context = loop_scope
+        .loop_context()
+        .expect("loop scope has a loop context");
+
+    let mut instructions = vec![format!("; {keyword}")];
+    let unwind = compile_scope.stack_depth - loop_scope.stack_depth;
+    if unwind > 0 {
+        instructions.push(format!("add rsp, {unwind}"));
+    }
+    instructions.push(format!("jmp {}", label(loop_context)));
+    Ok(instructions.join("\n"))
+}
+
+impl BreakStatement {
+    pub fn compile(&self, compile_scope: &CompileScope) -> Result<String, CodegenError> {
+        jump_out_of_loop(compile_scope, "break", self.span, |l| &l.break_label)
+    }
+}
+
+impl ContinueStatement {
+    pub fn compile(&self, compile_scope: &CompileScope) -> Result<String, CodegenError> {
+        jump_out_of_loop(compile_scope, "continue", self.span, |l| &l.continue_label)
     }
 }

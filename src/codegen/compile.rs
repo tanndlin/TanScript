@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Assignment, AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
-        StatementOrExpression::{self},
+        Statement, StatementOrExpression::{self},
         UnaryOp,
     },
     codegen::{
@@ -91,6 +91,24 @@ impl Block {
     ) -> Result<String, CodegenError> {
         let mut new_scope = CompileScope::new(Some(compile_scope));
 
+        let declarations = self
+            .children
+            .iter()
+            .filter(|child| {
+                matches!(child, StatementOrExpression::Statement(s) if matches!(**s, Statement::Declaration(_)))
+            })
+            .count();
+        let num_variables = new_scope.num_variables
+            + i32::try_from(declarations).expect("declaration count fits in i32");
+        let alloc_size = num_variables * 8;
+        // Align stack
+        let alloc_size = if alloc_size % 16 != 0 {
+            alloc_size + (16 - alloc_size % 16)
+        } else {
+            alloc_size
+        };
+        new_scope.stack_depth += alloc_size;
+
         let mut instructions = self
             .children
             .iter()
@@ -98,15 +116,7 @@ impl Block {
             .collect::<Result<Vec<String>, CodegenError>>()?
             .join("\n");
 
-        if new_scope.num_variables > 0 {
-            let alloc_size = new_scope.num_variables * 8;
-            // Align stack
-            let alloc_size = if alloc_size % 16 != 0 {
-                alloc_size + (16 - alloc_size % 16)
-            } else {
-                alloc_size
-            };
-
+        if alloc_size > 0 {
             let alloc = format!("sub rsp, {alloc_size}");
             instructions = format!("{alloc}\n{instructions}");
 

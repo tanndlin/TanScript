@@ -47,24 +47,25 @@ impl StatementOrExpression {
 impl Statement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         match self {
-            Statement::Assignment(s) => s.check_types(type_scope),
-            Statement::Declaration(s) => s.check_types(type_scope),
-            Statement::ForLoop(s) => s.check_types(type_scope),
-            Statement::FunctionDefinition(s) => s.check_types(type_scope),
-            Statement::IfStatement(s) => s.check_types(type_scope),
-            Statement::Return(s) => s.check_types(type_scope),
-            Statement::WhileLoop(s) => s.check_types(type_scope),
+            Self::Assignment(s) => s.check_types(type_scope),
+            Self::Declaration(s) => s.check_types(type_scope),
+            Self::ForLoop(s) => s.check_types(type_scope),
+            Self::FunctionDefinition(s) => s.check_types(type_scope),
+            Self::IfStatement(s) => s.check_types(type_scope),
+            Self::Return(s) => s.check_types(type_scope),
+            Self::WhileLoop(s) => s.check_types(type_scope),
+            Self::Break(_) | Self::Continue(_) => Ok(()),
         }
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         match self {
-            Statement::Declaration(s) => s.resolve_types(type_scope),
-            Statement::ForLoop(s) => s.resolve_types(type_scope),
-            Statement::FunctionDefinition(s) => s.body.resolve_types(type_scope),
-            Statement::IfStatement(s) => s.resolve_types(type_scope),
-            Statement::WhileLoop(s) => s.block.resolve_types(type_scope),
-            Statement::Assignment(_) | Statement::Return(_) => {}
+            Self::Declaration(s) => s.resolve_types(type_scope),
+            Self::ForLoop(s) => s.resolve_types(type_scope),
+            Self::FunctionDefinition(s) => s.body.resolve_types(type_scope),
+            Self::IfStatement(s) => s.resolve_types(type_scope),
+            Self::WhileLoop(s) => s.block.resolve_types(type_scope),
+            Self::Assignment(_) | Self::Return(_) | Self::Break(_) | Self::Continue(_) => {}
         }
     }
 }

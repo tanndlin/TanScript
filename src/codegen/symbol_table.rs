@@ -62,6 +62,7 @@ impl Statement {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);
             }
+            Self::Continue(_) | Self::Break(_) => {}
         }
     }
 }

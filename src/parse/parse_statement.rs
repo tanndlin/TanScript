@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use crate::{
     ast::{
-        Arg, Assignment, AtomType, Block, Declaration, Expression, ExpressionKind, ForLoop,
-        FunctionDefinition, IfStatement, OperatorType, ReturnStatement, Statement,
-        StatementOrExpression, WhileLoop,
+        Arg, Assignment, AtomType, Block, BreakStatement, ContinueStatement, Declaration,
+        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, OperatorType,
+        ReturnStatement, Statement, StatementOrExpression, WhileLoop,
     },
     error::At,
     lex::{Lexer, LexerAtomType},
@@ -56,6 +56,14 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
                     lexer,
                 )?)),
                 "return" => Some(Statement::Return(parse_return(lexer)?)),
+                "break" => {
+                    let span = lexer.next().unwrap().span;
+                    Some(Statement::Break(BreakStatement { span }))
+                }
+                "continue" => {
+                    let span = lexer.next().unwrap().span;
+                    Some(Statement::Continue(ContinueStatement { span }))
+                }
                 _ => None,
             },
             LexerAtomType::Semicolon => {
