@@ -266,9 +266,11 @@ impl ReturnStatement {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<String, CodegenError> {
-        let instructions = self
-            .expr
-            .compile(compile_scope, Register::RAX, register_handler)?;
+        let instructions = register_handler.request_with_scope(
+            Register::RAX,
+            Register::RAX.into(),
+            |register_handler, rax| self.expr.compile(compile_scope, rax, register_handler),
+        )?;
         Ok(format!(
             "; {self}\n{instructions}\nmov rsp, rbp\npop rbp\nret"
         ))

@@ -576,6 +576,13 @@ mod test {
     }
 
     #[test]
+    fn compile_return_saves_rax_around_call() {
+        let asm = compile("def f(n: i32): i32 { 35 + f(n) } f(1);");
+        assert!(asm.contains("push rax"), "{asm}");
+        assert!(asm.contains("pop rax"), "{asm}");
+    }
+
+    #[test]
     fn compile_call_with_stack_args() {
         let asm = compile("printf(\"%d %d %d %d %d\", 1, 2, 3, 4, 5);");
         // 32 shadow + 2 stack args, rounded up to 16
