@@ -1,16 +1,18 @@
 use crate::{
-    ast::{OPERATORS, OperatorType},
-    lex::{LexerAtomType, LexerToken},
+    ast::{OPERATORS, OperatorType, ParseError, ParseErrorKind},
+    error::At,
+    lex::{LexError, LexErrorKind, LexerAtomType, LexerToken},
     types::{NumberType, Span, Token},
 };
 
 #[derive(Debug)]
 pub struct Lexer {
     pub tokens: Vec<LexerToken>,
+    pub eof: Span,
 }
 
 impl Lexer {
-    pub fn new(input: &str) -> Result<Lexer, String> {
+    pub fn new(input: &str) -> Result<Lexer, LexError> {
         let mut line_number = 0u32;
         let mut chars = input.chars().rev().collect::<Vec<char>>();
         let mut line_start = chars.len();
@@ -56,7 +58,7 @@ impl Lexer {
             match cur {
                 '"' => {
                     tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::String(get_string(&mut chars)?)),
+                        Token::Atom(LexerAtomType::String(get_string(&mut chars, span)?)),
                         span,
                     ));
                 }
@@ -69,13 +71,17 @@ impl Lexer {
                     tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Colon), span));
                 }
                 _ => {
-                    return Err(format!("Lexer: Unknown character: {cur} at {span}"));
+                    return Err(LexErrorKind::UnknownCharacter(cur).at(span));
                 }
             }
         }
 
         tokens.reverse();
-        Ok(Lexer { tokens })
+        let eof = Span::new(
+            line_number,
+            u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX),
+        );
+        Ok(Lexer { tokens, eof })
     }
 
     pub fn next(&mut self) -> Option<LexerToken> {
@@ -86,10 +92,26 @@ impl Lexer {
         self.tokens.last()
     }
 
-    pub fn expect(&mut self, expected: &str) -> Result<(), String> {
-        let token = self
-            .next()
-            .ok_or(format!("Expected {expected} but ran out of tokens"))?;
+    pub fn next_or_eof(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
+        self.next().ok_or_else(|| {
+            ParseErrorKind::UnexpectedEof {
+                expected: expected.to_string(),
+            }
+            .at(self.eof)
+        })
+    }
+
+    pub fn peek_or_eof(&self, expected: &str) -> Result<&LexerToken, ParseError> {
+        self.peek().ok_or_else(|| {
+            ParseErrorKind::UnexpectedEof {
+                expected: expected.to_string(),
+            }
+            .at(self.eof)
+        })
+    }
+
+    pub fn expect(&mut self, expected: &str) -> Result<(), ParseError> {
+        let token = self.next_or_eof(expected)?;
 
         // Extract what we "got" as a string
         let got = match &token.token_type {
@@ -105,10 +127,11 @@ impl Lexer {
         if got == expected {
             Ok(())
         } else {
-            Err(format!(
-                "Expected {}, got {} at {}",
-                expected, got, token.span
-            ))
+            Err(ParseErrorKind::Expected {
+                expected: expected.to_string(),
+                got: token.token_type,
+            }
+            .at(token.span))
         }
     }
 }
@@ -149,19 +172,11 @@ fn get_identifier(input: &mut Vec<char>) -> String {
     string_vec.into_iter().collect::<String>()
 }
 
-fn get_string(input: &mut Vec<char>) -> Result<String, String> {
+fn get_string(input: &mut Vec<char>, span: Span) -> Result<String, LexError> {
     // Remove the leading quote
-    let popped = input.pop();
-    if popped != Some('"') {
-        if let Some(c) = popped {
-            Err(format!("Expected a starting quote. Got: {c}").to_string())
-        } else {
-            Err("Expected a starting quote".to_string())
-        }?;
-    }
+    input.pop().unwrap();
 
     let mut chars = vec![];
-
     while let Some(c) = input.last() {
         if *c == '"' {
             break;
@@ -174,7 +189,7 @@ fn get_string(input: &mut Vec<char>) -> Result<String, String> {
     // Remove the closing quote
     input
         .pop()
-        .ok_or_else(|| "No closing quote found for string".to_string())?;
+        .ok_or_else(|| LexErrorKind::MissingClosingQuote.at(span))?;
 
     Ok(chars.into_iter().collect())
 }

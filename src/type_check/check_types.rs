@@ -150,19 +150,20 @@ pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut Type
 mod test {
     use crate::{
         ast::{Statement, StatementOrExpression},
+        lex::Lexer,
         parser::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
     };
 
     #[test]
     fn supports_coercing_literal_assignments() -> Result<(), TypeCheckError> {
-        let mut program = parse("let a: u32 = 1;").unwrap();
+        let mut program = parse(Lexer::new("let a: u32 = 1;").unwrap()).unwrap();
         check_types(&mut program)
     }
 
     #[test]
     fn type_error_for_referenced_variable_in_assignment() {
-        let mut program = parse("let a: u32 = 1; let b: i32 = a;").unwrap();
+        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i32 = a;").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -178,26 +179,11 @@ mod test {
 
     #[test]
     fn type_error_for_incorrect_function_arg() {
-        let mut program =
-            parse("def add (a: u32, b: u32) {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);")
-                .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
-    }
-
-    #[test]
-    fn type_error_for_coerced_variable_used_as_arg_then_assigned_to_different_type() {
         let mut program = parse(
-            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; add(a, b); let c: i32 = a;",
+            Lexer::new(
+                "def add (a: u32, b: u32) {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);",
+            )
+            .unwrap(),
         )
         .unwrap();
         let result = check_types(&mut program);
@@ -214,10 +200,29 @@ mod test {
     }
 
     #[test]
+    fn type_error_for_coerced_variable_used_as_arg_then_assigned_to_different_type() {
+        let mut program = parse(Lexer::new(
+            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; add(a, b); let c: i32 = a;",
+        ).unwrap())
+        .unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
     fn type_error_for_coerced_variable_assigned_then_used_as_arg_of_different_type() {
-        let mut program = parse(
+        let mut program = parse(Lexer::new(
             "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; let c: i32 = a; add(a, b);",
-        )
+        ).unwrap())
         .unwrap();
         let result = check_types(&mut program);
         assert!(
@@ -235,13 +240,14 @@ mod test {
     #[test]
     fn supports_boolean_declaration() -> Result<(), TypeCheckError> {
         let mut program =
-            parse("let a: bool = true; let b: bool = false; let c: bool = a;").unwrap();
+            parse(Lexer::new("let a: bool = true; let b: bool = false; let c: bool = a;").unwrap())
+                .unwrap();
         check_types(&mut program)
     }
 
     #[test]
     fn type_error_for_boolean_assigned_to_number() {
-        let mut program = parse("let a: u32 = true;").unwrap();
+        let mut program = parse(Lexer::new("let a: u32 = true;").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -257,7 +263,7 @@ mod test {
 
     #[test]
     fn type_error_for_number_assigned_to_boolean() {
-        let mut program = parse("let a: bool = 1;").unwrap();
+        let mut program = parse(Lexer::new("let a: bool = 1;").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -273,7 +279,7 @@ mod test {
 
     #[test]
     fn type_error_for_boolean_function_arg() {
-        let mut program = parse("def f (a: u32): u32 {a} f(true);").unwrap();
+        let mut program = parse(Lexer::new("def f (a: u32): u32 {a} f(true);").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -289,20 +295,26 @@ mod test {
 
     #[test]
     fn supports_comparison_assigned_to_boolean() -> Result<(), TypeCheckError> {
-        let mut program = parse("let a: i32 = 1; let b: bool = a < 2;").unwrap();
+        let mut program =
+            parse(Lexer::new("let a: i32 = 1; let b: bool = a < 2;").unwrap()).unwrap();
         check_types(&mut program)
     }
 
     #[test]
     fn supports_using_function_params_in_body() -> Result<(), TypeCheckError> {
-        let mut program = parse("def f (arr: *i32, i: i32): i32 { let x = arr[i]; x }").unwrap();
+        let mut program =
+            parse(Lexer::new("def f (arr: *i32, i: i32): i32 { let x = arr[i]; x }").unwrap())
+                .unwrap();
         check_types(&mut program)
     }
 
     #[test]
     fn shadowed_declaration_keeps_its_own_type() {
-        let mut program =
-            parse("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }").unwrap();
+        let mut program = parse(
+            Lexer::new("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }")
+                .unwrap(),
+        )
+        .unwrap();
         check_types(&mut program).unwrap();
 
         let StatementOrExpression::Statement(statement) = &program.block.children[1] else {
@@ -322,7 +334,8 @@ mod test {
 
     #[test]
     fn type_error_inside_loop_body() {
-        let mut program = parse("let a: u32 = 1; while true { let b: i32 = a; }").unwrap();
+        let mut program =
+            parse(Lexer::new("let a: u32 = 1; while true { let b: i32 = a; }").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -338,7 +351,8 @@ mod test {
 
     #[test]
     fn type_error_for_mismatched_assignment() {
-        let mut program = parse("let a: u32 = 1; let b: i32 = 2; a = b;").unwrap();
+        let mut program =
+            parse(Lexer::new("let a: u32 = 1; let b: i32 = 2; a = b;").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
@@ -354,7 +368,8 @@ mod test {
 
     #[test]
     fn type_error_for_number_stored_in_bool_pointer() {
-        let mut program = parse("def f (flags: *bool) { flags[0] = 300; }").unwrap();
+        let mut program =
+            parse(Lexer::new("def f (flags: *bool) { flags[0] = 300; }").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(

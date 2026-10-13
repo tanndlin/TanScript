@@ -1,6 +1,6 @@
 use std::fmt::{self, Display};
 
-use crate::{ast::OperatorType, lex::LexerAtomType, type_check::TypeCheckError};
+use crate::{ast::OperatorType, lex::LexerAtomType};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token {

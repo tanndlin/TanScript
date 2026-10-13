@@ -528,10 +528,13 @@ fn compile_boolean(b: bool, dst: Address) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::parser::parse;
+    use crate::{lex::Lexer, parser::parse};
 
     fn compile(input: &str) -> String {
-        parse(input).unwrap().compile().unwrap()
+        parse(Lexer::new(input).unwrap())
+            .unwrap()
+            .compile()
+            .unwrap()
     }
 
     #[test]

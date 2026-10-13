@@ -16,12 +16,13 @@ pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
 mod test {
     use crate::{
         ast::StatementOrExpression,
+        lex::Lexer,
         parser::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression},
     };
 
     fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
-        let mut program = parse(code).unwrap();
+        let mut program = parse(Lexer::new(code).unwrap()).unwrap();
         let mut type_scope = TypeScope::default();
         let (last, rest) = program.block.children.split_last_mut().unwrap();
         for child in rest {
@@ -37,7 +38,7 @@ mod test {
 
     #[test]
     fn infers_type_from_literal() {
-        let program = parse("1;").unwrap();
+        let program = parse(Lexer::new("1;").unwrap()).unwrap();
         let Some(StatementOrExpression::Expression(expression)) = program.block.children.first()
         else {
             panic!("expected an expression");
@@ -50,7 +51,7 @@ mod test {
 
     #[test]
     fn infers_type_from_variable() {
-        let mut program = parse("let a: u32 = 1; a;").unwrap();
+        let mut program = parse(Lexer::new("let a: u32 = 1; a;").unwrap()).unwrap();
         let mut type_scope = TypeScope::default();
 
         let StatementOrExpression::Statement(declaration) = &mut program.block.children[0] else {
@@ -69,7 +70,7 @@ mod test {
 
     #[test]
     fn infers_type_from_binary_op_literals() {
-        let program = parse("1 + 2;").unwrap();
+        let program = parse(Lexer::new("1 + 2;").unwrap()).unwrap();
         let mut type_scope = TypeScope::default();
 
         let StatementOrExpression::Expression(expr) = &program.block.children[0] else {

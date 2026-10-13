@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use crate::{type_check::TypeCheckErrorKind, types::Span};
+use crate::{ast::ParseErrorKind, lex::LexErrorKind, type_check::TypeCheckErrorKind, types::Span};
 
 pub struct Spanned<K> {
     pub kind: K,
@@ -38,9 +38,9 @@ pub trait At: Sized {
 
 #[derive(Debug)]
 pub enum CompilerErrorKind {
+    Lex(LexErrorKind),
     Parse(ParseErrorKind),
     TypeCheck(TypeCheckErrorKind),
-    Codegen(CodegenErrorKind),
 }
 
 pub type CompilerError = Spanned<CompilerErrorKind>;

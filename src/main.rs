@@ -8,7 +8,7 @@ mod parser;
 mod type_check;
 mod types;
 
-use crate::{parser::parse, type_check::check_types};
+use crate::{lex::Lexer, parser::parse, type_check::check_types};
 
 fn main() {
     if let Err(e) = run() {
@@ -24,7 +24,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .into();
     let file_as_string = fs::read_to_string(&file)?;
 
-    let mut ast = parse(&file_as_string)?;
+    let lexer = Lexer::new(&file_as_string)?;
+    let mut ast = parse(lexer)?;
     check_types(&mut ast)?;
 
     println!("{ast}");
