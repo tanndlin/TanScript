@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         Assignment, AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
-        Statement, StatementOrExpression::{self},
+        StatementOrExpression::{self},
         UnaryOp,
     },
     codegen::{
@@ -91,24 +91,6 @@ impl Block {
     ) -> Result<String, CodegenError> {
         let mut new_scope = CompileScope::new(Some(compile_scope));
 
-        let declarations = self
-            .children
-            .iter()
-            .filter(|child| {
-                matches!(child, StatementOrExpression::Statement(s) if matches!(**s, Statement::Declaration(_)))
-            })
-            .count();
-        let num_variables = new_scope.num_variables
-            + i32::try_from(declarations).expect("declaration count fits in i32");
-        let alloc_size = num_variables * 8;
-        // Align stack
-        let alloc_size = if alloc_size % 16 != 0 {
-            alloc_size + (16 - alloc_size % 16)
-        } else {
-            alloc_size
-        };
-        new_scope.stack_depth += alloc_size;
-
         let mut instructions = self
             .children
             .iter()
@@ -116,14 +98,10 @@ impl Block {
             .collect::<Result<Vec<String>, CodegenError>>()?
             .join("\n");
 
-        if alloc_size > 0 {
-            let alloc = format!("sub rsp, {alloc_size}");
-            instructions = format!("{alloc}\n{instructions}");
-
-            // A trailing return already restores rsp, so a dealloc after it is unreachable
-            if !instructions.ends_with("ret") {
-                instructions = format!("{instructions}\nadd rsp, {alloc_size}");
-            }
+        let alloc_size = new_scope.stack_depth - compile_scope.stack_depth;
+        // A trailing return already restores rsp, so a dealloc after it is unreachable
+        if alloc_size > 0 && !instructions.ends_with("ret") {
+            instructions = format!("{instructions}\nadd rsp, {alloc_size}");
         }
 
         Ok(instructions
@@ -248,9 +226,10 @@ fn compile_function_call(
     }
 
     // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
-    // aligned at the call, including the saved registers
-    let saved_size = saved_registers.len() * 8;
-    let stack_size = (saved_size + 32 + stack_args.len() * 8).next_multiple_of(16) - saved_size;
+    // aligned at the call, including the locals and saved registers
+    let pushed_size = usize::try_from(compile_scope.stack_depth).expect("stack depth is positive")
+        + saved_registers.len() * 8;
+    let stack_size = (pushed_size + 32 + stack_args.len() * 8).next_multiple_of(16) - pushed_size;
     instructions.push(format!("sub rsp, {stack_size}"));
 
     // Register args are already in place, so evaluate these directly into their slots

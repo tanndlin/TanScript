@@ -6,12 +6,15 @@ use crate::{
     type_check::Type,
 };
 
+pub const SLOT_SIZE: i32 = 8;
+
 #[allow(dead_code)]
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
-    pub num_variables: i32,
     loop_context: Option<LoopContext>,
+    /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
+    /// this is also the offset of the most recently declared local
     pub stack_depth: i32,
 }
 
@@ -20,7 +23,6 @@ impl<'a> CompileScope<'a> {
         Self {
             parent,
             variables: HashMap::new(),
-            num_variables: parent.map_or(0, |p| p.num_variables),
             loop_context: None,
             stack_depth: parent.map_or(0, |p| p.stack_depth),
         }
@@ -72,18 +74,22 @@ impl<'a> CompileScope<'a> {
     pub fn add_variable(
         &mut self,
         name: String,
-        address: Option<Address>,
+        address: Address,
         t: Type,
     ) -> Result<(), CodegenErrorKind> {
         if self.variables.contains_key(&name) {
             return Err(CodegenErrorKind::AlreadyDeclared(name));
         }
 
-        let address = address.unwrap_or(Address::Stack((self.num_variables + 1) * 8));
         self.variables.insert(name, (address, t));
-
-        self.num_variables += 1;
         Ok(())
+    }
+
+    pub fn allocate_variable(&mut self, name: String, t: Type) -> Result<String, CodegenErrorKind> {
+        let address = Address::Stack(self.stack_depth + SLOT_SIZE);
+        self.add_variable(name, address, t)?;
+        self.stack_depth += SLOT_SIZE;
+        Ok(format!("sub rsp, {SLOT_SIZE}"))
     }
 
     pub fn loop_scope(&self) -> Option<&CompileScope<'a>> {

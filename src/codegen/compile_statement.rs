@@ -110,13 +110,13 @@ impl Declaration {
         };
 
         let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
-        compile_scope
-            .add_variable(ident.clone(), None, dtype)
+        let alloc = compile_scope
+            .allocate_variable(ident.clone(), dtype)
             .at(self.assign.lhs.span)?;
         let assign = self
             .assign
             .compile_uncommented(compile_scope, register_handler)?;
-        Ok(format!("; {self}\n{assign}"))
+        Ok(format!("; {self}\n{alloc}\n{assign}"))
     }
 }
 
@@ -147,6 +147,12 @@ impl ForLoop {
         register_handler.release_register(condition_dst_reg);
 
         let block = self.block.compile(&mut new_scope, register_handler)?;
+        let init_size = new_scope.stack_depth - compile_scope.stack_depth;
+        let dealloc = if init_size > 0 {
+            format!("\nadd rsp, {init_size}")
+        } else {
+            String::new()
+        };
         // Indent the update to match the block it runs with
         let update = self
             .update
@@ -169,7 +175,7 @@ impl ForLoop {
             \t; update\n\
             {update}\n\
             jmp {start_label}\n\
-            {end_label}:",
+            {end_label}:{dealloc}",
             self.init, self.condition, self.update
         ))
     }
@@ -198,10 +204,8 @@ impl FunctionDefinition {
 
             // Update its location in the scope
             scope
-                .add_variable(arg.name.clone(), Some(new_address), arg.atype.clone())
+                .add_variable(arg.name.clone(), new_address, arg.atype.clone())
                 .at(arg.span)?;
-            // This is not a variable that needs to be deallocated later
-            scope.num_variables -= 1;
         }
         let arg_setup = arg_setup.join("\n\t");
         let instructions = self.body.compile(&mut scope, register_handler)?;
