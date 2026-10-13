@@ -348,6 +348,10 @@ fn compile_variable(
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let address = compile_scope.get_variable(name).at(span)?;
+    if dst == address {
+        return Ok(vec![]);
+    }
+
     match dst {
         //  You can always move to a register
         Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
