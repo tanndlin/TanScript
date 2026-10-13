@@ -61,12 +61,14 @@ impl<'a> CompileScope<'a> {
     }
 
     pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
-        let ExpressionKind::Atom(AtomType::Identifier(name)) = &expr.kind else {
-            return Ok(Type::Unknown);
+        let pointer = match &expr.kind {
+            ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
+            ExpressionKind::Index(lhs, _) => self.element_type(lhs)?,
+            _ => Type::Unknown,
         };
 
-        Ok(match self.get_type(name)? {
-            Type::Pointer(inner) => (**inner).clone(),
+        Ok(match pointer {
+            Type::Pointer(inner) => *inner,
             _ => Type::Unknown,
         })
     }
