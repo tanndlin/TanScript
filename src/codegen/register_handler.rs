@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::codegen::address::{Address, Register};
+use crate::codegen::{
+    CodegenErrorKind,
+    address::{Address, Register},
+};
 
 #[derive(Clone, Copy, Debug)]
 struct RegisterState {
@@ -49,7 +52,7 @@ impl RegisterHandler {
         }
     }
 
-    pub fn lease_register(&mut self) -> Result<Register, String> {
+    pub fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
         // Choose the least-recently-used free register (LRU heuristic) that is not reserved.
         let candidate = self
             .registers
@@ -58,7 +61,7 @@ impl RegisterHandler {
             .min_by_key(|(_, st)| st.last_used)
             .map(|(r, _)| *r);
 
-        let reg = candidate.ok_or_else(|| "No registers available".to_string())?;
+        let reg = candidate.ok_or(CodegenErrorKind::OutOfRegisters)?;
         let state = self.registers.get_mut(&reg).unwrap();
         state.used = true;
         self.usage_counter = self.usage_counter.wrapping_add(1);
@@ -78,10 +81,10 @@ impl RegisterHandler {
         }
     }
 
-    pub fn lease_with_scope(
+    pub fn lease_with_scope<E>(
         &mut self,
-        function: impl FnOnce(&mut Self, Register) -> Result<String, String>,
-    ) -> Result<String, String> {
+        function: impl FnOnce(&mut Self, Register) -> Result<String, E>,
+    ) -> Result<String, E> {
         if let Ok(reg) = self.lease_register() {
             let ret = function(self, reg);
             self.release_register(reg);
@@ -101,12 +104,12 @@ impl RegisterHandler {
 
     /// Like `lease_with_scope`, but for a specific register. If it's already in use, its value is
     /// saved around `function`, unless `dst` is that register: the caller wants it overwritten
-    pub fn request_with_scope(
+    pub fn request_with_scope<E>(
         &mut self,
         reg: Register,
         dst: Address,
-        function: impl FnOnce(&mut Self, Register) -> Result<String, String>,
-    ) -> Result<String, String> {
+        function: impl FnOnce(&mut Self, Register) -> Result<String, E>,
+    ) -> Result<String, E> {
         if self.request_register(reg).is_ok() {
             let ret = function(self, reg);
             self.release_register(reg);
@@ -220,7 +223,7 @@ mod tests {
             .lease_with_scope(|rh, reg| {
                 assert_eq!(reg, Register::RAX);
                 assert!(rh.request_register(Register::RAX).is_err());
-                Ok(format!("mov {reg}, 1"))
+                Ok::<_, String>(format!("mov {reg}, 1"))
             })
             .unwrap();
         assert_eq!(asm, "push rax\nmov rax, 1\npop rax");

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{AtomType, Expression, ExpressionKind},
-    codegen::address::Address,
+    codegen::{CodegenErrorKind, address::Address},
     type_check::Type,
 };
 
@@ -22,7 +22,7 @@ impl<'a> CompileScope<'a> {
         }
     }
 
-    fn lookup(&self, name: &str) -> Result<&(Address, Type), String> {
+    fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
         if let Some(variable) = self.variables.get(name) {
             return Ok(variable);
         }
@@ -30,20 +30,20 @@ impl<'a> CompileScope<'a> {
         let parent = self
             .parent
             .as_ref()
-            .ok_or_else(|| format!("Variable '{name}' not found"))?;
+            .ok_or_else(|| CodegenErrorKind::UndeclaredVariable(name.to_string()))?;
 
         parent.lookup(name)
     }
 
-    pub fn get_variable(&self, name: &str) -> Result<Address, String> {
+    pub fn get_variable(&self, name: &str) -> Result<Address, CodegenErrorKind> {
         self.lookup(name).map(|(address, _)| *address)
     }
 
-    pub fn get_type(&self, name: &str) -> Result<&Type, String> {
+    pub fn get_type(&self, name: &str) -> Result<&Type, CodegenErrorKind> {
         self.lookup(name).map(|(_, t)| t)
     }
 
-    pub fn element_type(&self, expr: &Expression) -> Result<Type, String> {
+    pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         let ExpressionKind::Atom(AtomType::Identifier(name)) = &expr.kind else {
             return Ok(Type::Unknown);
         };
@@ -59,9 +59,9 @@ impl<'a> CompileScope<'a> {
         name: String,
         address: Option<Address>,
         t: Type,
-    ) -> Result<(), String> {
+    ) -> Result<(), CodegenErrorKind> {
         if self.variables.contains_key(&name) {
-            return Err(format!("Variable '{name}' already declared"));
+            return Err(CodegenErrorKind::AlreadyDeclared(name));
         }
 
         let address = address.unwrap_or(Address::Stack((self.num_variables + 1) * 8));

@@ -5,17 +5,19 @@ use crate::{
         UnaryOp,
     },
     codegen::{
+        CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile_scope::CompileScope,
         register_handler::RegisterHandler,
         symbol_table::SymbolTable,
     },
+    error::{At, ResultAt},
     type_check::Type,
-    types::NumberType,
+    types::{NumberType, Span},
 };
 
 impl Program {
-    pub fn compile(&self) -> Result<String, String> {
+    pub fn compile(&self) -> Result<String, CodegenError> {
         let mut global_scope = CompileScope::new(None);
         let mut register_handler = RegisterHandler::new();
 
@@ -86,14 +88,14 @@ impl Block {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let mut new_scope = CompileScope::new(Some(compile_scope));
 
         let mut instructions = self
             .children
             .iter()
             .map(|child| child.compile(&mut new_scope, register_handler))
-            .collect::<Result<Vec<String>, String>>()?
+            .collect::<Result<Vec<String>, CodegenError>>()?
             .join("\n");
 
         if new_scope.num_variables > 0 {
@@ -127,7 +129,7 @@ impl StatementOrExpression {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         match &self {
             StatementOrExpression::Statement(statement) => {
                 statement.compile(compile_scope, register_handler)
@@ -148,16 +150,16 @@ impl Expression {
         compile_scope: &mut CompileScope,
         dst: impl Into<Address>,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let dst = dst.into();
 
         match &self.kind {
             ExpressionKind::Atom(a) => match a {
                 AtomType::Number(n) => Ok(compile_number(*n, dst)),
                 AtomType::Identifier(name) => {
-                    compile_variable(compile_scope, register_handler, name, dst)
+                    compile_variable(compile_scope, register_handler, name, self.span, dst)
                 }
-                AtomType::String(s) => Ok(compile_string(s, dst, register_handler)),
+                AtomType::String(s) => compile_string(s, dst, register_handler),
                 AtomType::Colon => panic!("Unexpected colon"),
                 AtomType::Boolean(b) => Ok(compile_boolean(*b, dst)),
             },
@@ -191,13 +193,16 @@ const VOLATILE_REGISTERS: [Register; 7] = [
     Register::R11,
 ];
 
-fn compile_string(s: &str, dst: Address, register_handler: &mut RegisterHandler) -> String {
+fn compile_string(
+    s: &str,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<String, CodegenError> {
     let handle = register_handler.add_data(s);
     match dst {
-        Address::Register(_) => format!("mov QWORD {dst}, {handle}"),
+        Address::Register(_) => Ok(format!("mov QWORD {dst}, {handle}")),
         Address::Stack(_) => register_handler
-            .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}")))
-            .unwrap(),
+            .lease_with_scope(|_, reg| Ok(format!("mov {reg}, {handle}\nmov {dst}, {reg}"))),
     }
 }
 
@@ -207,7 +212,7 @@ fn compile_function_call(
     name: &str,
     args: &[Expression],
     dst: Address,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
 
@@ -269,8 +274,8 @@ fn compile_index(
     dst: Address,
     lhs: &Expression,
     index: &Expression,
-) -> Result<String, String> {
-    let element = compile_scope.element_type(lhs)?;
+) -> Result<String, CodegenError> {
+    let element = compile_scope.element_type(lhs).at(lhs.span)?;
     register_handler.lease_with_scope(|register_handler, ptr| {
         let data_size = element.size();
         let index = index.compile(compile_scope, ptr, register_handler)?;
@@ -321,9 +326,10 @@ fn compile_variable(
     compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
     name: &str,
+    span: Span,
     dst: Address,
-) -> Result<String, String> {
-    let address = compile_scope.get_variable(name)?;
+) -> Result<String, CodegenError> {
+    let address = compile_scope.get_variable(name).at(span)?;
     match dst {
         //  You can always move to a register
         Address::Register(_) => Ok(format!("mov {dst}, {address}")),
@@ -344,7 +350,7 @@ fn compile_binary(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     let set_condition = match op {
         BinaryOp::Multiply => {
             return compile_multiply(compile_scope, left, right, dst, register_handler);
@@ -404,7 +410,7 @@ fn compile_simple_binary(
     right: &Expression,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     let left = left.compile(compile_scope, dst, register_handler)?;
     let right = register_handler.lease_with_scope(|register_handler, right_reg| {
         let right = right.compile(compile_scope, right_reg, register_handler)?;
@@ -420,7 +426,7 @@ fn compile_unary(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     let child_asm = child.compile(compile_scope, dst, register_handler)?;
 
     let asm = match op {
@@ -437,7 +443,7 @@ fn compile_postfix(
     compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     // Postfix evaluates to the value before the update
     let old_value = lhs.compile(compile_scope, dst, register_handler)?;
     let update = Assignment {
@@ -465,7 +471,7 @@ fn compile_multiply(
     right: &Expression,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     register_handler.lease_with_scope(|register_handler, left_reg| {
         let left = left.compile(compile_scope, left_reg, register_handler)?;
 
@@ -491,11 +497,11 @@ fn compile_divide(
     dst: Address,
     register_handler: &mut RegisterHandler,
     result: Register,
-) -> Result<String, String> {
+) -> Result<String, CodegenError> {
     register_handler.lease_with_scope(|register_handler, right_reg| {
         // Only happens when every other register is leased, and idiv overwrites both
         if matches!(right_reg, Register::RAX | Register::RDX) {
-            return Err("Ran out of registers compiling division".to_string());
+            return Err(CodegenErrorKind::OutOfRegisters.at(left.span));
         }
 
         let right = right.compile(compile_scope, right_reg, register_handler)?;

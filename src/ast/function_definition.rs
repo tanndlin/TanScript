@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{ast::Block, type_check::Type};
+use crate::{ast::Block, type_check::Type, types::Span};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDefinition {
@@ -35,6 +35,7 @@ impl fmt::Display for FunctionDefinition {
 pub struct Arg {
     pub name: String,
     pub atype: Type,
+    pub span: Span,
 }
 
 impl fmt::Display for Arg {

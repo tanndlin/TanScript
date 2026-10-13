@@ -4,11 +4,13 @@ use crate::{
         IfStatement, ReturnStatement, Statement, WhileLoop,
     },
     codegen::{
+        CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::store_element,
         compile_scope::CompileScope,
         register_handler::RegisterHandler,
     },
+    error::{At, ResultAt},
     type_check::Type,
 };
 
@@ -17,7 +19,7 @@ impl Statement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         match self {
             Statement::Assignment(s) => s.compile(compile_scope, register_handler),
             Statement::Declaration(s) => s.compile(compile_scope, register_handler),
@@ -36,15 +38,15 @@ impl Assignment {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         match &self.lhs.kind {
             ExpressionKind::Atom(AtomType::Identifier(ident)) => {
-                let address = compile_scope.get_variable(ident)?;
+                let address = compile_scope.get_variable(ident).at(self.lhs.span)?;
                 self.expression
                     .compile(compile_scope, address, register_handler)
             }
             ExpressionKind::Index(lhs, index) => {
-                let element = compile_scope.element_type(lhs)?;
+                let element = compile_scope.element_type(lhs).at(lhs.span)?;
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
                     let data_size = element.size();
                     let index_asm = index.compile(compile_scope, offset_ptr, register_handler)?;
@@ -73,7 +75,7 @@ impl Assignment {
                     })
                 })
             }
-            _ => Err("Invalid LHS for assign".to_string()),
+            _ => Err(CodegenErrorKind::InvalidAssignTarget(self.lhs.to_string()).at(self.lhs.span)),
         }
     }
 
@@ -81,7 +83,7 @@ impl Assignment {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let asm = self.compile_uncommented(compile_scope, register_handler)?;
         Ok(format!(
             "; {self}
@@ -95,13 +97,18 @@ impl Declaration {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
-            return Err("Declaration LHS can only be a identifier".to_string());
+            return Err(
+                CodegenErrorKind::InvalidAssignTarget(self.assign.lhs.to_string())
+                    .at(self.assign.lhs.span),
+            );
         };
 
         let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
-        compile_scope.add_variable(ident.clone(), None, dtype)?;
+        compile_scope
+            .add_variable(ident.clone(), None, dtype)
+            .at(self.assign.lhs.span)?;
         let assign = self
             .assign
             .compile_uncommented(compile_scope, register_handler)?;
@@ -114,7 +121,7 @@ impl ForLoop {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let unique_id = register_handler.get_unique_id();
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
@@ -122,7 +129,7 @@ impl ForLoop {
         let mut new_scope = CompileScope::new(Some(compile_scope));
         let init = self.init.compile(&mut new_scope, register_handler)?;
 
-        let condition_dst_reg = register_handler.lease_register()?;
+        let condition_dst_reg = register_handler.lease_register().at(self.condition.span)?;
         let condition =
             self.condition
                 .compile(&mut new_scope, condition_dst_reg, register_handler)?;
@@ -161,7 +168,7 @@ impl FunctionDefinition {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let mut scope = CompileScope::new(Some(compile_scope));
 
         let mut arg_setup = vec![];
@@ -169,7 +176,7 @@ impl FunctionDefinition {
         for (i, arg) in self.args.iter().enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
-            let offset = 16 + i32::try_from(i).map_err(|_| "Index out of range")? * 8;
+            let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
             let new_address = Address::Stack(-offset);
 
             // Move register args to their home in the shadow space
@@ -178,7 +185,9 @@ impl FunctionDefinition {
             }
 
             // Update its location in the scope
-            scope.add_variable(arg.name.clone(), Some(new_address), arg.atype.clone())?;
+            scope
+                .add_variable(arg.name.clone(), Some(new_address), arg.atype.clone())
+                .at(arg.span)?;
             // This is not a variable that needs to be deallocated later
             scope.num_variables -= 1;
         }
@@ -202,9 +211,9 @@ impl IfStatement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let id = register_handler.get_unique_id();
-        let dst = register_handler.lease_register()?;
+        let dst = register_handler.lease_register().at(self.condition.span)?;
         let condition = self
             .condition
             .compile(compile_scope, dst, register_handler)?;
@@ -240,7 +249,7 @@ impl ReturnStatement {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let instructions = self
             .expr
             .compile(compile_scope, Register::RAX, register_handler)?;
@@ -255,12 +264,12 @@ impl WhileLoop {
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
+    ) -> Result<String, CodegenError> {
         let unique_id = register_handler.get_unique_id();
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
 
-        let reg = register_handler.lease_register()?;
+        let reg = register_handler.lease_register().at(self.condition.span)?;
         let condition = self
             .condition
             .compile(compile_scope, reg, register_handler)?;

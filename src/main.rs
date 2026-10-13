@@ -8,7 +8,7 @@ mod parser;
 mod type_check;
 mod types;
 
-use crate::{lex::Lexer, parser::parse, type_check::check_types};
+use crate::{error::CompilerError, lex::Lexer, parser::parse, type_check::check_types};
 
 fn main() {
     if let Err(e) = run() {
@@ -24,15 +24,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .into();
     let file_as_string = fs::read_to_string(&file)?;
 
-    let lexer = Lexer::new(&file_as_string)?;
-    let mut ast = parse(lexer)?;
-    check_types(&mut ast)?;
-
-    println!("{ast}");
-    let code = ast.compile()?;
+    let code = compile(&file_as_string)?;
 
     let asm_path = file.with_extension("asm");
     fs::write(asm_path, code)?;
 
     Ok(())
+}
+
+fn compile(source: &str) -> Result<String, CompilerError> {
+    let lexer = Lexer::new(source)?;
+    let mut ast = parse(lexer)?;
+    check_types(&mut ast)?;
+
+    println!("{ast}");
+    Ok(ast.compile()?)
 }

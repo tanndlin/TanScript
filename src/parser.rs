@@ -387,6 +387,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
 
     loop {
         let tok = lexer.next_or_eof("argument name or )")?;
+        let span = tok.span;
         let name = match tok.token_type {
             Token::Atom(LexerAtomType::Identifier(name)) => name,
             Token::Op(OperatorType::CloseParen) => break,
@@ -397,6 +398,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
         args.push(Arg {
             name,
             atype: parse_type(lexer)?,
+            span,
         });
 
         let tok = lexer.next_or_eof(", or )")?;
