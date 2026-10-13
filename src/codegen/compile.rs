@@ -243,8 +243,7 @@ fn compile_function_call(
 
     // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
     // aligned at the call, including the locals and saved registers
-    let pushed_size = u32::try_from(compile_scope.stack_depth).expect("stack depth is positive")
-        + u32::try_from(saved_registers.len()).unwrap() * 8;
+    let pushed_size = compile_scope.stack_depth + u32::try_from(saved_registers.len()).unwrap() * 8;
     let stack_size: u32 = (pushed_size + 32 + u32::try_from(stack_args.len()).unwrap() * 8)
         .next_multiple_of(16)
         - pushed_size;
