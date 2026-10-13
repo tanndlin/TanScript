@@ -31,6 +31,13 @@ impl Program {
             .map(|def| def.compile(&mut global_scope, &mut register_handler))
             .collect::<Result<Vec<_>, _>>()?
             .join("\n");
+        let globals = symbol_table
+            .functions
+            .keys()
+            .map(|name| format!("global {name}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
         let extern_functions = symbol_table
             .externs
             .iter()
@@ -49,6 +56,7 @@ impl Program {
             "BITS 64
 
 global main
+{globals}
 extern ExitProcess
 {extern_functions}
 

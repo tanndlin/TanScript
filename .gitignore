@@ -3,5 +3,6 @@ target/*
 *.asm
 *.exe
 *.o
+*.pdb
 *.html
 !tests/golden/*.tan
