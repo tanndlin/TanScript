@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Block, Expression, Statement, StatementOrExpression},
+    ast::{Block, Expression, StatementOrExpression},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
@@ -14,8 +14,8 @@ pub struct ForLoop {
     pub block: Block,
 }
 
-impl Statement for ForLoop {
-    fn compile(
+impl ForLoop {
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -60,16 +60,12 @@ impl Statement for ForLoop {
         ))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.condition.discover(symbols);
         self.block.discover(symbols);
     }
 
-    fn requires_semicolon(&self) -> bool {
-        false
-    }
-
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
         let result = self.init.check_types(type_scope).and_then(|()| {
             check_types_expression(&self.condition, type_scope)?;
@@ -80,7 +76,7 @@ impl Statement for ForLoop {
         result
     }
 
-    fn resolve_types(&mut self, type_scope: &TypeScope) {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         self.init.resolve_types(type_scope);
         self.block.resolve_types(type_scope);
     }

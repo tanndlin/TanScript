@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Block, Expression, Statement},
+    ast::{Block, Expression},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
@@ -13,8 +13,8 @@ pub struct IfStatement {
     pub else_block: Option<Block>,
 }
 
-impl Statement for IfStatement {
-    fn compile(
+impl IfStatement {
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -50,7 +50,7 @@ impl Statement for IfStatement {
         ))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.condition.discover(symbols);
         self.block.discover(symbols);
         if let Some(else_block) = &self.else_block {
@@ -58,11 +58,7 @@ impl Statement for IfStatement {
         }
     }
 
-    fn requires_semicolon(&self) -> bool {
-        false
-    }
-
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         check_types_expression(&self.condition, type_scope)?;
         self.block.check_types(type_scope)?;
         if let Some(else_block) = &mut self.else_block {
@@ -71,7 +67,7 @@ impl Statement for IfStatement {
         Ok(())
     }
 
-    fn resolve_types(&mut self, type_scope: &TypeScope) {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         self.block.resolve_types(type_scope);
         if let Some(else_block) = &mut self.else_block {
             else_block.resolve_types(type_scope);

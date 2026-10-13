@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind, Statement},
+    ast::{AtomType, Expression, ExpressionKind},
     codegen::{CompileScope, RegisterHandler, SymbolTable, store_element},
     type_check::{
         Type, TypeCheckError, TypeScope, check_types_expression, expect_type, narrow_expression,
@@ -60,10 +60,8 @@ impl Assignment {
             _ => Err("Invalid LHS for assign".to_string()),
         }
     }
-}
 
-impl Statement for Assignment {
-    fn compile(
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -75,11 +73,11 @@ impl Statement for Assignment {
         ))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.expression.discover(symbols);
     }
 
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         let expected = check_types_expression(&self.lhs, type_scope)?;
         let got = check_types_expression(&self.expression, type_scope)?;
 

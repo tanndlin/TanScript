@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Assignment, AtomType, ExpressionKind, Statement},
+    ast::{Assignment, AtomType, ExpressionKind},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     lex::Span,
     type_check::{Type, TypeCheckError, TypeScope, check_types_expression, expect_type},
@@ -15,8 +15,8 @@ pub struct Declaration {
     pub _span: Span,
 }
 
-impl Statement for Declaration {
-    fn compile(
+impl Declaration {
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -33,11 +33,11 @@ impl Statement for Declaration {
         Ok(format!("; {self}\n{assign}"))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.assign.discover(symbols);
     }
 
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
             panic!("Declaration LHS can only be a identifier");
         };
@@ -53,7 +53,7 @@ impl Statement for Declaration {
         Ok(())
     }
 
-    fn resolve_types(&mut self, type_scope: &TypeScope) {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         if let Some(id) = self.binding {
             self.dtype = Some(type_scope.binding(id).clone());
         }

@@ -7,7 +7,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum StatementOrExpression {
-    Statement(Box<dyn Statement>),
+    Statement(Box<Statement>),
     Expression(Expression),
 }
 

@@ -136,7 +136,7 @@ pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut Type
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::{Declaration, ForLoop, StatementOrExpression},
+        ast::{Statement, StatementOrExpression},
         parser::parse,
         type_check::{Type, TypeCheckError, check_types},
     };
@@ -253,11 +253,15 @@ mod test {
         let StatementOrExpression::Statement(statement) = &program.block.children[1] else {
             panic!("expected a statement");
         };
-        let for_loop = statement.downcast_ref::<ForLoop>().unwrap();
+        let Statement::ForLoop(for_loop) = statement.as_ref() else {
+            panic!("expected a for loop");
+        };
         let StatementOrExpression::Statement(init) = &for_loop.init else {
             panic!("expected a statement");
         };
-        let declaration = init.downcast_ref::<Declaration>().unwrap();
+        let Statement::Declaration(declaration) = init.as_ref() else {
+            panic!("expected a declaration");
+        };
         assert_eq!(declaration.dtype, Some(Type::I32));
     }
 

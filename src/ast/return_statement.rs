@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Expression, Statement},
+    ast::Expression,
     codegen::{CompileScope, Register, RegisterHandler, SymbolTable},
     type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
@@ -11,8 +11,8 @@ pub struct ReturnStatement {
     pub expr: Expression,
 }
 
-impl Statement for ReturnStatement {
-    fn compile(
+impl ReturnStatement {
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -25,11 +25,11 @@ impl Statement for ReturnStatement {
         ))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.expr.discover(symbols);
     }
 
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         check_types_expression(&self.expr, type_scope).map(|_| ())
     }
 }

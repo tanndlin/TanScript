@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Block, Statement},
+    ast::Block,
     codegen::{Address, CompileScope, Register, RegisterHandler, SymbolTable},
     type_check::{
         FunctionType,
@@ -57,27 +57,13 @@ impl FunctionDefinition {
             "{preamble}\n\t{arg_setup}\n{instructions}\n\t{ret}",
         ))
     }
-}
 
-impl Statement for FunctionDefinition {
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         symbols.functions.insert(self.name.clone(), self.clone());
         self.body.discover(symbols);
     }
 
-    fn compile(
-        &self,
-        _compile_scope: &mut CompileScope,
-        _register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        Ok(String::new())
-    }
-
-    fn requires_semicolon(&self) -> bool {
-        false
-    }
-
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.insert(
             self.name.clone(),
             Function(Box::new(FunctionType {
@@ -95,7 +81,7 @@ impl Statement for FunctionDefinition {
         result
     }
 
-    fn resolve_types(&mut self, type_scope: &TypeScope) {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         self.body.resolve_types(type_scope);
     }
 }

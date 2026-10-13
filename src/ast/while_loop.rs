@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Block, Expression, Statement},
+    ast::{Block, Expression},
     codegen::{CompileScope, RegisterHandler, SymbolTable},
     type_check::{TypeCheckError, TypeScope, check_types_expression},
 };
@@ -12,8 +12,8 @@ pub struct WhileLoop {
     pub block: Block,
 }
 
-impl Statement for WhileLoop {
-    fn compile(
+impl WhileLoop {
+    pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
@@ -44,21 +44,17 @@ impl Statement for WhileLoop {
         ))
     }
 
-    fn discover(&self, symbols: &mut SymbolTable) {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
         self.condition.discover(symbols);
         self.block.discover(symbols);
     }
 
-    fn requires_semicolon(&self) -> bool {
-        false
-    }
-
-    fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         check_types_expression(&self.condition, type_scope)?;
         self.block.check_types(type_scope)
     }
 
-    fn resolve_types(&mut self, type_scope: &TypeScope) {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         self.block.resolve_types(type_scope);
     }
 }
