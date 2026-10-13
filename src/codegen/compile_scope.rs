@@ -11,7 +11,7 @@ use crate::{
     type_check::Type,
 };
 
-pub const SLOT_SIZE: i32 = 8;
+pub const SLOT_SIZE: u32 = 8;
 
 #[allow(dead_code)]
 pub struct CompileScope<'a> {
@@ -20,7 +20,7 @@ pub struct CompileScope<'a> {
     loop_context: Option<LoopContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
     /// this is also the offset of the most recently declared local
-    pub stack_depth: i32,
+    pub stack_depth: u32,
 }
 
 impl<'a> CompileScope<'a> {
@@ -97,7 +97,7 @@ impl<'a> CompileScope<'a> {
         name: String,
         t: Type,
     ) -> Result<Instruction, CodegenErrorKind> {
-        let address = Address::Stack(self.stack_depth + SLOT_SIZE);
+        let address = Address::Stack(i32::try_from(self.stack_depth + SLOT_SIZE).unwrap());
         self.add_variable(name, address, t)?;
         self.stack_depth += SLOT_SIZE;
         Ok(Instruction::sub(Register::RSP, SLOT_SIZE))

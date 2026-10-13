@@ -91,6 +91,13 @@ impl Address {
             },
         }
     }
+
+    pub fn is_memory(&self) -> bool {
+        match self {
+            Address::Register(_) => false,
+            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => true,
+        }
+    }
 }
 
 impl fmt::Display for Address {

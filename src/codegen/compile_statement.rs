@@ -146,11 +146,15 @@ impl ForLoop {
         );
         let init = self.init.compile(&mut new_scope, register_handler)?;
 
-        let condition_dst_reg = register_handler.lease_register().at(self.condition.span)?;
         let condition =
-            self.condition
-                .compile(&mut new_scope, condition_dst_reg, register_handler)?;
-        register_handler.release_register(condition_dst_reg);
+            register_handler.lease_with_scope(|register_handler, condition_dst_reg| {
+                let mut condition =
+                    self.condition
+                        .compile(&mut new_scope, condition_dst_reg, register_handler)?;
+                condition.push(Instruction::cmp(condition_dst_reg, 0));
+                condition.push(Instruction::jcc(Condition::Equal, &end_label));
+                Ok(condition)
+            })?;
 
         let block = self.block.compile(&mut new_scope, register_handler)?;
         let init_size = new_scope.stack_depth - compile_scope.stack_depth;
@@ -163,8 +167,6 @@ impl ForLoop {
         instructions.extend(init);
         instructions.push(Instruction::label(&start_label));
         instructions.extend(condition);
-        instructions.push(Instruction::cmp(condition_dst_reg, 0));
-        instructions.push(Instruction::jcc(Condition::Equal, &end_label));
         instructions.push(Instruction::comment("body"));
         instructions.extend(block);
         instructions.push(Instruction::label(continue_label));

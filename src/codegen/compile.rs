@@ -114,7 +114,7 @@ impl Block {
         let alloc_size = new_scope.stack_depth - compile_scope.stack_depth;
         // A trailing return already restores rsp, so a dealloc after it is unreachable
         if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Ret)) {
-            instructions.push(Instruction::add(Register::RSP, NumberType::I32(alloc_size)));
+            instructions.push(Instruction::add(Register::RSP, alloc_size));
         }
 
         Ok(instructions)
@@ -463,9 +463,9 @@ fn compile_binary(
     Ok(instructions)
 }
 
-/// Compiles `left` into `dst`, `right` into a scratch register, then runs `instruction(dst, scratch)`
+/// Compiles `left` into `dst`, `right` into a scratch register, unless right is a leaf or dst is a register
 fn compile_simple_binary(
-    instruction: impl FnOnce(Address, Register) -> Instruction,
+    instruction: impl FnOnce(Address, Operand) -> Instruction,
     compile_scope: &mut CompileScope,
     left: &Expression,
     right: &Expression,
@@ -473,15 +473,22 @@ fn compile_simple_binary(
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let mut instructions = left.compile(compile_scope, dst, register_handler)?;
-    instructions.extend(
-        register_handler.lease_with_scope(|register_handler, right_reg| {
-            let mut right = right.compile(compile_scope, right_reg, register_handler)?;
-            right.push(instruction(dst, right_reg));
-            Ok(right)
-        })?,
-    );
+    if let Some(rhs_op) = as_operand(right, compile_scope)
+        && !(dst.is_memory() && rhs_op.is_memory())
+    {
+        instructions.push(instruction(dst, rhs_op));
+        Ok(instructions)
+    } else {
+        instructions.extend(
+            register_handler.lease_with_scope(|register_handler, right_reg| {
+                let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+                right.push(instruction(dst, right_reg.into()));
+                Ok(right)
+            })?,
+        );
 
-    Ok(instructions)
+        Ok(instructions)
+    }
 }
 
 fn compile_unary(
@@ -516,7 +523,7 @@ fn compile_postfix(
                 op.arithmetic(),
                 Box::new(lhs.clone()),
                 Box::new(Expression::new(
-                    ExpressionKind::Atom(AtomType::Number(NumberType::I32(1))),
+                    ExpressionKind::Atom(AtomType::Number(NumberType::Coercible(1))),
                     lhs.span,
                 )),
             ),
@@ -597,6 +604,25 @@ fn compile_divide(
 fn compile_boolean(b: bool, dst: Address) -> Instruction {
     let n = NumberType::I64(i64::from(b));
     Instruction::mov(dst, n)
+}
+
+fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
+    match &expr.kind {
+        ExpressionKind::Atom(AtomType::Number(n)) if fits_imm32(*n) => Some(Operand::Immediate(*n)),
+        ExpressionKind::Atom(AtomType::Identifier(name)) => {
+            scope.get_variable(name).ok().map(Operand::from)
+        }
+        _ => None,
+    }
+}
+
+fn fits_imm32(n: NumberType) -> bool {
+    match n {
+        NumberType::I32(_) => true,
+        NumberType::U32(n) => i32::try_from(n).is_ok(),
+        NumberType::U64(n) => i32::try_from(n).is_ok(),
+        NumberType::I64(n) | NumberType::Coercible(n) => i32::try_from(n).is_ok(),
+    }
 }
 
 #[cfg(test)]

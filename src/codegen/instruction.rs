@@ -12,6 +12,15 @@ pub enum Operand {
     Label(String),
 }
 
+impl Operand {
+    pub fn is_memory(&self) -> bool {
+        match self {
+            Operand::Address(address) => address.is_memory(),
+            Operand::Immediate(_) | Operand::Label(_) => false,
+        }
+    }
+}
+
 impl From<Register> for Operand {
     fn from(reg: Register) -> Self {
         Self::Address(reg.into())
