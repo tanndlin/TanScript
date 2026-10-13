@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    AtomType, Block, Expression, ExpressionKind, FunctionDefinition, StatementOrExpression,
+    AtomType, Block, Expression, ExpressionKind, FunctionDefinition, Statement,
+    StatementOrExpression,
 };
 
 pub struct SymbolTable {
@@ -31,6 +32,35 @@ impl StatementOrExpression {
             }
             StatementOrExpression::Expression(expression) => {
                 expression.discover(symbols);
+            }
+        }
+    }
+}
+
+impl Statement {
+    pub fn discover(&self, symbols: &mut SymbolTable) {
+        match self {
+            Statement::Assignment(s) => s.expression.discover(symbols),
+            Statement::Declaration(s) => s.assign.expression.discover(symbols),
+            Statement::ForLoop(s) => {
+                s.condition.discover(symbols);
+                s.block.discover(symbols);
+            }
+            Statement::FunctionDefinition(s) => {
+                symbols.functions.insert(s.name.clone(), s.clone());
+                s.body.discover(symbols);
+            }
+            Statement::IfStatement(s) => {
+                s.condition.discover(symbols);
+                s.block.discover(symbols);
+                if let Some(else_block) = &s.else_block {
+                    else_block.discover(symbols);
+                }
+            }
+            Statement::Return(s) => s.expr.discover(symbols),
+            Statement::WhileLoop(s) => {
+                s.condition.discover(symbols);
+                s.block.discover(symbols);
             }
         }
     }

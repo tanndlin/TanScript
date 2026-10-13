@@ -1,62 +1,11 @@
 use std::fmt;
 
-use crate::{
-    ast::{Block, Expression},
-    codegen::{CompileScope, RegisterHandler, SymbolTable},
-    type_check::{TypeCheckError, TypeScope, check_types_expression},
-};
+use crate::ast::{Block, Expression};
 
 #[derive(Debug, Clone)]
 pub struct WhileLoop {
     pub condition: Expression,
     pub block: Block,
-}
-
-impl WhileLoop {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        let unique_id = register_handler.get_unique_id();
-        let start_label = format!("while_start_{unique_id}");
-        let end_label = format!("while_end_{unique_id}");
-
-        let reg = register_handler.lease_register()?;
-        let condition = self
-            .condition
-            .compile(compile_scope, reg, register_handler)?;
-        register_handler.release_register(reg);
-
-        let block = self.block.compile(compile_scope, register_handler)?;
-
-        Ok(format!(
-            "; while {}\n\
-            {start_label}:\n\
-            {condition}\n\
-            cmp {reg}, 0\n\
-            je {end_label}\n\
-            ; body\n\
-            {block}\n\
-            jmp {start_label}\n\
-            {end_label}:",
-            self.condition
-        ))
-    }
-
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        self.condition.discover(symbols);
-        self.block.discover(symbols);
-    }
-
-    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        check_types_expression(&self.condition, type_scope)?;
-        self.block.check_types(type_scope)
-    }
-
-    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
-        self.block.resolve_types(type_scope);
-    }
 }
 
 impl fmt::Display for WhileLoop {

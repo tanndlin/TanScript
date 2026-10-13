@@ -1,37 +1,10 @@
 use std::fmt;
 
-use crate::{
-    ast::Expression,
-    codegen::{CompileScope, Register, RegisterHandler, SymbolTable},
-    type_check::{TypeCheckError, TypeScope, check_types_expression},
-};
+use crate::ast::Expression;
 
 #[derive(Debug, Clone)]
 pub struct ReturnStatement {
     pub expr: Expression,
-}
-
-impl ReturnStatement {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<String, String> {
-        let instructions = self
-            .expr
-            .compile(compile_scope, Register::RAX, register_handler)?;
-        Ok(format!(
-            "; {self}\n{instructions}\nmov rsp, rbp\npop rbp\nret"
-        ))
-    }
-
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        self.expr.discover(symbols);
-    }
-
-    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        check_types_expression(&self.expr, type_scope).map(|_| ())
-    }
 }
 
 impl fmt::Display for ReturnStatement {

@@ -1,3 +1,4 @@
+mod check_statement;
 mod check_types;
 mod infer_type;
 mod type_check_error;
