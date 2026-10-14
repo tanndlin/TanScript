@@ -397,8 +397,8 @@ fn write_binary(f: &mut fmt::Formatter<'_>, op: &str, dst: Address, src: &Operan
 }
 
 fn size_specifier(n: NumberType) -> Size {
-    match n {
-        NumberType::I32(_) | NumberType::U32(_) => Size::Dword,
-        NumberType::I64(_) | NumberType::U64(_) | NumberType::Coercible(_) => Size::Qword,
+    match n.kind().size() {
+        4 => Size::Dword,
+        _ => Size::Qword,
     }
 }

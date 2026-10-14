@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::type_check::Type;
+use crate::{type_check::Type, types::IntType};
 
 #[derive(Debug)]
 pub struct TypeScope {
@@ -39,7 +39,7 @@ impl TypeScope {
 
     pub fn narrow(&mut self, name: &str, t: Type) {
         if let Some(id) = self.find(name)
-            && self.bindings[id] == Type::CoercibleNumber
+            && self.bindings[id] == Type::Int(IntType::Coercible)
         {
             self.bindings[id] = t;
         }

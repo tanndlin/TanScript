@@ -75,7 +75,7 @@ mod test {
         diagnostic::Style,
         error::At,
         type_check::{Type, TypeCheckErrorKind},
-        types::Span,
+        types::{IntType, Span},
     };
 
     fn render(source: &str, line: u32, col: u32) -> String {
@@ -115,7 +115,7 @@ mod test {
     #[test]
     fn handles_span_past_end_of_source() {
         let error = TypeCheckErrorKind::TypeMismatch {
-            expected: Type::I32,
+            expected: Type::Int(IntType::I32),
             got: Type::Boolean,
         }
         .at(Span::new(5, 0));

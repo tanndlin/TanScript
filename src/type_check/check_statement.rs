@@ -7,6 +7,7 @@ use crate::{
         FunctionType, Type, TypeCheckError, TypeScope, check_types_expression, expect_type,
         narrow_expression,
     },
+    types::IntType,
 };
 
 impl Block {
@@ -75,7 +76,7 @@ impl Assignment {
         let expected = check_types_expression(&self.lhs, type_scope)?;
         let got = check_types_expression(&self.expression, type_scope)?;
 
-        if expected == Type::CoercibleNumber && got.is_number_type() {
+        if expected == Type::Int(IntType::Coercible) && got.is_number_type() {
             narrow_expression(&self.lhs, got, type_scope);
             return Ok(());
         }

@@ -1,11 +1,11 @@
-use crate::type_check::Type;
+use crate::{type_check::Type, types::IntType};
 
 pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
     match (a, b) {
         _ if a == b => Some(a.clone()),
-        (Type::I32, Type::I64) => Some(Type::I64),
-        (Type::U32, Type::U64) => Some(Type::U64),
-        (Type::I32 | Type::U32 | Type::I64 | Type::U64, Type::CoercibleNumber) => Some(a.clone()),
+        (Type::Int(IntType::I32), Type::Int(IntType::I64)) => Some(Type::Int(IntType::I64)),
+        (Type::Int(IntType::U32), Type::Int(IntType::U64)) => Some(Type::Int(IntType::U64)),
+        (Type::Int(_), Type::Int(IntType::Coercible)) => Some(a.clone()),
         (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
         (Type::Unknown, _) => Some(b.clone()),
         _ => None,
@@ -19,6 +19,7 @@ mod test {
         lex::Lexer,
         parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression},
+        types::IntType,
     };
 
     fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
@@ -45,7 +46,7 @@ mod test {
         };
         assert_eq!(
             check_types_expression(expression, &mut TypeScope::default()).unwrap(),
-            Type::CoercibleNumber
+            Type::Int(IntType::Coercible)
         );
     }
 
@@ -64,7 +65,7 @@ mod test {
         };
         assert_eq!(
             check_types_expression(expression, &mut type_scope).unwrap(),
-            Type::U32
+            Type::Int(IntType::U32)
         );
     }
 
@@ -79,30 +80,39 @@ mod test {
 
         assert_eq!(
             check_types_expression(expr, &mut type_scope).unwrap(),
-            Type::CoercibleNumber
+            Type::Int(IntType::Coercible)
         );
     }
 
     #[test]
     fn infers_type_from_untyped_variable() {
-        assert_eq!(infer_last("let a = 1; a;").unwrap(), Type::CoercibleNumber);
+        assert_eq!(
+            infer_last("let a = 1; a;").unwrap(),
+            Type::Int(IntType::Coercible)
+        );
     }
 
     #[test]
     fn infers_type_from_typed_variable_plus_literal() {
-        assert_eq!(infer_last("let a: i32 = 1; a + 2;").unwrap(), Type::I32);
+        assert_eq!(
+            infer_last("let a: i32 = 1; a + 2;").unwrap(),
+            Type::Int(IntType::I32)
+        );
     }
 
     #[test]
     fn infers_type_from_literal_plus_typed_variable() {
-        assert_eq!(infer_last("let a: u64 = 1; 2 + a;").unwrap(), Type::U64);
+        assert_eq!(
+            infer_last("let a: u64 = 1; 2 + a;").unwrap(),
+            Type::Int(IntType::U64)
+        );
     }
 
     #[test]
     fn infers_type_from_same_typed_variables() {
         assert_eq!(
             infer_last("let a: i64 = 1; let b: i64 = 2; a + b;").unwrap(),
-            Type::I64
+            Type::Int(IntType::I64)
         );
     }
 
@@ -110,7 +120,7 @@ mod test {
     fn infers_type_from_nested_binary_ops() {
         assert_eq!(
             infer_last("let a: u32 = 1; let b: u32 = 2; a + b * 3;").unwrap(),
-            Type::U32
+            Type::Int(IntType::U32)
         );
     }
 
@@ -148,7 +158,7 @@ mod test {
     fn infers_type_from_function_call() {
         assert_eq!(
             infer_last("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap(),
-            Type::U32
+            Type::Int(IntType::U32)
         );
     }
 
@@ -157,18 +167,24 @@ mod test {
         assert_eq!(
             infer_last("def add (a: u32, b: u32): u32 {a + b} let c: u32 = 3; add(1, 2) + c;")
                 .unwrap(),
-            Type::U32
+            Type::Int(IntType::U32)
         );
     }
 
     #[test]
     fn infers_type_from_unary_op() {
-        assert_eq!(infer_last("let a: i32 = 1; -a;").unwrap(), Type::I32);
+        assert_eq!(
+            infer_last("let a: i32 = 1; -a;").unwrap(),
+            Type::Int(IntType::I32)
+        );
     }
 
     #[test]
     fn infers_type_from_postfix_op() {
-        assert_eq!(infer_last("let a: i32 = 1; a++;").unwrap(), Type::I32);
+        assert_eq!(
+            infer_last("let a: i32 = 1; a++;").unwrap(),
+            Type::Int(IntType::I32)
+        );
     }
 
     #[test]

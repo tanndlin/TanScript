@@ -320,8 +320,10 @@ fn compile_index(
 
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     match element {
-        Type::I32 => Instruction::movsx(dst, memory, Size::Dword),
-        Type::U32 => Instruction::movzx(dst, memory, Size::Dword),
+        Type::Int(int) if int.size() == 4 && int.is_signed() => {
+            Instruction::movsx(dst, memory, Size::Dword)
+        }
+        Type::Int(int) if int.size() == 4 => Instruction::movzx(dst, memory, Size::Dword),
         Type::Boolean => Instruction::movzx(dst, memory, Size::Byte),
         _ => Instruction::mov(dst, memory),
     }
@@ -329,7 +331,7 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
 
 pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
     match element {
-        Type::I32 | Type::U32 => Instruction::store(memory, src, Size::Dword),
+        Type::Int(int) if int.size() == 4 => Instruction::store(memory, src, Size::Dword),
         Type::Boolean => Instruction::store(memory, src, Size::Byte),
         _ => Instruction::mov(memory, src),
     }

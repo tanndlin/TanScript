@@ -2,6 +2,7 @@ use crate::{
     ast::{AtomType, Expression, ExpressionKind, Program, UnaryOp},
     error::At,
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
+    types::IntType,
 };
 
 pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
@@ -100,7 +101,7 @@ pub fn check_types_expression(
             // RHS must come down to a number
             if !rhs_type.is_number_type() {
                 return Err(TypeCheckErrorKind::TypeMismatch {
-                    expected: Type::I64,
+                    expected: Type::Int(IntType::I64),
                     got: rhs_type,
                 }
                 .at(expression.span));
@@ -120,7 +121,7 @@ pub fn expect_type(
     match (expected, got) {
         _ if expected == got => Ok(()),
         (Type::Unknown, _) | (_, Type::Unknown) => Ok(()),
-        (t, Type::CoercibleNumber) if t.is_number_type() => {
+        (t, Type::Int(IntType::Coercible)) if t.is_number_type() => {
             narrow_expression(expression, expected.clone(), type_scope);
             Ok(())
         }
@@ -153,6 +154,7 @@ mod test {
         lex::Lexer,
         parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
+        types::IntType,
     };
 
     #[test]
@@ -329,7 +331,7 @@ mod test {
         let Statement::Declaration(declaration) = init.as_ref() else {
             panic!("expected a declaration");
         };
-        assert_eq!(declaration.dtype, Some(Type::I32));
+        assert_eq!(declaration.dtype, Some(Type::Int(IntType::I32)));
     }
 
     #[test]
