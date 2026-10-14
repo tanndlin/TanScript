@@ -52,7 +52,7 @@ impl<T, K: At> ResultAt<T, K> for Result<T, K> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, derive_more::Display)]
 pub enum CompilerErrorKind {
     Lex(LexErrorKind),
     Parse(ParseErrorKind),
@@ -61,17 +61,6 @@ pub enum CompilerErrorKind {
 }
 
 pub type CompilerError = Spanned<CompilerErrorKind>;
-
-impl fmt::Display for CompilerErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CompilerErrorKind::Lex(kind) => write!(f, "{kind}"),
-            CompilerErrorKind::Parse(kind) => write!(f, "{kind}"),
-            CompilerErrorKind::TypeCheck(kind) => write!(f, "{kind}"),
-            CompilerErrorKind::Codegen(kind) => write!(f, "{kind}"),
-        }
-    }
-}
 
 impl From<LexError> for CompilerError {
     fn from(e: LexError) -> Self {

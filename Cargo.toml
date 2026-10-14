@@ -7,4 +7,4 @@ edition = "2024"
 pedantic = "warn"
 
 [dependencies]
-derive_more = { version = "2.1.1", features = ["from"]}
+derive_more = { version = "2.1.1", features = ["display", "from"] }

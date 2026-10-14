@@ -2,19 +2,10 @@ use std::fmt::{self, Display};
 
 use crate::{ast::OperatorType, lex::LexerAtomType};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::Display)]
 pub enum Token {
     Atom(LexerAtomType),
     Op(OperatorType),
-}
-
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Token::Atom(lexer_atom_type) => write!(f, "{lexer_atom_type}"),
-            Token::Op(c) => write!(f, "{c}"),
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -61,7 +52,7 @@ impl Display for IntType {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, derive_more::Display)]
 pub enum NumberType {
     I32(i32),
     I64(i64),
@@ -78,17 +69,6 @@ impl NumberType {
             Self::U32(_) => IntType::U32,
             Self::U64(_) => IntType::U64,
             Self::Coercible(_) => IntType::Coercible,
-        }
-    }
-}
-
-impl Display for NumberType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NumberType::I32(n) => write!(f, "{n}"),
-            NumberType::U32(n) => write!(f, "{n}"),
-            NumberType::U64(n) => write!(f, "{n}"),
-            NumberType::I64(n) | NumberType::Coercible(n) => write!(f, "{n}"),
         }
     }
 }

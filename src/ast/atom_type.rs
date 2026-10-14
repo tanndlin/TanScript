@@ -1,13 +1,12 @@
-use std::fmt;
-
 use crate::{lex::LexerAtomType, types::NumberType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, derive_more::Display)]
 pub enum AtomType {
     Number(NumberType),
     Identifier(String),
     Boolean(bool),
     String(String),
+    #[display(":")]
     Colon,
 }
 
@@ -19,18 +18,6 @@ impl AtomType {
             LexerAtomType::String(s) => AtomType::String(s.clone()),
             LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
             LexerAtomType::Colon => AtomType::Colon,
-        }
-    }
-}
-
-impl fmt::Display for AtomType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AtomType::Number(n) => write!(f, "{n}"),
-            AtomType::Identifier(c) => write!(f, "{c}"),
-            AtomType::String(s) => write!(f, "{s}"),
-            AtomType::Colon => write!(f, ":"),
-            AtomType::Boolean(b) => write!(f, "{b}"),
         }
     }
 }

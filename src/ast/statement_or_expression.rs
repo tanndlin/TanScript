@@ -1,18 +1,7 @@
-use std::fmt;
-
 use crate::ast::{Expression, Statement};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, derive_more::Display)]
 pub enum StatementOrExpression {
     Statement(Box<Statement>),
     Expression(Expression),
-}
-
-impl fmt::Display for StatementOrExpression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StatementOrExpression::Expression(e) => write!(f, "{e}"),
-            StatementOrExpression::Statement(s) => write!(f, "{s}"),
-        }
-    }
 }

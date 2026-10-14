@@ -1,11 +1,9 @@
-use std::fmt;
-
 use crate::ast::{
     Assignment, BreakStatement, ContinueStatement, Declaration, ForLoop, FunctionDefinition,
     IfStatement, ReturnStatement, WhileLoop,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, derive_more::Display)]
 pub enum Statement {
     Assignment(Assignment),
     Declaration(Declaration),
@@ -28,21 +26,5 @@ impl Statement {
                 | Statement::IfStatement(_)
                 | Statement::WhileLoop(_)
         )
-    }
-}
-
-impl fmt::Display for Statement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Statement::Assignment(s) => write!(f, "{s}"),
-            Statement::Declaration(s) => write!(f, "{s}"),
-            Statement::ForLoop(s) => write!(f, "{s}"),
-            Statement::FunctionDefinition(s) => write!(f, "{s}"),
-            Statement::IfStatement(s) => write!(f, "{s}"),
-            Statement::WhileLoop(s) => write!(f, "{s}"),
-            Statement::Return(s) => write!(f, "{s}"),
-            Statement::Break(s) => write!(f, "{s}"),
-            Statement::Continue(s) => write!(f, "{s}"),
-        }
     }
 }

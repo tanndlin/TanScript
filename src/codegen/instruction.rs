@@ -1,13 +1,13 @@
 use std::fmt;
 
-use derive_more::From;
+use derive_more::{Display, From};
 
 use crate::{
     codegen::address::{Address, Register},
     types::NumberType,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, From)]
+#[derive(Clone, Debug, PartialEq, Eq, From, Display)]
 pub enum Operand {
     Address(Address),
     Immediate(NumberType),
@@ -290,16 +290,6 @@ impl fmt::Display for Size {
             Size::Byte => write!(f, "BYTE"),
             Size::Dword => write!(f, "DWORD"),
             Size::Qword => write!(f, "QWORD"),
-        }
-    }
-}
-
-impl fmt::Display for Operand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Operand::Address(addr) => write!(f, "{addr}"),
-            Operand::Immediate(n) => write!(f, "{n}"),
-            Operand::Label(l) => write!(f, "{l}"),
         }
     }
 }
