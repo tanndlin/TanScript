@@ -209,6 +209,14 @@ fn get_operator(chars: &mut Vec<char>) -> Option<OperatorType> {
     Some(op.clone())
 }
 
+impl Iterator for Lexer {
+    type Item = LexerToken;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{

@@ -1,8 +1,9 @@
+use clap::Parser;
 use std::{
     env::args,
     fs,
     io::{IsTerminal, stderr},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 mod ast;
@@ -18,6 +19,11 @@ use crate::{
     diagnostic::Style, error::CompilerError, lex::Lexer, parse::parse, type_check::check_types,
 };
 
+#[derive(Parser)]
+struct Args {
+    file: String,
+}
+
 fn main() {
     let style = Style::new(stderr().is_terminal());
     if let Err(e) = run(&style) {
@@ -27,16 +33,15 @@ fn main() {
 }
 
 fn run(style: &Style) -> Result<(), String> {
-    let file: PathBuf = args()
-        .nth(1)
-        .expect("Expected .tan file as positional arg")
-        .into();
+    let Args { file } = Args::parse();
+
     let file_as_string = fs::read_to_string(&file)
-        .map_err(|e| style.message(format!("could not read {}: {e}", file.display())))?;
+        .map_err(|e| style.message(format!("could not read {file}: {e}")))?;
 
-    let code = compile(&file_as_string).map_err(|e| style.render(&e, &file_as_string, &file))?;
+    let path: &Path = file.as_ref();
+    let code = compile(&file_as_string).map_err(|e| style.render(&e, &file_as_string, path))?;
 
-    let asm_path = file.with_extension("asm");
+    let asm_path = path.with_extension("asm");
     fs::write(&asm_path, code)
         .map_err(|e| style.message(format!("could not write {}: {e}", asm_path.display())))?;
 

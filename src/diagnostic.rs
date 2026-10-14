@@ -32,7 +32,12 @@ impl Style {
         )
     }
 
-    pub fn render<K: Display>(&self, error: &Spanned<K>, source: &str, path: &Path) -> String {
+    pub fn render<K: Display>(
+        &self,
+        error: &Spanned<K>,
+        source: &str,
+        path: impl AsRef<Path>,
+    ) -> String {
         let line_index = error.span.line as usize;
         let col = error.span.col as usize;
         let line = source.lines().nth(line_index).unwrap_or("");
@@ -50,7 +55,7 @@ impl Style {
             "{}\n{gutter}{} {}:{}\n{gutter} {}\n{} {} {line}\n{gutter} {} {padding}{}\n",
             self.message(&error.kind),
             self.paint(BLUE, "-->"),
-            path.display(),
+            path.as_ref().display(),
             error.span,
             self.paint(BLUE, "|"),
             self.paint(BLUE, &line_number),
