@@ -1,77 +1,61 @@
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OperatorType {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    LessThan,
-    LessOrEqual,
-    GreaterThan,
-    GreaterOrEqual,
-    Equal,
-    NotEqual,
-    Or,
-    And,
-    Assign,
-    OpenCurly,
-    CloseCurly,
-    OpenParen,
-    CloseParen,
-    Not,
-    Comma,
-    AddAssign,
-    SubAssign,
-    MulAssign,
-    DivAssign,
-    ModAssign,
-    Increment,
-    Decrement,
-    OpenBracket,
-    CloseBracket,
+macro_rules! operators {
+    ($($variant:ident => $symbol:literal),* $(,)?) => {
+        #[derive(Clone, Debug, PartialEq, Eq)]
+        pub enum OperatorType {
+            $($variant),*
+        }
+
+        /// Every operator's spelling. The lexer takes the longest match, so order doesn't matter
+        pub const OPERATORS: &[(&str, OperatorType)] = &[
+            $(($symbol, OperatorType::$variant)),*
+        ];
+
+        impl OperatorType {
+            pub fn symbol(&self) -> &'static str {
+                match self {
+                    $(OperatorType::$variant => $symbol),*
+                }
+            }
+        }
+    };
 }
 
-/// Every operator's spelling. The lexer takes the longest match, so order doesn't matter
-pub const OPERATORS: &[(&str, OperatorType)] = &[
-    ("+", OperatorType::Add),
-    ("-", OperatorType::Subtract),
-    ("*", OperatorType::Multiply),
-    ("/", OperatorType::Divide),
-    ("%", OperatorType::Modulo),
-    ("<", OperatorType::LessThan),
-    ("<=", OperatorType::LessOrEqual),
-    (">", OperatorType::GreaterThan),
-    (">=", OperatorType::GreaterOrEqual),
-    ("==", OperatorType::Equal),
-    ("!=", OperatorType::NotEqual),
-    ("||", OperatorType::Or),
-    ("&&", OperatorType::And),
-    ("=", OperatorType::Assign),
-    ("{", OperatorType::OpenCurly),
-    ("}", OperatorType::CloseCurly),
-    ("(", OperatorType::OpenParen),
-    (")", OperatorType::CloseParen),
-    ("[", OperatorType::OpenBracket),
-    ("]", OperatorType::CloseBracket),
-    ("!", OperatorType::Not),
-    (",", OperatorType::Comma),
-    ("+=", OperatorType::AddAssign),
-    ("-=", OperatorType::SubAssign),
-    ("*=", OperatorType::MulAssign),
-    ("/=", OperatorType::DivAssign),
-    ("%=", OperatorType::ModAssign),
-    ("++", OperatorType::Increment),
-    ("--", OperatorType::Decrement),
-];
+operators! {
+    Add => "+",
+    Subtract => "-",
+    Multiply => "*",
+    Divide => "/",
+    Modulo => "%",
+    LessThan => "<",
+    LessOrEqual => "<=",
+    GreaterThan => ">",
+    GreaterOrEqual => ">=",
+    Equal => "==",
+    NotEqual => "!=",
+    Or => "||",
+    And => "&&",
+    Assign => "=",
+    OpenCurly => "{",
+    CloseCurly => "}",
+    OpenParen => "(",
+    CloseParen => ")",
+    OpenBracket => "[",
+    CloseBracket => "]",
+    Not => "!",
+    Comma => ",",
+    AddAssign => "+=",
+    SubAssign => "-=",
+    MulAssign => "*=",
+    DivAssign => "/=",
+    ModAssign => "%=",
+    Increment => "++",
+    Decrement => "--",
+}
 
 impl fmt::Display for OperatorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (symbol, _) = OPERATORS
-            .iter()
-            .find(|(_, op)| op == self)
-            .expect("Every operator is in OPERATORS");
-        write!(f, "{symbol}")
+        f.write_str(self.symbol())
     }
 }
