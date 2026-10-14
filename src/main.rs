@@ -1,9 +1,8 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::{
-    env::args,
     fs,
     io::{IsTerminal, stderr},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 mod ast;
@@ -20,8 +19,15 @@ use crate::{
 };
 
 #[derive(Parser)]
-struct Args {
+struct CliArgs {
     file: String,
+    #[arg(short, long)]
+    emit: Option<Emit>,
+}
+
+#[derive(Clone, ValueEnum)]
+enum Emit {
+    Tokens,
 }
 
 fn main() {
@@ -33,13 +39,19 @@ fn main() {
 }
 
 fn run(style: &Style) -> Result<(), String> {
-    let Args { file } = Args::parse();
+    let CliArgs { file, emit } = CliArgs::parse();
 
     let file_as_string = fs::read_to_string(&file)
         .map_err(|e| style.message(format!("could not read {file}: {e}")))?;
 
     let path: &Path = file.as_ref();
-    let code = compile(&file_as_string).map_err(|e| style.render(&e, &file_as_string, path))?;
+    let code = compile(&file_as_string, emit.as_ref())
+        .map_err(|e| style.render(&e, &file_as_string, path))?;
+
+    if emit.is_some() {
+        print!("{code}");
+        return Ok(());
+    }
 
     let asm_path = path.with_extension("asm");
     fs::write(&asm_path, code)
@@ -48,8 +60,13 @@ fn run(style: &Style) -> Result<(), String> {
     Ok(())
 }
 
-fn compile(source: &str) -> Result<String, CompilerError> {
+fn compile(source: &str, emit: Option<&Emit>) -> Result<String, CompilerError> {
     let lexer = Lexer::new(source)?;
+    if let Some(Emit::Tokens) = emit {
+        let tokens: Vec<String> = lexer.tokens.iter().rev().map(ToString::to_string).collect();
+        return Ok(tokens.join("\n") + "\n");
+    }
+
     let mut ast = parse(lexer)?;
     check_types(&mut ast)?;
 
