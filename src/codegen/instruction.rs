@@ -1,11 +1,13 @@
 use std::fmt;
 
+use derive_more::From;
+
 use crate::{
     codegen::address::{Address, Register},
     types::NumberType,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, From)]
 pub enum Operand {
     Address(Address),
     Immediate(NumberType),
@@ -24,18 +26,6 @@ impl Operand {
 impl From<Register> for Operand {
     fn from(reg: Register) -> Self {
         Self::Address(reg.into())
-    }
-}
-
-impl From<Address> for Operand {
-    fn from(addr: Address) -> Self {
-        Self::Address(addr)
-    }
-}
-
-impl From<NumberType> for Operand {
-    fn from(n: NumberType) -> Self {
-        Self::Immediate(n)
     }
 }
 
