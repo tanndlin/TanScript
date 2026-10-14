@@ -225,29 +225,38 @@ impl IfStatement {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let id = register_handler.get_unique_id();
-        let condition = compile_jump_unless(
-            &self.condition,
-            &format!("else{id}"),
-            compile_scope,
-            register_handler,
-        )?;
+        let else_label = format!("else{id}");
+        let end_label = format!("endif{id}");
 
-        let mut new_scope = CompileScope::new(Some(compile_scope));
-        let block = self.block.compile(&mut new_scope, register_handler)?;
-        let mut else_scope = CompileScope::new(Some(compile_scope));
-        let else_block = match &self.else_block {
-            None => None,
-            Some(else_block) => Some(else_block.compile(&mut else_scope, register_handler)?),
+        let false_target = match self.else_block {
+            Some(_) => &else_label,
+            None => &end_label,
         };
 
         let mut instructions = vec![Instruction::comment(format!("if {}", self.condition))];
-        instructions.extend(condition);
+        instructions.extend(compile_jump_unless(
+            &self.condition,
+            false_target,
+            compile_scope,
+            register_handler,
+        )?);
+
         instructions.push(Instruction::comment("then"));
-        instructions.extend(block);
-        instructions.push(Instruction::jmp(format!("endif{id}")));
-        instructions.push(Instruction::label(format!("else{id}")));
-        instructions.extend(else_block.unwrap_or_default());
-        instructions.push(Instruction::label(format!("endif{id}")));
+        instructions.extend(self.block.compile(
+            &mut CompileScope::new(Some(compile_scope)),
+            register_handler,
+        )?);
+
+        if let Some(else_block) = &self.else_block {
+            instructions.push(Instruction::jmp(end_label.clone()));
+            instructions.push(Instruction::label(else_label));
+            instructions.extend(else_block.compile(
+                &mut CompileScope::new(Some(compile_scope)),
+                register_handler,
+            )?);
+        }
+
+        instructions.push(Instruction::label(end_label));
         Ok(instructions)
     }
 }
