@@ -6,9 +6,9 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile::store_element,
+        compile::{compile_jump_unless, store_element},
         compile_scope::CompileScope,
-        instruction::{Condition, Instruction},
+        instruction::Instruction,
         loop_context::LoopContext,
         register_handler::RegisterHandler,
     },
@@ -146,15 +146,12 @@ impl ForLoop {
         );
         let init = self.init.compile(&mut new_scope, register_handler)?;
 
-        let condition =
-            register_handler.lease_with_scope(|register_handler, condition_dst_reg| {
-                let mut condition =
-                    self.condition
-                        .compile(&mut new_scope, condition_dst_reg, register_handler)?;
-                condition.push(Instruction::cmp(condition_dst_reg, 0));
-                condition.push(Instruction::jcc(Condition::Equal, &end_label));
-                Ok(condition)
-            })?;
+        let condition = compile_jump_unless(
+            &self.condition,
+            &end_label,
+            &mut new_scope,
+            register_handler,
+        )?;
 
         let block = self.block.compile(&mut new_scope, register_handler)?;
         let init_size = new_scope.stack_depth - compile_scope.stack_depth;
@@ -228,10 +225,12 @@ impl IfStatement {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let id = register_handler.get_unique_id();
-        let dst = register_handler.lease_register().at(self.condition.span)?;
-        let condition = self
-            .condition
-            .compile(compile_scope, dst, register_handler)?;
+        let condition = compile_jump_unless(
+            &self.condition,
+            &format!("else{id}"),
+            compile_scope,
+            register_handler,
+        )?;
 
         let mut new_scope = CompileScope::new(Some(compile_scope));
         let block = self.block.compile(&mut new_scope, register_handler)?;
@@ -241,11 +240,8 @@ impl IfStatement {
             Some(else_block) => Some(else_block.compile(&mut else_scope, register_handler)?),
         };
 
-        register_handler.release_register(dst);
         let mut instructions = vec![Instruction::comment(format!("if {}", self.condition))];
         instructions.extend(condition);
-        instructions.push(Instruction::test(dst, dst));
-        instructions.push(Instruction::jcc(Condition::Equal, format!("else{id}")));
         instructions.push(Instruction::comment("then"));
         instructions.extend(block);
         instructions.push(Instruction::jmp(format!("endif{id}")));
@@ -285,11 +281,8 @@ impl WhileLoop {
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
 
-        let reg = register_handler.lease_register().at(self.condition.span)?;
-        let condition = self
-            .condition
-            .compile(compile_scope, reg, register_handler)?;
-        register_handler.release_register(reg);
+        let condition =
+            compile_jump_unless(&self.condition, &end_label, compile_scope, register_handler)?;
 
         let mut loop_scope = CompileScope::new_loop(
             compile_scope,
@@ -305,8 +298,6 @@ impl WhileLoop {
             Instruction::label(&start_label),
         ];
         instructions.extend(condition);
-        instructions.push(Instruction::cmp(reg, 0));
-        instructions.push(Instruction::jcc(Condition::Equal, &end_label));
         instructions.push(Instruction::comment("body"));
         instructions.extend(block);
         instructions.push(Instruction::jmp(start_label));

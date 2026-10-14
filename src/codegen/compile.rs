@@ -449,14 +449,8 @@ fn compile_binary(
         BinaryOp::NotEqual => Condition::NotEqual,
     };
 
-    let mut instructions = compile_simple_binary(
-        Instruction::cmp,
-        compile_scope,
-        left,
-        right,
-        dst,
-        register_handler,
-    )?;
+    let (mut instructions, cond) =
+        compile_compare(cond, compile_scope, left, right, dst, register_handler)?;
     instructions.push(Instruction::mov(dst, NumberType::I64(0)));
     instructions.push(Instruction::set(cond, dst));
     Ok(instructions)
@@ -488,6 +482,151 @@ fn compile_simple_binary(
 
         Ok(instructions)
     }
+}
+
+fn compile_compare(
+    cond: Condition,
+    compile_scope: &mut CompileScope,
+    left: &Expression,
+    right: &Expression,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<(Vec<Instruction>, Condition), CodegenError> {
+    let (left, right, cond) = match (
+        as_operand(left, compile_scope),
+        as_operand(right, compile_scope),
+    ) {
+        (Some(Operand::Immediate(_)), Some(Operand::Immediate(_))) => (left, right, cond),
+        (Some(Operand::Immediate(_)), _) => (right, left, cond.swapped()),
+        _ => (left, right, cond),
+    };
+
+    let mut instructions = vec![];
+    let lhs = if let Some(Operand::Address(address)) = as_operand(left, compile_scope) {
+        address
+    } else {
+        instructions.extend(left.compile(compile_scope, dst, register_handler)?);
+        dst
+    };
+
+    match as_operand(right, compile_scope) {
+        Some(rhs) if !(lhs.is_memory() && rhs.is_memory()) => {
+            instructions.push(Instruction::cmp(lhs, rhs));
+        }
+        _ => instructions.extend(register_handler.lease_with_scope(
+            |register_handler, right_reg| {
+                let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+                right.push(Instruction::cmp(lhs, right_reg));
+                Ok(right)
+            },
+        )?),
+    }
+
+    Ok((instructions, cond))
+}
+
+fn comparison(op: BinaryOp) -> Option<Condition> {
+    match op {
+        BinaryOp::LessThan => Some(Condition::Less),
+        BinaryOp::LessOrEqual => Some(Condition::LessEqual),
+        BinaryOp::GreaterThan => Some(Condition::Greater),
+        BinaryOp::GreaterOrEqual => Some(Condition::GreaterEqual),
+        BinaryOp::Equal => Some(Condition::Equal),
+        BinaryOp::NotEqual => Some(Condition::NotEqual),
+        _ => None,
+    }
+}
+
+pub fn compile_jump_unless(
+    condition: &Expression,
+    label: &str,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    compile_jump(condition, label, false, compile_scope, register_handler)
+}
+
+fn compile_jump(
+    condition: &Expression,
+    label: &str,
+    jump_when: bool,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let ExpressionKind::Binary(op, left, right) = &condition.kind else {
+        return compile_jump_nonzero(condition, label, jump_when, compile_scope, register_handler);
+    };
+
+    if let Some(cond) = comparison(*op) {
+        let mut cond = cond;
+        let mut instructions = register_handler.lease_with_scope(|register_handler, dst| {
+            let (instructions, compared) = compile_compare(
+                cond.clone(),
+                compile_scope,
+                left,
+                right,
+                dst.into(),
+                register_handler,
+            )?;
+            cond = compared;
+            Ok(instructions)
+        })?;
+        let cond = if jump_when { cond } else { cond.negated() };
+        instructions.push(Instruction::jcc(cond, label));
+        return Ok(instructions);
+    }
+
+    match op {
+        BinaryOp::And | BinaryOp::Or => {
+            if matches!(op, BinaryOp::Or) == jump_when {
+                let mut instructions =
+                    compile_jump(left, label, jump_when, compile_scope, register_handler)?;
+                instructions.extend(compile_jump(
+                    right,
+                    label,
+                    jump_when,
+                    compile_scope,
+                    register_handler,
+                )?);
+                Ok(instructions)
+            } else {
+                let skip = format!("cond_skip_{}", register_handler.get_unique_id());
+                let mut instructions =
+                    compile_jump(left, &skip, !jump_when, compile_scope, register_handler)?;
+                instructions.extend(compile_jump(
+                    right,
+                    label,
+                    jump_when,
+                    compile_scope,
+                    register_handler,
+                )?);
+                instructions.push(Instruction::label(skip));
+                Ok(instructions)
+            }
+        }
+        _ => compile_jump_nonzero(condition, label, jump_when, compile_scope, register_handler),
+    }
+}
+
+fn compile_jump_nonzero(
+    condition: &Expression,
+    label: &str,
+    jump_when: bool,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = register_handler.lease_with_scope(|register_handler, dst| {
+        let mut instructions = condition.compile(compile_scope, dst, register_handler)?;
+        instructions.push(Instruction::test(dst, dst));
+        Ok(instructions)
+    })?;
+    let cond = if jump_when {
+        Condition::NotEqual
+    } else {
+        Condition::Equal
+    };
+    instructions.push(Instruction::jcc(cond, label));
+    Ok(instructions)
 }
 
 fn compile_unary(

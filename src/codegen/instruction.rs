@@ -325,6 +325,28 @@ impl Condition {
             Condition::GreaterEqual => "ge",
         }
     }
+
+    pub fn negated(&self) -> Self {
+        match self {
+            Condition::Equal => Condition::NotEqual,
+            Condition::NotEqual => Condition::Equal,
+            Condition::Less => Condition::GreaterEqual,
+            Condition::LessEqual => Condition::Greater,
+            Condition::Greater => Condition::LessEqual,
+            Condition::GreaterEqual => Condition::Less,
+        }
+    }
+
+    pub fn swapped(&self) -> Self {
+        match self {
+            Condition::Equal => Condition::Equal,
+            Condition::NotEqual => Condition::NotEqual,
+            Condition::Less => Condition::Greater,
+            Condition::LessEqual => Condition::GreaterEqual,
+            Condition::Greater => Condition::Less,
+            Condition::GreaterEqual => Condition::LessEqual,
+        }
+    }
 }
 
 impl fmt::Display for Instruction {
