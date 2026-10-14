@@ -44,34 +44,33 @@ pub fn parse_unterminated_statement_or_expression(
 
 fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
     let tok = lexer.peek_or_eof("statement")?;
-    Ok(match &tok.token_type {
-        Token::Op(_) => None,
-        Token::Atom(atom) => match atom {
-            LexerAtomType::Identifier(s) => match s.as_str() {
-                "let" => Some(Statement::Declaration(parse_declaration(lexer)?)),
-                "while" => Some(Statement::WhileLoop(parse_while_loop(lexer)?)),
-                "for" => Some(Statement::ForLoop(parse_for_loop(lexer)?)),
-                "if" => Some(Statement::IfStatement(parse_if_statement(lexer)?)),
-                "def" => Some(Statement::FunctionDefinition(parse_function_definition(
-                    lexer,
-                )?)),
-                "return" => Some(Statement::Return(parse_return(lexer)?)),
-                "break" => {
-                    let span = lexer.next().unwrap().span;
-                    Some(Statement::Break(BreakStatement { span }))
-                }
-                "continue" => {
-                    let span = lexer.next().unwrap().span;
-                    Some(Statement::Continue(ContinueStatement { span }))
-                }
-                _ => None,
-            },
-            LexerAtomType::Semicolon => {
-                panic!("Hanging semicolon got left over")
-            }
-            LexerAtomType::Number(_) | LexerAtomType::String(_) | LexerAtomType::Colon => None,
-        },
-    })
+    let keyword = match &tok.token_type {
+        Token::Atom(LexerAtomType::Identifier(s)) => s.as_str(),
+        Token::Atom(LexerAtomType::Semicolon) => panic!("Hanging semicolon got left over"),
+        Token::Op(_)
+        | Token::Atom(LexerAtomType::Number(_) | LexerAtomType::String(_) | LexerAtomType::Colon) =>
+        {
+            return Ok(None);
+        }
+    };
+
+    Ok(Some(match keyword {
+        "let" => parse_declaration(lexer)?.into(),
+        "while" => parse_while_loop(lexer)?.into(),
+        "for" => parse_for_loop(lexer)?.into(),
+        "if" => parse_if_statement(lexer)?.into(),
+        "def" => parse_function_definition(lexer)?.into(),
+        "return" => parse_return(lexer)?.into(),
+        "break" => {
+            let span = lexer.next().unwrap().span;
+            BreakStatement { span }.into()
+        }
+        "continue" => {
+            let span = lexer.next().unwrap().span;
+            ContinueStatement { span }.into()
+        }
+        _ => return Ok(None),
+    }))
 }
 
 fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, ParseError> {

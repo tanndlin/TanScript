@@ -1,9 +1,11 @@
+use derive_more::{Display, From};
+
 use crate::ast::{
     Assignment, BreakStatement, ContinueStatement, Declaration, ForLoop, FunctionDefinition,
     IfStatement, ReturnStatement, WhileLoop,
 };
 
-#[derive(Debug, Clone, derive_more::Display)]
+#[derive(Debug, Clone, From, Display)]
 pub enum Statement {
     Assignment(Assignment),
     Declaration(Declaration),
