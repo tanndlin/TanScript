@@ -21,13 +21,15 @@ use crate::{
 #[derive(Parser)]
 struct CliArgs {
     file: String,
-    #[arg(short, long)]
+    #[arg(short, long, ignore_case = true)]
     emit: Option<Emit>,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, ValueEnum)]
 enum Emit {
     Tokens,
+    AST,
 }
 
 fn main() {
@@ -68,8 +70,11 @@ fn compile(source: &str, emit: Option<&Emit>) -> Result<String, CompilerError> {
     }
 
     let mut ast = parse(lexer)?;
+    if let Some(Emit::AST) = emit {
+        return Ok(format!("{ast}\n"));
+    }
+
     check_types(&mut ast)?;
 
-    println!("{ast}");
     Ok(ast.compile()?)
 }
