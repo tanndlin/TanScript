@@ -776,20 +776,35 @@ fn compile_multiply(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    register_handler.lease_with_scope(|register_handler, left_reg| {
-        let mut instructions = left.compile(compile_scope, left_reg, register_handler)?;
+    match dst {
+        Address::Register(dst_reg) => {
+            let mut instructions = left.compile(compile_scope, dst, register_handler)?;
+            instructions.extend(register_handler.lease_with_scope(
+                |register_handler, right_reg| {
+                    let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+                    right.push(Instruction::imul(dst_reg, right_reg));
+                    Ok(right)
+                },
+            )?);
+            Ok(instructions)
+        }
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
+            .lease_with_scope(|register_handler, left_reg| {
+                let mut instructions = left.compile(compile_scope, left_reg, register_handler)?;
 
-        instructions.extend(
-            register_handler.lease_with_scope(|register_handler, right_reg| {
-                let mut right = right.compile(compile_scope, right_reg, register_handler)?;
-                right.push(Instruction::imul(left_reg, right_reg));
-                right.push(Instruction::mov(dst, left_reg));
-                Ok(right)
-            })?,
-        );
+                instructions.extend(register_handler.lease_with_scope(
+                    |register_handler, right_reg| {
+                        let mut right =
+                            right.compile(compile_scope, right_reg, register_handler)?;
+                        right.push(Instruction::imul(left_reg, right_reg));
+                        right.push(Instruction::mov(dst, left_reg));
+                        Ok(right)
+                    },
+                )?);
 
-        Ok(instructions)
-    })
+                Ok(instructions)
+            }),
+    }
 }
 
 /// `idiv` leaves the quotient in rax and the remainder in rdx, so `result` picks between / and %
