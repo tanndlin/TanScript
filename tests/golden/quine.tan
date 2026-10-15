@@ -1,0 +1,15 @@
+let fp = fopen("quine.tan", "rb");
+if (fseek(fp, 0, 2) != 0) {
+    fclose(fp);
+    exit(-1);
+}
+
+let size = ftell(fp);
+let contents: *char = malloc(size + 1);
+
+fseek(fp, 0, 0);
+fread(contents, 1, size, fp);
+contents[size] = '\0';
+fclose(fp);
+
+printf("%s", contents);

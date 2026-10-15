@@ -57,6 +57,7 @@ fn assemble_and_run(asm: &Path) -> Result<String, String> {
     run_tool("gcc", &[&obj, Path::new("-o"), &exe])?;
 
     let output = Command::new(&exe)
+        .current_dir(asm.parent().unwrap())
         .output()
         .map_err(|e| format!("failed to run {}: {e}", exe.display()))?;
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
