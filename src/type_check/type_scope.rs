@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
-use crate::{type_check::Type, types::IntType};
+use crate::{
+    type_check::Type,
+    types::{IntType, Span},
+};
 
 #[derive(Debug)]
 pub struct TypeScope {
     scopes: Vec<HashMap<String, usize>>,
     bindings: Vec<Type>,
+    functions: Vec<(Type, Vec<(Type, Span)>)>,
 }
 
 impl Default for TypeScope {
@@ -13,11 +17,33 @@ impl Default for TypeScope {
         Self {
             scopes: vec![HashMap::new()],
             bindings: vec![],
+            functions: vec![],
         }
     }
 }
 
 impl TypeScope {
+    pub fn push_function(&mut self, return_type: Type) {
+        self.functions.push((return_type, vec![]));
+    }
+
+    pub fn pop_function(&mut self) -> Vec<(Type, Span)> {
+        self.functions
+            .pop()
+            .map(|(_, returns)| returns)
+            .unwrap_or_default()
+    }
+
+    pub fn expected_return_type(&self) -> Option<&Type> {
+        self.functions.last().map(|(t, _)| t)
+    }
+
+    pub fn record_return(&mut self, t: Type, span: Span) {
+        if let Some((_, returns)) = self.functions.last_mut() {
+            returns.push((t, span));
+        }
+    }
+
     pub fn push(&mut self) {
         self.scopes.push(HashMap::new());
     }

@@ -10,6 +10,7 @@ pub enum TypeCheckErrorKind {
     TypeMismatch { expected: Type, got: Type },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
+    DifferingReturnTypes { types: Vec<Type> },
 }
 
 impl At for TypeCheckErrorKind {}
@@ -27,6 +28,10 @@ impl fmt::Display for TypeCheckErrorKind {
             }
             TypeCheckErrorKind::IdentifierNotFound(ident) => {
                 write!(f, "Identifer: ({ident}) not found")
+            }
+            TypeCheckErrorKind::DifferingReturnTypes { types } => {
+                let types: Vec<String> = types.iter().map(ToString::to_string).collect();
+                write!(f, "Got multiple return types: ({})", types.join(", "))
             }
         }
     }

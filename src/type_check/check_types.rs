@@ -413,4 +413,114 @@ mod test {
             "expected TypeMismatch, got {result:?}"
         );
     }
+
+    #[test]
+    fn supports_return_matching_declared_return_type() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("def f (a: u32): u32 { return a; }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_implicit_return_matching_declared_return_type() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f (a: i32, b: i32): i32 { a + b }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_literal_return_coercing_to_declared_return_type() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("def one (): u64 { 1 }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_multiple_returns_matching_declared_return_type() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f (a: u32, b: u32): u32 { return a; return b; }").unwrap())
+                .unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_return_not_matching_declared_return_type() {
+        let mut program = parse(Lexer::new("def f (a: i32): u32 { return a; }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_implicit_return_not_matching_declared_return_type() {
+        let mut program = parse(Lexer::new("def f (a: u32): bool { a }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_number_literal_returned_from_bool_function() {
+        let mut program = parse(Lexer::new("def f (): bool { 1 }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_nested_return_not_matching_declared_return_type() {
+        let mut program =
+            parse(Lexer::new("def f (a: i32): u32 { if true { return a; } return 1; }").unwrap())
+                .unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_differing_return_types() {
+        let mut program =
+            parse(Lexer::new("def f (a: u32, b: i32) { return a; return b; }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::DifferingReturnTypes { .. },
+                    ..
+                })
+            ),
+            "expected DifferingReturnTypes, got {result:?}"
+        );
+    }
 }

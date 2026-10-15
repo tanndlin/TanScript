@@ -3,9 +3,10 @@ use crate::{
         Assignment, AtomType, Block, Declaration, ExpressionKind, ForLoop, FunctionDefinition,
         IfStatement, ReturnStatement, Statement, StatementOrExpression, WhileLoop,
     },
+    error::At,
     type_check::{
-        FunctionType, Type, TypeCheckError, TypeScope, check_types_expression, expect_type,
-        narrow_expression,
+        FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression,
+        expect_type, infer_type::unify, narrow_expression,
     },
     types::IntType,
 };
@@ -137,12 +138,24 @@ impl FunctionDefinition {
         );
 
         type_scope.push();
+        type_scope.push_function(self.return_type.clone());
         for arg in &self.args {
             type_scope.insert(arg.name.clone(), arg.atype.clone());
         }
         let result = self.body.check_types(type_scope);
+        let returns = type_scope.pop_function();
         type_scope.pop();
-        result
+        result?;
+
+        returns
+            .iter()
+            .try_fold(Type::Unknown, |acc, (t, span)| {
+                unify(&acc, t).or_else(|| unify(t, &acc)).ok_or_else(|| {
+                    let types = returns.iter().map(|(t, _)| t.clone()).collect();
+                    TypeCheckErrorKind::DifferingReturnTypes { types }.at(*span)
+                })
+            })
+            .map(|_| ())
     }
 }
 
@@ -166,7 +179,15 @@ impl IfStatement {
 
 impl ReturnStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        check_types_expression(&self.expr, type_scope).map(|_| ())
+        let got = check_types_expression(&self.expr, type_scope)?;
+        match type_scope.expected_return_type().cloned() {
+            Some(Type::Unknown) => {
+                type_scope.record_return(got, self.expr.span);
+                Ok(())
+            }
+            Some(expected) => expect_type(&self.expr, &expected, &got, type_scope),
+            None => Ok(()),
+        }
     }
 }
 
