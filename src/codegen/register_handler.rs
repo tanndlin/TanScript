@@ -177,19 +177,29 @@ impl RegisterHandler {
 }
 
 fn format_data(name: &String, s: &str) -> String {
-    let mut pieces: Vec<&str> = s.split("\\n").collect();
-    if s.ends_with("\\n") {
-        pieces.pop();
+    let mut parts = vec![];
+    let mut run = String::new();
+    for c in s.chars() {
+        if c == ' ' || (c.is_ascii_graphic() && c != '"') {
+            run.push(c);
+            continue;
+        }
+
+        if !run.is_empty() {
+            parts.push(format!("\"{run}\""));
+            run.clear();
+        }
+
+        let mut buf = [0; 4];
+        parts.extend(c.encode_utf8(&mut buf).bytes().map(|b| b.to_string()));
     }
 
-    let mut newlines = pieces.join("\", 10, \"");
-    if s.ends_with("\\n") {
-        newlines.push_str("\", 10");
-    } else {
-        newlines.push('"');
+    if !run.is_empty() {
+        parts.push(format!("\"{run}\""));
     }
+    parts.push("0".to_string());
 
-    format!("{name} db \"{newlines}, 0")
+    format!("{name} db {}", parts.join(", "))
 }
 
 #[cfg(test)]

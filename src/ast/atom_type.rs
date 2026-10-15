@@ -7,6 +7,7 @@ pub enum AtomType {
     Char(char),
     Identifier(String),
     Boolean(bool),
+    #[display("\"{}\"", _0.escape_default())]
     String(String),
     #[display(":")]
     Colon,

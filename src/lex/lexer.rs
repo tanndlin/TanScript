@@ -185,19 +185,18 @@ fn get_string(input: &mut Vec<char>, span: Span) -> Result<String, LexError> {
     input.pop().unwrap();
 
     let mut chars = vec![];
-    while let Some(c) = input.last() {
-        if *c == '"' {
-            break;
+    loop {
+        match input.pop() {
+            None => return Err(LexErrorKind::MissingClosingQuote.at(span)),
+            Some('"') => break,
+            Some('\\') => match input.pop() {
+                Some(c) => chars
+                    .push(get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))?),
+                None => return Err(LexErrorKind::MissingClosingQuote.at(span)),
+            },
+            Some(c) => chars.push(c),
         }
-
-        chars.push(*c);
-        input.pop();
     }
-
-    // Remove the closing quote
-    input
-        .pop()
-        .ok_or_else(|| LexErrorKind::MissingClosingQuote.at(span))?;
 
     Ok(chars.into_iter().collect())
 }
@@ -209,13 +208,7 @@ fn get_char(input: &mut Vec<char>, span: Span) -> Result<char, LexError> {
         None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
         Some('\'') => return Err(LexErrorKind::EmptyChar.at(span)),
         Some('\\') => match input.pop() {
-            Some('n') => '\n',
-            Some('t') => '\t',
-            Some('r') => '\r',
-            Some('0') => '\0',
-            Some('\\') => '\\',
-            Some('\'') => '\'',
-            Some(c) => return Err(LexErrorKind::UnknownEscape(c).at(span)),
+            Some(c) => get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))?,
             None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
         },
         Some(c) => c,
@@ -224,6 +217,17 @@ fn get_char(input: &mut Vec<char>, span: Span) -> Result<char, LexError> {
     match input.pop() {
         Some('\'') => Ok(c),
         _ => Err(LexErrorKind::MissingClosingCharQuote.at(span)),
+    }
+}
+
+fn get_escape(c: char) -> Option<char> {
+    match c {
+        'n' => Some('\n'),
+        't' => Some('\t'),
+        'r' => Some('\r'),
+        '0' => Some('\0'),
+        '\\' | '\'' | '"' => Some(c),
+        _ => None,
     }
 }
 
@@ -280,6 +284,85 @@ mod test {
             lexer,
             Token::Atom(LexerAtomType::String("This is a string 123".to_string()))
         );
+    }
+
+    #[test]
+    fn lex_string_escaped_quotes() {
+        lex_token!(
+            r#""say \"hi\"""#,
+            Token::Atom(LexerAtomType::String("say \"hi\"".to_string()))
+        );
+        lex_token!(
+            r#""\"""#,
+            Token::Atom(LexerAtomType::String("\"".to_string()))
+        );
+        lex_token!(
+            r#""\"\"""#,
+            Token::Atom(LexerAtomType::String("\"\"".to_string()))
+        );
+        lex_token!(
+            r#""it's""#,
+            Token::Atom(LexerAtomType::String("it's".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_string_escaped_backslash_before_quote() {
+        lex_token!(
+            r#""a\\""#,
+            Token::Atom(LexerAtomType::String("a\\".to_string()))
+        );
+        lex_token!(
+            r#""\\\"""#,
+            Token::Atom(LexerAtomType::String("\\\"".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_string_escaped_quote_then_tokens() {
+        let mut lexer = Lexer::new(r#"print("a\"b"); x"#).unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("print".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::OpenParen));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::String("a\"b".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::CloseParen));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("x".to_string()))
+        );
+    }
+
+    #[test]
+    fn lex_adjacent_strings_with_escaped_quotes() {
+        let mut lexer = Lexer::new(r#""\"""\"""#).unwrap();
+        token_eq!(lexer, Token::Atom(LexerAtomType::String("\"".to_string())));
+        token_eq!(lexer, Token::Atom(LexerAtomType::String("\"".to_string())));
+    }
+
+    #[test]
+    fn lex_string_escaped_quote_columns() {
+        let mut lexer = Lexer::new(r#""a\"b" + x"#).unwrap();
+        let cols: Vec<u32> = std::iter::from_fn(|| lexer.next())
+            .map(|token| token.span.col)
+            .collect();
+        assert_eq!(cols, vec![0, 7, 9]);
+    }
+
+    #[test]
+    fn reject_string_ending_in_escaped_quote() {
+        for input in [r#""\""#, r#""abc\""#, r#""a\"b"#] {
+            let err = Lexer::new(input).unwrap_err();
+            assert!(
+                matches!(err.kind, LexErrorKind::MissingClosingQuote),
+                "{input}"
+            );
+        }
     }
 
     #[test]

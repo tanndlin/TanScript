@@ -17,7 +17,7 @@ impl fmt::Display for LexerAtomType {
         match self {
             LexerAtomType::Number(n) => write!(f, "{n}"),
             LexerAtomType::Identifier(s) => write!(f, "{s}"),
-            LexerAtomType::String(s) => write!(f, "\"{s}\""),
+            LexerAtomType::String(s) => write!(f, "\"{}\"", s.escape_default()),
             LexerAtomType::Char(c) => write!(f, "'{}'", c.escape_default()),
             LexerAtomType::Semicolon => write!(f, ";"),
             LexerAtomType::Colon => write!(f, ":"),
