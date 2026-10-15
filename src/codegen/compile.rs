@@ -76,10 +76,12 @@ SECTION .text
 {functions}
 
 main:
-\tsub rsp, 32
 \tpush rbp
 \tmov rbp, rsp
 {instructions}
+\tmov rsp, rbp
+\tpop rbp
+\tsub rsp, 40
 \txor rcx, rcx
 \tcall exit"
         ))
