@@ -57,12 +57,11 @@ impl RegisterHandler {
     }
 
     pub fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
-        // Choose the least-recently-used free register (LRU heuristic) that is not reserved.
         let candidate = self
             .registers
             .iter()
             .filter(|(r, st)| !st.used && !self.reserved_registers.contains(r))
-            .min_by_key(|(_, st)| st.last_used)
+            .min_by_key(|(r, st)| (NON_VOLATILE_REGISTERS.contains(r), st.last_used))
             .map(|(r, _)| *r);
 
         let reg = candidate.ok_or(CodegenErrorKind::OutOfRegisters)?;
