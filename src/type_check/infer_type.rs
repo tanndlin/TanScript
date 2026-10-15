@@ -5,7 +5,7 @@ pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
         _ if a == b => Some(a.clone()),
         (Type::Int(IntType::I32), Type::Int(IntType::I64)) => Some(Type::Int(IntType::I64)),
         (Type::Int(IntType::U32), Type::Int(IntType::U64)) => Some(Type::Int(IntType::U64)),
-        (Type::Int(_), Type::Int(IntType::Coercible)) => Some(a.clone()),
+        (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean) => Some(a.clone()),
         (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
         (Type::Unknown, _) => Some(b.clone()),
         _ => None,
