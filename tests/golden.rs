@@ -106,7 +106,9 @@ fn check(tan: &Path, stdout: Option<String>, bless: bool) -> Result<(), String> 
 #[test]
 fn golden_scripts() {
     let bless = env::var_os("BLESS").is_some();
-    let work_root = Path::new(env!("CARGO_TARGET_TMPDIR")).join("golden");
+    let work_root = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("golden")
+        .join(std::process::id().to_string());
 
     let mut scripts: Vec<PathBuf> = fs::read_dir(GOLDEN_DIR)
         .unwrap()
@@ -132,6 +134,8 @@ fn golden_scripts() {
                 .map(|e| format!("[{}] {e}", tan.file_name().unwrap().display()))
         })
         .collect();
+
+    let _ = fs::remove_dir_all(&work_root);
 
     assert!(
         failures.is_empty(),
