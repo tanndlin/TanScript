@@ -112,8 +112,8 @@ impl Block {
             .concat();
 
         let alloc_size = new_scope.stack_depth - compile_scope.stack_depth;
-        // A trailing return already restores rsp, so a dealloc after it is unreachable
-        if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Ret)) {
+        // A trailing return, break or continue jumps away, so a dealloc after it is unreachable
+        if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Jmp { .. })) {
             instructions.push(Instruction::add(Register::RSP, alloc_size));
         }
 

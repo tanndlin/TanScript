@@ -8,6 +8,7 @@ use crate::{
         address::{Address, Register},
         compile::{compile_jump_unless, store_element},
         compile_scope::CompileScope,
+        function_context::FunctionContext,
         instruction::Instruction,
         loop_context::LoopContext,
         register_handler::RegisterHandler,
@@ -184,14 +185,21 @@ impl FunctionDefinition {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
-        let mut scope = CompileScope::new(Some(compile_scope));
+        let epilogue_label = format!("{}_epilogue", self.name);
+        let mut scope = CompileScope::new_function(
+            compile_scope,
+            FunctionContext {
+                epilogue_label: epilogue_label.clone(),
+            },
+        );
 
         let mut instructions = vec![
             Instruction::label(&self.name),
             Instruction::push(Register::RBP),
             Instruction::mov(Register::RBP, Register::RSP),
         ];
-        let arg_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
+        let arg_registers: [Register; 4] =
+            [Register::RCX, Register::RDX, Register::R8, Register::R9];
         for (i, arg) in self.args.iter().enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
@@ -208,11 +216,12 @@ impl FunctionDefinition {
                 .add_variable(arg.name.clone(), new_address, arg.atype.clone())
                 .at(arg.span)?;
         }
+
         instructions.extend(self.body.compile(&mut scope, register_handler)?);
-        if !matches!(instructions.last(), Some(Instruction::Ret)) {
-            instructions.push(Instruction::pop(Register::RBP));
-            instructions.push(Instruction::Ret);
-        }
+        instructions.push(Instruction::label(epilogue_label));
+        instructions.push(Instruction::mov(Register::RSP, Register::RBP));
+        instructions.push(Instruction::pop(Register::RBP));
+        instructions.push(Instruction::Ret);
 
         Ok(instructions)
     }
@@ -273,9 +282,14 @@ impl ReturnStatement {
             Register::RAX.into(),
             |register_handler, rax| self.expr.compile(compile_scope, rax, register_handler),
         )?);
-        instructions.push(Instruction::mov(Register::RSP, Register::RBP));
-        instructions.push(Instruction::pop(Register::RBP));
-        instructions.push(Instruction::Ret);
+
+        let epilogue_label = &compile_scope
+            .function_scope()
+            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.expr.span))?
+            .function_context()
+            .unwrap()
+            .epilogue_label;
+        instructions.push(Instruction::jmp(epilogue_label));
         Ok(instructions)
     }
 }

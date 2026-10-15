@@ -9,6 +9,7 @@ pub enum CodegenErrorKind {
     InvalidAssignTarget(String),
     OutOfRegisters,
     OutsideLoop(&'static str),
+    OutsideFunction,
 }
 
 impl At for CodegenErrorKind {}
@@ -30,6 +31,9 @@ impl fmt::Display for CodegenErrorKind {
             CodegenErrorKind::OutOfRegisters => write!(f, "Ran out of registers"),
             CodegenErrorKind::OutsideLoop(keyword) => {
                 write!(f, "({keyword}) used outside of a loop")
+            }
+            CodegenErrorKind::OutsideFunction => {
+                write!(f, "return used outside of a function")
             }
         }
     }

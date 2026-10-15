@@ -5,6 +5,7 @@ use crate::{
     codegen::{
         CodegenErrorKind,
         address::{Address, Register},
+        function_context::FunctionContext,
         instruction::Instruction,
         loop_context::LoopContext,
     },
@@ -18,6 +19,7 @@ pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
     loop_context: Option<LoopContext>,
+    function_context: Option<FunctionContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
     /// this is also the offset of the most recently declared local
     pub stack_depth: u32,
@@ -29,6 +31,7 @@ impl<'a> CompileScope<'a> {
             parent,
             variables: HashMap::new(),
             loop_context: None,
+            function_context: None,
             stack_depth: parent.map_or(0, |p| p.stack_depth),
         }
     }
@@ -40,8 +43,19 @@ impl<'a> CompileScope<'a> {
         }
     }
 
+    pub fn new_function(parent: &'a CompileScope<'a>, function_context: FunctionContext) -> Self {
+        Self {
+            function_context: Some(function_context),
+            ..Self::new(Some(parent))
+        }
+    }
+
     pub fn loop_context(&self) -> Option<&LoopContext> {
         self.loop_context.as_ref()
+    }
+
+    pub fn function_context(&self) -> Option<&FunctionContext> {
+        self.function_context.as_ref()
     }
 
     fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
@@ -108,6 +122,14 @@ impl<'a> CompileScope<'a> {
             Some(self)
         } else {
             self.parent?.loop_scope()
+        }
+    }
+
+    pub fn function_scope(&self) -> Option<&CompileScope<'a>> {
+        if self.function_context.is_some() {
+            Some(self)
+        } else {
+            self.parent?.function_scope()
         }
     }
 }

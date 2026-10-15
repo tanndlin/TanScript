@@ -3,6 +3,7 @@ mod codegen_error;
 mod compile;
 mod compile_scope;
 mod compile_statement;
+mod function_context;
 mod instruction;
 mod loop_context;
 mod register_handler;
