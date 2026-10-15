@@ -35,9 +35,21 @@ impl From<i32> for Operand {
     }
 }
 
+impl From<i64> for Operand {
+    fn from(n: i64) -> Self {
+        NumberType::I64(n).into()
+    }
+}
+
 impl From<u32> for Operand {
     fn from(n: u32) -> Self {
         NumberType::U32(n).into()
+    }
+}
+
+impl From<u64> for Operand {
+    fn from(n: u64) -> Self {
+        NumberType::U64(n).into()
     }
 }
 
