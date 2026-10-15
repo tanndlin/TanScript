@@ -99,7 +99,7 @@ pub fn check_types_expression(
             };
 
             // RHS must come down to a number
-            if !rhs_type.is_number_type() {
+            if rhs_type != Type::Unknown && !rhs_type.is_number_type() {
                 return Err(TypeCheckErrorKind::TypeMismatch {
                     expected: Type::Int(IntType::I64),
                     got: rhs_type,
@@ -387,6 +387,14 @@ mod test {
             ),
             "expected TypeMismatch, got {result:?}"
         );
+    }
+
+    #[test]
+    fn supports_indexing_with_unknown_type() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f (s: *char) { let i = ftell(0); s[i] = 'a'; }").unwrap())
+                .unwrap();
+        check_types(&mut program)
     }
 
     #[test]
