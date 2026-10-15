@@ -1,0 +1,39 @@
+def sumOfDivisors(n: u32): u32 {
+    let sum = 0;
+
+    for(let i = 1; i * i <= n; i++) {
+        if n % i == 0 {
+            if i == 1 || i * i == n {
+                sum += i;
+            } else {
+                sum += i + (n / i);
+            }
+        }
+    }
+
+    sum
+}
+
+let abundants: *bool = malloc(28123 + 1);
+abundants[0] = false;
+for(let i = 1; i <= 28123; i++) {
+    abundants[i] = sumOfDivisors(i) > i;
+}
+
+let sum = 0;
+for(let i = 1; i <= 28123; i++) {
+    let found = false;
+    for(let a = 1; a <= i / 2; a++) {
+        if abundants[a] && abundants[i - a] {
+            found = true;
+            break;
+        }
+    }
+
+    if !found {
+        sum += i;
+    }
+}
+
+
+printf("%d\n", sum);
