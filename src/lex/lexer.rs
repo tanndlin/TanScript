@@ -63,6 +63,12 @@ impl Lexer {
                         span,
                     ));
                 }
+                '\'' => {
+                    tokens.push(LexerToken::new(
+                        Token::Atom(LexerAtomType::Char(get_char(&mut chars, span)?)),
+                        span,
+                    ));
+                }
                 ';' => {
                     chars.pop();
                     tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Semicolon), span));
@@ -118,6 +124,7 @@ impl Lexer {
         let got = match &token.token_type {
             Token::Atom(cur) => match cur {
                 LexerAtomType::Number(n) => n.to_string(),
+                LexerAtomType::Char(c) => format!("'{c}'"),
                 LexerAtomType::Identifier(s) | LexerAtomType::String(s) => s.clone(),
                 LexerAtomType::Semicolon => ";".to_string(),
                 LexerAtomType::Colon => ":".to_string(),
@@ -195,6 +202,31 @@ fn get_string(input: &mut Vec<char>, span: Span) -> Result<String, LexError> {
     Ok(chars.into_iter().collect())
 }
 
+fn get_char(input: &mut Vec<char>, span: Span) -> Result<char, LexError> {
+    input.pop().unwrap();
+
+    let c = match input.pop() {
+        None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
+        Some('\'') => return Err(LexErrorKind::EmptyChar.at(span)),
+        Some('\\') => match input.pop() {
+            Some('n') => '\n',
+            Some('t') => '\t',
+            Some('r') => '\r',
+            Some('0') => '\0',
+            Some('\\') => '\\',
+            Some('\'') => '\'',
+            Some(c) => return Err(LexErrorKind::UnknownEscape(c).at(span)),
+            None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
+        },
+        Some(c) => c,
+    };
+
+    match input.pop() {
+        Some('\'') => Ok(c),
+        _ => Err(LexErrorKind::MissingClosingCharQuote.at(span)),
+    }
+}
+
 /// Pops the longest operator at the front of `chars`, if there is one
 fn get_operator(chars: &mut Vec<char>) -> Option<OperatorType> {
     // `chars` is reversed, so the upcoming characters are at the end
@@ -221,7 +253,7 @@ impl Iterator for Lexer {
 mod test {
     use crate::{
         ast::OperatorType,
-        lex::{Lexer, LexerAtomType},
+        lex::{LexErrorKind, Lexer, LexerAtomType},
         types::{NumberType, Token},
     };
 
@@ -643,6 +675,90 @@ mod test {
                 (1, 11),
             ]
         );
+    }
+
+    #[test]
+    fn lex_char() {
+        lex_token!("'a'", Token::Atom(LexerAtomType::Char('a')));
+        lex_token!("'Z'", Token::Atom(LexerAtomType::Char('Z')));
+        lex_token!("'7'", Token::Atom(LexerAtomType::Char('7')));
+        lex_token!("' '", Token::Atom(LexerAtomType::Char(' ')));
+        lex_token!("'\"'", Token::Atom(LexerAtomType::Char('"')));
+        lex_token!("'é'", Token::Atom(LexerAtomType::Char('é')));
+    }
+
+    #[test]
+    fn lex_char_operator_symbols() {
+        lex_token!("'+'", Token::Atom(LexerAtomType::Char('+')));
+        lex_token!("';'", Token::Atom(LexerAtomType::Char(';')));
+        lex_token!("'/'", Token::Atom(LexerAtomType::Char('/')));
+    }
+
+    #[test]
+    fn lex_char_escapes() {
+        lex_token!(r"'\n'", Token::Atom(LexerAtomType::Char('\n')));
+        lex_token!(r"'\t'", Token::Atom(LexerAtomType::Char('\t')));
+        lex_token!(r"'\r'", Token::Atom(LexerAtomType::Char('\r')));
+        lex_token!(r"'\0'", Token::Atom(LexerAtomType::Char('\0')));
+        lex_token!(r"'\\'", Token::Atom(LexerAtomType::Char('\\')));
+        lex_token!(r"'\''", Token::Atom(LexerAtomType::Char('\'')));
+    }
+
+    #[test]
+    fn lex_char_in_expression() {
+        let mut lexer = Lexer::new("let c = 'x';").unwrap();
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("let".to_string()))
+        );
+        token_eq!(
+            lexer,
+            Token::Atom(LexerAtomType::Identifier("c".to_string()))
+        );
+        token_eq!(lexer, Token::Op(OperatorType::Assign));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Char('x')));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Semicolon));
+    }
+
+    #[test]
+    fn lex_adjacent_chars() {
+        let mut lexer = Lexer::new(r"'a''b'=='\''").unwrap();
+        token_eq!(lexer, Token::Atom(LexerAtomType::Char('a')));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Char('b')));
+        token_eq!(lexer, Token::Op(OperatorType::Equal));
+        token_eq!(lexer, Token::Atom(LexerAtomType::Char('\'')));
+    }
+
+    #[test]
+    fn lex_char_columns() {
+        let mut lexer = Lexer::new(r"'a' + '\n'").unwrap();
+        let cols: Vec<u32> = std::iter::from_fn(|| lexer.next())
+            .map(|token| token.span.col)
+            .collect();
+        assert_eq!(cols, vec![0, 4, 6]);
+    }
+
+    #[test]
+    fn reject_empty_char() {
+        let err = Lexer::new("''").unwrap_err();
+        assert!(matches!(err.kind, LexErrorKind::EmptyChar));
+    }
+
+    #[test]
+    fn reject_unterminated_char() {
+        for input in ["'", "'a", r"'\", r"'\n", "'ab'"] {
+            let err = Lexer::new(input).unwrap_err();
+            assert!(
+                matches!(err.kind, LexErrorKind::MissingClosingCharQuote),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn reject_unknown_escape() {
+        let err = Lexer::new(r"'\q'").unwrap_err();
+        assert!(matches!(err.kind, LexErrorKind::UnknownEscape('q')));
     }
 
     #[test]

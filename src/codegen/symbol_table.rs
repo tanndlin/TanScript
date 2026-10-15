@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    AtomType, Block, Expression, ExpressionKind, FunctionDefinition, Statement,
-    StatementOrExpression,
+    Block, Expression, ExpressionKind, FunctionDefinition, Statement, StatementOrExpression,
 };
 
 pub struct SymbolTable {
@@ -79,19 +78,12 @@ impl Expression {
                     arg.discover(symbols);
                 }
             }
-            ExpressionKind::Atom(atom_type) => match atom_type {
-                AtomType::Identifier(_)
-                | AtomType::Number(_)
-                | AtomType::String(_)
-                | AtomType::Boolean(_)
-                | AtomType::Colon => {}
-            },
+            ExpressionKind::Atom(_) | ExpressionKind::Postfix(_, _) => {}
             ExpressionKind::Binary(_, left, right) => {
                 left.discover(symbols);
                 right.discover(symbols);
             }
             ExpressionKind::Unary(_, child) => child.discover(symbols),
-            ExpressionKind::Postfix(_, _) => {}
             ExpressionKind::Index(lhs, index) => {
                 lhs.discover(symbols);
                 index.discover(symbols);

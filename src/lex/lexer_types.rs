@@ -7,6 +7,7 @@ pub enum LexerAtomType {
     Number(NumberType),
     Identifier(String),
     String(String),
+    Char(char),
     Semicolon,
     Colon,
 }
@@ -17,6 +18,7 @@ impl fmt::Display for LexerAtomType {
             LexerAtomType::Number(n) => write!(f, "{n}"),
             LexerAtomType::Identifier(s) => write!(f, "{s}"),
             LexerAtomType::String(s) => write!(f, "\"{s}\""),
+            LexerAtomType::Char(c) => write!(f, "'{}'", c.escape_default()),
             LexerAtomType::Semicolon => write!(f, ";"),
             LexerAtomType::Colon => write!(f, ":"),
         }

@@ -48,8 +48,12 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
         Token::Atom(LexerAtomType::Identifier(s)) => s.as_str(),
         Token::Atom(LexerAtomType::Semicolon) => panic!("Hanging semicolon got left over"),
         Token::Op(_)
-        | Token::Atom(LexerAtomType::Number(_) | LexerAtomType::String(_) | LexerAtomType::Colon) =>
-        {
+        | Token::Atom(
+            LexerAtomType::Number(_)
+            | LexerAtomType::String(_)
+            | LexerAtomType::Char(_)
+            | LexerAtomType::Colon,
+        ) => {
             return Ok(None);
         }
     };

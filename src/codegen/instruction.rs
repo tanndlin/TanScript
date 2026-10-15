@@ -53,6 +53,12 @@ impl From<u64> for Operand {
     }
 }
 
+impl From<char> for Operand {
+    fn from(c: char) -> Self {
+        NumberType::U8(c as u8).into()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Size {
     Byte,

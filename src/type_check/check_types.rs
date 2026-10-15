@@ -311,6 +311,27 @@ mod test {
     }
 
     #[test]
+    fn supports_untyped_char_variable_as_char_arg() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f(c: char) {} let c = 'c'; f(c);").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn untyped_char_declaration_is_char() {
+        let mut program = parse(Lexer::new("let c = 'c';").unwrap()).unwrap();
+        check_types(&mut program).unwrap();
+
+        let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+            panic!("expected a statement");
+        };
+        let Statement::Declaration(declaration) = statement.as_ref() else {
+            panic!("expected a declaration");
+        };
+        assert_eq!(declaration.dtype, Some(Type::Char));
+    }
+
+    #[test]
     fn shadowed_declaration_keeps_its_own_type() {
         let mut program = parse(
             Lexer::new("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }")

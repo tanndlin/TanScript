@@ -152,6 +152,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Atom(a) => match a {
                 AtomType::Number(n) => Ok(vec![compile_number(*n, dst)]),
+                AtomType::Char(c) => Ok(vec![compile_char(*c, dst)]),
                 AtomType::Identifier(name) => {
                     compile_variable(compile_scope, register_handler, name, self.span, dst)
                 }
@@ -360,7 +361,7 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
             Instruction::movsx(dst, memory, Size::Dword)
         }
         Type::Int(int) if int.size() == 4 => Instruction::movzx(dst, memory, Size::Dword),
-        Type::Boolean => Instruction::movzx(dst, memory, Size::Byte),
+        Type::Boolean | Type::Char => Instruction::movzx(dst, memory, Size::Byte),
         _ => Instruction::mov(dst, memory),
     }
 }
@@ -368,13 +369,17 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
 pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
     match element {
         Type::Int(int) if int.size() == 4 => Instruction::store(memory, src, Size::Dword),
-        Type::Boolean => Instruction::store(memory, src, Size::Byte),
+        Type::Boolean | Type::Char => Instruction::store(memory, src, Size::Byte),
         _ => Instruction::mov(memory, src),
     }
 }
 
 fn compile_number(n: NumberType, dst: Address) -> Instruction {
     Instruction::mov(dst, n)
+}
+
+fn compile_char(c: char, dst: Address) -> Instruction {
+    Instruction::mov(dst, c)
 }
 
 fn compile_variable(
@@ -798,6 +803,7 @@ fn compile_boolean(b: bool, dst: Address) -> Instruction {
 fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
     match &expr.kind {
         ExpressionKind::Atom(AtomType::Number(n)) if fits_imm32(*n) => Some(Operand::Immediate(*n)),
+        ExpressionKind::Atom(AtomType::Char(c)) => Some(Operand::from(*c)),
         ExpressionKind::Atom(AtomType::Identifier(name)) => {
             scope.get_variable(name).ok().map(Operand::from)
         }
@@ -807,7 +813,7 @@ fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
 
 fn fits_imm32(n: NumberType) -> bool {
     match n {
-        NumberType::I32(_) => true,
+        NumberType::U8(_) | NumberType::I32(_) => true,
         NumberType::U32(n) => i32::try_from(n).is_ok(),
         NumberType::U64(n) => i32::try_from(n).is_ok(),
         NumberType::I64(n) | NumberType::Coercible(n) => i32::try_from(n).is_ok(),
@@ -966,5 +972,65 @@ mod test {
     fn compile_boolean_is_not_a_variable_lookup() {
         compile("if (true) { printf(\"yes\"); }");
         compile("let a = !false;");
+    }
+
+    #[test]
+    fn compile_char_literals() {
+        let asm = compile("let a: char = 'a'; let b: char = 'Z'; let c: char = '0';");
+        assert!(asm.contains("mov QWORD [rbp - 8], 97"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 16], 90"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 24], 48"), "{asm}");
+    }
+
+    #[test]
+    fn compile_char_escapes() {
+        let asm = compile(r"let a: char = '\n'; let b: char = '\0'; let c: char = '\'';");
+        assert!(asm.contains("mov QWORD [rbp - 8], 10"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 16], 0"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 24], 39"), "{asm}");
+    }
+
+    #[test]
+    fn compile_char_is_not_a_string() {
+        let asm = compile("let a: char = 'a';");
+        assert!(!asm.contains("db "), "{asm}");
+    }
+
+    #[test]
+    fn compile_char_arithmetic() {
+        compile("let c: char = '7'; let d = c - '0';");
+        compile("let c: char = 'a'; c += 1;");
+        compile("let c: char = 'a'; c++;");
+    }
+
+    #[test]
+    fn compile_char_comparison() {
+        compile("let c: char = 'a'; if (c == 'a') { printf(\"yes\"); }");
+        compile("let c: char = 'a'; let lower = c >= 'a' && c <= 'z';");
+    }
+
+    #[test]
+    fn compile_char_as_function_arg() {
+        let asm = compile("putchar('h');");
+        assert!(asm.contains("104"), "{asm}");
+        compile("printf(\"%c%c\", 'h', 'i');");
+    }
+
+    #[test]
+    fn compile_char_function_param_and_return() {
+        compile("def next(c: char): char { c + 1 } next('a');");
+    }
+
+    #[test]
+    fn compile_store_char_element_is_byte() {
+        let asm = compile("let s: *char = malloc(4); s[0] = 'h';");
+        assert!(asm.contains("BYTE ["), "{asm}");
+    }
+
+    #[test]
+    fn compile_load_char_element_is_byte() {
+        let asm = compile("let s: *char = malloc(4); let c: char = s[0];");
+        assert!(asm.contains("movzx"), "{asm}");
+        assert!(asm.contains("BYTE ["), "{asm}");
     }
 }

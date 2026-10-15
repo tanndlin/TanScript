@@ -1,7 +1,8 @@
 use crate::{
-    ast::{AtomType, ExpressionKind, StatementOrExpression},
+    ast::{AtomType, ExpressionKind, Statement, StatementOrExpression},
     lex::Lexer,
     parse::{ParseErrorKind, parse, parse_expression::parse_expression},
+    type_check::Type,
 };
 
 macro_rules! test_parse_expression {
@@ -520,4 +521,102 @@ fn parse_boolean_in_if_condition() {
 a = 1
 }"
     );
+}
+
+#[test]
+fn parse_char_literals() {
+    for (input, expected) in [
+        ("'a'", 'a'),
+        ("'Z'", 'Z'),
+        ("'0'", '0'),
+        ("' '", ' '),
+        ("'é'", 'é'),
+        (r"'\n'", '\n'),
+        (r"'\0'", '\0'),
+        (r"'\\'", '\\'),
+        (r"'\''", '\''),
+    ] {
+        let mut lexer = Lexer::new(input).unwrap();
+        let expression = parse_expression(&mut lexer, 0).unwrap();
+        assert!(
+            matches!(
+                expression.kind,
+                ExpressionKind::Atom(AtomType::Char(c)) if c == expected
+            ),
+            "{input} parsed as {expression:?}"
+        );
+    }
+}
+
+#[test]
+fn parse_char_expressions() {
+    test_parse_expression!("'a' + 1", "(+ 'a' 1)");
+    test_parse_expression!("c - '0'", "(- c '0')");
+    test_parse_expression!("c == 'z' || c == 'Z'", "(|| (== c 'z') (== c 'Z'))");
+    test_parse_expression!("-'a'", "(- 'a')");
+}
+
+#[test]
+fn parse_char_declaration() {
+    integration_test!("let c: char = 'a';", "let c = 'a'");
+
+    let program = parse(Lexer::new("let c: char = 'a';").unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::Declaration(declaration) = statement.as_ref() else {
+        panic!("expected a declaration, got {statement}");
+    };
+    assert_eq!(declaration.dtype, Some(Type::Char));
+}
+
+#[test]
+fn parse_char_assignment() {
+    integration_test!(
+        "let c: char = 'a'; c = 'x';",
+        "let c = 'a'
+c = 'x'"
+    );
+    integration_test!(
+        "let c: char = 'a'; c += 'a';",
+        "let c = 'a'
+c = (+ c 'a')"
+    );
+    integration_test!(
+        "let s: *char = str; s[0] = 'x';",
+        "let s = str
+(s[0]) = 'x'"
+    );
+}
+
+#[test]
+fn parse_char_as_function_arg() {
+    integration_test!("putchar('h');", "putchar('h')");
+    integration_test!(r"f('a', '\n');", r"f('a', '\n')");
+}
+
+#[test]
+fn parse_char_as_index() {
+    test_parse_expression!("a['a']", "(a['a'])");
+}
+
+#[test]
+fn parse_char_statement() {
+    integration_test!("'a';", "'a'");
+}
+
+#[test]
+fn parse_char_in_if_condition() {
+    integration_test!(
+        "if (c == ';') { a = 1; }",
+        "if (== c ';') {
+a = 1
+}"
+    );
+}
+
+#[test]
+fn expect_char_statement_semicolon() {
+    let err = parse(Lexer::new("'a' 'b';").unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";"));
 }

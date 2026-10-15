@@ -22,6 +22,7 @@ pub struct FunctionType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int(IntType),
+    Char,
     Boolean,
     Function(Box<FunctionType>), // Types of args
     Pointer(Box<Type>),
@@ -36,7 +37,7 @@ impl Type {
     pub fn size(&self) -> usize {
         match self {
             Self::Int(int) => int.size(),
-            Self::Boolean => 1,
+            Self::Boolean | Self::Char => 1,
             _ => 8,
         }
     }
@@ -50,8 +51,10 @@ impl FromStr for Type {
             return Ok(Type::Int(int));
         }
 
-        if s == "bool" {
-            return Ok(Type::Boolean);
+        match s {
+            "bool" => return Ok(Type::Boolean),
+            "char" => return Ok(Type::Char),
+            _ => {}
         }
 
         if let Some(inner) = s.strip_prefix('*') {
@@ -66,6 +69,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Int(int) => write!(f, "{int}"),
+            Type::Char => write!(f, "char"),
             Type::Function(_) => write!(f, "fn"),
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
@@ -82,6 +86,7 @@ impl From<&AtomType> for Type {
             AtomType::String(_) => todo!(), // Type::String,
             AtomType::Colon => panic!("Colon as rhs for expression in type check"),
             AtomType::Boolean(_) => Type::Boolean,
+            AtomType::Char(_) => Type::Char,
         }
     }
 }
