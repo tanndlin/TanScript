@@ -131,14 +131,11 @@ impl StatementOrExpression {
             StatementOrExpression::Statement(statement) => {
                 statement.compile(compile_scope, register_handler)
             }
-            StatementOrExpression::Expression(expression) => {
-                let mut asm = register_handler.lease_with_scope(|register_handler, dst| {
-                    expression.compile(compile_scope, dst, register_handler)
-                })?;
-
-                asm.insert(0, Instruction::comment(expression.to_string()));
-                Ok(asm)
-            }
+            StatementOrExpression::Expression(expression) => Ok([
+                vec![Instruction::comment(expression.to_string())],
+                expression.compile_discarded(compile_scope, register_handler)?,
+            ]
+            .concat()),
         }
     }
 }
@@ -172,10 +169,39 @@ impl Expression {
                 compile_postfix(*op, lhs, compile_scope, dst, register_handler)
             }
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(compile_scope, register_handler, name, args, dst)
+                compile_function_call(compile_scope, register_handler, name, args, Some(dst))
             }
             ExpressionKind::Index(lhs, index) => {
                 compile_index(compile_scope, register_handler, dst, lhs, index)
+            }
+        }
+    }
+
+    // For when the output is not directly read. mostly used as a side affect like a postfix
+    pub fn compile_discarded(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        match &self.kind {
+            ExpressionKind::Atom(_) => Ok(vec![]),
+            ExpressionKind::Postfix(op, lhs) => {
+                compile_postfix_update(*op, lhs, compile_scope, register_handler)
+            }
+            ExpressionKind::FunctionCall(name, args) => {
+                compile_function_call(compile_scope, register_handler, name, args, None)
+            }
+            ExpressionKind::Unary(_, child) => {
+                child.compile_discarded(compile_scope, register_handler)
+            }
+            ExpressionKind::Binary(BinaryOp::Divide | BinaryOp::Modulo, ..) => register_handler
+                .lease_with_scope(|register_handler, dst| {
+                    self.compile(compile_scope, dst, register_handler)
+                }),
+            ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
+                let mut instructions = left.compile_discarded(compile_scope, register_handler)?;
+                instructions.extend(right.compile_discarded(compile_scope, register_handler)?);
+                Ok(instructions)
             }
         }
     }
@@ -215,7 +241,7 @@ fn compile_function_call(
     register_handler: &mut RegisterHandler,
     name: &str,
     args: &[Expression],
-    dst: Address,
+    dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
@@ -224,7 +250,7 @@ fn compile_function_call(
     // the caller wants it overwritten
     let saved_registers = VOLATILE_REGISTERS
         .into_iter()
-        .filter(|reg| register_handler.is_used(*reg) && dst != Address::Register(*reg))
+        .filter(|reg| register_handler.is_used(*reg) && dst != Some(Address::Register(*reg)))
         .collect::<Vec<_>>();
     let mut instructions = saved_registers
         .iter()
@@ -261,7 +287,9 @@ fn compile_function_call(
 
     instructions.push(Instruction::call(name));
     instructions.push(Instruction::add(Register::RSP, stack_size));
-    if dst != Address::Register(Register::RAX) {
+    if let Some(dst) = dst
+        && dst != Address::Register(Register::RAX)
+    {
         instructions.push(Instruction::mov(dst, Register::RAX));
     }
 
@@ -656,7 +684,23 @@ fn compile_postfix(
 ) -> Result<Vec<Instruction>, CodegenError> {
     // Postfix evaluates to the value before the update
     let mut instructions = lhs.compile(compile_scope, dst, register_handler)?;
-    let update = Assignment {
+    instructions.extend(compile_postfix_update(
+        op,
+        lhs,
+        compile_scope,
+        register_handler,
+    )?);
+
+    Ok(instructions)
+}
+
+fn compile_postfix_update(
+    op: PostfixOp,
+    lhs: &Expression,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    Assignment {
         lhs: lhs.clone(),
         expression: Expression::new(
             ExpressionKind::Binary(
@@ -670,10 +714,7 @@ fn compile_postfix(
             lhs.span,
         ),
     }
-    .compile_uncommented(compile_scope, register_handler)?;
-    instructions.extend(update);
-
-    Ok(instructions)
+    .compile_uncommented(compile_scope, register_handler)
 }
 
 fn compile_multiply(
@@ -875,6 +916,24 @@ mod test {
         let asm = compile("let a = true; let b = false;");
         assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 16], 0"), "{asm}");
+    }
+
+    #[test]
+    fn compile_discarded_postfix_skips_old_value() {
+        let asm = compile("let i = 0; i++;");
+        assert!(!asm.contains(", [rbp - 8]"), "{asm}");
+    }
+
+    #[test]
+    fn compile_discarded_call_keeps_result_in_rax() {
+        let asm = compile("def five() { 5 } five();");
+        assert!(!asm.contains(", rax"), "{asm}");
+    }
+
+    #[test]
+    fn compile_discarded_division_still_divides() {
+        let asm = compile("let a = 7; a / 0;");
+        assert!(asm.lines().any(|l| l.trim().starts_with("idiv ")), "{asm}");
     }
 
     #[test]
