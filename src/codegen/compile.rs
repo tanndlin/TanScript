@@ -24,6 +24,7 @@ impl Program {
 
         let mut symbol_table = SymbolTable::new();
         self.block.discover(&mut symbol_table);
+        symbol_table.externs.insert("exit".to_string());
         let instructions = render(
             &self
                 .block
@@ -65,7 +66,6 @@ impl Program {
 
 global main
 {globals}
-extern ExitProcess
 {extern_functions}
 
 SECTION .data
@@ -80,10 +80,8 @@ main:
 \tpush rbp
 \tmov rbp, rsp
 {instructions}
-\tadd rsp, 32
-\tpop rbp
 \txor rcx, rcx
-\tcall ExitProcess"
+\tcall exit"
         ))
     }
 }
