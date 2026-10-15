@@ -218,6 +218,14 @@ const VOLATILE_REGISTERS: [Register; 7] = [
     Register::R11,
 ];
 
+pub const NON_VOLATILE_REGISTERS: [Register; 5] = [
+    Register::RBX,
+    Register::R12,
+    Register::R13,
+    Register::R14,
+    Register::R15,
+];
+
 fn compile_string(
     s: &str,
     dst: Address,
@@ -808,6 +816,7 @@ fn fits_imm32(n: NumberType) -> bool {
 
 #[cfg(test)]
 mod test {
+    use super::NON_VOLATILE_REGISTERS;
     use crate::{lex::Lexer, parse::parse};
 
     fn compile(input: &str) -> String {
@@ -890,7 +899,24 @@ mod test {
     fn compile_function_args_dont_collide_with_locals() {
         let asm = compile("def f(a: i32) { let b = 1; a + b } f(1);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
-        assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
+        assert!(asm.contains("mov QWORD [rbp - 48], 1"), "{asm}");
+    }
+
+    #[test]
+    fn compile_function_saves_only_touched_non_volatile_registers() {
+        let asm = compile("def f(a: i32) { a } f(1);");
+        for reg in NON_VOLATILE_REGISTERS {
+            assert!(!asm.contains(&format!("], {reg}")), "{asm}");
+        }
+
+        let asm = compile("def f(a: i32) { a * 2 + a * 3 } f(1);");
+        let saved = NON_VOLATILE_REGISTERS
+            .iter()
+            .filter(|reg| asm.contains(&format!("], {reg}")))
+            .collect::<Vec<_>>();
+        for reg in &saved {
+            assert!(asm.contains(&format!("\tmov {reg}, [rbp - ")), "{asm}");
+        }
     }
 
     #[test]

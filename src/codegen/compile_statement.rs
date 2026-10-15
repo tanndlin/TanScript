@@ -6,8 +6,8 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile::{compile_jump_unless, store_element},
-        compile_scope::CompileScope,
+        compile::{NON_VOLATILE_REGISTERS, compile_jump_unless, store_element},
+        compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
         instruction::Instruction,
         loop_context::LoopContext,
@@ -193,13 +193,12 @@ impl FunctionDefinition {
             },
         );
 
-        let mut instructions = vec![
-            Instruction::label(&self.name),
-            Instruction::push(Register::RBP),
-            Instruction::mov(Register::RBP, Register::RSP),
-        ];
+        let save_size = SLOT_SIZE * u32::try_from(NON_VOLATILE_REGISTERS.len()).unwrap();
+        scope.stack_depth = save_size;
+
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
+        let mut arg_homes = vec![];
         for (i, arg) in self.args.iter().enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
@@ -208,7 +207,7 @@ impl FunctionDefinition {
 
             // Move register args to their home in the shadow space
             if let Some(reg) = arg_registers.get(i) {
-                instructions.push(Instruction::mov(new_address, *reg));
+                arg_homes.push(Instruction::mov(new_address, *reg));
             }
 
             // Update its location in the scope
@@ -217,8 +216,36 @@ impl FunctionDefinition {
                 .at(arg.span)?;
         }
 
-        instructions.extend(self.body.compile(&mut scope, register_handler)?);
+        let outer_touched = std::mem::take(&mut register_handler.touched);
+        let body = self.body.compile(&mut scope, register_handler);
+        let touched = std::mem::replace(&mut register_handler.touched, outer_touched);
+        let body = body?; // ? after the replace to preserve incase we implement multiple errors
+
+        let save_slots = NON_VOLATILE_REGISTERS
+            .into_iter()
+            .zip((1..).map(|i| Address::Stack(i * i32::try_from(SLOT_SIZE).unwrap())))
+            .filter(|(reg, _)| touched.contains(reg))
+            .collect::<Vec<_>>();
+
+        let mut instructions = vec![
+            Instruction::label(&self.name),
+            Instruction::push(Register::RBP),
+            Instruction::mov(Register::RBP, Register::RSP),
+            Instruction::sub(Register::RSP, save_size),
+        ];
+        instructions.extend(
+            save_slots
+                .iter()
+                .map(|(reg, slot)| Instruction::mov(*slot, *reg)),
+        );
+        instructions.extend(arg_homes);
+        instructions.extend(body);
         instructions.push(Instruction::label(epilogue_label));
+        instructions.extend(
+            save_slots
+                .iter()
+                .map(|(reg, slot)| Instruction::mov(*reg, *slot)),
+        );
         instructions.push(Instruction::mov(Register::RSP, Register::RBP));
         instructions.push(Instruction::pop(Register::RBP));
         instructions.push(Instruction::Ret);

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::codegen::{
     CodegenErrorKind,
     address::{Address, Register},
+    compile::NON_VOLATILE_REGISTERS,
     instruction::Instruction,
 };
 
@@ -25,6 +26,7 @@ pub struct RegisterHandler {
     pub data: Vec<String>,
     registers: HashMap<Register, RegisterState>,
     reserved_registers: Vec<Register>,
+    pub touched: Vec<Register>,
     unique_id: u32,
     usage_counter: u64,
 }
@@ -48,6 +50,7 @@ impl RegisterHandler {
                 (Register::R15, RegisterState::new()),
             ]),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
+            touched: vec![],
             unique_id: 0,
             usage_counter: 0,
         }
@@ -67,7 +70,14 @@ impl RegisterHandler {
         state.used = true;
         self.usage_counter = self.usage_counter.wrapping_add(1);
         state.last_used = self.usage_counter;
+        self.touch(reg);
         Ok(reg)
+    }
+
+    fn touch(&mut self, register: Register) {
+        if NON_VOLATILE_REGISTERS.contains(&register) && !self.touched.contains(&register) {
+            self.touched.push(register);
+        }
     }
 
     pub fn release_register(&mut self, register: Register) {
@@ -148,6 +158,7 @@ impl RegisterHandler {
                 state.used = true;
                 self.usage_counter = self.usage_counter.wrapping_add(1);
                 state.last_used = self.usage_counter;
+                self.touch(register);
                 Ok(register)
             }
         }
