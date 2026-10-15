@@ -179,13 +179,16 @@ impl IfStatement {
 
 impl ReturnStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let got = check_types_expression(&self.expr, type_scope)?;
+        let Some(expr) = &self.expr else {
+            return Ok(());
+        };
+        let got = check_types_expression(expr, type_scope)?;
         match type_scope.expected_return_type().cloned() {
             Some(Type::Unknown) => {
-                type_scope.record_return(got, self.expr.span);
+                type_scope.record_return(got, self.span);
                 Ok(())
             }
-            Some(expected) => expect_type(&self.expr, &expected, &got, type_scope),
+            Some(expected) => expect_type(expr, &expected, &got, type_scope),
             None => Ok(()),
         }
     }

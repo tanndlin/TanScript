@@ -322,6 +322,11 @@ fn parse_function_implicit_return() {
 }
 
 #[test]
+fn parse_function_empty_return() {
+    integration_test!("def f() { return; }", "def f() {return}");
+}
+
+#[test]
 fn parse_index() {
     test_parse_expression!("a[0]", "(a[0])");
     test_parse_expression!("a [ 0 ]", "(a[0])");

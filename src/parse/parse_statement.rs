@@ -286,7 +286,10 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
                     // Final expression: implicit return.
                     Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
                         children.push(StatementOrExpression::Statement(Box::new(
-                            Statement::Return(ReturnStatement { expr: expression }),
+                            Statement::Return(ReturnStatement {
+                                span: expression.span,
+                                expr: Some(expression),
+                            }),
                         )));
                         break;
                     }
@@ -307,8 +310,11 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
 }
 
 fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, ParseError> {
+    let span = lexer.peek_or_eof("return")?.span;
     lexer.expect("return")?;
-    Ok(ReturnStatement {
-        expr: parse_expression(lexer, 0)?,
-    })
+    let expr = match lexer.peek().map(|tok| &tok.token_type) {
+        Some(Token::Atom(LexerAtomType::Semicolon) | Token::Op(OperatorType::CloseCurly)) => None,
+        _ => Some(parse_expression(lexer, 0)?),
+    };
+    Ok(ReturnStatement { expr, span })
 }

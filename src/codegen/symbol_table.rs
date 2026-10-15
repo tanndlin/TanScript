@@ -56,7 +56,11 @@ impl Statement {
                     else_block.discover(symbols);
                 }
             }
-            Statement::Return(s) => s.expr.discover(symbols),
+            Statement::Return(s) => {
+                if let Some(expr) = &s.expr {
+                    expr.discover(symbols);
+                }
+            }
             Statement::WhileLoop(s) => {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);

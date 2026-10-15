@@ -304,15 +304,17 @@ impl ReturnStatement {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let mut instructions = vec![Instruction::comment(self.to_string())];
-        instructions.extend(register_handler.request_with_scope(
-            Register::RAX,
-            Register::RAX.into(),
-            |register_handler, rax| self.expr.compile(compile_scope, rax, register_handler),
-        )?);
+        if let Some(expr) = &self.expr {
+            instructions.extend(register_handler.request_with_scope(
+                Register::RAX,
+                Register::RAX.into(),
+                |register_handler, rax| expr.compile(compile_scope, rax, register_handler),
+            )?);
+        }
 
         let epilogue_label = &compile_scope
             .function_context()
-            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.expr.span))?
+            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.span))?
             .epilogue_label;
         instructions.push(Instruction::jmp(epilogue_label));
         Ok(instructions)
