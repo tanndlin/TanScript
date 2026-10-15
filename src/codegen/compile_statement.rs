@@ -311,10 +311,8 @@ impl ReturnStatement {
         )?);
 
         let epilogue_label = &compile_scope
-            .function_scope()
-            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.expr.span))?
             .function_context()
-            .unwrap()
+            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.expr.span))?
             .epilogue_label;
         instructions.push(Instruction::jmp(epilogue_label));
         Ok(instructions)

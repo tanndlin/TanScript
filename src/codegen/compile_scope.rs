@@ -55,7 +55,9 @@ impl<'a> CompileScope<'a> {
     }
 
     pub fn function_context(&self) -> Option<&FunctionContext> {
-        self.function_context.as_ref()
+        self.function_context
+            .as_ref()
+            .or_else(|| self.parent?.function_context())
     }
 
     fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
@@ -122,14 +124,6 @@ impl<'a> CompileScope<'a> {
             Some(self)
         } else {
             self.parent?.loop_scope()
-        }
-    }
-
-    pub fn function_scope(&self) -> Option<&CompileScope<'a>> {
-        if self.function_context.is_some() {
-            Some(self)
-        } else {
-            self.parent?.function_scope()
         }
     }
 }
