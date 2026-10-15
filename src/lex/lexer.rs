@@ -44,10 +44,13 @@ impl Lexer {
             }
 
             if cur.is_alphabetic() || cur == '_' {
-                tokens.push(LexerToken::new(
-                    Token::Atom(LexerAtomType::Identifier(get_identifier(&mut chars))),
-                    span,
-                ));
+                let identifier = get_identifier(&mut chars);
+                let token = if identifier == OperatorType::Cast.symbol() {
+                    Token::Op(OperatorType::Cast)
+                } else {
+                    Token::Atom(LexerAtomType::Identifier(identifier))
+                };
+                tokens.push(LexerToken::new(token, span));
                 continue;
             }
 

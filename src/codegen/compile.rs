@@ -175,6 +175,9 @@ impl Expression {
             ExpressionKind::Index(lhs, index) => {
                 compile_index(compile_scope, register_handler, dst, lhs, index)
             }
+            ExpressionKind::Cast(inner, cast_type) => {
+                compile_cast(inner, cast_type, compile_scope, dst, register_handler)
+            }
         }
     }
 
@@ -192,7 +195,7 @@ impl Expression {
             ExpressionKind::FunctionCall(name, args) => {
                 compile_function_call(compile_scope, register_handler, name, args, None)
             }
-            ExpressionKind::Unary(_, child) => {
+            ExpressionKind::Unary(_, child) | ExpressionKind::Cast(child, _) => {
                 child.compile_discarded(compile_scope, register_handler)
             }
             ExpressionKind::Binary(BinaryOp::Divide | BinaryOp::Modulo, ..) => register_handler
@@ -669,6 +672,42 @@ fn compile_jump_nonzero(
         Condition::Equal
     };
     instructions.push(Instruction::jcc(cond, label));
+    Ok(instructions)
+}
+
+fn compile_cast(
+    inner: &Expression,
+    cast_type: &Type,
+    compile_scope: &mut CompileScope,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = inner.compile(compile_scope, dst, register_handler)?;
+    let truncate = |reg: Register| match cast_type {
+        Type::Int(int) if int.size() == 4 && int.is_signed() => {
+            Some(Instruction::movsx(reg, reg, Size::Dword))
+        }
+        Type::Int(int) if int.size() == 4 => Some(Instruction::movzx(reg, reg, Size::Dword)),
+        Type::Int(int) if int.size() == 1 => Some(Instruction::movzx(reg, reg, Size::Byte)),
+        Type::Char => Some(Instruction::movzx(reg, reg, Size::Byte)),
+        _ => None,
+    };
+
+    match dst {
+        Address::Register(reg) => instructions.extend(truncate(reg)),
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => {
+            if truncate(Register::RAX).is_some() {
+                instructions.extend(register_handler.lease_with_scope(|_, reg| {
+                    Ok::<_, CodegenError>(vec![
+                        Instruction::mov(reg, dst),
+                        truncate(reg).unwrap(),
+                        Instruction::mov(dst, reg),
+                    ])
+                })?);
+            }
+        }
+    }
+
     Ok(instructions)
 }
 

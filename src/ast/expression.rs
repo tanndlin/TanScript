@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{
     ast::{AtomType, BinaryOp, PostfixOp, UnaryOp},
+    type_check::Type,
     types::Span,
 };
 
@@ -31,6 +32,7 @@ pub enum ExpressionKind {
     Postfix(PostfixOp, Box<Expression>),
     FunctionCall(String, Vec<Expression>),
     Index(Box<Expression>, Box<Expression>),
+    Cast(Box<Expression>, Type),
 }
 
 impl fmt::Display for ExpressionKind {
@@ -51,6 +53,9 @@ impl fmt::Display for ExpressionKind {
                     .join(", ")
             ),
             ExpressionKind::Index(lhs, index) => write!(f, "({lhs}[{index}])"),
+            ExpressionKind::Cast(expression, cast_type) => {
+                write!(f, "({expression} as {cast_type})")
+            }
         }
     }
 }

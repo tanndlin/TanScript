@@ -5,7 +5,7 @@ use crate::{
     },
     error::At,
     lex::{Lexer, LexerAtomType},
-    parse::{ParseError, ParseErrorKind, expected},
+    parse::{ParseError, ParseErrorKind, expected, parse_statement::parse_type},
     types::{Span, Token},
 };
 
@@ -97,6 +97,19 @@ pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, Par
             lexer.expect("]")?;
             let span = lhs.span;
             lhs = Expression::new(ExpressionKind::Index(Box::new(lhs), Box::new(index)), span);
+            continue;
+        }
+
+        if let OperatorType::Cast = op {
+            const CAST_BINDING_POWER: u8 = 11;
+            if CAST_BINDING_POWER < min_bp {
+                break;
+            }
+
+            lexer.next();
+            let cast_type = parse_type(lexer)?;
+            let span = lhs.span;
+            lhs = Expression::new(ExpressionKind::Cast(Box::new(lhs), cast_type), span);
             continue;
         }
 

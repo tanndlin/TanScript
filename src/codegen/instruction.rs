@@ -362,6 +362,24 @@ impl fmt::Display for Instruction {
             Instruction::Imul { dst, src } => write!(f, "\timul {dst}, {src}"),
             Instruction::Idiv { src } => write!(f, "\tidiv {src}"),
             Instruction::Cqo => write!(f, "\tcqo"),
+            Instruction::Movsx {
+                dst,
+                src: src @ Address::Register(reg),
+                size,
+            } => match size {
+                Size::Byte => write!(f, "\tmovsx {dst}, {}", src.lower_8_bits()),
+                Size::Dword => write!(f, "\tmovsxd {dst}, {}", reg.lower_32_bits()),
+                Size::Qword => write!(f, "\tmov {dst}, {src}"),
+            },
+            Instruction::Movzx {
+                dst,
+                src: src @ Address::Register(reg),
+                size,
+            } => match size {
+                Size::Byte => write!(f, "\tmovzx {dst}, {}", src.lower_8_bits()),
+                Size::Dword => write!(f, "\tmov {}, {}", dst.lower_32_bits(), reg.lower_32_bits()),
+                Size::Qword => write!(f, "\tmov {dst}, {src}"),
+            },
             Instruction::Movsx { dst, src, size } => match size {
                 Size::Byte => write!(f, "\tmovsx {dst}, {size} {src}"),
                 Size::Dword => write!(f, "\tmovsxd {dst}, {size} {src}"),

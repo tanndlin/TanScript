@@ -28,6 +28,14 @@ fn parse_basic_math() {
 }
 
 #[test]
+fn parse_cast() {
+    test_parse_expression!("a as i32", "(a as i32)");
+    test_parse_expression!("a + b as i32 * c", "(+ a (* (b as i32) c))");
+    test_parse_expression!("p as *char", "(p as *char)");
+    test_parse_expression!("a as i64 as char", "((a as i64) as char)");
+}
+
+#[test]
 fn parse_negative_numbers() {
     test_parse_expression!("-9", "(- 9)");
 }

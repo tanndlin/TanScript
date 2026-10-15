@@ -92,6 +92,7 @@ impl Expression {
                 lhs.discover(symbols);
                 index.discover(symbols);
             }
+            ExpressionKind::Cast(expression, _) => expression.discover(symbols),
         }
     }
 }

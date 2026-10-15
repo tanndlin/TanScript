@@ -11,6 +11,14 @@ fn run_compiler(tan: &Path, work_dir: &Path) -> Result<PathBuf, String> {
     let copied = work_dir.join(file_name);
     fs::copy(tan, &copied).unwrap();
 
+    let data_dir = tan.with_extension("");
+    if data_dir.is_dir() {
+        for entry in fs::read_dir(&data_dir).unwrap() {
+            let entry = entry.unwrap();
+            fs::copy(entry.path(), work_dir.join(entry.file_name())).unwrap();
+        }
+    }
+
     let output = Command::new(env!("CARGO_BIN_EXE_tanscript"))
         .arg(&copied)
         .output()

@@ -1,0 +1,26 @@
+let big: i64 = 300;
+printf("%d\n", big as u8);
+
+let c: char = 65 as char;
+putchar(c);
+putchar('\n');
+
+let negative: i64 = -1;
+let as_unsigned: u32 = negative as u32;
+printf("%u\n", as_unsigned);
+
+let wide: i64 = 4294967297;
+printf("%d\n", wide as i32);
+
+let flag: bool = true;
+printf("%d\n", flag as i64 + 1);
+
+let letter: char = 'a';
+printf("%d\n", letter as i64 * 2);
+
+let bytes: *char = malloc(1);
+bytes[0] = 'z';
+let address: u64 = bytes as u64;
+let back: *char = address as *char;
+putchar(back[0]);
+putchar('\n');

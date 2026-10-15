@@ -190,7 +190,7 @@ fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, ParseError> 
     }
 }
 
-fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
+pub fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
     let tok = lexer.next_or_eof("type")?;
     if let Token::Op(OperatorType::Multiply) = tok.token_type {
         return Ok(Type::Pointer(Box::new(parse_type(lexer)?)));

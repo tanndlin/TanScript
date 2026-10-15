@@ -109,6 +109,18 @@ pub fn check_types_expression(
 
             element_type
         }
+        ExpressionKind::Cast(lhs, casted_type) => {
+            let lhs_type = check_types_expression(lhs, type_scope)?;
+            if lhs_type.castable(casted_type) {
+                casted_type.clone()
+            } else {
+                return Err(TypeCheckErrorKind::Uncastable {
+                    lhs_type,
+                    casted_type: casted_type.clone(),
+                }
+                .at(expression.span));
+            }
+        }
     })
 }
 
@@ -369,6 +381,31 @@ mod test {
                 })
             ),
             "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn cast_allows_assignment_of_different_type() {
+        let mut program =
+            parse(Lexer::new("let a: u32 = 1; let b: i32 = 2; a = b as u32;").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    }
+
+    #[test]
+    fn type_error_for_uncastable_types() {
+        let mut program =
+            parse(Lexer::new("let a: i64 = 1; let b: bool = a as bool;").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::Uncastable { .. },
+                    ..
+                })
+            ),
+            "expected Uncastable, got {result:?}"
         );
     }
 

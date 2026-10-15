@@ -52,6 +52,7 @@ operators! {
     ModAssign => "%=",
     Increment => "++",
     Decrement => "--",
+    Cast => "as",
 }
 
 impl fmt::Display for OperatorType {

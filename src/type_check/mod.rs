@@ -41,6 +41,20 @@ impl Type {
             _ => 8,
         }
     }
+
+    pub fn castable(&self, casted_type: &Self) -> bool {
+        match (self, casted_type) {
+            _ if self == casted_type => true,
+            (Type::Unknown, _)
+            | (_, Type::Unknown)
+            | (Type::Int(_) | Type::Char | Type::Boolean, Type::Int(_) | Type::Char)
+            | (Type::Pointer(_), Type::Pointer(_)) => true,
+            (Type::Pointer(_), Type::Int(int)) | (Type::Int(int), Type::Pointer(_)) => {
+                int.size() == 8
+            }
+            _ => false,
+        }
+    }
 }
 
 impl FromStr for Type {
