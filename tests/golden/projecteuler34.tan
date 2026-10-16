@@ -1,0 +1,28 @@
+def factorial(n: u32): u32 {
+    if n <= 1 {
+        return 1;
+    }
+
+    return n * factorial(n - 1);
+}
+
+def digitFactorials(n: u32): u32 {
+    let sum = 0;
+    while n > 0 {
+        sum += factorial(n % 10);
+        n /= 10;
+    }
+
+    sum
+}
+
+
+let sum = 0;
+for(let i = 3; i < 100000; i++) {
+    if digitFactorials(i) == i {
+        sum += i;
+    }
+}
+
+
+printf("%d\n", sum);
