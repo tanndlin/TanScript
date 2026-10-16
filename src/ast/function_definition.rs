@@ -8,12 +8,13 @@ pub struct FunctionDefinition {
     pub args: Vec<Arg>,
     pub body: Block,
     pub return_type: Type,
+    pub span: Span,
 }
 
 impl fmt::Display for FunctionDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let return_type = match &self.return_type {
-            Type::Unknown => String::new(),
+            Type::Unit => String::new(),
             t => format!(": {t}"),
         };
         write!(

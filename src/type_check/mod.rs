@@ -26,6 +26,7 @@ pub enum Type {
     Boolean,
     Function(Box<FunctionType>), // Types of args
     Pointer(Box<Type>),
+    Unit,
     Unknown,
 }
 
@@ -85,6 +86,7 @@ impl fmt::Display for Type {
             Type::Int(int) => write!(f, "{int}"),
             Type::Char => write!(f, "char"),
             Type::Function(_) => write!(f, "fn"),
+            Type::Unit => write!(f, "()"),
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Boolean => write!(f, "bool"),

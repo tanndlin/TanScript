@@ -16,7 +16,7 @@ def isPrime(n: u32): bool {
     true
 }
 
-def numDigits(n: u32) {
+def numDigits(n: u32): u32 {
     let digits = 0;
     while n > 0 {
         n /= 10;

@@ -195,7 +195,7 @@ mod test {
     fn type_error_for_incorrect_function_arg() {
         let mut program = parse(
             Lexer::new(
-                "def add (a: u32, b: u32) {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);",
+                "def add (a: u32, b: u32): u32 {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);",
             )
             .unwrap(),
         )
@@ -545,19 +545,94 @@ mod test {
     }
 
     #[test]
-    fn type_error_for_differing_return_types() {
+    fn type_error_for_empty_body_with_declared_return_type() {
+        let mut program = parse(Lexer::new("def f (): u32 { }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(result.is_err(), "expected Err, got {result:?}");
+    }
+
+    #[test]
+    fn type_error_for_missing_return_with_declared_return_type() {
         let mut program =
-            parse(Lexer::new("def f (a: u32, b: i32) { return a; return b; }").unwrap()).unwrap();
+            parse(Lexer::new("def f (a: u32): u32 { let b = a + 1; }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(result.is_err(), "expected Err, got {result:?}");
+    }
+
+    #[test]
+    fn type_error_for_empty_return_with_declared_return_type() {
+        let mut program = parse(Lexer::new("def f (): bool { return; }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(result.is_err(), "expected Err, got {result:?}");
+    }
+
+    #[test]
+    fn supports_missing_return_without_declared_return_type() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("def f (a: u32) { let b = a + 1; }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_value_returned_from_function_without_return_type() {
+        let mut program = parse(Lexer::new("def f (a: u32) { return a; }").unwrap()).unwrap();
         let result = check_types(&mut program);
         assert!(
             matches!(
                 result,
                 Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::DifferingReturnTypes { .. },
+                    kind: TypeCheckErrorKind::TypeMismatch {
+                        expected: Type::Unit,
+                        ..
+                    },
                     ..
                 })
             ),
-            "expected DifferingReturnTypes, got {result:?}"
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_implicit_return_from_function_without_return_type() {
+        let mut program = parse(Lexer::new("def f (a: u32) { a }").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch {
+                        expected: Type::Unit,
+                        ..
+                    },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn supports_empty_return_from_function_without_return_type() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f (a: u32) { if a > 1 { return; } }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_unit_function_result_assigned_to_number() {
+        let mut program = parse(Lexer::new("def f () { } let a: u32 = f();").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch {
+                        got: Type::Unit,
+                        ..
+                    },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
         );
     }
 }

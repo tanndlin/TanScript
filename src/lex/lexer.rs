@@ -120,7 +120,7 @@ impl Lexer {
         })
     }
 
-    pub fn expect(&mut self, expected: &str) -> Result<(), ParseError> {
+    pub fn expect(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
         let token = self.next_or_eof(expected)?;
 
         // Extract what we "got" as a string
@@ -136,7 +136,7 @@ impl Lexer {
         };
 
         if got == expected {
-            Ok(())
+            Ok(token)
         } else {
             Err(ParseErrorKind::Expected {
                 expected: expected.to_string(),

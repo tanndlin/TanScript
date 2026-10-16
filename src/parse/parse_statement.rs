@@ -26,7 +26,9 @@ pub fn parse_statement_or_expression(
         // Do not expect semicolon for certain statements
         match &result {
             StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => (),
-            _ => lexer.expect(";")?,
+            _ => {
+                lexer.expect(";")?;
+            }
         }
         Ok(Some(result))
     }
@@ -204,7 +206,7 @@ pub fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
 }
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {
-    lexer.expect("def")?;
+    let span = lexer.expect("def")?.span;
 
     let tok = lexer.next_or_eof("function name")?;
     let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
@@ -239,7 +241,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
         }
     }
 
-    let return_type = parse_type_annotation(lexer)?.unwrap_or(Type::Unknown);
+    let return_type = parse_type_annotation(lexer)?.unwrap_or(Type::Unit);
     let body = parse_function_body(lexer)?;
 
     Ok(FunctionDefinition {
@@ -247,6 +249,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
         args,
         body,
         return_type,
+        span,
     })
 }
 
@@ -272,7 +275,9 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
             match children.last().unwrap() {
                 StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => {}
 
-                _ => lexer.expect(";")?,
+                _ => {
+                    lexer.expect(";")?;
+                }
             }
         } else {
             match parse_expression_or_assignment(lexer)? {

@@ -6,7 +6,7 @@ use crate::{
     error::At,
     type_check::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression,
-        expect_type, infer_type::unify, narrow_expression,
+        expect_type, narrow_expression,
     },
     types::IntType,
 };
@@ -26,6 +26,21 @@ impl Block {
         for child in &mut self.children {
             child.resolve_types(type_scope);
         }
+    }
+
+    pub fn always_returns(&self) -> bool {
+        self.children.iter().any(|child| match child {
+            StatementOrExpression::Statement(statement) => match statement.as_ref() {
+                Statement::Return(_) => true,
+                Statement::IfStatement(IfStatement {
+                    block,
+                    else_block: Some(else_block),
+                    ..
+                }) => block.always_returns() && else_block.always_returns(),
+                _ => false,
+            },
+            StatementOrExpression::Expression(_) => false,
+        })
     }
 }
 
@@ -143,19 +158,18 @@ impl FunctionDefinition {
             type_scope.insert(arg.name.clone(), arg.atype.clone());
         }
         let result = self.body.check_types(type_scope);
-        let returns = type_scope.pop_function();
+        type_scope.pop_function();
         type_scope.pop();
         result?;
 
-        returns
-            .iter()
-            .try_fold(Type::Unknown, |acc, (t, span)| {
-                unify(&acc, t).or_else(|| unify(t, &acc)).ok_or_else(|| {
-                    let types = returns.iter().map(|(t, _)| t.clone()).collect();
-                    TypeCheckErrorKind::DifferingReturnTypes { types }.at(*span)
-                })
-            })
-            .map(|_| ())
+        if self.return_type != Type::Unit && !self.body.always_returns() {
+            return Err(TypeCheckErrorKind::TypeMismatch {
+                expected: self.return_type.clone(),
+                got: Type::Unit,
+            }
+            .at(self.span));
+        }
+        Ok(())
     }
 }
 
@@ -179,17 +193,17 @@ impl IfStatement {
 
 impl ReturnStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let Some(expr) = &self.expr else {
+        let got = match &self.expr {
+            Some(expr) => check_types_expression(expr, type_scope)?,
+            None => Type::Unit,
+        };
+        let Some(expected) = type_scope.expected_return_type().cloned() else {
             return Ok(());
         };
-        let got = check_types_expression(expr, type_scope)?;
-        match type_scope.expected_return_type().cloned() {
-            Some(Type::Unknown) => {
-                type_scope.record_return(got, self.span);
-                Ok(())
-            }
-            Some(expected) => expect_type(expr, &expected, &got, type_scope),
-            None => Ok(()),
+        match &self.expr {
+            Some(expr) => expect_type(expr, &expected, &got, type_scope),
+            None if expected == Type::Unit => Ok(()),
+            None => Err(TypeCheckErrorKind::TypeMismatch { expected, got }.at(self.span)),
         }
     }
 }

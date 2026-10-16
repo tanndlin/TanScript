@@ -10,7 +10,6 @@ pub enum TypeCheckErrorKind {
     TypeMismatch { expected: Type, got: Type },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
-    DifferingReturnTypes { types: Vec<Type> },
     Uncastable { lhs_type: Type, casted_type: Type },
 }
 
@@ -29,10 +28,6 @@ impl fmt::Display for TypeCheckErrorKind {
             }
             Self::IdentifierNotFound(ident) => {
                 write!(f, "Identifer: ({ident}) not found")
-            }
-            Self::DifferingReturnTypes { types } => {
-                let types: Vec<String> = types.iter().map(ToString::to_string).collect();
-                write!(f, "Got multiple return types: ({})", types.join(", "))
             }
             Self::Uncastable {
                 lhs_type,
