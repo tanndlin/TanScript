@@ -3,8 +3,7 @@ use crate::{type_check::Type, types::IntType};
 pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
     match (a, b) {
         _ if a == b => Some(a.clone()),
-        (Type::Int(IntType::I32), Type::Int(IntType::I64)) => Some(Type::Int(IntType::I64)),
-        (Type::Int(IntType::U32), Type::Int(IntType::U64)) => Some(Type::Int(IntType::U64)),
+        (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b.clone()),
         (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean) => Some(a.clone()),
         (Type::Char, Type::Int(IntType::Coercible)) => Some(Type::Char),
         (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
@@ -126,6 +125,62 @@ mod test {
     }
 
     #[test]
+    fn infers_upcast_from_u8_plus_u32() {
+        assert_eq!(
+            infer_last("let a: u8 = 1; let b: u32 = 2; a + b;").unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_u32_plus_u8() {
+        assert_eq!(
+            infer_last("let a: u32 = 1; let b: u8 = 2; a + b;").unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_u8_plus_u64() {
+        assert_eq!(
+            infer_last("let a: u8 = 1; let b: u64 = 2; a * b;").unwrap(),
+            Type::Int(IntType::U64)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_u64_plus_u32() {
+        assert_eq!(
+            infer_last("let a: u64 = 1; let b: u32 = 2; a - b;").unwrap(),
+            Type::Int(IntType::U64)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_i32_plus_i64() {
+        assert_eq!(
+            infer_last("let a: i32 = 1; let b: i64 = 2; a + b;").unwrap(),
+            Type::Int(IntType::I64)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_u32_plus_i64() {
+        assert_eq!(
+            infer_last("let a: u32 = 1; let b: i64 = 2; a + b;").unwrap(),
+            Type::Int(IntType::I64)
+        );
+    }
+
+    #[test]
+    fn infers_upcast_from_i64_plus_u8() {
+        assert_eq!(
+            infer_last("let a: i64 = 1; let b: u8 = 2; a + b;").unwrap(),
+            Type::Int(IntType::I64)
+        );
+    }
+
+    #[test]
     fn type_error_for_mismatched_variables() {
         let result = infer_last("let a: u32 = 1; let b: i32 = 2; a + b;");
         assert!(
@@ -142,7 +197,7 @@ mod test {
 
     #[test]
     fn type_error_for_mismatched_nested_binary_ops() {
-        let result = infer_last("let a: u32 = 1; let b: i64 = 2; (a + 1) * (b + 2);");
+        let result = infer_last("let a: u64 = 1; let b: i32 = 2; (a + 1) * (b + 2);");
         assert!(
             matches!(
                 result,

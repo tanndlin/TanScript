@@ -1,0 +1,39 @@
+def widen(x: u64): u64 {
+    x * 2
+}
+
+def small(): u32 {
+    let b: u8 = 200;
+    b
+}
+
+let a: u8 = 255;
+let b: u32 = a;
+let c: u64 = b;
+printf("%u %u %llu\n", a, b, c);
+
+let big: u32 = 4000000000;
+let sum: u64 = big + c;
+printf("%llu\n", sum);
+
+let mixed: u32 = a + b;
+printf("%u\n", mixed);
+
+printf("%llu\n", widen(a));
+printf("%u\n", small());
+
+let bytes: *u8 = malloc(2);
+bytes[0] = 250;
+bytes[1] = 7;
+let first: u32 = bytes[0];
+let second: u64 = bytes[1];
+printf("%u %llu\n", first, second);
+
+let x: i32 = -5;
+let y: i64 = x;
+printf("%lld\n", y);
+
+let unsigned: u32 = 255;
+let signed: i64 = unsigned;
+printf("%lld
+", signed - 300);

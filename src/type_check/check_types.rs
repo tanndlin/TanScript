@@ -133,6 +133,7 @@ pub fn expect_type(
     match (expected, got) {
         _ if expected == got => Ok(()),
         (Type::Unknown, _) | (_, Type::Unknown) => Ok(()),
+        (Type::Int(to), Type::Int(from)) if from.widens_to(*to) => Ok(()),
         (t, Type::Int(IntType::Coercible)) if t.is_number_type() => {
             narrow_expression(expression, expected.clone(), type_scope);
             Ok(())
@@ -173,6 +174,104 @@ mod test {
     fn supports_coercing_literal_assignments() -> Result<(), TypeCheckError> {
         let mut program = parse(Lexer::new("let a: u32 = 1;").unwrap()).unwrap();
         check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_u8_to_u32() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("let a: u8 = 1; let b: u32 = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_u8_to_u64() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("let a: u8 = 1; let b: u64 = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_u32_to_u64() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("let a: u32 = 1; let b: u64 = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_in_assignment() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("let a: u8 = 1; let b: u64 = 2; b = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_function_arg() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def f (x: u64) {} let a: u8 = 1; f(a);").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_return() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("def f (a: u8): u32 { a }").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_downcasting_u64_to_u32() {
+        let mut program = parse(Lexer::new("let a: u64 = 1; let b: u32 = a;").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn supports_upcasting_u32_to_i64() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i64 = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_upcasting_u8_to_i32() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("let a: u8 = 1; let b: i32 = a;").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_u32_to_i32() {
+        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i32 = a;").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_i32_to_u64() {
+        let mut program = parse(Lexer::new("let a: i32 = 1; let b: u64 = a;").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
     }
 
     #[test]

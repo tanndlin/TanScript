@@ -41,6 +41,10 @@ impl IntType {
     pub fn is_signed(self) -> bool {
         matches!(self, Self::I32 | Self::I64 | Self::Coercible)
     }
+
+    pub fn widens_to(self, to: Self) -> bool {
+        to != Self::Coercible && self.size() < to.size() && (!self.is_signed() || to.is_signed())
+    }
 }
 
 impl Display for IntType {

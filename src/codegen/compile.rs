@@ -151,7 +151,7 @@ impl Expression {
 
         match &self.kind {
             ExpressionKind::Atom(a) => match a {
-                AtomType::Number(n) => Ok(vec![compile_number(*n, dst)]),
+                AtomType::Number(n) => compile_number(*n, dst, register_handler),
                 AtomType::Char(c) => Ok(vec![compile_char(*c, dst)]),
                 AtomType::Identifier(name) => {
                     compile_variable(compile_scope, register_handler, name, self.span, dst)
@@ -364,6 +364,7 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
             Instruction::movsx(dst, memory, Size::Dword)
         }
         Type::Int(int) if int.size() == 4 => Instruction::movzx(dst, memory, Size::Dword),
+        Type::Int(int) if int.size() == 1 => Instruction::movzx(dst, memory, Size::Byte),
         Type::Boolean | Type::Char => Instruction::movzx(dst, memory, Size::Byte),
         _ => Instruction::mov(dst, memory),
     }
@@ -372,13 +373,25 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
 pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
     match element {
         Type::Int(int) if int.size() == 4 => Instruction::store(memory, src, Size::Dword),
+        Type::Int(int) if int.size() == 1 => Instruction::store(memory, src, Size::Byte),
         Type::Boolean | Type::Char => Instruction::store(memory, src, Size::Byte),
         _ => Instruction::mov(memory, src),
     }
 }
 
-fn compile_number(n: NumberType, dst: Address) -> Instruction {
-    Instruction::mov(dst, n)
+fn compile_number(
+    n: NumberType,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    match dst {
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } if !fits_imm32(n) => {
+            register_handler.lease_with_scope(|_, reg| {
+                Ok(vec![Instruction::mov(reg, n), Instruction::mov(dst, reg)])
+            })
+        }
+        _ => Ok(vec![Instruction::mov(dst, n)]),
+    }
 }
 
 fn compile_char(c: char, dst: Address) -> Instruction {
@@ -1073,6 +1086,19 @@ mod test {
     #[test]
     fn compile_char_function_param_and_return() {
         compile("def next(c: char): char { c + 1 } next('a');");
+    }
+
+    #[test]
+    fn compile_large_literal_to_stack_goes_through_register() {
+        let asm = compile("let big: u32 = 4000000000;");
+        assert!(!asm.contains("], 4000000000"), "{asm}");
+        assert!(asm.contains(", 4000000000"), "{asm}");
+    }
+
+    #[test]
+    fn compile_small_literal_to_stack_is_immediate() {
+        let asm = compile("let small: u32 = 5;");
+        assert!(asm.contains("], 5"), "{asm}");
     }
 
     #[test]
