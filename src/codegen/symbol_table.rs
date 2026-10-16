@@ -65,8 +65,7 @@ impl Statement {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);
             }
-            Statement::Continue(_) | Statement::Break(_) => {}
-            Statement::StructDefinition(_) => {}
+            Statement::Continue(_) | Statement::Break(_) | Statement::StructDefinition(_) => {}
         }
     }
 }
@@ -83,7 +82,9 @@ impl Expression {
                     arg.discover(symbols);
                 }
             }
-            ExpressionKind::Atom(_) | ExpressionKind::Postfix(_, _) => {}
+            ExpressionKind::Atom(_)
+            | ExpressionKind::Postfix(_, _)
+            | ExpressionKind::StructAccess { .. } => {}
             ExpressionKind::Binary(_, left, right) => {
                 left.discover(symbols);
                 right.discover(symbols);
@@ -94,8 +95,10 @@ impl Expression {
                 index.discover(symbols);
             }
             ExpressionKind::Cast(expression, _) => expression.discover(symbols),
-            ExpressionKind::StructInstantiation(_, fields) => {
-                fields.iter().for_each(|(_, expr)| expr.discover(symbols))
+            ExpressionKind::StructInstantiation { fields, .. } => {
+                for (_, expr) in fields {
+                    expr.discover(symbols);
+                }
             }
         }
     }

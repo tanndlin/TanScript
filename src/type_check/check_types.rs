@@ -129,20 +129,67 @@ pub fn check_types_expression(
                 .at(expression.span));
             }
         }
-        ExpressionKind::StructInstantiation(struct_type, fields) => {
-            match type_scope.lookup(struct_type) {
-                Some(Type::Struct(struct_def)) => Type::Struct(struct_def.clone()),
-                Some(_) => {
-                    return Err(
-                        TypeCheckErrorKind::NotAStruct(struct_type.clone()).at(expression.span)
-                    );
+        ExpressionKind::StructInstantiation {
+            struct_type_name,
+            fields,
+        } => match type_scope.lookup(struct_type_name) {
+            Some(Type::Struct(struct_def)) => {
+                let struct_def = struct_def.clone();
+                for (field_name, field_expr) in fields {
+                    let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name)
+                    else {
+                        return Err(TypeCheckErrorKind::NoSuchField {
+                            struct_type: *struct_def.clone(),
+                            field_name: field_name.clone(),
+                        }
+                        .at(field_expr.span));
+                    };
+
+                    let got = check_types_expression(field_expr, type_scope)?;
+                    expect_type(field_expr, &field.ftype, &got, type_scope)?;
                 }
-                None => {
-                    return Err(TypeCheckErrorKind::IdentifierNotFound(struct_type.clone())
-                        .at(expression.span));
-                }
+
+                Type::Struct(struct_def)
             }
-        }
+            Some(_) => {
+                return Err(
+                    TypeCheckErrorKind::NotAStruct(struct_type_name.clone()).at(expression.span)
+                );
+            }
+            None => {
+                return Err(
+                    TypeCheckErrorKind::IdentifierNotFound(struct_type_name.clone())
+                        .at(expression.span),
+                );
+            }
+        },
+        ExpressionKind::StructAccess {
+            struct_var_name,
+            field_name,
+        } => match type_scope.lookup(struct_var_name) {
+            Some(Type::Struct(struct_type)) => {
+                if let Some(field) = struct_type.fields.iter().find(|f| f.name == *field_name) {
+                    return Ok(field.ftype.clone());
+                }
+
+                return Err(TypeCheckErrorKind::NoSuchField {
+                    struct_type: *struct_type.clone(),
+                    field_name: field_name.clone(),
+                }
+                .at(expression.span));
+            }
+            Some(_) => {
+                return Err(
+                    TypeCheckErrorKind::NotAStruct(struct_var_name.clone()).at(expression.span)
+                );
+            }
+            None => {
+                return Err(
+                    TypeCheckErrorKind::IdentifierNotFound(struct_var_name.clone())
+                        .at(expression.span),
+                );
+            }
+        },
     })
 }
 
@@ -898,5 +945,185 @@ mod test {
         let mut program =
             parse(Lexer::new("printf(\"%d\"); printf(\"%d %d\", 1, 2);").unwrap()).unwrap();
         check_types(&mut program)
+    }
+
+    const POINT: &str = "struct P { x: u32, y: bool }";
+
+    fn check(source: &str) -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_struct_instantiation() -> Result<(), TypeCheckError> {
+        check(&format!("{POINT} let p = P {{ x: 1, y: true }};"))
+    }
+
+    #[test]
+    fn supports_struct_access() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{POINT} let p = P {{ x: 1, y: true }}; let a: u32 = p.x; let b: bool = p.y;"
+        ))
+    }
+
+    #[test]
+    fn supports_struct_field_assignment() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{POINT} let p = P {{ x: 1, y: true }}; p.x = 5; p.y = false;"
+        ))
+    }
+
+    #[test]
+    fn supports_struct_field_upcasting() -> Result<(), TypeCheckError> {
+        check("struct P { x: u64 } let a: u8 = 1; let p = P { x: a };")
+    }
+
+    #[test]
+    fn supports_struct_access_in_condition() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{POINT} let p = P {{ x: 1, y: true }}; if p.y {{ p.x = 2; }}"
+        ))
+    }
+
+    #[test]
+    fn struct_access_has_field_type() {
+        let mut program = parse(
+            Lexer::new(&format!(
+                "{POINT} let p = P {{ x: 1, y: true }}; let a = p.y;"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        check_types(&mut program).unwrap();
+        let StatementOrExpression::Statement(statement) = &program.block.children[2] else {
+            panic!("expected statement");
+        };
+        let Statement::Declaration(declaration) = statement.as_ref() else {
+            panic!("expected declaration");
+        };
+        assert_eq!(declaration.dtype, Some(Type::Boolean));
+    }
+
+    #[test]
+    fn type_error_for_struct_field_mismatch() {
+        let result = check(&format!("{POINT} let p = P {{ x: true, y: true }};"));
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch {
+                        expected: Type::Int(IntType::U32),
+                        got: Type::Boolean
+                    },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_unknown_field_in_instantiation() {
+        let result = check(&format!("{POINT} let p = P {{ x: 1, z: 2 }};"));
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::NoSuchField { ref field_name, .. },
+                    ..
+                }) if field_name == "z"
+            ),
+            "expected NoSuchField, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_unknown_field_in_access() {
+        let result = check(&format!("{POINT} let p = P {{ x: 1, y: true }}; p.z;"));
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::NoSuchField { ref field_name, .. },
+                    ..
+                }) if field_name == "z"
+            ),
+            "expected NoSuchField, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_struct_field_assignment_mismatch() {
+        let result = check(&format!("{POINT} let p = P {{ x: 1, y: true }}; p.y = 1;"));
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_instantiating_non_struct() {
+        let result = check("let a = 1; let p = (a { x: 1 });");
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::NotAStruct(_),
+                    ..
+                })
+            ),
+            "expected NotAStruct, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_unknown_struct() {
+        let result = check("let p = Q { x: 1 };");
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IdentifierNotFound(ref name),
+                    ..
+                }) if name == "Q"
+            ),
+            "expected IdentifierNotFound, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_accessing_field_of_non_struct() {
+        let result = check("let a = 1; a.x;");
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::NotAStruct(_),
+                    ..
+                })
+            ),
+            "expected NotAStruct, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_duplicate_struct_definition() {
+        let result = check(&format!("{POINT} {POINT}"));
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::DuplicateIdentifiers(_),
+                    ..
+                })
+            ),
+            "expected DuplicateIdentifiers, got {result:?}"
+        );
     }
 }

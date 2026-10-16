@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind},
+    ast::{AtomType, Expression, ExpressionKind, StructDefinition},
     codegen::{
         CodegenErrorKind,
         address::{Address, Register},
@@ -18,6 +18,7 @@ pub const SLOT_SIZE: u32 = 8;
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
+    structs: HashMap<String, StructDefinition>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
@@ -30,6 +31,7 @@ impl<'a> CompileScope<'a> {
         Self {
             parent,
             variables: HashMap::new(),
+            structs: HashMap::new(),
             loop_context: None,
             function_context: None,
             stack_depth: parent.map_or(0, |p| p.stack_depth),
@@ -60,7 +62,7 @@ impl<'a> CompileScope<'a> {
             .or_else(|| self.parent?.function_context())
     }
 
-    fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
+    pub fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
         if let Some(variable) = self.variables.get(name) {
             return Ok(variable);
         }
@@ -113,10 +115,13 @@ impl<'a> CompileScope<'a> {
         name: String,
         t: Type,
     ) -> Result<Instruction, CodegenErrorKind> {
+        let size = u32::try_from(t.size())
+            .unwrap()
+            .next_multiple_of(SLOT_SIZE);
         let address = Address::Stack(i32::try_from(self.stack_depth + SLOT_SIZE).unwrap());
         self.add_variable(name, address, t)?;
-        self.stack_depth += SLOT_SIZE;
-        Ok(Instruction::sub(Register::RSP, SLOT_SIZE))
+        self.stack_depth += size;
+        Ok(Instruction::sub(Register::RSP, size))
     }
 
     pub fn loop_scope(&self) -> Option<&CompileScope<'a>> {
@@ -125,5 +130,15 @@ impl<'a> CompileScope<'a> {
         } else {
             self.parent?.loop_scope()
         }
+    }
+
+    pub fn insert_struct(&mut self, def: StructDefinition) {
+        self.structs.insert(def.name.clone(), def);
+    }
+
+    pub fn lookup_struct(&self, name: &str) -> Option<&StructDefinition> {
+        self.structs
+            .get(name)
+            .or_else(|| self.parent.and_then(|p| p.lookup_struct(name)))
     }
 }

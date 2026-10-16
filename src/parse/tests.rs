@@ -633,3 +633,65 @@ fn expect_char_statement_semicolon() {
     let err = parse(Lexer::new("'a' 'b';").unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";"));
 }
+
+#[test]
+fn parse_struct_definition() {
+    integration_test!(
+        "struct P { x: u32, y: *char }",
+        "struct P {x: u32, y: *char}"
+    );
+}
+
+#[test]
+fn parse_struct_instantiation() {
+    test_parse_expression!("P { x: 1, y: 2 }", "P { x: 1, y: 2 }");
+    test_parse_expression!("P { x: a + 1 }", "P { x: (+ a 1) }");
+    test_parse_expression!("P {}", "P {  }");
+}
+
+#[test]
+fn parse_struct_instantiation_with_struct_field() {
+    test_parse_expression!("A { b: B { x: 1 } }", "A { b: B { x: 1 } }");
+}
+
+#[test]
+fn parse_struct_access() {
+    test_parse_expression!("p.x", "p.x");
+    test_parse_expression!("p.x + p.y", "(+ p.x p.y)");
+    test_parse_expression!("foo(p.x)", "foo(p.x)");
+}
+
+#[test]
+fn parse_struct_access_assignment() {
+    integration_test!("p.x = 3;", "p.x = 3");
+    integration_test!("p.x += 1;", "p.x = (+ p.x 1)");
+}
+
+#[test]
+fn parse_if_condition_ending_in_identifier_is_not_struct() {
+    integration_test!("if a == b { c++; }", "if (== a b) {\n(++ c)\n}");
+}
+
+#[test]
+fn parse_while_condition_ending_in_identifier_is_not_struct() {
+    integration_test!("while a { a--; }", "while a {\n(-- a)\n}");
+}
+
+#[test]
+fn parse_struct_in_parenthesized_condition() {
+    integration_test!("if (P { x: 1 }) == p { }", "if (== P { x: 1 } p) {\n\n}");
+}
+
+#[test]
+fn expect_colon_in_struct_instantiation() {
+    let err = parse(Lexer::new("let p = P { x 1 };").unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ":"));
+}
+
+#[test]
+fn expect_field_name_in_struct_access() {
+    let err = parse(Lexer::new("p.1;").unwrap()).unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "field name")
+    );
+}

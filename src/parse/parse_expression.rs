@@ -31,7 +31,9 @@ pub fn parse_expression_or_assignment(
 
 fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assignment, ParseError> {
     match lhs.kind {
-        ExpressionKind::Atom(AtomType::Identifier(_)) | ExpressionKind::Index(_, _) => {}
+        ExpressionKind::Atom(AtomType::Identifier(_))
+        | ExpressionKind::Index(_, _)
+        | ExpressionKind::StructAccess { .. } => {}
         _ => return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span)),
     }
 
@@ -56,11 +58,23 @@ fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assig
 }
 
 pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, ParseError> {
+    parse_expression_with(lexer, min_bp, true)
+}
+
+pub fn parse_condition(lexer: &mut Lexer) -> Result<Expression, ParseError> {
+    parse_expression_with(lexer, 0, false)
+}
+
+fn parse_expression_with(
+    lexer: &mut Lexer,
+    min_bp: u8,
+    allow_struct: bool,
+) -> Result<Expression, ParseError> {
     let token = lexer.next_or_eof("expression")?;
 
     let mut lhs = match &token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => {
-            parse_identifier_or_function_call_or_struct(lexer, s, token.span)?
+            parse_identifier_or_function_call_or_struct(lexer, s, token.span, allow_struct)?
         }
         Token::Atom(it) => Expression::new(
             ExpressionKind::Atom(AtomType::from_lexer_atom(it)),
@@ -76,7 +90,7 @@ pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, Par
             let Some(op) = UnaryOp::from_token(op) else {
                 return Err(expected("expression", token));
             };
-            let rhs = parse_expression(lexer, UnaryOp::BINDING_POWER)?;
+            let rhs = parse_expression_with(lexer, UnaryOp::BINDING_POWER, allow_struct)?;
             Expression::new(ExpressionKind::Unary(op, Box::new(rhs)), token.span)
         }
     };
@@ -136,7 +150,7 @@ pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, Par
                 break;
             }
             lexer.next();
-            let rhs = parse_expression(lexer, r_bp)?;
+            let rhs = parse_expression_with(lexer, r_bp, allow_struct)?;
             let span = lhs.span;
             lhs = Expression::new(
                 ExpressionKind::Binary(op, Box::new(lhs), Box::new(rhs)),
@@ -155,6 +169,7 @@ fn parse_identifier_or_function_call_or_struct(
     lexer: &mut Lexer,
     s: &str,
     span: Span,
+    allow_struct: bool,
 ) -> Result<Expression, ParseError> {
     if matches!(s, "true" | "false") {
         return Ok(Expression::new(
@@ -167,9 +182,10 @@ fn parse_identifier_or_function_call_or_struct(
         Some(Token::Op(OperatorType::OpenParen)) => {
             parse_function_call(lexer, s.to_string(), span)?
         }
-        Some(Token::Op(OperatorType::OpenCurly)) => {
+        Some(Token::Op(OperatorType::OpenCurly)) if allow_struct => {
             parse_struct_instantiation(lexer, s.to_string(), span)?
         }
+        Some(Token::Op(OperatorType::Dot)) => parse_struct_access(lexer, s.to_string(), span)?,
         _ => Expression::new(
             ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
             span,
@@ -235,7 +251,31 @@ fn parse_struct_instantiation(
     }
 
     Ok(Expression::new(
-        ExpressionKind::StructInstantiation(struct_type_name, fields),
+        ExpressionKind::StructInstantiation {
+            struct_type_name,
+            fields,
+        },
+        span,
+    ))
+}
+
+fn parse_struct_access(
+    lexer: &mut Lexer,
+    struct_name: String,
+    span: Span,
+) -> Result<Expression, ParseError> {
+    lexer.expect(".")?;
+
+    let token = lexer.next_or_eof("field name")?;
+    let Token::Atom(LexerAtomType::Identifier(field_name)) = &token.token_type else {
+        return Err(expected("field name", token));
+    };
+
+    Ok(Expression::new(
+        ExpressionKind::StructAccess {
+            struct_var_name: struct_name,
+            field_name: field_name.clone(),
+        },
         span,
     ))
 }

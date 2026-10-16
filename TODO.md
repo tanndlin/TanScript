@@ -1,6 +1,5 @@
 - Memory-destination ops (add/sub/cmp/... on a stack slot) need their operand size from the destination type, not the immediate, or narrower locals get clobbered
 - Stack arrays
-- Structs
 - Match blocks
 - Floating point
 - import other .tan files

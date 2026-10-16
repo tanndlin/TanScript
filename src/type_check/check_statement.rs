@@ -1,7 +1,8 @@
 use crate::{
     ast::{
         Assignment, AtomType, Block, Declaration, ExpressionKind, ForLoop, FunctionDefinition,
-        IfStatement, ReturnStatement, Statement, StatementOrExpression, WhileLoop,
+        IfStatement, ReturnStatement, Statement, StatementOrExpression, StructDefinition,
+        WhileLoop,
     },
     error::At,
     type_check::{
@@ -68,10 +69,11 @@ impl Statement {
             Self::Declaration(s) => s.check_types(type_scope),
             Self::ForLoop(s) => s.check_types(type_scope),
             Self::FunctionDefinition(s) => s.check_types(type_scope),
+            Self::StructDefinition(s) => s.check_types(type_scope),
             Self::IfStatement(s) => s.check_types(type_scope),
             Self::Return(s) => s.check_types(type_scope),
             Self::WhileLoop(s) => s.check_types(type_scope),
-            Self::Break(_) | Self::Continue(_) | Self::StructDefinition(_) => Ok(()),
+            Self::Break(_) | Self::Continue(_) => Ok(()),
         }
     }
 
@@ -173,6 +175,17 @@ impl FunctionDefinition {
             }
             .at(self.span));
         }
+        Ok(())
+    }
+}
+
+impl StructDefinition {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        if type_scope.lookup(&self.name).is_some() {
+            return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
+        }
+
+        type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
         Ok(())
     }
 }

@@ -28,7 +28,11 @@ impl Statement {
             Statement::Assignment(s) => s.compile(compile_scope, register_handler),
             Statement::Declaration(s) => s.compile(compile_scope, register_handler),
             Statement::ForLoop(s) => s.compile(compile_scope, register_handler),
-            Statement::FunctionDefinition(_) | Statement::StructDefinition(_) => Ok(vec![]),
+            Statement::FunctionDefinition(_) => Ok(vec![]),
+            Statement::StructDefinition(def) => {
+                compile_scope.insert_struct(def.clone());
+                Ok(vec![])
+            }
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),
@@ -85,6 +89,21 @@ impl Assignment {
 
                     Ok(instructions)
                 })
+            }
+            ExpressionKind::StructAccess {
+                struct_var_name,
+                field_name,
+            } => {
+                let (Address::Stack(struct_address), Type::Struct(struct_def)) =
+                    compile_scope.lookup(struct_var_name).at(self.lhs.span)?
+                else {
+                    panic!()
+                };
+
+                let offset = i32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
+                let address = Address::Stack(*struct_address + offset);
+                self.expression
+                    .compile(compile_scope, address, register_handler)
             }
             _ => Err(CodegenErrorKind::InvalidAssignTarget(self.lhs.to_string()).at(self.lhs.span)),
         }

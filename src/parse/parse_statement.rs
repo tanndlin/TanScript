@@ -11,7 +11,7 @@ use crate::{
     lex::{Lexer, LexerAtomType},
     parse::{
         ParseError, ParseErrorKind, expected,
-        parse_expression::{parse_expression, parse_expression_or_assignment},
+        parse_expression::{parse_condition, parse_expression, parse_expression_or_assignment},
     },
     type_check::Type,
     types::Token,
@@ -84,7 +84,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
 
 fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, ParseError> {
     lexer.expect("while")?;
-    let condition = parse_expression(lexer, 0)?;
+    let condition = parse_condition(lexer)?;
     let block = parse_block(lexer)?;
     Ok(WhileLoop { condition, block })
 }
@@ -109,7 +109,7 @@ fn parse_for_loop(lexer: &mut Lexer) -> Result<ForLoop, ParseError> {
 
 fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
     lexer.expect("if")?;
-    let condition = parse_expression(lexer, 0)?;
+    let condition = parse_condition(lexer)?;
     let block = parse_block(lexer)?;
     let else_block = match lexer.peek() {
         None => None,

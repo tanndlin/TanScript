@@ -1,18 +1,33 @@
 use std::fmt;
 
 use crate::{
+    ast::StructDefinition,
     error::{At, Spanned},
     type_check::Type,
 };
 
 #[derive(Debug)]
 pub enum TypeCheckErrorKind {
-    TypeMismatch { expected: Type, got: Type },
+    TypeMismatch {
+        expected: Type,
+        got: Type,
+    },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
-    Uncastable { lhs_type: Type, casted_type: Type },
-    IncorrectNumberOfArgs { expected: usize, given: usize },
+    Uncastable {
+        lhs_type: Type,
+        casted_type: Type,
+    },
+    IncorrectNumberOfArgs {
+        expected: usize,
+        given: usize,
+    },
     NotAStruct(String),
+    NoSuchField {
+        struct_type: StructDefinition,
+        field_name: String,
+    },
+    DuplicateIdentifiers(String),
 }
 
 impl At for TypeCheckErrorKind {}
@@ -44,6 +59,14 @@ impl fmt::Display for TypeCheckErrorKind {
                 )
             }
             Self::NotAStruct(given_type) => write!(f, "Type: ({given_type}) is not a struct"),
+            Self::NoSuchField {
+                struct_type,
+                field_name,
+            } => write!(
+                f,
+                "Struct: ({struct_type}) does not contain a field called ({field_name})"
+            ),
+            Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
         }
     }
 }

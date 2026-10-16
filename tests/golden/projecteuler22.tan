@@ -44,25 +44,32 @@ def nameScore(name: *char, length: u32): u32 {
     score
 }
 
+struct List {
+    arr: **char,
+    length: u32,
+}
+
 let fp = fopen("names.txt", "rb");
 fflush(0);
 
 let total = 0;
 let index = 0;
 
-let numNames = 5163;
-let names: **char = malloc(8 * numNames);
+let names = List {
+    arr: malloc(8 * 5163),
+    length: 5163,
+};
 
 let buf: *char = malloc(12);
 while fscanf(fp, "\"%[^\"]\",", buf) == 1 {
-    names[index++] = buf;
+    names.arr[index++] = buf;
     buf = malloc(12);
 }
 
-mergeSort(names, 0, numNames-1);
+mergeSort(names.arr, 0, names.length - 1);
 
-for(let i = 0; i < numNames; i++) {
-    total += nameScore(names[i], strlen(names[i])) * (i + 1);
+for(let i = 0; i < names.length; i++) {
+    total += nameScore(names.arr[i], strlen(names.arr[i])) * (i + 1);
 }
 
 printf("Total: %d\n", total);

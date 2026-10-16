@@ -42,8 +42,10 @@ impl Type {
     pub fn size(&self) -> usize {
         match self {
             Self::Int(int) => int.size(),
+            Self::Struct(s) => s.size(),
+            Self::Unit => 0,
             Self::Boolean | Self::Char => 1,
-            _ => 8,
+            Self::Function(_) | Self::Pointer(_) | Self::Unknown => 8,
         }
     }
 

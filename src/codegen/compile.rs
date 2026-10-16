@@ -178,15 +178,27 @@ impl Expression {
             ExpressionKind::Cast(inner, cast_type) => {
                 compile_cast(inner, cast_type, compile_scope, dst, register_handler)
             }
-            ExpressionKind::StructInstantiation(struct_type, fields) => {
-                compile_struct_instantiation(
-                    struct_type,
-                    fields,
-                    compile_scope,
-                    dst,
-                    register_handler,
-                )
-            }
+            ExpressionKind::StructInstantiation {
+                struct_type_name,
+                fields,
+            } => compile_struct_instantiation(
+                struct_type_name,
+                fields,
+                compile_scope,
+                dst,
+                register_handler,
+            ),
+            ExpressionKind::StructAccess {
+                struct_var_name,
+                field_name,
+            } => compile_struct_access(
+                struct_var_name,
+                field_name,
+                compile_scope,
+                dst,
+                register_handler,
+                self.span,
+            ),
         }
     }
 
@@ -197,7 +209,6 @@ impl Expression {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         match &self.kind {
-            ExpressionKind::Atom(_) => Ok(vec![]),
             ExpressionKind::Postfix(op, lhs) => {
                 compile_postfix_update(*op, lhs, compile_scope, register_handler)
             }
@@ -216,7 +227,9 @@ impl Expression {
                 instructions.extend(right.compile_discarded(compile_scope, register_handler)?);
                 Ok(instructions)
             }
-            ExpressionKind::StructInstantiation(struct_type, fields) => Ok(vec![]),
+            ExpressionKind::Atom(_)
+            | ExpressionKind::StructInstantiation { .. }
+            | ExpressionKind::StructAccess { .. } => Ok(vec![]),
         }
     }
 }
@@ -369,13 +382,65 @@ fn compile_index(
 }
 
 fn compile_struct_instantiation(
-    struct_type: &str,
+    struct_type_name: &str,
     fields: &[(String, Expression)],
     compile_scope: &mut CompileScope<'_>,
     dst: Address,
     register_handler: &mut RegisterHandler,
-) -> Result<Vec<Instruction>, crate::error::Spanned<CodegenErrorKind>> {
-    todo!()
+) -> Result<Vec<Instruction>, CodegenError> {
+    let struct_def = compile_scope
+        .lookup_struct(struct_type_name)
+        .unwrap()
+        .clone();
+
+    let Address::Stack(stack_offset_start) = dst else {
+        panic!("Cannot put a struct into a register")
+    };
+
+    let mut offset = 0;
+    let mut instructions = vec![];
+    for (field_name, expr) in fields {
+        let field_def = struct_def
+            .fields
+            .iter()
+            .find(|f| f.name == *field_name)
+            .unwrap();
+
+        instructions.extend(register_handler.lease_with_scope(|register_handler, reg| {
+            let mut field = expr.compile(compile_scope, reg, register_handler)?;
+            field.push(Instruction::mov(
+                Address::Stack(stack_offset_start + offset),
+                reg,
+            ));
+
+            Ok(field)
+        })?);
+
+        offset += i32::try_from(field_def.ftype.size()).unwrap();
+    }
+
+    Ok(instructions)
+}
+
+fn compile_struct_access(
+    struct_var_name: &str,
+    field_name: &str,
+    compile_scope: &mut CompileScope<'_>,
+    dst: Address,
+    _register_handler: &mut RegisterHandler,
+    span: Span,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let (Address::Stack(struct_address), Type::Struct(struct_def)) =
+        compile_scope.lookup(struct_var_name).at(span)?
+    else {
+        panic!()
+    };
+
+    let offset = i32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
+    Ok(vec![Instruction::mov(
+        dst,
+        Address::Stack(*struct_address + offset),
+    )])
 }
 
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
