@@ -11,6 +11,7 @@ pub enum TypeCheckErrorKind {
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
     Uncastable { lhs_type: Type, casted_type: Type },
+    IncorrectNumberOfArgs { expected: usize, given: usize },
 }
 
 impl At for TypeCheckErrorKind {}
@@ -34,6 +35,12 @@ impl fmt::Display for TypeCheckErrorKind {
                 casted_type,
             } => {
                 write!(f, "Cannot cast type: ({lhs_type}) as ({casted_type})")
+            }
+            Self::IncorrectNumberOfArgs { expected, given } => {
+                write!(
+                    f,
+                    "Incorrect number of args passed to function. Expected: ({expected}), got: ({given})"
+                )
             }
         }
     }

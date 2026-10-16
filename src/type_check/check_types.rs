@@ -61,6 +61,14 @@ pub fn check_types_expression(
 
             match type_scope.lookup(function_name) {
                 Some(Type::Function(function_type)) => {
+                    if given_args.len() != function_type.args.len() {
+                        return Err(TypeCheckErrorKind::IncorrectNumberOfArgs {
+                            expected: function_type.args.len(),
+                            given: given_args.len(),
+                        }
+                        .at(expression.span));
+                    }
+
                     let function_type = function_type.clone();
                     given_args
                         .iter()
@@ -733,5 +741,148 @@ mod test {
             ),
             "expected TypeMismatch, got {result:?}"
         );
+    }
+
+    #[test]
+    fn supports_correct_number_of_args() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn supports_calling_zero_arg_function_with_no_args() -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new("def f () {} f();").unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    #[test]
+    fn type_error_for_too_few_args() {
+        let mut program =
+            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1);").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 2,
+                        given: 1
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_too_many_args() {
+        let mut program =
+            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1, 2, 3);").unwrap())
+                .unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 2,
+                        given: 3
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_no_args_to_function_with_params() {
+        let mut program = parse(Lexer::new("def f (a: u32) {} f();").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 1,
+                        given: 0
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_args_to_zero_arg_function() {
+        let mut program = parse(Lexer::new("def f () {} f(1);").unwrap()).unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 0,
+                        given: 1
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_incorrect_number_of_args_in_nested_call() {
+        let mut program = parse(
+            Lexer::new("def add (a: u32, b: u32): u32 {a + b} let x: u32 = add(add(1), 2);")
+                .unwrap(),
+        )
+        .unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 2,
+                        given: 1
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_incorrect_number_of_args_inside_function_body() {
+        let mut program =
+            parse(Lexer::new("def f (a: u32): u32 {a} def g (): u32 { f(1, 2) }").unwrap())
+                .unwrap();
+        let result = check_types(&mut program);
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
+                        expected: 1,
+                        given: 2
+                    },
+                    ..
+                })
+            ),
+            "expected IncorrectNumberOfArgs, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn supports_any_number_of_args_to_extern() -> Result<(), TypeCheckError> {
+        let mut program =
+            parse(Lexer::new("printf(\"%d\"); printf(\"%d %d\", 1, 2);").unwrap()).unwrap();
+        check_types(&mut program)
     }
 }
