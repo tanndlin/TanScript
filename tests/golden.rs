@@ -81,7 +81,7 @@ fn run_golden(tan: &Path, work_dir: &Path) -> Result<Option<String>, String> {
 }
 
 fn normalize(s: &str) -> String {
-    s.replace("\r\n", "\n")
+    s.replace('\r', "")
 }
 
 fn check(tan: &Path, stdout: Option<String>, bless: bool) -> Result<(), String> {
