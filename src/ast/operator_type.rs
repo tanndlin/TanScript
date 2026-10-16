@@ -44,7 +44,6 @@ operators! {
     OpenBracket => "[",
     CloseBracket => "]",
     Not => "!",
-    Comma => ",",
     AddAssign => "+=",
     SubAssign => "-=",
     MulAssign => "*=",
@@ -52,6 +51,7 @@ operators! {
     ModAssign => "%=",
     Increment => "++",
     Decrement => "--",
+    Dot => ".",
     Cast => "as",
 }
 

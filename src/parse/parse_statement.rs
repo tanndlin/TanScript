@@ -4,7 +4,8 @@ use crate::{
     ast::{
         Arg, Assignment, AtomType, Block, BreakStatement, ContinueStatement, Declaration,
         Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, OperatorType,
-        ReturnStatement, Statement, StatementOrExpression, WhileLoop,
+        ReturnStatement, Statement, StatementOrExpression, StructDefinition, StructField,
+        WhileLoop,
     },
     error::At,
     lex::{Lexer, LexerAtomType},
@@ -54,7 +55,8 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
             LexerAtomType::Number(_)
             | LexerAtomType::String(_)
             | LexerAtomType::Char(_)
-            | LexerAtomType::Colon,
+            | LexerAtomType::Colon
+            | LexerAtomType::Comma,
         ) => {
             return Ok(None);
         }
@@ -66,6 +68,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
         "for" => parse_for_loop(lexer)?.into(),
         "if" => parse_if_statement(lexer)?.into(),
         "def" => parse_function_definition(lexer)?.into(),
+        "struct" => parse_struct_definition(lexer)?.into(),
         "return" => parse_return(lexer)?.into(),
         "break" => {
             let span = lexer.next().unwrap().span;
@@ -235,7 +238,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
 
         let tok = lexer.next_or_eof(", or )")?;
         match tok.token_type {
-            Token::Op(OperatorType::Comma) => {}
+            Token::Atom(LexerAtomType::Comma) => {}
             Token::Op(OperatorType::CloseParen) => break,
             _ => return Err(expected(", or )", tok)),
         }
@@ -322,4 +325,42 @@ fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, ParseError> {
         _ => Some(parse_expression(lexer, 0)?),
     };
     Ok(ReturnStatement { expr, span })
+}
+
+fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseError> {
+    lexer.expect("struct")?;
+    let tok = lexer.next_or_eof("identifier")?;
+    let span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(struct_name)) = tok.token_type else {
+        return Err(expected("identifier", tok));
+    };
+
+    lexer.expect("{")?;
+    let mut fields = vec![];
+    loop {
+        let tok = lexer.peek_or_eof("field name or }")?;
+        if !matches!(tok.token_type, Token::Atom(LexerAtomType::Identifier(_))) {
+            break;
+        }
+        let Token::Atom(LexerAtomType::Identifier(name)) = lexer.next().unwrap().token_type else {
+            unreachable!();
+        };
+        lexer.expect(":")?;
+        let ftype = parse_type(lexer)?;
+        fields.push(StructField { name, ftype });
+
+        let tok = lexer.peek_or_eof(", or }")?;
+        if tok.token_type == Token::Atom(LexerAtomType::Comma) {
+            lexer.next();
+        } else {
+            break;
+        }
+    }
+    lexer.expect("}")?;
+
+    Ok(StructDefinition {
+        name: struct_name,
+        fields,
+        span,
+    })
 }

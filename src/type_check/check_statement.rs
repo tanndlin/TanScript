@@ -71,7 +71,7 @@ impl Statement {
             Self::IfStatement(s) => s.check_types(type_scope),
             Self::Return(s) => s.check_types(type_scope),
             Self::WhileLoop(s) => s.check_types(type_scope),
-            Self::Break(_) | Self::Continue(_) => Ok(()),
+            Self::Break(_) | Self::Continue(_) | Self::StructDefinition(_) => Ok(()),
         }
     }
 
@@ -82,7 +82,11 @@ impl Statement {
             Self::FunctionDefinition(s) => s.body.resolve_types(type_scope),
             Self::IfStatement(s) => s.resolve_types(type_scope),
             Self::WhileLoop(s) => s.block.resolve_types(type_scope),
-            Self::Assignment(_) | Self::Return(_) | Self::Break(_) | Self::Continue(_) => {}
+            Self::Assignment(_)
+            | Self::Return(_)
+            | Self::Break(_)
+            | Self::Continue(_)
+            | Self::StructDefinition(_) => {}
         }
     }
 }

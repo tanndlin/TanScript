@@ -11,7 +11,10 @@ pub use type_scope::TypeScope;
 use core::fmt;
 use std::str::FromStr;
 
-use crate::{ast::AtomType, types::IntType};
+use crate::{
+    ast::{AtomType, StructDefinition},
+    types::IntType,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
@@ -25,6 +28,7 @@ pub enum Type {
     Char,
     Boolean,
     Function(Box<FunctionType>), // Types of args
+    Struct(Box<StructDefinition>),
     Pointer(Box<Type>),
     Unit,
     Unknown,
@@ -90,6 +94,7 @@ impl fmt::Display for Type {
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Boolean => write!(f, "bool"),
+            Type::Struct(_) => write!(f, "struct"),
         }
     }
 }

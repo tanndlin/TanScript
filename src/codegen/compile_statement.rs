@@ -28,7 +28,7 @@ impl Statement {
             Statement::Assignment(s) => s.compile(compile_scope, register_handler),
             Statement::Declaration(s) => s.compile(compile_scope, register_handler),
             Statement::ForLoop(s) => s.compile(compile_scope, register_handler),
-            Statement::FunctionDefinition(_) => Ok(vec![]),
+            Statement::FunctionDefinition(_) | Statement::StructDefinition(_) => Ok(vec![]),
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),

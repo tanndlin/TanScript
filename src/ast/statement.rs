@@ -1,9 +1,8 @@
-use derive_more::{Display, From};
-
 use crate::ast::{
     Assignment, BreakStatement, ContinueStatement, Declaration, ForLoop, FunctionDefinition,
-    IfStatement, ReturnStatement, WhileLoop,
+    IfStatement, ReturnStatement, StructDefinition, WhileLoop,
 };
+use derive_more::{Display, From};
 
 #[derive(Debug, Clone, From, Display)]
 pub enum Statement {
@@ -11,6 +10,7 @@ pub enum Statement {
     Declaration(Declaration),
     ForLoop(ForLoop),
     FunctionDefinition(FunctionDefinition),
+    StructDefinition(StructDefinition),
     IfStatement(IfStatement),
     Return(ReturnStatement),
     WhileLoop(WhileLoop),
@@ -24,9 +24,10 @@ impl Statement {
         !matches!(
             self,
             Statement::ForLoop(_)
-                | Statement::FunctionDefinition(_)
                 | Statement::IfStatement(_)
                 | Statement::WhileLoop(_)
+                | Statement::FunctionDefinition(_)
+                | Statement::StructDefinition(_)
         )
     }
 }

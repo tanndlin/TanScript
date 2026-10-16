@@ -14,6 +14,7 @@ mod program;
 mod return_statement;
 mod statement;
 mod statement_or_expression;
+mod struct_definition;
 mod while_loop;
 
 pub use assignment::Assignment;
@@ -32,4 +33,5 @@ pub use program::Program;
 pub use return_statement::ReturnStatement;
 pub use statement::Statement;
 pub use statement_or_expression::StatementOrExpression;
+pub use struct_definition::{StructDefinition, StructField};
 pub use while_loop::WhileLoop;

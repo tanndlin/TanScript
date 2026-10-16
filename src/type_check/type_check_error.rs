@@ -12,6 +12,7 @@ pub enum TypeCheckErrorKind {
     IdentifierNotFound(String),
     Uncastable { lhs_type: Type, casted_type: Type },
     IncorrectNumberOfArgs { expected: usize, given: usize },
+    NotAStruct(String),
 }
 
 impl At for TypeCheckErrorKind {}
@@ -42,6 +43,7 @@ impl fmt::Display for TypeCheckErrorKind {
                     "Incorrect number of args passed to function. Expected: ({expected}), got: ({given})"
                 )
             }
+            Self::NotAStruct(given_type) => write!(f, "Type: ({given_type}) is not a struct"),
         }
     }
 }

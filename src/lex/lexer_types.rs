@@ -10,6 +10,7 @@ pub enum LexerAtomType {
     Char(char),
     Semicolon,
     Colon,
+    Comma,
 }
 
 impl fmt::Display for LexerAtomType {
@@ -21,6 +22,7 @@ impl fmt::Display for LexerAtomType {
             LexerAtomType::Char(c) => write!(f, "'{}'", c.escape_default()),
             LexerAtomType::Semicolon => write!(f, ";"),
             LexerAtomType::Colon => write!(f, ":"),
+            LexerAtomType::Comma => write!(f, ","),
         }
     }
 }

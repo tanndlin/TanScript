@@ -22,6 +22,7 @@ impl AtomType {
             LexerAtomType::Char(c) => AtomType::Char(*c),
             LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
             LexerAtomType::Colon => AtomType::Colon,
+            LexerAtomType::Comma => panic!("Unexpected comma"),
         }
     }
 }

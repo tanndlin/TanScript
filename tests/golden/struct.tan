@@ -1,0 +1,17 @@
+struct Person {
+    name: *char,
+    length: u32,
+    age: u32,
+}
+
+let person = Person {
+    name: "Tanner",
+    length: 6,
+    age: 25,
+}
+
+printf("%s's age: %d\n", person.name, person.age);
+
+person.name = "Someone";
+person.age = 69;
+printf("%s's age: %d\n", person.name, person.age);

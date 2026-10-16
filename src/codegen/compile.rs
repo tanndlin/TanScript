@@ -178,6 +178,15 @@ impl Expression {
             ExpressionKind::Cast(inner, cast_type) => {
                 compile_cast(inner, cast_type, compile_scope, dst, register_handler)
             }
+            ExpressionKind::StructInstantiation(struct_type, fields) => {
+                compile_struct_instantiation(
+                    struct_type,
+                    fields,
+                    compile_scope,
+                    dst,
+                    register_handler,
+                )
+            }
         }
     }
 
@@ -207,6 +216,7 @@ impl Expression {
                 instructions.extend(right.compile_discarded(compile_scope, register_handler)?);
                 Ok(instructions)
             }
+            ExpressionKind::StructInstantiation(struct_type, fields) => Ok(vec![]),
         }
     }
 }
@@ -356,6 +366,16 @@ fn compile_index(
 
         Ok(instructions)
     })
+}
+
+fn compile_struct_instantiation(
+    struct_type: &str,
+    fields: &[(String, Expression)],
+    compile_scope: &mut CompileScope<'_>,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, crate::error::Spanned<CodegenErrorKind>> {
+    todo!()
 }
 
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {

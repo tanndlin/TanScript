@@ -80,6 +80,10 @@ impl Lexer {
                     chars.pop();
                     tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Colon), span));
                 }
+                ',' => {
+                    chars.pop();
+                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Comma), span));
+                }
                 _ => {
                     return Err(LexErrorKind::UnknownCharacter(cur).at(span));
                 }
@@ -131,6 +135,7 @@ impl Lexer {
                 LexerAtomType::Identifier(s) | LexerAtomType::String(s) => s.clone(),
                 LexerAtomType::Semicolon => ";".to_string(),
                 LexerAtomType::Colon => ":".to_string(),
+                LexerAtomType::Comma => ",".to_string(),
             },
             Token::Op(cur) => cur.to_string(),
         };

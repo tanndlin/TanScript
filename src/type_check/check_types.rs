@@ -129,6 +129,20 @@ pub fn check_types_expression(
                 .at(expression.span));
             }
         }
+        ExpressionKind::StructInstantiation(struct_type, fields) => {
+            match type_scope.lookup(struct_type) {
+                Some(Type::Struct(struct_def)) => Type::Struct(struct_def.clone()),
+                Some(_) => {
+                    return Err(
+                        TypeCheckErrorKind::NotAStruct(struct_type.clone()).at(expression.span)
+                    );
+                }
+                None => {
+                    return Err(TypeCheckErrorKind::IdentifierNotFound(struct_type.clone())
+                        .at(expression.span));
+                }
+            }
+        }
     })
 }
 

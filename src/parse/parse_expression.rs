@@ -60,7 +60,7 @@ pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, Par
 
     let mut lhs = match &token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => {
-            parse_identifier_or_function_call(lexer, s, token.span)?
+            parse_identifier_or_function_call_or_struct(lexer, s, token.span)?
         }
         Token::Atom(it) => Expression::new(
             ExpressionKind::Atom(AtomType::from_lexer_atom(it)),
@@ -151,7 +151,7 @@ pub fn parse_expression(lexer: &mut Lexer, min_bp: u8) -> Result<Expression, Par
     Ok(lhs)
 }
 
-fn parse_identifier_or_function_call(
+fn parse_identifier_or_function_call_or_struct(
     lexer: &mut Lexer,
     s: &str,
     span: Span,
@@ -166,6 +166,9 @@ fn parse_identifier_or_function_call(
     Ok(match lexer.peek().map(|t| &t.token_type) {
         Some(Token::Op(OperatorType::OpenParen)) => {
             parse_function_call(lexer, s.to_string(), span)?
+        }
+        Some(Token::Op(OperatorType::OpenCurly)) => {
+            parse_struct_instantiation(lexer, s.to_string(), span)?
         }
         _ => Expression::new(
             ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
@@ -191,10 +194,48 @@ fn parse_function_call(lexer: &mut Lexer, s: String, span: Span) -> Result<Expre
         let next = lexer.next_or_eof(", or )")?;
         match next.token_type {
             Token::Op(OperatorType::CloseParen) => break,
-            Token::Op(OperatorType::Comma) => (),
+            Token::Atom(LexerAtomType::Comma) => (),
             _ => return Err(expected(", or )", next)),
         }
     }
 
     Ok(Expression::new(ExpressionKind::FunctionCall(s, args), span))
+}
+
+fn parse_struct_instantiation(
+    lexer: &mut Lexer,
+    struct_type_name: String,
+    span: Span,
+) -> Result<Expression, ParseError> {
+    lexer.expect("{")?;
+    let mut fields = vec![];
+    loop {
+        let next = lexer.peek_or_eof("}")?;
+        if next.token_type == Token::Op(OperatorType::CloseCurly) {
+            lexer.next().unwrap();
+            break;
+        }
+
+        let token = lexer.next_or_eof("field name")?;
+        let Token::Atom(LexerAtomType::Identifier(field_name)) = &token.token_type else {
+            return Err(expected("field name", token));
+        };
+        let field_name = field_name.clone();
+
+        lexer.expect(":")?;
+        let value = parse_expression(lexer, 0)?;
+        fields.push((field_name, value));
+
+        let next = lexer.next_or_eof(", or }")?;
+        match next.token_type {
+            Token::Op(OperatorType::CloseCurly) => break,
+            Token::Atom(LexerAtomType::Comma) => (),
+            _ => return Err(expected(", or }", next)),
+        }
+    }
+
+    Ok(Expression::new(
+        ExpressionKind::StructInstantiation(struct_type_name, fields),
+        span,
+    ))
 }

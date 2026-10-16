@@ -33,6 +33,7 @@ pub enum ExpressionKind {
     FunctionCall(String, Vec<Expression>),
     Index(Box<Expression>, Box<Expression>),
     Cast(Box<Expression>, Type),
+    StructInstantiation(String, Vec<(String, Expression)>),
 }
 
 impl fmt::Display for ExpressionKind {
@@ -55,6 +56,17 @@ impl fmt::Display for ExpressionKind {
             ExpressionKind::Index(lhs, index) => write!(f, "({lhs}[{index}])"),
             ExpressionKind::Cast(expression, cast_type) => {
                 write!(f, "({expression} as {cast_type})")
+            }
+            ExpressionKind::StructInstantiation(struct_type, fields) => {
+                write!(
+                    f,
+                    "{struct_type} {{ {} }}",
+                    fields
+                        .iter()
+                        .map(|(field_name, expr)| format!("{field_name}: {expr}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         }
     }

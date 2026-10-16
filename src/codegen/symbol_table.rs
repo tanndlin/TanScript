@@ -65,7 +65,8 @@ impl Statement {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);
             }
-            Self::Continue(_) | Self::Break(_) => {}
+            Statement::Continue(_) | Statement::Break(_) => {}
+            Statement::StructDefinition(_) => {}
         }
     }
 }
@@ -93,6 +94,9 @@ impl Expression {
                 index.discover(symbols);
             }
             ExpressionKind::Cast(expression, _) => expression.discover(symbols),
+            ExpressionKind::StructInstantiation(_, fields) => {
+                fields.iter().for_each(|(_, expr)| expr.discover(symbols))
+            }
         }
     }
 }
