@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::Path};
 
-use crate::error::Spanned;
+use crate::error::CompilerError;
 
 const RED: &str = "\x1b[1;31m";
 const BLUE: &str = "\x1b[1;34m";
@@ -25,19 +25,18 @@ impl Style {
     }
 
     pub fn message(&self, message: impl Display) -> String {
+        self.header("error", message)
+    }
+
+    fn header(&self, label: &str, message: impl Display) -> String {
         format!(
             "{}{}",
-            self.paint(RED, "error"),
+            self.paint(RED, label),
             self.paint(BOLD, &format!(": {message}"))
         )
     }
 
-    pub fn render<K: Display>(
-        &self,
-        error: &Spanned<K>,
-        source: &str,
-        path: impl AsRef<Path>,
-    ) -> String {
+    pub fn render(&self, error: &CompilerError, source: &str, path: impl AsRef<Path>) -> String {
         let line_index = error.span.line as usize;
         let col = error.span.col as usize;
         let line = source.lines().nth(line_index).unwrap_or("");
@@ -53,7 +52,7 @@ impl Style {
 
         format!(
             "{}\n{gutter}{} {}:{}\n{gutter} {}\n{} {} {line}\n{gutter} {} {padding}{}\n",
-            self.message(&error.kind),
+            self.header(&format!("error[{}]", error.kind.stage()), &error.kind),
             self.paint(BLUE, "-->"),
             path.as_ref().display(),
             error.span,
@@ -78,14 +77,15 @@ mod test {
 
     use crate::{
         diagnostic::Style,
-        error::At,
+        error::{At, CompilerError},
         type_check::{Type, TypeCheckErrorKind},
         types::{IntType, Span},
     };
 
     fn render(source: &str, line: u32, col: u32) -> String {
-        let error =
-            TypeCheckErrorKind::IdentifierNotFound("foo".to_string()).at(Span::new(line, col));
+        let error: CompilerError = TypeCheckErrorKind::IdentifierNotFound("foo".to_string())
+            .at(Span::new(line, col))
+            .into();
         Style::new(false).render(&error, source, Path::new("main.tan"))
     }
 
@@ -93,7 +93,7 @@ mod test {
     fn renders_source_line_with_caret() {
         assert_eq!(
             render("let a = 1;\nlet b = foo;", 1, 8),
-            "error: Identifer: (foo) not found\n \
+            "error[type check]: Identifer: (foo) not found\n \
              --> main.tan:2:9\n  \
              |\n\
              2 | let b = foo;\n  \
@@ -119,11 +119,12 @@ mod test {
 
     #[test]
     fn handles_span_past_end_of_source() {
-        let error = TypeCheckErrorKind::TypeMismatch {
+        let error: CompilerError = TypeCheckErrorKind::TypeMismatch {
             expected: Type::Int(IntType::I32),
             got: Type::Boolean,
         }
-        .at(Span::new(5, 0));
+        .at(Span::new(5, 0))
+        .into();
         Style::new(false).render(&error, "a;", Path::new("main.tan"));
     }
 }

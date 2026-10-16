@@ -60,6 +60,17 @@ pub enum CompilerErrorKind {
     Codegen(CodegenErrorKind),
 }
 
+impl CompilerErrorKind {
+    pub fn stage(&self) -> &'static str {
+        match self {
+            CompilerErrorKind::Lex(_) => "lex",
+            CompilerErrorKind::Parse(_) => "parse",
+            CompilerErrorKind::TypeCheck(_) => "type check",
+            CompilerErrorKind::Codegen(_) => "codegen",
+        }
+    }
+}
+
 pub type CompilerError = Spanned<CompilerErrorKind>;
 
 impl From<LexError> for CompilerError {
