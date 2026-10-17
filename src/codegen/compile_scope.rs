@@ -113,7 +113,7 @@ impl<'a> CompileScope<'a> {
     pub fn expression_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         Ok(match &expr.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
-            ExpressionKind::Atom(AtomType::String(_) | AtomType::Colon) => Type::Unknown,
+            ExpressionKind::Atom(AtomType::String(_)) => Type::Unknown,
             ExpressionKind::Atom(atom) => Type::from(atom),
             ExpressionKind::Binary(op, _, _) if op.returns_boolean() => Type::Boolean,
             ExpressionKind::Binary(_, lhs, rhs) => self.unified_type(lhs, rhs)?,

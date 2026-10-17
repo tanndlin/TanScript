@@ -161,7 +161,6 @@ impl Expression {
                     compile_variable(compile_scope, register_handler, name, self.span, dst)
                 }
                 AtomType::String(s) => compile_string(s, dst, register_handler),
-                AtomType::Colon => panic!("Unexpected colon"),
                 AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
             },
             ExpressionKind::Binary(op, left, right) => {

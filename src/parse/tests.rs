@@ -263,6 +263,14 @@ fn reject_stray_comma() {
 }
 
 #[test]
+fn reject_colon_as_expression() {
+    let err = parse(Lexer::new("let a = :;").unwrap()).unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+    );
+}
+
+#[test]
 fn reject_stray_semicolon() {
     let err = parse(Lexer::new("let a = 1;;").unwrap()).unwrap_err();
     assert!(

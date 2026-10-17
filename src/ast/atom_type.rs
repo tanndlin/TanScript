@@ -9,8 +9,6 @@ pub enum AtomType {
     Boolean(bool),
     #[display("\"{}\"", _0.escape_default())]
     String(String),
-    #[display(":")]
-    Colon,
 }
 
 impl AtomType {
@@ -20,8 +18,7 @@ impl AtomType {
             LexerAtomType::Identifier(s) => AtomType::Identifier(s.clone()),
             LexerAtomType::String(s) => AtomType::String(s.clone()),
             LexerAtomType::Char(c) => AtomType::Char(*c),
-            LexerAtomType::Semicolon | LexerAtomType::Comma => return None,
-            LexerAtomType::Colon => AtomType::Colon,
+            LexerAtomType::Semicolon | LexerAtomType::Comma | LexerAtomType::Colon => return None,
         })
     }
 }

@@ -108,7 +108,6 @@ impl From<&AtomType> for Type {
             AtomType::Number(n) => Type::Int(n.kind()),
             AtomType::Identifier(_) => unreachable!(),
             AtomType::String(_) => todo!(), // Type::String,
-            AtomType::Colon => panic!("Colon as rhs for expression in type check"),
             AtomType::Boolean(_) => Type::Boolean,
             AtomType::Char(_) => Type::Char,
         }
