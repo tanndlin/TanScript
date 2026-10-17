@@ -1,0 +1,21 @@
+use math::{isPandigital, numDigits, pow};
+
+let max = 0;
+for(let b = 1; b < 10000; b++) {
+    let sum: u64 = 0;
+    for(let n = 1; n <= 9; n++) {
+        let product = b * n;
+        let length = numDigits(product);
+
+        sum = sum * pow(10, length) + product;
+        if sum >= 1000000000 {
+            break;
+        }
+
+        if n > 1 && sum > max && isPandigital(sum) {
+            max = sum;
+        }
+    }
+}
+
+printf("%d\n", max);

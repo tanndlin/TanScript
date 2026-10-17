@@ -1,0 +1,77 @@
+def isPrime(n: u32): bool {
+    if n == 2 {
+        return true;
+    }
+
+    if n < 2 || n % 2 == 0 {
+        return false;
+    }
+
+    for(let i = 3; i*i <= n; i += 2) {
+        if n % i == 0 {
+            return false;
+        }
+    }
+
+    true
+}
+
+def isPandigital(n: u64): bool {
+    let digits: *bool = malloc(9);
+    for(let i = 0; i < 9; i++) {
+        digits[i] = false;
+    }
+
+    while n > 0 {
+        let pop = n % 10;
+        if pop != 0 {
+            digits[pop - 1] = true;
+        }
+
+        n /= 10;
+    }
+
+    let ret = true;
+    for(let i = 1; i <= 9; i++) {
+        if !digits[i-1] {
+            ret = false;
+            break;
+        }
+    }
+
+    free(digits);
+    ret
+}
+
+def numDigits(n: u32): u32 {
+    let digits = 0;
+    while n > 0 {
+        n /= 10;
+        digits++;
+    }
+
+    digits
+}
+
+def pow(base: u32, expo: u32): u32 {
+    let n = 1;
+    for(let i = 0; i < expo; i++){
+        n *= base;
+    }
+
+    n
+}
+
+def reversed(n: u32): u32 {
+    let r = 0;
+    while n > 0 {
+        r = r * 10 + n % 10;
+        n /= 10;
+    }
+
+    r
+}
+
+def isPalindrome(n: u32): bool {
+    reversed(n) == n
+}

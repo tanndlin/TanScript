@@ -1,4 +1,4 @@
-use projecteuler35::{numDigits, pow, isPrime};
+use math::{numDigits, pow, isPrime};
 
 def isTruncatablePrime(n: u32): bool {
     let right = n;

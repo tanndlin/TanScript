@@ -1,16 +1,4 @@
-def reversed(n: u32): u32 {
-    let r = 0;
-    while n > 0 {
-        r = r * 10 + n % 10;
-        n /= 10;
-    }
-
-    r
-}
-
-def isPalindrome(n: u32): bool {
-    reversed(n) == n
-}
+use math::{isPalindrome};
 
 let max = 0;
 
