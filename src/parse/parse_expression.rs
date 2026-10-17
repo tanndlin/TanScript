@@ -76,10 +76,12 @@ fn parse_expression_with(
         Token::Atom(LexerAtomType::Identifier(s)) => {
             parse_identifier_or_function_call_or_struct(lexer, s, token.span, allow_struct)?
         }
-        Token::Atom(it) => Expression::new(
-            ExpressionKind::Atom(AtomType::from_lexer_atom(it)),
-            token.span,
-        ),
+        Token::Atom(it) => {
+            let Some(atom) = AtomType::from_lexer_atom(it) else {
+                return Err(expected("expression", token));
+            };
+            Expression::new(ExpressionKind::Atom(atom), token.span)
+        }
         Token::Op(OperatorType::OpenParen) => {
             let mut lhs = parse_expression(lexer, 0)?;
             lexer.expect(")")?;

@@ -49,14 +49,14 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
     let tok = lexer.peek_or_eof("statement")?;
     let keyword = match &tok.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => s.as_str(),
-        Token::Atom(LexerAtomType::Semicolon) => panic!("Hanging semicolon got left over"),
         Token::Op(_)
         | Token::Atom(
             LexerAtomType::Number(_)
             | LexerAtomType::String(_)
             | LexerAtomType::Char(_)
             | LexerAtomType::Colon
-            | LexerAtomType::Comma,
+            | LexerAtomType::Comma
+            | LexerAtomType::Semicolon,
         ) => {
             return Ok(None);
         }

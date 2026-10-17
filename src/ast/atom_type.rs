@@ -14,15 +14,14 @@ pub enum AtomType {
 }
 
 impl AtomType {
-    pub fn from_lexer_atom(atom: &LexerAtomType) -> AtomType {
-        match atom {
+    pub fn from_lexer_atom(atom: &LexerAtomType) -> Option<AtomType> {
+        Some(match atom {
             LexerAtomType::Number(n) => AtomType::Number(*n),
             LexerAtomType::Identifier(s) => AtomType::Identifier(s.clone()),
             LexerAtomType::String(s) => AtomType::String(s.clone()),
             LexerAtomType::Char(c) => AtomType::Char(*c),
-            LexerAtomType::Semicolon => panic!("Unexpected semicolon"),
+            LexerAtomType::Semicolon | LexerAtomType::Comma => return None,
             LexerAtomType::Colon => AtomType::Colon,
-            LexerAtomType::Comma => panic!("Unexpected comma"),
-        }
+        })
     }
 }

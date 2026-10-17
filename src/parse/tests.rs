@@ -248,6 +248,29 @@ fn expect_increment_statement_semicolon() {
 }
 
 #[test]
+fn reject_stray_comma() {
+    let err = parse(
+        Lexer::new(
+            "if (true) {,
+}",
+        )
+        .unwrap(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+    );
+}
+
+#[test]
+fn reject_stray_semicolon() {
+    let err = parse(Lexer::new("let a = 1;;").unwrap()).unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+    );
+}
+
+#[test]
 fn reject_increment_on_non_identifier() {
     assert!(parse(Lexer::new("5++;").unwrap()).is_err());
     assert!(parse(Lexer::new("(a + b)--;").unwrap()).is_err());

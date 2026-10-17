@@ -42,7 +42,7 @@ impl Lexer {
 
             if cur.is_ascii_digit() {
                 tokens.push(LexerToken::new(
-                    Token::Atom(LexerAtomType::Number(get_number(&mut chars))),
+                    Token::Atom(LexerAtomType::Number(get_number(&mut chars, span)?)),
                     span,
                 ));
                 continue;
@@ -158,7 +158,7 @@ impl Lexer {
     }
 }
 
-fn get_number(input: &mut Vec<char>) -> NumberType {
+fn get_number(input: &mut Vec<char>, span: Span) -> Result<NumberType, LexError> {
     let mut chars = vec![];
 
     while let Some(c) = input.last() {
@@ -169,15 +169,14 @@ fn get_number(input: &mut Vec<char>) -> NumberType {
         chars.push(input.pop().unwrap());
     }
 
-    let n = chars
-        .into_iter()
-        .collect::<String>()
+    let digits = chars.into_iter().collect::<String>();
+    let n = digits
         .parse::<i64>()
-        .unwrap();
+        .map_err(|_| LexErrorKind::NumberTooLarge(digits.clone()).at(span))?;
 
     // TODO: Parse as coercible for now, but may want to delegate out actual number type later
     // if we want to support 0u32 type syntax
-    NumberType::Coercible(n)
+    Ok(NumberType::Coercible(n))
 }
 
 fn get_identifier(input: &mut Vec<char>) -> String {
@@ -833,6 +832,12 @@ mod test {
             .map(|token| token.span.col)
             .collect();
         assert_eq!(cols, vec![0, 4, 6]);
+    }
+
+    #[test]
+    fn reject_number_too_large() {
+        let err = Lexer::new("99999999999999999999").unwrap_err();
+        assert!(matches!(err.kind, LexErrorKind::NumberTooLarge(_)));
     }
 
     #[test]
