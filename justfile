@@ -18,5 +18,10 @@ watch:
 coverage:
     cargo tarpaulin --out Html
 
+asan_path := 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64'
+
 fuzz *args:
-    set PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64;%PATH%&& cargo fuzz run compile fuzz/corpus/compile tests/golden -- {{args}}
+    set PATH={{asan_path}};%PATH%&& cargo fuzz run compile fuzz/corpus/compile tests/golden -- {{args}}
+
+tmin artifact:
+    set PATH={{asan_path}};%PATH%&& cargo fuzz tmin compile {{artifact}}
