@@ -1,38 +1,17 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use std::{
     fs,
     io::{IsTerminal, stderr},
     path::Path,
 };
 
-mod ast;
-mod codegen;
-mod diagnostic;
-mod error;
-mod lex;
-mod parse;
-mod preprocess;
-mod source_map;
-mod type_check;
-mod types;
-
-use crate::{
-    diagnostic::Style, error::CompilerError, lex::Lexer, parse::parse, preprocess::resolve_imports,
-    source_map::SourceMap, type_check::check_types,
-};
+use tanscript::{Emit, compile, diagnostic::Style, source_map::SourceMap};
 
 #[derive(Parser)]
 struct CliArgs {
     file: String,
     #[arg(short, long, ignore_case = true)]
     emit: Option<Emit>,
-}
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Clone, ValueEnum)]
-enum Emit {
-    Tokens,
-    AST,
 }
 
 fn main() {
@@ -65,26 +44,4 @@ fn run(style: &Style) -> Result<(), String> {
         .map_err(|e| style.message(format!("could not write {}: {e}", asm_path.display())))?;
 
     Ok(())
-}
-
-fn compile(
-    file: u32,
-    sources: &mut SourceMap,
-    emit: Option<&Emit>,
-) -> Result<String, CompilerError> {
-    let lexer = Lexer::for_file(&sources.get(file).text, file)?;
-    if let Some(Emit::Tokens) = emit {
-        let tokens: Vec<String> = lexer.tokens.iter().rev().map(ToString::to_string).collect();
-        return Ok(tokens.join("\n") + "\n");
-    }
-
-    let mut ast = parse(lexer)?;
-    resolve_imports(&mut ast, file, sources)?;
-    if let Some(Emit::AST) = emit {
-        return Ok(format!("{ast}\n"));
-    }
-
-    check_types(&mut ast)?;
-
-    Ok(ast.compile()?)
 }

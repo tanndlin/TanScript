@@ -120,6 +120,7 @@ fn check(tan: &Path, stdout: Option<String>, bless: bool) -> Result<(), String> 
 #[test]
 fn golden_scripts() {
     let bless = env::var_os("BLESS").is_some();
+    let keep = env::var_os("KEEP_GOLDEN").is_some();
     let work_root = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join("golden")
         .join(std::process::id().to_string());
@@ -158,7 +159,9 @@ fn golden_scripts() {
             .collect()
     });
 
-    let _ = fs::remove_dir_all(&work_root);
+    if !keep {
+        let _ = fs::remove_dir_all(&work_root);
+    }
 
     assert!(
         failures.is_empty(),

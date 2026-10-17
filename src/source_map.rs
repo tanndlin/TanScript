@@ -17,6 +17,7 @@ impl SourceMap {
         id
     }
 
+    #[must_use]
     pub fn get(&self, file: u32) -> &SourceFile {
         &self.files[file as usize]
     }

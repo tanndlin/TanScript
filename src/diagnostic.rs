@@ -15,6 +15,7 @@ pub struct Style {
 }
 
 impl Style {
+    #[must_use]
     pub fn new(color: bool) -> Self {
         Self { color }
     }
@@ -39,6 +40,7 @@ impl Style {
         )
     }
 
+    #[must_use]
     pub fn render(&self, error: &CompilerError, sources: &SourceMap) -> String {
         let SourceFile { path, text: source } = sources.get(error.span.file);
         let line_index = error.span.line as usize;
@@ -136,6 +138,6 @@ mod test {
         }
         .at(Span::new(0, 5, 0))
         .into();
-        Style::new(false).render(&error, &sources("a;"));
+        let _ = Style::new(false).render(&error, &sources("a;"));
     }
 }

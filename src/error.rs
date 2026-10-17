@@ -63,6 +63,7 @@ pub enum CompilerErrorKind {
 }
 
 impl CompilerErrorKind {
+    #[must_use]
     pub fn stage(&self) -> &'static str {
         match self {
             CompilerErrorKind::Lex(_) => "lex",
