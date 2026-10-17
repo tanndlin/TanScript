@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind, Program, UnaryOp},
+    ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, UnaryOp},
     error::At,
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
     types::IntType,
@@ -17,180 +17,218 @@ pub fn check_types_expression(
     expression: &Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    Ok(match &expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
-            .lookup(ident)
-            .ok_or_else(|| {
+    match &expression.kind {
+        ExpressionKind::Atom(AtomType::Identifier(ident)) => {
+            type_scope.lookup(ident).cloned().ok_or_else(|| {
                 TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(expression.span)
-            })?
-            .clone(),
-        ExpressionKind::Atom(AtomType::String(_)) => Type::Unknown,
-        ExpressionKind::Atom(atom_type) => Type::from(atom_type),
-        ExpressionKind::Binary(op, lhs, rhs) => {
-            let lhs = check_types_expression(lhs, type_scope)?;
-            let rhs = check_types_expression(rhs, type_scope)?;
-
-            let unified = unify(&lhs, &rhs)
-                .or_else(|| unify(&rhs, &lhs))
-                .ok_or_else(|| {
-                    TypeCheckErrorKind::TypeMismatch {
-                        expected: lhs.clone(),
-                        got: rhs.clone(),
-                    }
-                    .at(expression.span)
-                })?;
-
-            if op.returns_boolean() {
-                Type::Boolean
-            } else {
-                unified
-            }
+            })
         }
+        ExpressionKind::Atom(AtomType::String(_)) => Ok(Type::Unknown),
+        ExpressionKind::Atom(atom_type) => Ok(Type::from(atom_type)),
+        ExpressionKind::Binary(op, lhs, rhs) => check_binary(expression, *op, lhs, rhs, type_scope),
         ExpressionKind::Unary(UnaryOp::Not, inner) => {
             check_types_expression(inner, type_scope)?;
-            Type::Boolean
+            Ok(Type::Boolean)
         }
         ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
-            check_types_expression(inner, type_scope)?
+            check_types_expression(inner, type_scope)
         }
         ExpressionKind::FunctionCall(function_name, given_args) => {
-            let given_types = given_args
-                .iter()
-                .map(|a| check_types_expression(a, type_scope))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            match type_scope.lookup(function_name) {
-                Some(Type::Function(function_type)) => {
-                    if given_args.len() != function_type.args.len() {
-                        return Err(TypeCheckErrorKind::IncorrectNumberOfArgs {
-                            expected: function_type.args.len(),
-                            given: given_args.len(),
-                        }
-                        .at(expression.span));
-                    }
-
-                    let function_type = function_type.clone();
-                    given_args
-                        .iter()
-                        .zip(given_types)
-                        .zip(&function_type.args)
-                        .try_for_each(|((given, got), expected)| {
-                            expect_type(given, expected, &got, type_scope)
-                        })?;
-                    function_type.return_type
-                }
-                Some(_) => {
-                    return Err(
-                        TypeCheckErrorKind::NotCallableIdentifer(function_name.clone())
-                            .at(expression.span),
-                    );
-                }
-                // Treat the function as an unknown extern
-                None => Type::Unknown,
-            }
+            check_function_call(expression, function_name, given_args, type_scope)
         }
-        ExpressionKind::Index(lhs, rhs) => {
-            let lhs_type = check_types_expression(lhs, type_scope)?;
-            let rhs_type = check_types_expression(rhs, type_scope)?;
-
-            // LHS must be a pointer
-            let element_type = match lhs_type {
-                Type::Pointer(t) => *t,
-                Type::Unknown => Type::Unknown,
-                _ => {
-                    return Err(TypeCheckErrorKind::TypeMismatch {
-                        expected: Type::Pointer(Box::new(Type::Unknown)),
-                        got: lhs_type,
-                    }
-                    .at(expression.span));
-                }
-            };
-
-            // RHS must come down to a number
-            if rhs_type != Type::Unknown && !rhs_type.is_number_type() {
-                return Err(TypeCheckErrorKind::TypeMismatch {
-                    expected: Type::Int(IntType::I64),
-                    got: rhs_type,
-                }
-                .at(expression.span));
-            }
-
-            element_type
-        }
+        ExpressionKind::Index(lhs, rhs) => check_index(expression, lhs, rhs, type_scope),
         ExpressionKind::Cast(lhs, casted_type) => {
-            let lhs_type = check_types_expression(lhs, type_scope)?;
-            if lhs_type.castable(casted_type) {
-                casted_type.clone()
-            } else {
-                return Err(TypeCheckErrorKind::Uncastable {
-                    lhs_type,
-                    casted_type: casted_type.clone(),
-                }
-                .at(expression.span));
-            }
+            check_cast(expression, lhs, casted_type, type_scope)
         }
         ExpressionKind::StructInstantiation {
             struct_type_name,
             fields,
-        } => match type_scope.lookup(struct_type_name) {
-            Some(Type::Struct(struct_def)) => {
-                let struct_def = struct_def.clone();
-                for (field_name, field_expr) in fields {
-                    let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name)
-                    else {
-                        return Err(TypeCheckErrorKind::NoSuchField {
-                            struct_type: *struct_def.clone(),
-                            field_name: field_name.clone(),
-                        }
-                        .at(field_expr.span));
-                    };
-
-                    let got = check_types_expression(field_expr, type_scope)?;
-                    expect_type(field_expr, &field.ftype, &got, type_scope)?;
-                }
-
-                Type::Struct(struct_def)
-            }
-            Some(_) => {
-                return Err(
-                    TypeCheckErrorKind::NotAStruct(struct_type_name.clone()).at(expression.span)
-                );
-            }
-            None => {
-                return Err(
-                    TypeCheckErrorKind::IdentifierNotFound(struct_type_name.clone())
-                        .at(expression.span),
-                );
-            }
-        },
+        } => check_struct_instantiation(expression, struct_type_name, fields, type_scope),
         ExpressionKind::StructAccess {
             struct_var_name,
             field_name,
-        } => match type_scope.lookup(struct_var_name) {
-            Some(Type::Struct(struct_type)) => {
-                if let Some(field) = struct_type.fields.iter().find(|f| f.name == *field_name) {
-                    return Ok(field.ftype.clone());
-                }
+        } => check_struct_access(expression, struct_var_name, field_name, type_scope),
+    }
+}
 
-                return Err(TypeCheckErrorKind::NoSuchField {
-                    struct_type: *struct_type.clone(),
-                    field_name: field_name.clone(),
+pub fn check_binary(
+    expression: &Expression,
+    op: BinaryOp,
+    lhs: &Expression,
+    rhs: &Expression,
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    let lhs = check_types_expression(lhs, type_scope)?;
+    let rhs = check_types_expression(rhs, type_scope)?;
+
+    let unified = unify(&lhs, &rhs)
+        .or_else(|| unify(&rhs, &lhs))
+        .ok_or_else(|| {
+            TypeCheckErrorKind::TypeMismatch {
+                expected: lhs.clone(),
+                got: rhs.clone(),
+            }
+            .at(expression.span)
+        })?;
+
+    Ok(if op.returns_boolean() {
+        Type::Boolean
+    } else {
+        unified
+    })
+}
+
+pub fn check_function_call(
+    expression: &Expression,
+    function_name: &str,
+    given_args: &[Expression],
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    let given_types = given_args
+        .iter()
+        .map(|a| check_types_expression(a, type_scope))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    match type_scope.lookup(function_name) {
+        Some(Type::Function(function_type)) => {
+            if given_args.len() != function_type.args.len() {
+                return Err(TypeCheckErrorKind::IncorrectNumberOfArgs {
+                    expected: function_type.args.len(),
+                    given: given_args.len(),
                 }
                 .at(expression.span));
             }
-            Some(_) => {
-                return Err(
-                    TypeCheckErrorKind::NotAStruct(struct_var_name.clone()).at(expression.span)
-                );
+
+            let function_type = function_type.clone();
+            given_args
+                .iter()
+                .zip(given_types)
+                .zip(&function_type.args)
+                .try_for_each(|((given, got), expected)| {
+                    expect_type(given, expected, &got, type_scope)
+                })?;
+            Ok(function_type.return_type)
+        }
+        Some(_) => Err(
+            TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(expression.span),
+        ),
+        // Treat the function as an unknown extern
+        None => Ok(Type::Unknown),
+    }
+}
+
+pub fn check_index(
+    expression: &Expression,
+    lhs: &Expression,
+    rhs: &Expression,
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    let lhs_type = check_types_expression(lhs, type_scope)?;
+    let rhs_type = check_types_expression(rhs, type_scope)?;
+
+    // LHS must be a pointer
+    let element_type = match lhs_type {
+        Type::Pointer(t) => *t,
+        Type::Unknown => Type::Unknown,
+        _ => {
+            return Err(TypeCheckErrorKind::TypeMismatch {
+                expected: Type::Pointer(Box::new(Type::Unknown)),
+                got: lhs_type,
             }
-            None => {
-                return Err(
-                    TypeCheckErrorKind::IdentifierNotFound(struct_var_name.clone())
-                        .at(expression.span),
-                );
+            .at(expression.span));
+        }
+    };
+
+    // RHS must come down to a number
+    if rhs_type != Type::Unknown && !rhs_type.is_number_type() {
+        return Err(TypeCheckErrorKind::TypeMismatch {
+            expected: Type::Int(IntType::I64),
+            got: rhs_type,
+        }
+        .at(expression.span));
+    }
+
+    Ok(element_type)
+}
+
+pub fn check_cast(
+    expression: &Expression,
+    lhs: &Expression,
+    casted_type: &Type,
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    let lhs_type = check_types_expression(lhs, type_scope)?;
+    if lhs_type.castable(casted_type) {
+        Ok(casted_type.clone())
+    } else {
+        Err(TypeCheckErrorKind::Uncastable {
+            lhs_type,
+            casted_type: casted_type.clone(),
+        }
+        .at(expression.span))
+    }
+}
+
+pub fn check_struct_instantiation(
+    expression: &Expression,
+    struct_type_name: &str,
+    fields: &[(String, Expression)],
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    match type_scope.lookup(struct_type_name) {
+        Some(Type::Struct(struct_def)) => {
+            let struct_def = struct_def.clone();
+            for (field_name, field_expr) in fields {
+                let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name) else {
+                    return Err(TypeCheckErrorKind::NoSuchField {
+                        struct_type: *struct_def.clone(),
+                        field_name: field_name.clone(),
+                    }
+                    .at(field_expr.span));
+                };
+
+                let got = check_types_expression(field_expr, type_scope)?;
+                expect_type(field_expr, &field.ftype, &got, type_scope)?;
             }
-        },
-    })
+
+            Ok(Type::Struct(struct_def))
+        }
+        Some(_) => {
+            Err(TypeCheckErrorKind::NotAStruct(struct_type_name.to_string()).at(expression.span))
+        }
+        None => Err(
+            TypeCheckErrorKind::IdentifierNotFound(struct_type_name.to_string())
+                .at(expression.span),
+        ),
+    }
+}
+
+pub fn check_struct_access(
+    expression: &Expression,
+    struct_var_name: &str,
+    field_name: &str,
+    type_scope: &mut TypeScope,
+) -> Result<Type, TypeCheckError> {
+    match type_scope.lookup(struct_var_name) {
+        Some(Type::Struct(struct_type)) => struct_type
+            .fields
+            .iter()
+            .find(|f| f.name == field_name)
+            .map(|field| field.ftype.clone())
+            .ok_or_else(|| {
+                TypeCheckErrorKind::NoSuchField {
+                    struct_type: *struct_type.clone(),
+                    field_name: field_name.to_string(),
+                }
+                .at(expression.span)
+            }),
+        Some(_) => {
+            Err(TypeCheckErrorKind::NotAStruct(struct_var_name.to_string()).at(expression.span))
+        }
+        None => Err(
+            TypeCheckErrorKind::IdentifierNotFound(struct_var_name.to_string()).at(expression.span),
+        ),
+    }
 }
 
 pub fn expect_type(
