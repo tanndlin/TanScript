@@ -1,4 +1,5 @@
 - Memory-destination ops (add/sub/cmp/... on a stack slot) need their operand size from the destination type, not the immediate, or narrower locals get clobbered
+- Typed extern declarations (e.g. `extern def strcmp(a: *char, b: *char): i32;`) so calls sign/zero-extend narrow return values; untyped externs read all of rax, but Win64 leaves the upper 32 bits of an int return undefined (works on MSVC CRT, breaks under Wine)
 - Stack arrays
 - Match blocks
 - Floating point
