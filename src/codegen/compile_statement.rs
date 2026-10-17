@@ -94,16 +94,16 @@ impl Assignment {
                 struct_var_name,
                 field_name,
             } => {
-                let (Address::Stack(struct_address), Type::Struct(struct_def)) =
-                    compile_scope.lookup(struct_var_name).at(self.lhs.span)?
-                else {
-                    panic!()
-                };
-
-                let offset = i32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
-                let address = Address::Stack(*struct_address + offset);
-                self.expression
-                    .compile(compile_scope, address, register_handler)
+                let (address, field_type) = compile_scope
+                    .get_field(struct_var_name, field_name)
+                    .at(self.lhs.span)?;
+                register_handler.lease_with_scope(|register_handler, value_dst| {
+                    let mut instructions =
+                        self.expression
+                            .compile(compile_scope, value_dst, register_handler)?;
+                    instructions.push(store_element(&field_type, address, value_dst));
+                    Ok(instructions)
+                })
             }
             _ => Err(CodegenErrorKind::InvalidAssignTarget(self.lhs.to_string()).at(self.lhs.span)),
         }

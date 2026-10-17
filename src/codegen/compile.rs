@@ -397,26 +397,16 @@ fn compile_struct_instantiation(
         panic!("Cannot put a struct into a register")
     };
 
-    let mut offset = 0;
     let mut instructions = vec![];
     for (field_name, expr) in fields {
-        let field_def = struct_def
-            .fields
-            .iter()
-            .find(|f| f.name == *field_name)
-            .unwrap();
+        let field_type = struct_def.get_field_type(field_name).unwrap().clone();
+        let address = struct_def.field_address(stack_offset_start, field_name);
 
         instructions.extend(register_handler.lease_with_scope(|register_handler, reg| {
             let mut field = expr.compile(compile_scope, reg, register_handler)?;
-            field.push(Instruction::mov(
-                Address::Stack(stack_offset_start + offset),
-                reg,
-            ));
-
+            field.push(store_element(&field_type, address, reg));
             Ok(field)
         })?);
-
-        offset += i32::try_from(field_def.ftype.size()).unwrap();
     }
 
     Ok(instructions)
@@ -430,14 +420,20 @@ fn compile_struct_access(
     register_handler: &mut RegisterHandler,
     span: Span,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let (Address::Stack(struct_address), Type::Struct(struct_def)) =
-        compile_scope.lookup(struct_var_name).at(span)?
-    else {
-        panic!()
-    };
+    let (address, field_type) = compile_scope
+        .get_field(struct_var_name, field_name)
+        .at(span)?;
 
-    let offset = i32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
-    move_address(register_handler, Address::Stack(*struct_address + offset), dst)
+    match dst {
+        Address::Register(dst_reg) => Ok(vec![load_element(&field_type, dst_reg, address)]),
+        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
+            .lease_with_scope(|_, reg| {
+                Ok(vec![
+                    load_element(&field_type, reg, address),
+                    Instruction::mov(dst, reg),
+                ])
+            }),
+    }
 }
 
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
@@ -488,14 +484,6 @@ fn compile_variable(
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let address = compile_scope.get_variable(name).at(span)?;
-    move_address(register_handler, address, dst)
-}
-
-fn move_address(
-    register_handler: &mut RegisterHandler,
-    address: Address,
-    dst: Address,
-) -> Result<Vec<Instruction>, CodegenError> {
     if dst == address {
         return Ok(vec![]);
     }

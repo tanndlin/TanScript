@@ -1,0 +1,37 @@
+struct Person {
+    name: *char,
+    length: u32,
+    age: u32,
+}
+
+let person = Person {
+    name: "Tanner",
+    length: 6,
+    age: 25,
+};
+let after: u64 = 1;
+
+printf("%s %u %u %llu\n", person.name, person.length, person.age, after);
+
+person.age = 30;
+printf("%s %u %u %llu\n", person.name, person.length, person.age, after);
+
+after = 2;
+printf("%s %u %u %llu\n", person.name, person.length, person.age, after);
+
+struct Pair {
+    small: u8,
+    count: u32,
+    label: *char,
+}
+
+let pair = Pair {
+    label: "pair",
+    count: 7,
+    small: 255,
+};
+let tail: u64 = 3;
+
+pair.small++;
+pair.count += 10;
+printf("%s %u %u %llu\n", pair.label, pair.small, pair.count, tail);

@@ -83,6 +83,24 @@ impl<'a> CompileScope<'a> {
         self.lookup(name).map(|(_, t)| t)
     }
 
+    pub fn get_field(
+        &self,
+        struct_var_name: &str,
+        field_name: &str,
+    ) -> Result<(Address, Type), CodegenErrorKind> {
+        let (Address::Stack(struct_address), Type::Struct(struct_def)) =
+            self.lookup(struct_var_name)?
+        else {
+            panic!()
+        };
+
+        let field_type = struct_def.get_field_type(field_name).unwrap().clone();
+        Ok((
+            struct_def.field_address(*struct_address, field_name),
+            field_type,
+        ))
+    }
+
     pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         let pointer = match &expr.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
@@ -125,10 +143,8 @@ impl<'a> CompileScope<'a> {
         name: String,
         t: Type,
     ) -> Result<Instruction, CodegenErrorKind> {
-        let size = u32::try_from(t.size())
-            .unwrap()
-            .next_multiple_of(SLOT_SIZE);
-        let address = Address::Stack(i32::try_from(self.stack_depth + SLOT_SIZE).unwrap());
+        let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
+        let address = Address::Stack(i32::try_from(self.stack_depth + size).unwrap());
         self.add_variable(name, address, t)?;
         self.stack_depth += size;
         Ok(Instruction::sub(Register::RSP, size))
@@ -150,5 +166,12 @@ impl<'a> CompileScope<'a> {
         self.structs
             .get(name)
             .or_else(|| self.parent.and_then(|p| p.lookup_struct(name)))
+    }
+}
+
+impl StructDefinition {
+    pub fn field_address(&self, struct_address: i32, field_name: &str) -> Address {
+        let offset = i32::try_from(self.get_byte_offset(field_name)).unwrap();
+        Address::Stack(struct_address - offset)
     }
 }
