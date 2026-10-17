@@ -1,0 +1,13 @@
+struct Pair {
+    a: u64,
+    b: u64,
+}
+
+let p = Pair { a: 1, b: 2 };
+let q = p;
+printf("%llu %llu\n", q.a, q.b);
+
+q.a = 3;
+q.b = 4;
+printf("%llu %llu\n", p.a, p.b);
+printf("%llu %llu\n", q.a, q.b);

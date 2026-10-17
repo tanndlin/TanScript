@@ -2,7 +2,7 @@ use crate::{
     ast::{
         Assignment, AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
         StatementOrExpression::{self},
-        UnaryOp,
+        StructDefinition, UnaryOp,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
@@ -436,6 +436,7 @@ fn compile_struct_access(
     }
 }
 
+/// Loading from memory
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     match element {
         Type::Int(int) if int.size() == 4 && int.is_signed() => {
@@ -448,6 +449,7 @@ fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     }
 }
 
+/// Storing to memory
 pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
     match element {
         Type::Int(int) if int.size() == 4 => Instruction::store(memory, src, Size::Dword),
@@ -455,6 +457,36 @@ pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruct
         Type::Boolean | Type::Char => Instruction::store(memory, src, Size::Byte),
         _ => Instruction::mov(memory, src),
     }
+}
+
+// This will have to take other types eventually
+pub fn mem_copy(
+    element: &StructDefinition,
+    dst: Address,
+    src: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    register_handler.lease_with_scope(|_, reg| {
+        let Address::Stack(dst) = dst else { panic!() };
+        let Address::Stack(src) = src else { panic!() };
+
+        let mut instructions = vec![];
+        for field in &element.fields {
+            let offset = i32::try_from(element.get_byte_offset(&field.name)).unwrap();
+            instructions.push(load_element(
+                &field.ftype,
+                reg,
+                Address::Stack(src - offset),
+            ));
+            instructions.push(store_element(
+                &field.ftype,
+                Address::Stack(dst - offset),
+                reg,
+            ));
+        }
+
+        Ok::<_, CodegenError>(instructions)
+    })
 }
 
 fn compile_number(
@@ -486,6 +518,10 @@ fn compile_variable(
     let address = compile_scope.get_variable(name).at(span)?;
     if dst == address {
         return Ok(vec![]);
+    }
+
+    if let Type::Struct(struct_def) = compile_scope.get_type(name).at(span)? {
+        return mem_copy(struct_def, dst, address, register_handler);
     }
 
     match dst {
