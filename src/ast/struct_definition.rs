@@ -21,6 +21,13 @@ impl StructDefinition {
         self.fields[..index].iter().map(|f| f.ftype.size()).sum()
     }
 
+    pub fn get_field_type(&self, field_name: &str) -> Option<&Type> {
+        self.fields
+            .iter()
+            .find(|f| f.name == field_name)
+            .map(|f| &f.ftype)
+    }
+
     pub fn size(&self) -> usize {
         self.fields.iter().map(|f| f.ftype.size()).sum()
     }

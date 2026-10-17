@@ -87,6 +87,16 @@ impl<'a> CompileScope<'a> {
         let pointer = match &expr.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
             ExpressionKind::Index(lhs, _) => self.element_type(lhs)?,
+            ExpressionKind::StructAccess {
+                struct_var_name,
+                field_name,
+            } => match self.get_type(struct_var_name)? {
+                Type::Struct(struct_def) => struct_def
+                    .get_field_type(field_name)
+                    .cloned()
+                    .unwrap_or(Type::Unknown),
+                _ => Type::Unknown,
+            },
             _ => Type::Unknown,
         };
 

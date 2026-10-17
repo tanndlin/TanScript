@@ -133,7 +133,9 @@ fn parse_expression_with(
             }
             lexer.next();
             let operand = match lhs.kind {
-                ExpressionKind::Atom(AtomType::Identifier(_)) | ExpressionKind::Index(_, _) => lhs,
+                ExpressionKind::Atom(AtomType::Identifier(_))
+                | ExpressionKind::Index(_, _)
+                | ExpressionKind::StructAccess { .. } => lhs,
                 _ => {
                     return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
                 }

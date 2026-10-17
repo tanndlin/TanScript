@@ -427,7 +427,7 @@ fn compile_struct_access(
     field_name: &str,
     compile_scope: &mut CompileScope<'_>,
     dst: Address,
-    _register_handler: &mut RegisterHandler,
+    register_handler: &mut RegisterHandler,
     span: Span,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let (Address::Stack(struct_address), Type::Struct(struct_def)) =
@@ -437,10 +437,7 @@ fn compile_struct_access(
     };
 
     let offset = i32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
-    Ok(vec![Instruction::mov(
-        dst,
-        Address::Stack(*struct_address + offset),
-    )])
+    move_address(register_handler, Address::Stack(*struct_address + offset), dst)
 }
 
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
@@ -491,6 +488,14 @@ fn compile_variable(
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let address = compile_scope.get_variable(name).at(span)?;
+    move_address(register_handler, address, dst)
+}
+
+fn move_address(
+    register_handler: &mut RegisterHandler,
+    address: Address,
+    dst: Address,
+) -> Result<Vec<Instruction>, CodegenError> {
     if dst == address {
         return Ok(vec![]);
     }
