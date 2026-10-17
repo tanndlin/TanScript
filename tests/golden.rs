@@ -7,9 +7,13 @@ use std::{
 const GOLDEN_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden");
 
 fn run_compiler(tan: &Path, work_dir: &Path) -> Result<PathBuf, String> {
-    let file_name = tan.file_name().unwrap();
-    let copied = work_dir.join(file_name);
-    fs::copy(tan, &copied).unwrap();
+    for entry in fs::read_dir(tan.parent().unwrap()).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|ext| ext == "tan") {
+            fs::copy(&path, work_dir.join(path.file_name().unwrap())).unwrap();
+        }
+    }
+    let copied = work_dir.join(tan.file_name().unwrap());
 
     let data_dir = tan.with_extension("");
     if data_dir.is_dir() {

@@ -52,6 +52,7 @@ operators! {
     Increment => "++",
     Decrement => "--",
     Dot => ".",
+    PathSep => "::",
     Cast => "as",
 }
 

@@ -2,7 +2,6 @@
 - Stack arrays
 - Match blocks
 - Floating point
-- import other .tan files
 - optimiation passes
   - Constant folding
   - Dead code elimination

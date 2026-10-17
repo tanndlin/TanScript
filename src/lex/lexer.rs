@@ -13,7 +13,12 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    #[cfg(test)]
     pub fn new(input: &str) -> Result<Lexer, LexError> {
+        Self::for_file(input, 0)
+    }
+
+    pub fn for_file(input: &str, file: u32) -> Result<Lexer, LexError> {
         let mut line_number = 0u32;
         let mut chars = input.chars().rev().collect::<Vec<char>>();
         let mut line_start = chars.len();
@@ -33,7 +38,7 @@ impl Lexer {
             }
 
             let col = u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX);
-            let span = Span::new(line_number, col);
+            let span = Span::new(file, line_number, col);
 
             if cur.is_ascii_digit() {
                 tokens.push(LexerToken::new(
@@ -92,6 +97,7 @@ impl Lexer {
 
         tokens.reverse();
         let eof = Span::new(
+            file,
             line_number,
             u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX),
         );

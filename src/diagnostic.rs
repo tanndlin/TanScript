@@ -1,6 +1,9 @@
-use std::{fmt::Display, path::Path};
+use std::fmt::Display;
 
-use crate::error::CompilerError;
+use crate::{
+    error::CompilerError,
+    source_map::{SourceFile, SourceMap},
+};
 
 const RED: &str = "\x1b[1;31m";
 const BLUE: &str = "\x1b[1;34m";
@@ -36,7 +39,8 @@ impl Style {
         )
     }
 
-    pub fn render(&self, error: &CompilerError, source: &str, path: impl AsRef<Path>) -> String {
+    pub fn render(&self, error: &CompilerError, sources: &SourceMap) -> String {
+        let SourceFile { path, text: source } = sources.get(error.span.file);
         let line_index = error.span.line as usize;
         let col = error.span.col as usize;
         let line = source.lines().nth(line_index).unwrap_or("");
@@ -54,7 +58,7 @@ impl Style {
             "{}\n{gutter}{} {}:{}\n{gutter} {}\n{} {} {line}\n{gutter} {} {padding}{}\n",
             self.header(&format!("error[{}]", error.kind.stage()), &error.kind),
             self.paint(BLUE, "-->"),
-            path.as_ref().display(),
+            path.display(),
             error.span,
             self.paint(BLUE, "|"),
             self.paint(BLUE, &line_number),
@@ -73,20 +77,27 @@ fn underline_len(line: &str, col: usize) -> usize {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
+    use std::path::PathBuf;
 
     use crate::{
         diagnostic::Style,
         error::{At, CompilerError},
+        source_map::SourceMap,
         type_check::{Type, TypeCheckErrorKind},
         types::{IntType, Span},
     };
 
     fn render(source: &str, line: u32, col: u32) -> String {
         let error: CompilerError = TypeCheckErrorKind::IdentifierNotFound("foo".to_string())
-            .at(Span::new(line, col))
+            .at(Span::new(0, line, col))
             .into();
-        Style::new(false).render(&error, source, Path::new("main.tan"))
+        Style::new(false).render(&error, &sources(source))
+    }
+
+    fn sources(source: &str) -> SourceMap {
+        let mut sources = SourceMap::default();
+        sources.add(PathBuf::from("main.tan"), source.to_string());
+        sources
     }
 
     #[test]
@@ -123,8 +134,8 @@ mod test {
             expected: Type::Int(IntType::I32),
             got: Type::Boolean,
         }
-        .at(Span::new(5, 0))
+        .at(Span::new(0, 5, 0))
         .into();
-        Style::new(false).render(&error, "a;", Path::new("main.tan"));
+        Style::new(false).render(&error, &sources("a;"));
     }
 }

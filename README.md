@@ -36,6 +36,7 @@ printf("%d\n", numDivisors(28));
 - **Pointers and Indexing**: Index any pointer with `[]`, e.g. memory from `malloc`.
 - **Operators**: `+ - * / %`, `< <= > >= == !=`, `&& || !`, `++ --`, and `+= -= *= /= %=`.
 - **Literals**: Numbers, `true`/`false`, chars (`'a'`, `'\n'`), and strings (`"hello\n"`).
+- **Imports**: `use module::{name, other};` at the top of a file pulls functions and structs from `module.tan` (nested paths like `lib::math` map to `lib/math.tan`), resolved relative to the importing file. Anything the imported items depend on in that module comes along too, and the module's top-level statements are left out.
 - **C Interop**: Calls to undefined functions are treated as externs, so C runtime functions like `printf`, `putchar`, `malloc`, and `fopen` work directly.
 
 ## Usage

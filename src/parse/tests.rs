@@ -695,3 +695,37 @@ fn expect_field_name_in_struct_access() {
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "field name")
     );
 }
+
+#[test]
+fn parse_imports() {
+    integration_test!(
+        "use math::{square, cube};",
+        "use math::{square, cube}
+"
+    );
+    integration_test!(
+        "use math::square;",
+        "use math::{square}
+"
+    );
+    integration_test!(
+        "use lib::math::{square,};",
+        "use lib::math::{square}
+"
+    );
+    integration_test!(
+        "use a::{x};
+use b::c::y;
+x();",
+        "use a::{x}
+use b::c::{y}
+x()"
+    );
+}
+
+#[test]
+fn parse_import_errors() {
+    assert!(parse(Lexer::new("use math;").unwrap()).is_err());
+    assert!(parse(Lexer::new("use math::{square}").unwrap()).is_err());
+    assert!(parse(Lexer::new("use math::{1};").unwrap()).is_err());
+}

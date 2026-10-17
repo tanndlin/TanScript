@@ -3,9 +3,9 @@ use std::str::FromStr;
 use crate::{
     ast::{
         Arg, Assignment, AtomType, Block, BreakStatement, ContinueStatement, Declaration,
-        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, OperatorType,
-        ReturnStatement, Statement, StatementOrExpression, StructDefinition, StructField,
-        WhileLoop,
+        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, Import, ImportName,
+        OperatorType, ReturnStatement, Statement, StatementOrExpression, StructDefinition,
+        StructField, WhileLoop,
     },
     error::At,
     lex::{Lexer, LexerAtomType},
@@ -363,4 +363,60 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
         fields,
         span,
     })
+}
+
+pub fn parse_import(lexer: &mut Lexer) -> Result<Import, ParseError> {
+    let span = lexer.expect("use")?.span;
+    let mut path = vec![parse_import_name(lexer)?.name];
+    lexer.expect("::")?;
+
+    let names = loop {
+        if lexer.peek_or_eof("{")?.token_type == Token::Op(OperatorType::OpenCurly) {
+            break parse_import_list(lexer)?;
+        }
+
+        let name = parse_import_name(lexer)?;
+        if lexer
+            .peek()
+            .is_some_and(|tok| tok.token_type == Token::Op(OperatorType::PathSep))
+        {
+            lexer.next();
+            path.push(name.name);
+        } else {
+            break vec![name];
+        }
+    };
+
+    lexer.expect(";")?;
+    Ok(Import { path, names, span })
+}
+
+fn parse_import_name(lexer: &mut Lexer) -> Result<ImportName, ParseError> {
+    let tok = lexer.next_or_eof("identifier")?;
+    let span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
+        return Err(expected("identifier", tok));
+    };
+    Ok(ImportName { name, span })
+}
+
+fn parse_import_list(lexer: &mut Lexer) -> Result<Vec<ImportName>, ParseError> {
+    lexer.expect("{")?;
+    let mut names = vec![];
+    loop {
+        if lexer.peek_or_eof("}")?.token_type == Token::Op(OperatorType::CloseCurly) {
+            break;
+        }
+
+        names.push(parse_import_name(lexer)?);
+
+        let tok = lexer.peek_or_eof(", or }")?;
+        if tok.token_type == Token::Atom(LexerAtomType::Comma) {
+            lexer.next();
+        } else {
+            break;
+        }
+    }
+    lexer.expect("}")?;
+    Ok(names)
 }

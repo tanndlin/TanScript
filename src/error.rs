@@ -4,6 +4,7 @@ use crate::{
     codegen::{CodegenError, CodegenErrorKind},
     lex::{LexError, LexErrorKind},
     parse::{ParseError, ParseErrorKind},
+    preprocess::{PreprocessError, PreprocessErrorKind},
     type_check::{TypeCheckError, TypeCheckErrorKind},
     types::Span,
 };
@@ -56,6 +57,7 @@ impl<T, K: At> ResultAt<T, K> for Result<T, K> {
 pub enum CompilerErrorKind {
     Lex(LexErrorKind),
     Parse(ParseErrorKind),
+    Preprocess(PreprocessErrorKind),
     TypeCheck(TypeCheckErrorKind),
     Codegen(CodegenErrorKind),
 }
@@ -65,6 +67,7 @@ impl CompilerErrorKind {
         match self {
             CompilerErrorKind::Lex(_) => "lex",
             CompilerErrorKind::Parse(_) => "parse",
+            CompilerErrorKind::Preprocess(_) => "preprocess",
             CompilerErrorKind::TypeCheck(_) => "type check",
             CompilerErrorKind::Codegen(_) => "codegen",
         }
@@ -82,6 +85,12 @@ impl From<LexError> for CompilerError {
 impl From<ParseError> for CompilerError {
     fn from(e: ParseError) -> Self {
         e.map(CompilerErrorKind::Parse)
+    }
+}
+
+impl From<PreprocessError> for CompilerError {
+    fn from(e: PreprocessError) -> Self {
+        e.map(CompilerErrorKind::Preprocess)
     }
 }
 

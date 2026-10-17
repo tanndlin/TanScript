@@ -1,0 +1,38 @@
+use projecteuler35::{numDigits, pow, isPrime};
+
+def isTruncatablePrime(n: u32): bool {
+    let right = n;
+    while right > 0 {
+        if !isPrime(right){
+            return false;
+        } 
+
+        right /= 10;
+    }
+
+    let left = n;
+    while left > 0 {
+        if !isPrime(left){
+            return false;
+        } 
+
+        left = left % pow(10, numDigits(left) - 1);
+    }
+
+    true
+}
+
+
+let sum = 0;
+let total = 0;
+let n = 11;
+while total < 11 {
+    if isTruncatablePrime(n) {
+        sum += n;
+        total++;
+    }
+
+    n += 2;
+}
+
+printf("%d\n", sum);
