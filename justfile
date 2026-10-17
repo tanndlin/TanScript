@@ -13,7 +13,7 @@ profile:
     del script.o
 
 watch:
-    nodemon -e asm -x "just asm"
+    nodemon -w script.asm -e asm -x "just asm"
 
 coverage:
     cargo tarpaulin --out Html

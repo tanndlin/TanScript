@@ -27,7 +27,7 @@
                 {
                     "name": "ASM",
                     "commands": [
-                        "nodemon -e asm -x \"just asm\""
+                        "just watch"
                     ]
                 }
             ],
