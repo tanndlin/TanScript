@@ -28,6 +28,7 @@ pub enum TypeCheckErrorKind {
         field_name: String,
     },
     DuplicateIdentifiers(String),
+    StructAsArgument,
 }
 
 impl At for TypeCheckErrorKind {}
@@ -67,6 +68,7 @@ impl fmt::Display for TypeCheckErrorKind {
                 "Struct: ({struct_type}) does not contain a field called ({field_name})"
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
+            Self::StructAsArgument => write!(f, "Structs cannot be passed as function arguments"),
         }
     }
 }

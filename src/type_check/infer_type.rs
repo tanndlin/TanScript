@@ -232,6 +232,27 @@ mod test {
     }
 
     #[test]
+    fn type_error_for_struct_as_function_arg() {
+        for code in [
+            "struct P { a: i64, } let p = P { a: 1 }; printf(\"%d\", p);",
+            "struct P { a: i64, } let p = P { a: 1 }; f(1, 2, 3, 4, p);",
+            "struct P { a: i64, } def f(x: i64): i64 { return x; } let p = P { a: 1 }; f(p);",
+        ] {
+            let result = infer_last(code);
+            assert!(
+                matches!(
+                    result,
+                    Err(TypeCheckError {
+                        kind: TypeCheckErrorKind::StructAsArgument,
+                        ..
+                    })
+                ),
+                "expected StructAsArgument for {code}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
     fn infers_type_from_function_call() {
         assert_eq!(
             infer_last("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap(),

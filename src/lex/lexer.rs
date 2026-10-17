@@ -67,7 +67,12 @@ impl Lexer {
             match cur {
                 '"' => {
                     tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::String(get_string(&mut chars, span)?)),
+                        Token::Atom(LexerAtomType::String(get_string(
+                            &mut chars,
+                            span,
+                            &mut line_number,
+                            &mut line_start,
+                        )?)),
                         span,
                     ));
                 }
@@ -193,7 +198,12 @@ fn get_identifier(input: &mut Vec<char>) -> String {
     string_vec.into_iter().collect::<String>()
 }
 
-fn get_string(input: &mut Vec<char>, span: Span) -> Result<String, LexError> {
+fn get_string(
+    input: &mut Vec<char>,
+    span: Span,
+    line_number: &mut u32,
+    line_start: &mut usize,
+) -> Result<String, LexError> {
     // Remove the leading quote
     input.pop().unwrap();
 
@@ -207,6 +217,11 @@ fn get_string(input: &mut Vec<char>, span: Span) -> Result<String, LexError> {
                     .push(get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))?),
                 None => return Err(LexErrorKind::MissingClosingQuote.at(span)),
             },
+            Some('\n') => {
+                *line_number += 1;
+                *line_start = input.len();
+                chars.push('\n');
+            }
             Some(c) => chars.push(c),
         }
     }
@@ -748,6 +763,15 @@ mod test {
             .map(|token| token.span.line)
             .collect();
         assert_eq!(lines, vec![0, 0, 2, 2, 3]);
+    }
+
+    #[test]
+    fn lex_line_numbers_after_multiline_string() {
+        let mut lexer = Lexer::new("\"a\nb\n\" x;").unwrap();
+        let spans: Vec<(u32, u32)> = std::iter::from_fn(|| lexer.next())
+            .map(|token| (token.span.line, token.span.col))
+            .collect();
+        assert_eq!(spans, vec![(0, 0), (2, 2), (2, 3)]);
     }
 
     #[test]
