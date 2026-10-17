@@ -61,6 +61,17 @@ pub fn check_binary(
     let lhs = check_types_expression(lhs, type_scope)?;
     let rhs = check_types_expression(rhs, type_scope)?;
 
+    if let Some(struct_type) = [&lhs, &rhs]
+        .into_iter()
+        .find(|t| matches!(t, Type::Struct(_)))
+    {
+        return Err(TypeCheckErrorKind::TypeMismatch {
+            expected: Type::Int(IntType::I64),
+            got: struct_type.clone(),
+        }
+        .at(expression.span));
+    }
+
     let unified = unify(&lhs, &rhs)
         .or_else(|| unify(&rhs, &lhs))
         .ok_or_else(|| {

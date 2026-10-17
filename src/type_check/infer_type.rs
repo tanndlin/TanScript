@@ -211,6 +211,27 @@ mod test {
     }
 
     #[test]
+    fn type_error_for_struct_in_binary_op() {
+        for code in [
+            "struct P { a: i64, } let p = P { a: 1 }; p % p;",
+            "struct P { a: i64, } let p = P { a: 1 }; p + printf(\"x\");",
+            "struct P { a: i64, } let p = P { a: 1 }; p == p;",
+        ] {
+            let result = infer_last(code);
+            assert!(
+                matches!(
+                    result,
+                    Err(TypeCheckError {
+                        kind: TypeCheckErrorKind::TypeMismatch { .. },
+                        ..
+                    })
+                ),
+                "expected TypeMismatch for {code}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
     fn infers_type_from_function_call() {
         assert_eq!(
             infer_last("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap(),
