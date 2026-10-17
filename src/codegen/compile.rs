@@ -25,6 +25,10 @@ impl Program {
         let mut symbol_table = SymbolTable::new();
         self.block.discover(&mut symbol_table);
         symbol_table.externs.insert("exit".to_string());
+        for def in symbol_table.functions.values() {
+            global_scope.insert_function(def.name.clone(), def.clone());
+        }
+
         let instructions = render(
             &self
                 .block
@@ -933,7 +937,7 @@ fn compile_multiply(
     }
 }
 
-/// `idiv` leaves the quotient in rax and the remainder in rdx, so `result` picks between / and %
+/// `div` leaves the quotient in rax and the remainder in rdx, so `result` picks between / and %
 fn compile_divide(
     compile_scope: &mut CompileScope,
     left: &Expression,
@@ -942,8 +946,13 @@ fn compile_divide(
     register_handler: &mut RegisterHandler,
     result: Register,
 ) -> Result<Vec<Instruction>, CodegenError> {
+    let unsigned = matches!(
+        compile_scope.unified_type(left, right).at(left.span)?,
+        Type::Int(int) if !int.is_signed()
+    );
+
     register_handler.lease_with_scope(|register_handler, right_reg| {
-        // Only happens when every other register is leased, and idiv overwrites both
+        // Only happens when every other register is leased, and div overwrites both
         if matches!(right_reg, Register::RAX | Register::RDX) {
             return Err(CodegenErrorKind::OutOfRegisters.at(left.span));
         }
@@ -958,11 +967,19 @@ fn compile_divide(
                     Register::RDX,
                     dst,
                     |_, _| {
-                        Ok(vec![
-                            Instruction::Cqo,
-                            Instruction::idiv(right_reg),
-                            Instruction::mov(dst, result),
-                        ])
+                        Ok(if unsigned {
+                            vec![
+                                Instruction::xor(Register::RDX, Register::RDX),
+                                Instruction::div(right_reg),
+                                Instruction::mov(dst, result),
+                            ]
+                        } else {
+                            vec![
+                                Instruction::Cqo,
+                                Instruction::idiv(right_reg),
+                                Instruction::mov(dst, result),
+                            ]
+                        })
                     },
                 )?);
 
@@ -1025,6 +1042,24 @@ mod test {
             assert!(asm.lines().any(|l| l.trim() == "cqo"), "{asm}");
             assert!(asm.lines().any(|l| l.trim().starts_with("idiv ")), "{asm}");
         }
+    }
+
+    #[test]
+    fn compile_unsigned_divide_uses_div() {
+        for input in [
+            "let a: u64 = 7; let b = a / 2;",
+            "let a: u32 = 7; let b = a % 2;",
+        ] {
+            let asm = compile(input);
+            assert!(asm.lines().any(|l| l.trim().starts_with("div ")), "{asm}");
+            assert!(!asm.lines().any(|l| l.trim() == "cqo"), "{asm}");
+        }
+    }
+
+    #[test]
+    fn compile_divide_by_unsigned_call_uses_div() {
+        let asm = compile("def five(): u64 { return 5; } let a = five() / 2;");
+        assert!(asm.lines().any(|l| l.trim().starts_with("div ")), "{asm}");
     }
 
     #[test]

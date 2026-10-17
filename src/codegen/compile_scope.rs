@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind, StructDefinition},
+    ast::{AtomType, Expression, ExpressionKind, FunctionDefinition, StructDefinition, UnaryOp},
     codegen::{
         CodegenErrorKind,
         address::{Address, Register},
@@ -9,7 +9,7 @@ use crate::{
         instruction::Instruction,
         loop_context::LoopContext,
     },
-    type_check::Type,
+    type_check::{Type, unify},
 };
 
 pub const SLOT_SIZE: u32 = 8;
@@ -19,6 +19,7 @@ pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, StructDefinition>,
+    functions: HashMap<String, FunctionDefinition>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
@@ -32,6 +33,7 @@ impl<'a> CompileScope<'a> {
             parent,
             variables: HashMap::new(),
             structs: HashMap::new(),
+            functions: HashMap::new(),
             loop_context: None,
             function_context: None,
             stack_depth: parent.map_or(0, |p| p.stack_depth),
@@ -102,9 +104,25 @@ impl<'a> CompileScope<'a> {
     }
 
     pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
-        let pointer = match &expr.kind {
+        Ok(match self.expression_type(expr)? {
+            Type::Pointer(inner) => *inner,
+            _ => Type::Unknown,
+        })
+    }
+
+    pub fn expression_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
+        Ok(match &expr.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
+            ExpressionKind::Atom(AtomType::String(_) | AtomType::Colon) => Type::Unknown,
+            ExpressionKind::Atom(atom) => Type::from(atom),
+            ExpressionKind::Binary(op, _, _) if op.returns_boolean() => Type::Boolean,
+            ExpressionKind::Binary(_, lhs, rhs) => self.unified_type(lhs, rhs)?,
+            ExpressionKind::Unary(UnaryOp::Not, _) => Type::Boolean,
+            ExpressionKind::Unary(UnaryOp::Negate, inner) | ExpressionKind::Postfix(_, inner) => {
+                self.expression_type(inner)?
+            }
             ExpressionKind::Index(lhs, _) => self.element_type(lhs)?,
+            ExpressionKind::Cast(_, cast_type) => cast_type.clone(),
             ExpressionKind::StructAccess {
                 struct_var_name,
                 field_name,
@@ -115,13 +133,28 @@ impl<'a> CompileScope<'a> {
                     .unwrap_or(Type::Unknown),
                 _ => Type::Unknown,
             },
-            _ => Type::Unknown,
-        };
-
-        Ok(match pointer {
-            Type::Pointer(inner) => *inner,
-            _ => Type::Unknown,
+            ExpressionKind::StructInstantiation {
+                struct_type_name, ..
+            } => self
+                .lookup_struct(struct_type_name)
+                .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
+            ExpressionKind::FunctionCall(name, _) => self
+                .lookup_function(name)
+                .cloned()
+                .map_or(Type::Unknown, |f| f.return_type),
         })
+    }
+
+    pub fn unified_type(
+        &self,
+        lhs: &Expression,
+        rhs: &Expression,
+    ) -> Result<Type, CodegenErrorKind> {
+        let lhs = self.expression_type(lhs)?;
+        let rhs = self.expression_type(rhs)?;
+        Ok(unify(&lhs, &rhs)
+            .or_else(|| unify(&rhs, &lhs))
+            .unwrap_or(Type::Unknown))
     }
 
     pub fn add_variable(
@@ -160,6 +193,16 @@ impl<'a> CompileScope<'a> {
 
     pub fn insert_struct(&mut self, def: StructDefinition) {
         self.structs.insert(def.name.clone(), def);
+    }
+
+    pub fn insert_function(&mut self, name: String, def: FunctionDefinition) {
+        self.functions.insert(name, def);
+    }
+
+    pub fn lookup_function(&self, name: &str) -> Option<&FunctionDefinition> {
+        self.functions
+            .get(name)
+            .or_else(|| self.parent.and_then(|p| p.lookup_function(name)))
     }
 
     pub fn lookup_struct(&self, name: &str) -> Option<&StructDefinition> {

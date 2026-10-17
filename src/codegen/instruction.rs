@@ -112,6 +112,9 @@ pub enum Instruction {
     Idiv {
         src: Register,
     },
+    Div {
+        src: Register,
+    },
     Cqo,
     Store {
         dst: Address,
@@ -212,6 +215,10 @@ impl Instruction {
 
     pub fn idiv(src: Register) -> Self {
         Self::Idiv { src }
+    }
+
+    pub fn div(src: Register) -> Self {
+        Self::Div { src }
     }
 
     pub fn store(dst: impl Into<Address>, src: Register, size: Size) -> Self {
@@ -361,6 +368,7 @@ impl fmt::Display for Instruction {
             Instruction::Neg { dst } => write!(f, "\tneg QWORD {dst}"),
             Instruction::Imul { dst, src } => write!(f, "\timul {dst}, {src}"),
             Instruction::Idiv { src } => write!(f, "\tidiv {src}"),
+            Instruction::Div { src } => write!(f, "\tdiv {src}"),
             Instruction::Cqo => write!(f, "\tcqo"),
             Instruction::Movsx {
                 dst,

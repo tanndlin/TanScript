@@ -5,6 +5,7 @@ mod type_check_error;
 mod type_scope;
 
 pub use check_types::{check_types, check_types_expression, expect_type, narrow_expression};
+pub use infer_type::unify;
 pub use type_check_error::{TypeCheckError, TypeCheckErrorKind};
 pub use type_scope::TypeScope;
 

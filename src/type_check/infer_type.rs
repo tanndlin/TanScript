@@ -1,6 +1,6 @@
 use crate::{type_check::Type, types::IntType};
 
-pub(super) fn unify(a: &Type, b: &Type) -> Option<Type> {
+pub fn unify(a: &Type, b: &Type) -> Option<Type> {
     match (a, b) {
         _ if a == b => Some(a.clone()),
         (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b.clone()),
