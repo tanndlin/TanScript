@@ -58,12 +58,10 @@ impl Assignment {
             ExpressionKind::Index(lhs, index) => {
                 let element = compile_scope.element_type(lhs).at(lhs.span)?;
                 register_handler.lease_with_scope(|register_handler, offset_ptr| {
-                    let data_size = u32::try_from(element.size()).unwrap();
                     let mut instructions =
                         index.compile(compile_scope, offset_ptr, register_handler)?;
-                    instructions.push(Instruction::imul(offset_ptr, data_size));
                     instructions.extend(register_handler.lease_with_scope(
-                        |register_handler, ptr| {
+                        |register_handler: &mut RegisterHandler, ptr| {
                             let mut instructions =
                                 lhs.compile(compile_scope, ptr, register_handler)?;
 
@@ -77,6 +75,7 @@ impl Assignment {
                                     let memory = Address::Indexed {
                                         base: ptr,
                                         index: offset_ptr,
+                                        size: u32::try_from(element.size()).unwrap(),
                                     };
                                     rhs.push(store_element(&element, memory, value_dst));
                                     Ok(rhs)

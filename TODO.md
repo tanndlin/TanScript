@@ -11,4 +11,3 @@
   - reuse registers for intermediate results instead of allocating new ones
   - keep loop variables in registers across iterations
 - dont push rbp; sub rsp when its a leaf function that doesnt need shadow space for args
-- use scaled addressing for array accesses instead of computing the address manually

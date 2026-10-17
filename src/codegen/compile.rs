@@ -352,9 +352,7 @@ fn compile_index(
 ) -> Result<Vec<Instruction>, CodegenError> {
     let element = compile_scope.element_type(lhs).at(lhs.span)?;
     register_handler.lease_with_scope(|register_handler, ptr| {
-        let data_size = u32::try_from(element.size()).unwrap();
         let mut instructions = index.compile(compile_scope, ptr, register_handler)?;
-        instructions.push(Instruction::imul(ptr, data_size));
         instructions.extend(
             register_handler.lease_with_scope(|register_handler, lhs_dst| {
                 let mut instructions = lhs.compile(compile_scope, lhs_dst, register_handler)?;
@@ -362,6 +360,7 @@ fn compile_index(
                 let memory = Address::Indexed {
                     base: lhs_dst,
                     index: ptr,
+                    size: u32::try_from(element.size()).unwrap(),
                 };
                 match dst {
                     Address::Register(reg) => {

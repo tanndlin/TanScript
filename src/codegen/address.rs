@@ -66,7 +66,11 @@ pub enum Address {
     Register(Register),
     Stack(i32), // Offset below rbp; negative offsets are above rbp (e.g. function args)
     StackArg(i32),
-    Indexed { base: Register, index: Register },
+    Indexed {
+        base: Register,
+        index: Register,
+        size: u32,
+    },
 }
 
 impl Address {
@@ -107,7 +111,13 @@ impl fmt::Display for Address {
             Address::Stack(off) if *off < 0 => write!(f, "[rbp + {}]", -off),
             Address::Stack(off) => write!(f, "[rbp - {off}]"),
             Address::StackArg(off) => write!(f, "[rsp + {off}]"),
-            Address::Indexed { base, index } => write!(f, "[{base}+{index}]"),
+            Address::Indexed { base, index, size } => {
+                if *size > 1 {
+                    write!(f, "[{base} + {index} * {size}]")
+                } else {
+                    write!(f, "[{base} + {index}]")
+                }
+            }
         }
     }
 }
