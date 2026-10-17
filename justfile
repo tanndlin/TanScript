@@ -21,7 +21,7 @@ coverage:
 asan_path := 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64'
 
 fuzz *args:
-    set PATH={{asan_path}};%PATH%&& cargo fuzz run compile fuzz/corpus/compile tests/golden -- {{args}}
+    set PATH={{asan_path}};%PATH%&& cargo fuzz run compile fuzz/corpus/compile tests/golden -- -dict=fuzz/compile.dict -max_len=1024 {{args}}
 
 tmin artifact:
     set PATH={{asan_path}};%PATH%&& cargo fuzz tmin compile {{artifact}}
