@@ -2,6 +2,7 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
+    thread,
 };
 
 const GOLDEN_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden");
@@ -134,19 +135,28 @@ fn golden_scripts() {
         "no golden scripts found in {GOLDEN_DIR}"
     );
 
-    let failures: Vec<String> = scripts
-        .iter()
-        .filter_map(|tan| {
-            let work_dir = work_root.join(tan.file_stem().unwrap());
-            let _ = fs::remove_dir_all(&work_dir);
-            fs::create_dir_all(&work_dir).unwrap();
+    let failures: Vec<String> = thread::scope(|s| {
+        let handles: Vec<_> = scripts
+            .iter()
+            .map(|tan| {
+                let work_dir = work_root.join(tan.file_stem().unwrap());
+                s.spawn(move || {
+                    let _ = fs::remove_dir_all(&work_dir);
+                    fs::create_dir_all(&work_dir).unwrap();
 
-            run_golden(tan, &work_dir)
-                .and_then(|stdout| check(tan, stdout, bless))
-                .err()
-                .map(|e| format!("[{}] {e}", tan.file_name().unwrap().display()))
-        })
-        .collect();
+                    run_golden(tan, &work_dir)
+                        .and_then(|stdout| check(tan, stdout, bless))
+                        .err()
+                        .map(|e| format!("[{}] {e}", tan.file_name().unwrap().display()))
+                })
+            })
+            .collect();
+
+        handles
+            .into_iter()
+            .filter_map(|h| h.join().unwrap())
+            .collect()
+    });
 
     let _ = fs::remove_dir_all(&work_root);
 
