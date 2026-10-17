@@ -67,9 +67,21 @@ fn assemble_and_run(asm: &Path) -> Result<String, String> {
             &obj,
         ],
     )?;
-    run_tool("gcc", &[&obj, Path::new("-o"), &exe])?;
+    let linker = if cfg!(windows) {
+        "gcc"
+    } else {
+        "x86_64-w64-mingw32-gcc"
+    };
+    run_tool(linker, &[&obj, Path::new("-o"), &exe])?;
 
-    let output = Command::new(&exe)
+    let mut command = if cfg!(windows) {
+        Command::new(&exe)
+    } else {
+        let mut wine = Command::new("wine");
+        wine.arg(&exe);
+        wine
+    };
+    let output = command
         .current_dir(asm.parent().unwrap())
         .output()
         .map_err(|e| format!("failed to run {}: {e}", exe.display()))?;
@@ -78,7 +90,7 @@ fn assemble_and_run(asm: &Path) -> Result<String, String> {
 
 fn run_golden(tan: &Path, work_dir: &Path) -> Result<Option<String>, String> {
     let asm = run_compiler(tan, work_dir)?;
-    if cfg!(windows) {
+    if cfg!(windows) || env::var_os("GOLDEN_WINE").is_some() {
         assemble_and_run(&asm).map(Some)
     } else {
         Ok(None)

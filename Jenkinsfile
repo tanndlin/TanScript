@@ -26,6 +26,7 @@ pipeline {
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')
         DOCKER_VOLS = '-v jenkins_jenkins_home:/var/jenkins_home -v cargo-registry-cache:/usr/local/cargo/registry'
         RUST_IMAGE = 'rust:1.97'
+        CI_IMAGE = 'tanscript-ci'
     }
 
     stages {
@@ -33,6 +34,12 @@ pipeline {
             steps {
                 checkout scm
                 githubStatus('pending', 'Build in progress')
+            }
+        }
+
+        stage('CI Image') {
+            steps {
+                sh 'docker build -t $CI_IMAGE ci'
             }
         }
 
@@ -72,7 +79,7 @@ pipeline {
                 stage('Test') {
                     steps {
                         sh '''
-                        docker run --rm $DOCKER_VOLS -w $WORKSPACE -e KEEP_GOLDEN=1 $RUST_IMAGE \
+                        docker run --rm $DOCKER_VOLS -w $WORKSPACE -e KEEP_GOLDEN=1 -e GOLDEN_WINE=1 $CI_IMAGE \
                             sh -c "curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C /usr/local/cargo/bin \
                                 && rm -rf target/tmp/golden \
                                 && cargo nextest run --profile ci"
