@@ -2,6 +2,7 @@
 - Typed extern declarations (e.g. `extern def strcmp(a: *char, b: *char): i32;`) so calls sign/zero-extend narrow return values; untyped externs read all of rax, but Win64 leaves the upper 32 bits of an int return undefined (works on MSVC CRT, breaks under Wine)
 - Stack arrays
 - Match blocks
+- `else if` chains
 - Floating point
 - optimiation passes
   - Constant folding

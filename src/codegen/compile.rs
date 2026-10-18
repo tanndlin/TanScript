@@ -28,6 +28,9 @@ impl Program {
         for def in symbol_table.functions.values() {
             global_scope.insert_function(def.name.clone(), def.clone());
         }
+        for def in symbol_table.structs.values() {
+            global_scope.insert_struct(def.clone());
+        }
 
         let instructions = render(
             &self

@@ -1,0 +1,15 @@
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+def sum(x: u32, y: u32): u32 {
+    let p = Point {
+        x: x,
+        y: y,
+    };
+
+    p.x + p.y
+}
+
+printf("%d\n", sum(3, 4));

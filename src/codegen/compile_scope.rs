@@ -15,6 +15,7 @@ use crate::{
 pub const SLOT_SIZE: u32 = 8;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,

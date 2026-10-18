@@ -2,16 +2,19 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
     Block, Expression, ExpressionKind, FunctionDefinition, Statement, StatementOrExpression,
+    StructDefinition,
 };
 
 pub struct SymbolTable {
     pub functions: HashMap<String, FunctionDefinition>,
+    pub structs: HashMap<String, StructDefinition>,
     pub externs: HashSet<String>,
 }
 impl SymbolTable {
     pub fn new() -> Self {
         Self {
             functions: HashMap::new(),
+            structs: HashMap::new(),
             externs: HashSet::new(),
         }
     }
@@ -65,7 +68,10 @@ impl Statement {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);
             }
-            Statement::Continue(_) | Statement::Break(_) | Statement::StructDefinition(_) => {}
+            Statement::StructDefinition(s) => {
+                symbols.structs.insert(s.name.clone(), s.clone());
+            }
+            Statement::Continue(_) | Statement::Break(_) => {}
         }
     }
 }
