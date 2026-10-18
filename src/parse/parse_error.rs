@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{
     error::{At, Spanned},
+    lex::MAX_DEPTH,
     types::Token,
 };
 
@@ -11,6 +12,7 @@ pub enum ParseErrorKind {
     UnexpectedEof { expected: String },
     InvalidAssignTarget(String),
     NotAddressable(String),
+    TooDeep,
 }
 
 impl At for ParseErrorKind {}
@@ -31,6 +33,9 @@ impl fmt::Display for ParseErrorKind {
             }
             ParseErrorKind::NotAddressable(expr) => {
                 write!(f, "({expr}) is not addressable")
+            }
+            ParseErrorKind::TooDeep => {
+                write!(f, "Nesting is deeper than the max of ({MAX_DEPTH})")
             }
         }
     }

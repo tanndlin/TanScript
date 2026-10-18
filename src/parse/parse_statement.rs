@@ -133,7 +133,7 @@ fn parse_else_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
     match lexer.peek().map(|tok| &tok.token_type) {
         Some(Token::Atom(LexerAtomType::Identifier(s))) if s == "if" => Ok(Block {
             children: vec![StatementOrExpression::Statement(Box::new(
-                Statement::IfStatement(parse_if_statement(lexer)?),
+                Statement::IfStatement(lexer.nested("if", parse_if_statement)?),
             ))],
         }),
         _ => parse_block(lexer),
@@ -141,6 +141,10 @@ fn parse_else_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
 }
 
 fn parse_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
+    lexer.nested("{", parse_block_at_depth)
+}
+
+fn parse_block_at_depth(lexer: &mut Lexer) -> Result<Block, ParseError> {
     lexer.expect("{")?;
     let mut children = vec![];
     // while let Some(statement) = parse_statement_or_expression(lexer)? {

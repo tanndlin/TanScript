@@ -10,7 +10,10 @@ use crate::{
 pub struct Lexer {
     pub tokens: Vec<LexerToken>,
     pub eof: Span,
+    pub depth: u32,
 }
+
+pub const MAX_DEPTH: u32 = 50;
 
 impl Lexer {
     #[cfg(test)]
@@ -106,11 +109,42 @@ impl Lexer {
             line_number,
             u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX),
         );
-        Ok(Lexer { tokens, eof })
+        Ok(Lexer {
+            tokens,
+            eof,
+            depth: 0,
+        })
     }
 
     pub fn next(&mut self) -> Option<LexerToken> {
         self.tokens.pop()
+    }
+
+    pub fn descend(&mut self, span: Span) -> Result<(), ParseError> {
+        self.depth += 1;
+        if self.depth > MAX_DEPTH {
+            return Err(ParseErrorKind::TooDeep.at(span));
+        }
+
+        Ok(())
+    }
+
+    pub fn next_nested(&mut self) -> Result<LexerToken, ParseError> {
+        let token = self.next_or_eof("token")?;
+        self.descend(token.span)?;
+        Ok(token)
+    }
+
+    pub fn nested<T>(
+        &mut self,
+        expected: &str,
+        parse: impl FnOnce(&mut Self) -> Result<T, ParseError>,
+    ) -> Result<T, ParseError> {
+        let span = self.peek_or_eof(expected)?.span;
+        let depth = self.depth;
+        let result = self.descend(span).and_then(|()| parse(self));
+        self.depth = depth;
+        result
     }
 
     pub fn peek(&self) -> Option<&LexerToken> {

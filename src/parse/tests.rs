@@ -1,6 +1,6 @@
 use crate::{
     ast::{AtomType, ExpressionKind, Statement, StatementOrExpression},
-    lex::Lexer,
+    lex::{Lexer, MAX_DEPTH},
     parse::{ParseErrorKind, parse, parse_expression::parse_expression},
     type_check::Type,
 };
@@ -876,4 +876,71 @@ fn reject_address_of_non_place() {
     assert!(parse(Lexer::new("&1;").unwrap()).is_err());
     assert!(parse(Lexer::new("&(a + b);").unwrap()).is_err());
     assert!(parse(Lexer::new("&f();").unwrap()).is_err());
+}
+
+fn is_too_deep(input: &str) -> bool {
+    matches!(
+        parse(Lexer::new(input).unwrap()),
+        Err(err) if matches!(err.kind, ParseErrorKind::TooDeep)
+    )
+}
+
+#[test]
+fn reject_deep_unary() {
+    let n = MAX_DEPTH as usize;
+    assert!(!is_too_deep(&format!("!{}a;", "!".repeat(n - 2))));
+    assert!(is_too_deep(&format!("!{}a;", "!".repeat(n))));
+}
+
+#[test]
+fn reject_deep_parens() {
+    let n = MAX_DEPTH as usize;
+    assert!(!is_too_deep(&format!(
+        "{}a{};",
+        "(".repeat(n - 1),
+        ")".repeat(n - 1)
+    )));
+    assert!(is_too_deep(&format!(
+        "{}a{};",
+        "(".repeat(n),
+        ")".repeat(n)
+    )));
+}
+
+#[test]
+fn reject_long_binary_chain() {
+    let n = MAX_DEPTH as usize;
+    assert!(!is_too_deep(&format!("{}a;", "a + ".repeat(n - 2))));
+    assert!(is_too_deep(&format!("{}a;", "a + ".repeat(n))));
+}
+
+#[test]
+fn reject_deep_blocks() {
+    let n = MAX_DEPTH as usize;
+    assert!(!is_too_deep(&format!(
+        "{}{}",
+        "while a {".repeat(n),
+        "}".repeat(n)
+    )));
+    assert!(is_too_deep(&format!(
+        "{}{}",
+        "while a {".repeat(n + 1),
+        "}".repeat(n + 1)
+    )));
+}
+
+#[test]
+fn reject_long_else_if_chain() {
+    let n = MAX_DEPTH as usize;
+    assert!(is_too_deep(&format!(
+        "if a {{}}{}",
+        " else if a {}".repeat(n)
+    )));
+}
+
+#[test]
+fn depth_resets_between_statements() {
+    let n = MAX_DEPTH as usize;
+    let statement = format!("{}a;", "!".repeat(n - 2));
+    assert!(!is_too_deep(&statement.repeat(3)));
 }

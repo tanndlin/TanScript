@@ -67,6 +67,16 @@ fn parse_expression_with(
     min_bp: u8,
     allow_struct: bool,
 ) -> Result<Expression, ParseError> {
+    lexer.nested("expression", |lexer| {
+        parse_expression_at_depth(lexer, min_bp, allow_struct)
+    })
+}
+
+fn parse_expression_at_depth(
+    lexer: &mut Lexer,
+    min_bp: u8,
+    allow_struct: bool,
+) -> Result<Expression, ParseError> {
     let token = lexer.next_or_eof("expression")?;
 
     let mut lhs = match &token.token_type {
@@ -109,7 +119,7 @@ fn parse_expression_with(
             }
 
             let is_index = matches!(op, OperatorType::OpenBracket);
-            lexer.next();
+            lexer.next_nested()?;
             let span = lhs.span;
             let kind = if is_index {
                 let index = parse_expression(lexer, 0)?;
@@ -138,7 +148,7 @@ fn parse_expression_with(
                 break;
             }
 
-            lexer.next();
+            lexer.next_nested()?;
             let cast_type = parse_type(lexer)?;
             let span = lhs.span;
             lhs = Expression::new(ExpressionKind::Cast(Box::new(lhs), cast_type), span);
@@ -149,7 +159,7 @@ fn parse_expression_with(
             if PostfixOp::BINDING_POWER < min_bp {
                 break;
             }
-            lexer.next();
+            lexer.next_nested()?;
             if !lhs.is_place() {
                 return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
             }
@@ -164,7 +174,7 @@ fn parse_expression_with(
             if l_bp < min_bp {
                 break;
             }
-            lexer.next();
+            lexer.next_nested()?;
             let rhs = parse_expression_with(lexer, r_bp, allow_struct)?;
             let span = lhs.span;
             lhs = Expression::new(

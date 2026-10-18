@@ -14,4 +14,3 @@
 - Dont allow a struct as a defined arg type
 - Make register allocation deterministic
 - Allow struct literal inside a struct literal (e.g. `struct { a: 1, b: struct { c: 2 } }`)
-- Bug: stack overflows with enough ! operators
