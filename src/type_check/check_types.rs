@@ -23,7 +23,6 @@ pub fn check_types_expression(
             .lookup(ident)
             .cloned()
             .ok_or_else(|| TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(span)),
-        ExpressionKind::Atom(AtomType::String(_)) => Ok(Type::Unknown),
         ExpressionKind::Atom(atom_type) => Ok(Type::from(&*atom_type)),
         ExpressionKind::Binary(op, lhs, rhs) => check_binary(span, *op, lhs, rhs, type_scope),
         ExpressionKind::Unary(UnaryOp::Not, inner) => {

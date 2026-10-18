@@ -110,7 +110,7 @@ impl From<&AtomType> for Type {
         match atom_type {
             AtomType::Number(n) => Type::Int(n.kind()),
             AtomType::Identifier(_) => unreachable!(),
-            AtomType::String(_) => todo!(), // Type::String,
+            AtomType::String(_) => Type::Pointer(Box::new(Type::Char)),
             AtomType::Boolean(_) => Type::Boolean,
             AtomType::Char(_) => Type::Char,
         }

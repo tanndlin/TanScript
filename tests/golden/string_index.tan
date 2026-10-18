@@ -1,0 +1,8 @@
+let palette = " .:-=+*#%@";
+let n: i64 = 12;
+putchar(palette[3]);
+putchar(palette[n % 9]);
+putchar('\n');
+
+let first = "hello"[1];
+printf("%c\n", first);
