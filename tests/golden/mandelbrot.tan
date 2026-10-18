@@ -1,0 +1,38 @@
+def escapeTime(cr: i64, ci: i64, maxIter: i64): i64 {
+    let zr: i64 = 0;
+    let zi: i64 = 0;
+    let iter: i64 = 0;
+
+    while iter < maxIter {
+        let zr2 = zr * zr / 4096;
+        let zi2 = zi * zi / 4096;
+        if zr2 + zi2 > 16384 {
+            return iter;
+        }
+
+        zi = 2 * zr * zi / 4096 + ci;
+        zr = zr2 - zi2 + cr;
+        iter++;
+    }
+
+    maxIter
+}
+
+let palette = " .:-=+*#%@";
+let width: i64 = 100;
+let height: i64 = 40;
+let maxIter: i64 = 60;
+
+for (let row: i64 = 0; row < height; row++) {
+    for (let col: i64 = 0; col < width; col++) {
+        let cr = col * 12288 / width - 8192;
+        let ci = row * 9830 / height - 4915;
+        let n = escapeTime(cr, ci, maxIter);
+        if n == maxIter {
+            putchar('@');
+        } else {
+            putchar(palette[n % 9]);
+        }
+    }
+    putchar('\n');
+}
