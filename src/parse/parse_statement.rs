@@ -116,7 +116,7 @@ fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
         Some(tok) => match &tok.token_type {
             Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => {
                 lexer.expect("else")?;
-                Some(parse_block(lexer)?)
+                Some(parse_else_block(lexer)?)
             }
             _ => None,
         },
@@ -127,6 +127,17 @@ fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
         block,
         else_block,
     })
+}
+
+fn parse_else_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
+    match lexer.peek().map(|tok| &tok.token_type) {
+        Some(Token::Atom(LexerAtomType::Identifier(s))) if s == "if" => Ok(Block {
+            children: vec![StatementOrExpression::Statement(Box::new(
+                Statement::IfStatement(parse_if_statement(lexer)?),
+            ))],
+        }),
+        _ => parse_block(lexer),
+    }
 }
 
 fn parse_block(lexer: &mut Lexer) -> Result<Block, ParseError> {

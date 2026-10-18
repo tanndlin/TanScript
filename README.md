@@ -30,7 +30,7 @@ printf("%d\n", numDivisors(28));
 - **Type Checking**: Mismatched types, wrong argument counts, and invalid casts are reported with the source location and compile stage.
 - **Casting**: Explicit casts with `as` (`big as u8`, `address as *char`). Integers implicitly widen when no information is lost.
 - **Variables**: `let` declarations, with optional annotations (`let c: char = 'a';`).
-- **Control Flow**: `if`/`else`, `while`, `for`, `break`, and `continue`.
+- **Control Flow**: `if`/`else if`/`else`, `while`, `for`, `break`, and `continue`.
 - **Functions**: `def name(arg: type): return_type { ... }`. The return type defaults to unit, and the last expression in the body is returned implicitly. `return` is also supported.
 - **Structs**: `struct` definitions, `Name { field: value }` instantiation, and field access and assignment with `.`.
 - **Pointers and Indexing**: Index any pointer with `[]`, e.g. memory from `malloc`.

@@ -316,6 +316,22 @@ fn parse_if_else_statement() {
 }
 
 #[test]
+fn parse_else_if_statement() {
+    integration_test!(
+        "if (a < 10) { a = 1; } else if (a < 20) { a = 2; } else { a = 3; }",
+        "if (< a 10) {
+a = 1
+} else {
+if (< a 20) {
+a = 2
+} else {
+a = 3
+}
+}"
+    );
+}
+
+#[test]
 fn parse_function_definition() {
     integration_test!(
         "def add(a: i32, b: i32) { return a + b; }",
