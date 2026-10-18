@@ -27,9 +27,7 @@ mod test {
         let mut type_scope = TypeScope::default();
         let (last, rest) = program.block.children.split_last_mut().unwrap();
         for child in rest {
-            if let StatementOrExpression::Statement(statement) = child {
-                statement.check_types(&mut type_scope).unwrap();
-            }
+            child.check_types(&mut type_scope)?;
         }
         let StatementOrExpression::Expression(expression) = last else {
             panic!("expected an expression");
@@ -39,49 +37,20 @@ mod test {
 
     #[test]
     fn infers_type_from_literal() {
-        let program = parse(Lexer::new("1;").unwrap()).unwrap();
-        let Some(StatementOrExpression::Expression(expression)) = program.block.children.first()
-        else {
-            panic!("expected an expression");
-        };
-        assert_eq!(
-            check_types_expression(expression, &mut TypeScope::default()).unwrap(),
-            Type::Int(IntType::Coercible)
-        );
+        assert_eq!(infer_last("1;").unwrap(), Type::Int(IntType::Coercible));
     }
 
     #[test]
     fn infers_type_from_variable() {
-        let mut program = parse(Lexer::new("let a: u32 = 1; a;").unwrap()).unwrap();
-        let mut type_scope = TypeScope::default();
-
-        let StatementOrExpression::Statement(declaration) = &mut program.block.children[0] else {
-            panic!("expected a statement");
-        };
-        declaration.check_types(&mut type_scope).unwrap();
-
-        let StatementOrExpression::Expression(expression) = &program.block.children[1] else {
-            panic!("expected an expression");
-        };
         assert_eq!(
-            check_types_expression(expression, &mut type_scope).unwrap(),
+            infer_last("let a: u32 = 1; a;").unwrap(),
             Type::Int(IntType::U32)
         );
     }
 
     #[test]
     fn infers_type_from_binary_op_literals() {
-        let program = parse(Lexer::new("1 + 2;").unwrap()).unwrap();
-        let mut type_scope = TypeScope::default();
-
-        let StatementOrExpression::Expression(expr) = &program.block.children[0] else {
-            panic!("expected an expression");
-        };
-
-        assert_eq!(
-            check_types_expression(expr, &mut type_scope).unwrap(),
-            Type::Int(IntType::Coercible)
-        );
+        assert_eq!(infer_last("1 + 2;").unwrap(), Type::Int(IntType::Coercible));
     }
 
     #[test]
@@ -250,6 +219,173 @@ mod test {
                 "expected StructAsArgument for {code}, got {result:?}"
             );
         }
+    }
+
+    #[test]
+    fn resolves_struct_type_names() {
+        for code in [
+            "struct P { a: i64, } def f(p: P): i64 { return 1; } f;",
+            "struct P { a: i64, } def f(p: *P): *P { return p; } f;",
+            "struct P { a: i64, } struct Q { p: P, ptr: *P, } let q: *Q = 0 as *Q; q;",
+        ] {
+            let result = infer_last(code);
+            assert!(result.is_ok(), "expected Ok for {code}, got {result:?}");
+        }
+    }
+
+    #[test]
+    fn resolved_struct_type_is_the_definition() {
+        let Type::Pointer(inner) = infer_last("struct P { a: i64, } 0 as *P;").unwrap() else {
+            panic!("expected a pointer");
+        };
+        assert!(matches!(*inner, Type::Struct(def) if def.name == "P"));
+    }
+
+    #[test]
+    fn type_error_for_unknown_type() {
+        for code in [
+            "def f(p: P): i64 { return 1; } f;",
+            "def f(): *P { return 0; } f;",
+            "struct Q { p: P, } 1;",
+            "let x = 1; let y: x = 1; y;",
+            "0 as *P;",
+        ] {
+            let result = infer_last(code);
+            assert!(
+                matches!(
+                    &result,
+                    Err(TypeCheckError {
+                        kind: TypeCheckErrorKind::UnknownType(_),
+                        ..
+                    })
+                ),
+                "expected UnknownType for {code}, got {result:?}"
+            );
+        }
+    }
+
+    fn pointer_to(t: Type) -> Type {
+        Type::Pointer(Box::new(t))
+    }
+
+    #[test]
+    fn infers_address_of_type() {
+        assert_eq!(
+            infer_last("let x: i64 = 1; &x;").unwrap(),
+            pointer_to(Type::Int(IntType::I64))
+        );
+        assert_eq!(
+            infer_last("let c: char = 'a'; &c;").unwrap(),
+            pointer_to(Type::Char)
+        );
+        assert_eq!(
+            infer_last("let x: u8 = 1; let p = &x; &p;").unwrap(),
+            pointer_to(pointer_to(Type::Int(IntType::U8)))
+        );
+    }
+
+    #[test]
+    fn infers_address_of_index_type() {
+        assert_eq!(
+            infer_last("let s: *char = malloc(4); &s[1];").unwrap(),
+            pointer_to(Type::Char)
+        );
+    }
+
+    #[test]
+    fn infers_address_of_struct_type() {
+        let Type::Pointer(inner) =
+            infer_last("struct P { a: u8, } let s = P { a: 1 }; &s;").unwrap()
+        else {
+            panic!("expected a pointer");
+        };
+        assert!(matches!(*inner, Type::Struct(def) if def.name == "P"));
+    }
+
+    #[test]
+    fn infers_address_of_field_type() {
+        assert_eq!(
+            infer_last("struct P { a: u8, } let s = P { a: 1 }; &s.a;").unwrap(),
+            pointer_to(Type::Int(IntType::U8))
+        );
+    }
+
+    #[test]
+    fn infers_deref_type() {
+        assert_eq!(
+            infer_last("let x: u8 = 1; let p = &x; *p;").unwrap(),
+            Type::Int(IntType::U8)
+        );
+        assert_eq!(
+            infer_last("let s: *char = malloc(4); *s;").unwrap(),
+            Type::Char
+        );
+        assert_eq!(
+            infer_last("let x: i64 = 1; let p = &x; let pp = &p; **pp;").unwrap(),
+            Type::Int(IntType::I64)
+        );
+        assert_eq!(
+            infer_last("let x: u32 = 1; *&x;").unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
+    fn infers_field_type_through_deref() {
+        assert_eq!(
+            infer_last(
+                "struct P { a: u8, b: bool, } let s = P { a: 1, b: true }; let p = &s; (*p).b;"
+            )
+            .unwrap(),
+            Type::Boolean
+        );
+    }
+
+    #[test]
+    fn infers_deref_of_pointer_arg() {
+        assert_eq!(
+            infer_last("def f(p: *u32): u32 { return *p; } let x: u32 = 1; f(&x);").unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
+    fn struct_pointer_is_not_a_struct_argument() {
+        assert_eq!(
+            infer_last(
+                "struct P { a: u8, } def f(p: *P): u8 { return (*p).a; } let s = P { a: 1 }; f(&s);"
+            )
+            .unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn type_error_for_deref_of_non_pointer() {
+        for code in [
+            "let x: i64 = 1; *x;",
+            "let b = true; *b;",
+            "struct P { a: u8, } let s = P { a: 1 }; *s;",
+            "let x: i64 = 1; let p = &x; **p;",
+        ] {
+            let result = infer_last(code);
+            assert!(
+                matches!(
+                    result,
+                    Err(TypeCheckError {
+                        kind: TypeCheckErrorKind::NotDerefable(_),
+                        ..
+                    })
+                ),
+                "expected NotDerefable for {code}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn type_error_for_field_access_through_non_struct_pointer() {
+        let result = infer_last("let x: i64 = 1; let p = &x; (*p).a;");
+        assert!(result.is_err(), "expected an error, got {result:?}");
     }
 
     #[test]

@@ -95,8 +95,8 @@ impl Statement {
 
 impl Assignment {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let expected = check_types_expression(&self.lhs, type_scope)?;
-        let got = check_types_expression(&self.expression, type_scope)?;
+        let expected = check_types_expression(&mut self.lhs, type_scope)?;
+        let got = check_types_expression(&mut self.expression, type_scope)?;
 
         if expected == Type::Int(IntType::Coercible) && got.is_number_type() {
             narrow_expression(&self.lhs, got, type_scope);
@@ -112,8 +112,13 @@ impl Declaration {
             panic!("Declaration LHS can only be a identifier");
         };
 
-        let got = check_types_expression(&self.assign.expression, type_scope)?;
-        let Some(expected) = self.dtype.clone() else {
+        let got = check_types_expression(&mut self.assign.expression, type_scope)?;
+        let Some(expected) = self
+            .dtype
+            .as_ref()
+            .map(|t| type_scope.resolve(t, self.assign.lhs.span))
+            .transpose()?
+        else {
             self.binding = Some(type_scope.insert(ident.clone(), got));
             return Ok(());
         };
@@ -134,7 +139,7 @@ impl ForLoop {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
         let result = self.init.check_types(type_scope).and_then(|()| {
-            check_types_expression(&self.condition, type_scope)?;
+            check_types_expression(&mut self.condition, type_scope)?;
             self.update.check_types(type_scope)?;
             self.block.check_types(type_scope)
         });
@@ -150,6 +155,11 @@ impl ForLoop {
 
 impl FunctionDefinition {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        for arg in &mut self.args {
+            arg.atype = type_scope.resolve(&arg.atype, arg.span)?;
+        }
+        self.return_type = type_scope.resolve(&self.return_type, self.span)?;
+
         type_scope.insert(
             self.name.clone(),
             Type::Function(Box::new(FunctionType {
@@ -185,6 +195,9 @@ impl StructDefinition {
             return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
         }
 
+        for field in &mut self.fields {
+            field.ftype = type_scope.resolve(&field.ftype, self.span)?;
+        }
         type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
         Ok(())
     }
@@ -192,7 +205,7 @@ impl StructDefinition {
 
 impl IfStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        check_types_expression(&self.condition, type_scope)?;
+        check_types_expression(&mut self.condition, type_scope)?;
         self.block.check_types(type_scope)?;
         if let Some(else_block) = &mut self.else_block {
             else_block.check_types(type_scope)?;
@@ -210,7 +223,7 @@ impl IfStatement {
 
 impl ReturnStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let got = match &self.expr {
+        let got = match &mut self.expr {
             Some(expr) => check_types_expression(expr, type_scope)?,
             None => Type::Unit,
         };
@@ -227,7 +240,7 @@ impl ReturnStatement {
 
 impl WhileLoop {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        check_types_expression(&self.condition, type_scope)?;
+        check_types_expression(&mut self.condition, type_scope)?;
         self.block.check_types(type_scope)
     }
 }

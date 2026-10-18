@@ -31,6 +31,7 @@ pub enum Type {
     Function(Box<FunctionType>), // Types of args
     Struct(Box<StructDefinition>),
     Pointer(Box<Type>),
+    Named(String),
     Unit,
     Unknown,
 }
@@ -47,6 +48,7 @@ impl Type {
             Self::Unit => 0,
             Self::Boolean | Self::Char => 1,
             Self::Function(_) | Self::Pointer(_) | Self::Unknown => 8,
+            Self::Named(name) => unreachable!("unresolved type ({name})"),
         }
     }
 
@@ -98,6 +100,7 @@ impl fmt::Display for Type {
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Boolean => write!(f, "bool"),
             Type::Struct(_) => write!(f, "struct"),
+            Type::Named(name) => write!(f, "{name}"),
         }
     }
 }

@@ -29,6 +29,8 @@ pub enum TypeCheckErrorKind {
     },
     DuplicateIdentifiers(String),
     StructAsArgument,
+    UnknownType(String),
+    NotDerefable(Type),
 }
 
 impl At for TypeCheckErrorKind {}
@@ -69,6 +71,8 @@ impl fmt::Display for TypeCheckErrorKind {
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
             Self::StructAsArgument => write!(f, "Structs cannot be passed as function arguments"),
+            Self::UnknownType(name) => write!(f, "Unknown type ({name})"),
+            Self::NotDerefable(t) => write!(f, "Type: ({t}) cannot be dereferenced"),
         }
     }
 }

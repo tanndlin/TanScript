@@ -54,11 +54,8 @@ impl Statement {
 impl Expression {
     pub fn references(&self, names: &mut Vec<String>) {
         match &self.kind {
-            ExpressionKind::Atom(AtomType::Identifier(name))
-            | ExpressionKind::StructAccess {
-                struct_var_name: name,
-                ..
-            } => names.push(name.clone()),
+            ExpressionKind::Atom(AtomType::Identifier(name)) => names.push(name.clone()),
+            ExpressionKind::StructAccess { base, .. } => base.references(names),
             ExpressionKind::Atom(_) => {}
             ExpressionKind::Binary(_, lhs, rhs) | ExpressionKind::Index(lhs, rhs) => {
                 lhs.references(names);

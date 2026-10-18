@@ -10,7 +10,7 @@ pub enum ParseErrorKind {
     Expected { expected: String, got: Token },
     UnexpectedEof { expected: String },
     InvalidAssignTarget(String),
-    UnknownType(String),
+    NotAddressable(String),
 }
 
 impl At for ParseErrorKind {}
@@ -29,7 +29,9 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidAssignTarget(target) => {
                 write!(f, "Cannot assign to ({target})")
             }
-            ParseErrorKind::UnknownType(name) => write!(f, "Unknown type ({name})"),
+            ParseErrorKind::NotAddressable(expr) => {
+                write!(f, "({expr}) is not addressable")
+            }
         }
     }
 }

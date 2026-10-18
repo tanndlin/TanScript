@@ -35,7 +35,8 @@ def mergeSort(arr: **char, start: u32, end: u32) {
 }
 
 
-def nameScore(name: *char, length: u32): u32 {
+def nameScore(name: *char): u32 {
+    let length = strlen(name);
     let score = 0;
     for(let i = 0; i < length; i++) {
         score += name[i] as u32 - 64;
@@ -69,7 +70,7 @@ while fscanf(fp, "\"%[^\"]\",", buf) as i32 == 1 {
 mergeSort(names.arr, 0, names.length - 1);
 
 for(let i = 0; i < names.length; i++) {
-    total += nameScore(names.arr[i], strlen(names.arr[i])) * (i + 1);
+    total += nameScore(names.arr[i]) * (i + 1);
 }
 
 printf("Total: %d\n", total);

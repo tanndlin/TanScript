@@ -16,6 +16,16 @@ impl Expression {
     pub fn new(kind: ExpressionKind, span: Span) -> Self {
         Self { kind, span }
     }
+
+    pub fn is_place(&self) -> bool {
+        matches!(
+            self.kind,
+            ExpressionKind::Atom(AtomType::Identifier(_))
+                | ExpressionKind::Index(_, _)
+                | ExpressionKind::StructAccess { .. }
+                | ExpressionKind::Unary(UnaryOp::Deref, _)
+        )
+    }
 }
 
 impl fmt::Display for Expression {
@@ -38,7 +48,7 @@ pub enum ExpressionKind {
         fields: Vec<(String, Expression)>,
     },
     StructAccess {
-        struct_var_name: String,
+        base: Box<Expression>,
         field_name: String,
     },
 }
@@ -78,11 +88,8 @@ impl fmt::Display for ExpressionKind {
                         .join(", ")
                 )
             }
-            ExpressionKind::StructAccess {
-                struct_var_name,
-                field_name,
-            } => {
-                write!(f, "{struct_var_name}.{field_name}")
+            ExpressionKind::StructAccess { base, field_name } => {
+                write!(f, "{base}.{field_name}")
             }
         }
     }

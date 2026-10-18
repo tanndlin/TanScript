@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{type_check::Type, types::IntType};
+use crate::{
+    error::At,
+    type_check::{Type, TypeCheckError, TypeCheckErrorKind},
+    types::{IntType, Span},
+};
 
 #[derive(Debug)]
 pub struct TypeScope {
@@ -65,5 +69,16 @@ impl TypeScope {
 
     pub fn binding(&self, id: usize) -> &Type {
         &self.bindings[id]
+    }
+
+    pub fn resolve(&self, t: &Type, span: Span) -> Result<Type, TypeCheckError> {
+        match t {
+            Type::Named(name) => match self.lookup(name) {
+                Some(struct_type @ Type::Struct(_)) => Ok(struct_type.clone()),
+                _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(span)),
+            },
+            Type::Pointer(inner) => Ok(Type::Pointer(Box::new(self.resolve(inner, span)?))),
+            _ => Ok(t.clone()),
+        }
     }
 }

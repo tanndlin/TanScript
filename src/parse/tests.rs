@@ -760,3 +760,104 @@ fn parse_import_errors() {
     assert!(parse(Lexer::new("use math::{square}").unwrap()).is_err());
     assert!(parse(Lexer::new("use math::{1};").unwrap()).is_err());
 }
+
+#[test]
+fn parse_address_of() {
+    test_parse_expression!("&x", "(& x)");
+    test_parse_expression!("&p.name", "(& p.name)");
+    test_parse_expression!("f(&x, &y)", "f((& x), (& y))");
+}
+
+#[test]
+fn parse_address_of_index() {
+    test_parse_expression!("&a[1]", "(& (a[1]))");
+}
+
+#[test]
+fn parse_deref() {
+    test_parse_expression!("*p", "(* p)");
+    test_parse_expression!("**pp", "(* (* pp))");
+    test_parse_expression!("*&x", "(* (& x))");
+}
+
+#[test]
+fn parse_deref_binds_tighter_than_infix() {
+    test_parse_expression!("*p + 1", "(+ (* p) 1)");
+    test_parse_expression!("a * *p", "(* a (* p))");
+    test_parse_expression!("*a * *b", "(* (* a) (* b))");
+    test_parse_expression!("*p == *q", "(== (* p) (* q))");
+}
+
+#[test]
+fn parse_index_binds_tighter_than_deref() {
+    test_parse_expression!("*p[0]", "(* (p[0]))");
+    test_parse_expression!("(*p)[0]", "((* p)[0])");
+}
+
+#[test]
+fn parse_deref_mixed_with_prefix_ops() {
+    test_parse_expression!("-*p", "(- (* p))");
+    test_parse_expression!("!*p", "(! (* p))");
+}
+
+#[test]
+fn parse_field_access_through_deref() {
+    test_parse_expression!("(*p).name", "(* p).name");
+    test_parse_expression!("(*p).age + 1", "(+ (* p).age 1)");
+    test_parse_expression!("&(*p).age", "(& (* p).age)");
+}
+
+#[test]
+fn parse_chained_field_access() {
+    test_parse_expression!("q.p.a", "q.p.a");
+    test_parse_expression!("(*r).p.a", "(* r).p.a");
+    test_parse_expression!("a[0].x", "(a[0]).x");
+    test_parse_expression!("*p.x", "(* p.x)");
+}
+
+#[test]
+fn reject_field_access_on_non_place() {
+    assert!(parse(Lexer::new("f().a;").unwrap()).is_err());
+    assert!(parse(Lexer::new("(a + b).a;").unwrap()).is_err());
+}
+
+#[test]
+fn parse_deref_as_function_arg() {
+    test_parse_expression!("printf(\"%d\", *p)", "printf(\"%d\", (* p))");
+}
+
+#[test]
+fn parse_assign_through_deref() {
+    integration_test!("*p = 1;", "(* p) = 1");
+    integration_test!("**pp = 1;", "(* (* pp)) = 1");
+    integration_test!("*p = *q;", "(* p) = (* q)");
+}
+
+#[test]
+fn parse_compound_assign_through_deref() {
+    integration_test!("*p += 1;", "(* p) = (+ (* p) 1)");
+}
+
+#[test]
+fn parse_assign_to_field_through_deref() {
+    integration_test!("(*p).age = 2;", "(* p).age = 2");
+}
+
+#[test]
+fn parse_increment_through_deref() {
+    integration_test!("(*p)++;", "(++ (* p))");
+}
+
+#[test]
+fn parse_pointer_declarations() {
+    integration_test!("let p = &x;", "let p = (& x)");
+    integration_test!("let p: *i64 = &x;", "let p = (& x)");
+    integration_test!("let y = *p;", "let y = (* p)");
+}
+
+#[test]
+fn reject_address_of_non_place() {
+    assert!(parse(Lexer::new("&1;").unwrap()).is_err());
+    assert!(parse(Lexer::new("&(a + b);").unwrap()).is_err());
+    assert!(parse(Lexer::new("&f();").unwrap()).is_err());
+}

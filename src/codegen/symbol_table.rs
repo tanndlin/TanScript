@@ -82,9 +82,8 @@ impl Expression {
                     arg.discover(symbols);
                 }
             }
-            ExpressionKind::Atom(_)
-            | ExpressionKind::Postfix(_, _)
-            | ExpressionKind::StructAccess { .. } => {}
+            ExpressionKind::Atom(_) | ExpressionKind::Postfix(_, _) => {}
+            ExpressionKind::StructAccess { base, .. } => base.discover(symbols),
             ExpressionKind::Binary(_, left, right) => {
                 left.discover(symbols);
                 right.discover(symbols);

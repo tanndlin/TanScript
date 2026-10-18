@@ -85,24 +85,6 @@ impl<'a> CompileScope<'a> {
         self.lookup(name).map(|(_, t)| t)
     }
 
-    pub fn get_field(
-        &self,
-        struct_var_name: &str,
-        field_name: &str,
-    ) -> Result<(Address, Type), CodegenErrorKind> {
-        let (Address::Stack(struct_address), Type::Struct(struct_def)) =
-            self.lookup(struct_var_name)?
-        else {
-            panic!()
-        };
-
-        let field_type = struct_def.get_field_type(field_name).unwrap().clone();
-        Ok((
-            struct_def.field_address(*struct_address, field_name),
-            field_type,
-        ))
-    }
-
     pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         Ok(match self.expression_type(expr)? {
             Type::Pointer(inner) => *inner,
@@ -121,18 +103,22 @@ impl<'a> CompileScope<'a> {
             ExpressionKind::Unary(UnaryOp::Negate, inner) | ExpressionKind::Postfix(_, inner) => {
                 self.expression_type(inner)?
             }
-            ExpressionKind::Index(lhs, _) => self.element_type(lhs)?,
+            ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
+                Type::Pointer(Box::new(self.expression_type(inner)?))
+            }
+            ExpressionKind::Unary(UnaryOp::Deref, inner) | ExpressionKind::Index(inner, _) => {
+                self.element_type(inner)?
+            }
             ExpressionKind::Cast(_, cast_type) => cast_type.clone(),
-            ExpressionKind::StructAccess {
-                struct_var_name,
-                field_name,
-            } => match self.get_type(struct_var_name)? {
-                Type::Struct(struct_def) => struct_def
-                    .get_field_type(field_name)
-                    .cloned()
-                    .unwrap_or(Type::Unknown),
-                _ => Type::Unknown,
-            },
+            ExpressionKind::StructAccess { base, field_name } => {
+                match self.expression_type(base)? {
+                    Type::Struct(struct_def) => struct_def
+                        .get_field_type(field_name)
+                        .cloned()
+                        .unwrap_or(Type::Unknown),
+                    _ => Type::Unknown,
+                }
+            }
             ExpressionKind::StructInstantiation {
                 struct_type_name, ..
             } => self

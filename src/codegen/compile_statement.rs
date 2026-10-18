@@ -6,7 +6,7 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile::{NON_VOLATILE_REGISTERS, compile_jump_unless, store_element},
+        compile::{NON_VOLATILE_REGISTERS, compile_jump_unless, store_element, with_place_address},
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
         instruction::Instruction,
@@ -55,56 +55,20 @@ impl Assignment {
                 self.expression
                     .compile(compile_scope, address, register_handler)
             }
-            ExpressionKind::Index(lhs, index) => {
-                let element = compile_scope.element_type(lhs).at(lhs.span)?;
-                register_handler.lease_with_scope(|register_handler, offset_ptr| {
-                    let mut instructions =
-                        index.compile(compile_scope, offset_ptr, register_handler)?;
-                    instructions.extend(register_handler.lease_with_scope(
-                        |register_handler: &mut RegisterHandler, ptr| {
-                            let mut instructions =
-                                lhs.compile(compile_scope, ptr, register_handler)?;
-
-                            instructions.extend(register_handler.lease_with_scope(
-                                |register_handler, value_dst| {
-                                    let mut rhs = self.expression.compile(
-                                        compile_scope,
-                                        value_dst,
-                                        register_handler,
-                                    )?;
-                                    let memory = Address::Indexed {
-                                        base: ptr,
-                                        index: offset_ptr,
-                                        size: u32::try_from(element.size()).unwrap(),
-                                    };
-                                    rhs.push(store_element(&element, memory, value_dst));
-                                    Ok(rhs)
-                                },
-                            )?);
-
-                            Ok(instructions)
-                        },
-                    )?);
-
-                    Ok(instructions)
-                })
-            }
-            ExpressionKind::StructAccess {
-                struct_var_name,
-                field_name,
-            } => {
-                let (address, field_type) = compile_scope
-                    .get_field(struct_var_name, field_name)
-                    .at(self.lhs.span)?;
-                register_handler.lease_with_scope(|register_handler, value_dst| {
-                    let mut instructions =
-                        self.expression
-                            .compile(compile_scope, value_dst, register_handler)?;
-                    instructions.push(store_element(&field_type, address, value_dst));
-                    Ok(instructions)
-                })
-            }
-            _ => Err(CodegenErrorKind::InvalidAssignTarget(self.lhs.to_string()).at(self.lhs.span)),
+            _ => with_place_address(
+                &self.lhs,
+                compile_scope,
+                register_handler,
+                &mut |compile_scope, register_handler, address, t| {
+                    register_handler.lease_with_scope(|register_handler, value_dst| {
+                        let mut instructions =
+                            self.expression
+                                .compile(compile_scope, value_dst, register_handler)?;
+                        instructions.push(store_element(&t, address, value_dst));
+                        Ok(instructions)
+                    })
+                },
+            ),
         }
     }
 

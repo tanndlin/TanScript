@@ -166,6 +166,16 @@ impl Expression {
             ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)
             }
+            ExpressionKind::Index(..)
+            | ExpressionKind::StructAccess { .. }
+            | ExpressionKind::Unary(UnaryOp::Deref, _) => with_place_address(
+                self,
+                compile_scope,
+                register_handler,
+                &mut |_, register_handler, address, t| {
+                    move_into(dst, register_handler, |reg| load_element(&t, reg, address))
+                },
+            ),
             ExpressionKind::Unary(op, child) => {
                 compile_unary(*op, child, compile_scope, dst, register_handler)
             }
@@ -174,9 +184,6 @@ impl Expression {
             }
             ExpressionKind::FunctionCall(name, args) => {
                 compile_function_call(compile_scope, register_handler, name, args, Some(dst))
-            }
-            ExpressionKind::Index(lhs, index) => {
-                compile_index(compile_scope, register_handler, dst, lhs, index)
             }
             ExpressionKind::Cast(inner, cast_type) => {
                 compile_cast(inner, cast_type, compile_scope, dst, register_handler)
@@ -190,17 +197,6 @@ impl Expression {
                 compile_scope,
                 dst,
                 register_handler,
-            ),
-            ExpressionKind::StructAccess {
-                struct_var_name,
-                field_name,
-            } => compile_struct_access(
-                struct_var_name,
-                field_name,
-                compile_scope,
-                dst,
-                register_handler,
-                self.span,
             ),
         }
     }
@@ -262,15 +258,20 @@ fn compile_string(
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let handle = register_handler.add_data(s);
+    move_into(dst, register_handler, |reg| {
+        Instruction::mov(reg, Operand::Label(handle))
+    })
+}
+
+fn move_into(
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+    instruction: impl FnOnce(Register) -> Instruction,
+) -> Result<Vec<Instruction>, CodegenError> {
     match dst {
-        Address::Register(_) => Ok(vec![Instruction::mov(dst, Operand::Label(handle))]),
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
-            .lease_with_scope(|_, reg| {
-                Ok(vec![
-                    Instruction::mov(reg, Operand::Label(handle)),
-                    Instruction::mov(dst, reg),
-                ])
-            }),
+        Address::Register(reg) => Ok(vec![instruction(reg)]),
+        _ => register_handler
+            .lease_with_scope(|_, reg| Ok(vec![instruction(reg), Instruction::mov(dst, reg)])),
     }
 }
 
@@ -346,47 +347,10 @@ fn compile_function_call(
     Ok(instructions)
 }
 
-fn compile_index(
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
-    dst: Address,
-    lhs: &Expression,
-    index: &Expression,
-) -> Result<Vec<Instruction>, CodegenError> {
-    let element = compile_scope.element_type(lhs).at(lhs.span)?;
-    register_handler.lease_with_scope(|register_handler, ptr| {
-        let mut instructions = index.compile(compile_scope, ptr, register_handler)?;
-        instructions.extend(
-            register_handler.lease_with_scope(|register_handler, lhs_dst| {
-                let mut instructions = lhs.compile(compile_scope, lhs_dst, register_handler)?;
-
-                let memory = Address::Indexed {
-                    base: lhs_dst,
-                    index: ptr,
-                    size: u32::try_from(element.size()).unwrap(),
-                };
-                match dst {
-                    Address::Register(reg) => {
-                        instructions.push(load_element(&element, reg, memory));
-                    }
-                    Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => {
-                        instructions.push(load_element(&element, lhs_dst, memory));
-                        instructions.push(Instruction::mov(dst, lhs_dst));
-                    }
-                }
-
-                Ok(instructions)
-            })?,
-        );
-
-        Ok(instructions)
-    })
-}
-
 fn compile_struct_instantiation(
     struct_type_name: &str,
     fields: &[(String, Expression)],
-    compile_scope: &mut CompileScope<'_>,
+    compile_scope: &mut CompileScope,
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
@@ -414,27 +378,98 @@ fn compile_struct_instantiation(
     Ok(instructions)
 }
 
-fn compile_struct_access(
-    struct_var_name: &str,
-    field_name: &str,
-    compile_scope: &mut CompileScope<'_>,
-    dst: Address,
-    register_handler: &mut RegisterHandler,
-    span: Span,
-) -> Result<Vec<Instruction>, CodegenError> {
-    let (address, field_type) = compile_scope
-        .get_field(struct_var_name, field_name)
-        .at(span)?;
+type WithAddress<'f> = dyn FnMut(
+        &mut CompileScope,
+        &mut RegisterHandler,
+        Address,
+        Type,
+    ) -> Result<Vec<Instruction>, CodegenError>
+    + 'f;
 
-    match dst {
-        Address::Register(dst_reg) => Ok(vec![load_element(&field_type, dst_reg, address)]),
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
-            .lease_with_scope(|_, reg| {
-                Ok(vec![
-                    load_element(&field_type, reg, address),
-                    Instruction::mov(dst, reg),
-                ])
-            }),
+pub fn with_place_address(
+    place: &Expression,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+    f: &mut WithAddress,
+) -> Result<Vec<Instruction>, CodegenError> {
+    match &place.kind {
+        ExpressionKind::Atom(AtomType::Identifier(name)) => {
+            let (address, t) = compile_scope.lookup(name).at(place.span)?.clone();
+            f(compile_scope, register_handler, address, t)
+        }
+        ExpressionKind::Index(lhs, index) => {
+            let element = compile_scope.element_type(lhs).at(lhs.span)?;
+            register_handler.lease_with_scope(|register_handler, offset| {
+                let mut instructions = index.compile(compile_scope, offset, register_handler)?;
+                instructions.extend(register_handler.lease_with_scope(
+                    |register_handler, base| {
+                        let mut instructions =
+                            lhs.compile(compile_scope, base, register_handler)?;
+                        let address = Address::Indexed {
+                            base,
+                            index: offset,
+                            size: u32::try_from(element.size()).unwrap(),
+                        };
+                        instructions.extend(f(compile_scope, register_handler, address, element)?);
+                        Ok(instructions)
+                    },
+                )?);
+                Ok(instructions)
+            })
+        }
+        ExpressionKind::Unary(UnaryOp::Deref, pointer) => {
+            let element = compile_scope.element_type(pointer).at(pointer.span)?;
+            register_handler.lease_with_scope(|register_handler, base| {
+                let mut instructions = pointer.compile(compile_scope, base, register_handler)?;
+                let address = Address::Deref { base, offset: 0 };
+                instructions.extend(f(compile_scope, register_handler, address, element)?);
+                Ok(instructions)
+            })
+        }
+        ExpressionKind::StructAccess { base, field_name } => with_place_address(
+            base,
+            compile_scope,
+            register_handler,
+            &mut |compile_scope, register_handler, address, struct_type| {
+                let Type::Struct(struct_def) = struct_type else {
+                    panic!("({base}) is not a struct")
+                };
+                let field_type = struct_def.get_field_type(field_name).unwrap().clone();
+                let field_offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
+                match address {
+                    Address::Stack(struct_address) => f(
+                        compile_scope,
+                        register_handler,
+                        struct_def.field_address(struct_address, field_name),
+                        field_type,
+                    ),
+                    Address::Deref { base, offset } => f(
+                        compile_scope,
+                        register_handler,
+                        Address::Deref {
+                            base,
+                            offset: offset + field_offset,
+                        },
+                        field_type,
+                    ),
+                    _ => register_handler.lease_with_scope(|register_handler, base| {
+                        let mut instructions = vec![Instruction::lea(base, address)];
+                        let address = Address::Deref {
+                            base,
+                            offset: field_offset,
+                        };
+                        instructions.extend(f(
+                            compile_scope,
+                            register_handler,
+                            address,
+                            field_type,
+                        )?);
+                        Ok(instructions)
+                    }),
+                }
+            },
+        ),
+        _ => unreachable!("({place}) is not a place"),
     }
 }
 
@@ -496,13 +531,10 @@ fn compile_number(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    match dst {
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } if !fits_imm32(n) => {
-            register_handler.lease_with_scope(|_, reg| {
-                Ok(vec![Instruction::mov(reg, n), Instruction::mov(dst, reg)])
-            })
-        }
-        _ => Ok(vec![Instruction::mov(dst, n)]),
+    if fits_imm32(n) {
+        Ok(vec![Instruction::mov(dst, n)])
+    } else {
+        move_into(dst, register_handler, |reg| Instruction::mov(reg, n))
     }
 }
 
@@ -526,21 +558,9 @@ fn compile_variable(
         return mem_copy(struct_def, dst, address, register_handler);
     }
 
-    match dst {
-        //  You can always move to a register
+    match address {
         Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => match address {
-            Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
-
-            // Need an intermediate register
-            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
-                .lease_with_scope(|_, reg| {
-                    Ok(vec![
-                        Instruction::mov(reg, address),
-                        Instruction::mov(dst, reg),
-                    ])
-                }),
-        },
+        _ => move_into(dst, register_handler, |reg| Instruction::mov(reg, address)),
     }
 }
 
@@ -824,7 +844,7 @@ fn compile_cast(
 
     match dst {
         Address::Register(reg) => instructions.extend(truncate(reg)),
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => {
+        _ => {
             if truncate(Register::RAX).is_some() {
                 instructions.extend(register_handler.lease_with_scope(|_, reg| {
                     Ok::<_, CodegenError>(vec![
@@ -847,12 +867,24 @@ fn compile_unary(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let mut instructions = child.compile(compile_scope, dst, register_handler)?;
-    instructions.push(match op {
+    let instruction = match op {
         UnaryOp::Negate => Instruction::neg(dst),
         UnaryOp::Not => Instruction::xor(dst, NumberType::I64(1)),
-    });
+        UnaryOp::AddressOf => {
+            return with_place_address(
+                child,
+                compile_scope,
+                register_handler,
+                &mut |_, register_handler, address, _| {
+                    move_into(dst, register_handler, |reg| Instruction::lea(reg, address))
+                },
+            );
+        }
+        UnaryOp::Deref => unreachable!("deref is compiled as a place"),
+    };
 
+    let mut instructions = child.compile(compile_scope, dst, register_handler)?;
+    instructions.push(instruction);
     Ok(instructions)
 }
 
@@ -917,22 +949,20 @@ fn compile_multiply(
             )?);
             Ok(instructions)
         }
-        Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => register_handler
-            .lease_with_scope(|register_handler, left_reg| {
-                let mut instructions = left.compile(compile_scope, left_reg, register_handler)?;
+        _ => register_handler.lease_with_scope(|register_handler, left_reg| {
+            let mut instructions = left.compile(compile_scope, left_reg, register_handler)?;
 
-                instructions.extend(register_handler.lease_with_scope(
-                    |register_handler, right_reg| {
-                        let mut right =
-                            right.compile(compile_scope, right_reg, register_handler)?;
-                        right.push(Instruction::imul(left_reg, right_reg));
-                        right.push(Instruction::mov(dst, left_reg));
-                        Ok(right)
-                    },
-                )?);
+            instructions.extend(register_handler.lease_with_scope(
+                |register_handler, right_reg| {
+                    let mut right = right.compile(compile_scope, right_reg, register_handler)?;
+                    right.push(Instruction::imul(left_reg, right_reg));
+                    right.push(Instruction::mov(dst, left_reg));
+                    Ok(right)
+                },
+            )?);
 
-                Ok(instructions)
-            }),
+            Ok(instructions)
+        }),
     }
 }
 
@@ -1019,13 +1049,12 @@ fn fits_imm32(n: NumberType) -> bool {
 #[cfg(test)]
 mod test {
     use super::NON_VOLATILE_REGISTERS;
-    use crate::{lex::Lexer, parse::parse};
+    use crate::{lex::Lexer, parse::parse, type_check::check_types};
 
     fn compile(input: &str) -> String {
-        parse(Lexer::new(input).unwrap())
-            .unwrap()
-            .compile()
-            .unwrap()
+        let mut ast = parse(Lexer::new(input).unwrap()).unwrap();
+        check_types(&mut ast).unwrap();
+        ast.compile().unwrap()
     }
 
     #[test]
@@ -1085,7 +1114,7 @@ mod test {
 
     #[test]
     fn compile_call_into_busy_rax_keeps_result() {
-        let asm = compile("def five() { 5 } let a = five() / 2;");
+        let asm = compile("def five(): i32 { 5 } let a = five() / 2;");
         assert!(!asm.contains("pop rax"), "{asm}");
     }
 
@@ -1108,8 +1137,9 @@ mod test {
 
     #[test]
     fn compile_function_reads_args_from_caller_frame() {
-        let asm =
-            compile("def f(a: i32, b: i32, c: i32, d: i32, e: i32) { a + e } f(1, 2, 3, 4, 5);");
+        let asm = compile(
+            "def f(a: i32, b: i32, c: i32, d: i32, e: i32): i32 { a + e } f(1, 2, 3, 4, 5);",
+        );
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov [rbp + 40], r9"), "{asm}");
         assert!(asm.contains("[rbp + 48]"), "{asm}");
@@ -1117,19 +1147,19 @@ mod test {
 
     #[test]
     fn compile_function_args_dont_collide_with_locals() {
-        let asm = compile("def f(a: i32) { let b = 1; a + b } f(1);");
+        let asm = compile("def f(a: i32): i32 { let b = 1; a + b } f(1);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 48], 1"), "{asm}");
     }
 
     #[test]
     fn compile_function_saves_only_touched_non_volatile_registers() {
-        let asm = compile("def f(a: i32) { a } f(1);");
+        let asm = compile("def f(a: i32): i32 { a } f(1);");
         for reg in NON_VOLATILE_REGISTERS {
             assert!(!asm.contains(&format!("], {reg}")), "{asm}");
         }
 
-        let asm = compile("def f(a: i32) { a * 2 + a * 3 } f(1);");
+        let asm = compile("def f(a: i32): i32 { a * 2 + a * 3 } f(1);");
         let saved = NON_VOLATILE_REGISTERS
             .iter()
             .filter(|reg| asm.contains(&format!("], {reg}")))
@@ -1141,7 +1171,7 @@ mod test {
 
     #[test]
     fn compile_function_with_locals_has_single_ret() {
-        let asm = compile("def f(a: i32) { let b = 1; a + b } f(1);");
+        let asm = compile("def f(a: i32): i32 { let b = 1; a + b } f(1);");
         assert_eq!(
             asm.lines().filter(|l| l.trim() == "ret").count(),
             1,
@@ -1152,7 +1182,8 @@ mod test {
     #[test]
     fn compile_nested_call_saves_loaded_args() {
         // r8 already holds 2 when f is called, and f is free to clobber it
-        let asm = compile("def f(a: i32, b: i32) { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
+        let asm =
+            compile("def f(a: i32, b: i32): i32 { a + b } printf(\"%d %d %d\", 1, 2, f(1, 1));");
         assert!(asm.contains("push r8"), "{asm}");
         assert!(asm.contains("pop r8"), "{asm}");
     }
@@ -1172,7 +1203,7 @@ mod test {
 
     #[test]
     fn compile_discarded_call_keeps_result_in_rax() {
-        let asm = compile("def five() { 5 } five();");
+        let asm = compile("def five(): i32 { 5 } five();");
         assert!(!asm.contains(", rax"), "{asm}");
     }
 
@@ -1259,5 +1290,134 @@ mod test {
         let asm = compile("let s: *char = malloc(4); let c: char = s[0];");
         assert!(asm.contains("movzx"), "{asm}");
         assert!(asm.contains("BYTE ["), "{asm}");
+    }
+
+    /// Lines that access memory through a register other than rbp/rsp
+    fn derefs(asm: &str) -> Vec<&str> {
+        asm.lines()
+            .map(str::trim)
+            .filter(|l| {
+                l.split_once('[')
+                    .is_some_and(|(_, rest)| !rest.starts_with("rbp") && !rest.starts_with("rsp"))
+            })
+            .collect()
+    }
+
+    fn leas(asm: &str) -> Vec<&str> {
+        asm.lines()
+            .map(str::trim)
+            .filter(|l| l.starts_with("lea "))
+            .collect()
+    }
+
+    #[test]
+    fn compile_address_of_local_uses_lea() {
+        let asm = compile("let x = 5; let p = &x;");
+        assert!(leas(&asm).iter().any(|l| l.ends_with("[rbp - 8]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_address_of_struct_uses_lea() {
+        let asm = compile("struct P { a: i64, b: i64, } let s = P { a: 1, b: 2 }; let p = &s;");
+        assert!(!leas(&asm).is_empty(), "{asm}");
+    }
+
+    #[test]
+    fn compile_address_of_field_uses_field_offset() {
+        let asm = compile(
+            "struct P { a: i64, b: i64, } let s = P { a: 1, b: 2 }; let pa = &s.a; let pb = &s.b;",
+        );
+        let leas = leas(&asm);
+        assert_eq!(leas.len(), 2, "{asm}");
+        assert_ne!(
+            leas[0].split_once(',').unwrap().1,
+            leas[1].split_once(',').unwrap().1,
+            "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_address_of_arg_uses_lea() {
+        let asm = compile("def f(x: i64): *i64 { return &x; }");
+        assert!(leas(&asm).iter().any(|l| l.contains("[rbp + ")), "{asm}");
+    }
+
+    #[test]
+    fn compile_deref_load() {
+        let asm = compile("let x = 5; let p = &x; let y = *p;");
+        assert!(derefs(&asm).iter().any(|l| l.starts_with("mov ")), "{asm}");
+    }
+
+    #[test]
+    fn compile_deref_load_u8_is_byte() {
+        let asm = compile("let x: u8 = 5; let p = &x; let y: u8 = *p;");
+        assert!(
+            derefs(&asm)
+                .iter()
+                .any(|l| l.starts_with("movzx") && l.contains("BYTE [")),
+            "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_deref_load_u32_is_dword() {
+        let asm = compile("let x: u32 = 5; let p = &x; let y: u32 = *p;");
+        assert!(derefs(&asm).iter().any(|l| l.contains("DWORD [")), "{asm}");
+    }
+
+    #[test]
+    fn compile_deref_store() {
+        let asm = compile("let x = 5; let p = &x; *p = 7;");
+        assert!(derefs(&asm).iter().any(|l| l.starts_with("mov [")), "{asm}");
+    }
+
+    #[test]
+    fn compile_deref_store_u8_is_byte() {
+        let asm = compile("let x: u8 = 5; let p = &x; *p = 7;");
+        let derefs = derefs(&asm);
+        assert!(derefs.iter().any(|l| l.contains("BYTE [")), "{asm}");
+        assert!(!derefs.iter().any(|l| l.contains("QWORD [")), "{asm}");
+    }
+
+    #[test]
+    fn compile_double_deref_loads_twice() {
+        let asm = compile("let x = 5; let p = &x; let pp = &p; let y = **pp;");
+        assert!(derefs(&asm).len() >= 2, "{asm}");
+    }
+
+    #[test]
+    fn compile_field_through_pointer_uses_offset() {
+        let asm = compile(
+            "struct P { a: i64, b: i64, } let s = P { a: 1, b: 2 }; let p = &s; let v = (*p).b;",
+        );
+        assert!(derefs(&asm).iter().any(|l| l.contains(" + 8]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_nested_field_through_pointer_adds_offsets() {
+        let asm = compile(
+            "struct P { a: i64, b: i64, } struct Q { x: i64, p: P, } let r: *Q = malloc(24); let v = (*r).p.b;",
+        );
+        assert!(derefs(&asm).iter().any(|l| l.contains(" + 16]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_field_store_through_pointer_uses_field_size() {
+        let asm = compile(
+            "struct P { a: i64, b: u8, } let s = P { a: 1, b: 2 }; let p = &s; (*p).b = 3;",
+        );
+        assert!(
+            derefs(&asm)
+                .iter()
+                .any(|l| l.contains("BYTE [") && l.contains(" + 8]")),
+            "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_passing_address_as_arg() {
+        let asm = compile("def f(p: *i64): i64 { return *p; } let x = 5; f(&x);");
+        assert!(!leas(&asm).is_empty(), "{asm}");
+        assert!(!derefs(&asm).is_empty(), "{asm}");
     }
 }

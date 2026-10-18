@@ -2,7 +2,7 @@ use crate::{
     ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, UnaryOp},
     error::At,
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
-    types::IntType,
+    types::{IntType, Span},
 };
 
 pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
@@ -14,48 +14,54 @@ pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
 }
 
 pub fn check_types_expression(
-    expression: &Expression,
+    expression: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    match &expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => {
-            type_scope.lookup(ident).cloned().ok_or_else(|| {
-                TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(expression.span)
-            })
-        }
+    let span = expression.span;
+    match &mut expression.kind {
+        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
+            .lookup(ident)
+            .cloned()
+            .ok_or_else(|| TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(span)),
         ExpressionKind::Atom(AtomType::String(_)) => Ok(Type::Unknown),
-        ExpressionKind::Atom(atom_type) => Ok(Type::from(atom_type)),
-        ExpressionKind::Binary(op, lhs, rhs) => check_binary(expression, *op, lhs, rhs, type_scope),
+        ExpressionKind::Atom(atom_type) => Ok(Type::from(&*atom_type)),
+        ExpressionKind::Binary(op, lhs, rhs) => check_binary(span, *op, lhs, rhs, type_scope),
         ExpressionKind::Unary(UnaryOp::Not, inner) => {
             check_types_expression(inner, type_scope)?;
             Ok(Type::Boolean)
+        }
+        ExpressionKind::Unary(UnaryOp::AddressOf, inner) => Ok(Type::Pointer(Box::new(
+            check_types_expression(inner, type_scope)?,
+        ))),
+        ExpressionKind::Unary(UnaryOp::Deref, inner) => {
+            match check_types_expression(inner, type_scope)? {
+                Type::Pointer(pointee) => Ok(*pointee),
+                other => Err(TypeCheckErrorKind::NotDerefable(other).at(inner.span)),
+            }
         }
         ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
             check_types_expression(inner, type_scope)
         }
         ExpressionKind::FunctionCall(function_name, given_args) => {
-            check_function_call(expression, function_name, given_args, type_scope)
+            check_function_call(span, function_name, given_args, type_scope)
         }
-        ExpressionKind::Index(lhs, rhs) => check_index(expression, lhs, rhs, type_scope),
-        ExpressionKind::Cast(lhs, casted_type) => {
-            check_cast(expression, lhs, casted_type, type_scope)
-        }
+        ExpressionKind::Index(lhs, rhs) => check_index(span, lhs, rhs, type_scope),
+        ExpressionKind::Cast(lhs, casted_type) => check_cast(span, lhs, casted_type, type_scope),
         ExpressionKind::StructInstantiation {
             struct_type_name,
             fields,
-        } => check_struct_instantiation(expression, struct_type_name, fields, type_scope),
-        ExpressionKind::StructAccess {
-            struct_var_name,
-            field_name,
-        } => check_struct_access(expression, struct_var_name, field_name, type_scope),
+        } => check_struct_instantiation(span, struct_type_name, fields, type_scope),
+        ExpressionKind::StructAccess { base, field_name } => {
+            check_struct_access(span, base, field_name, type_scope)
+        }
     }
 }
 
 pub fn check_binary(
-    expression: &Expression,
+    span: Span,
     op: BinaryOp,
-    lhs: &Expression,
-    rhs: &Expression,
+    lhs: &mut Expression,
+    rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs = check_types_expression(lhs, type_scope)?;
@@ -69,7 +75,7 @@ pub fn check_binary(
             expected: Type::Int(IntType::I64),
             got: struct_type.clone(),
         }
-        .at(expression.span));
+        .at(span));
     }
 
     let unified = unify(&lhs, &rhs)
@@ -79,7 +85,7 @@ pub fn check_binary(
                 expected: lhs.clone(),
                 got: rhs.clone(),
             }
-            .at(expression.span)
+            .at(span)
         })?;
 
     Ok(if op.returns_boolean() {
@@ -90,13 +96,13 @@ pub fn check_binary(
 }
 
 pub fn check_function_call(
-    expression: &Expression,
+    span: Span,
     function_name: &str,
-    given_args: &[Expression],
+    given_args: &mut [Expression],
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let given_types = given_args
-        .iter()
+        .iter_mut()
         .map(|a| check_types_expression(a, type_scope))
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -115,7 +121,7 @@ pub fn check_function_call(
                     expected: function_type.args.len(),
                     given: given_args.len(),
                 }
-                .at(expression.span));
+                .at(span));
             }
 
             let function_type = function_type.clone();
@@ -128,18 +134,18 @@ pub fn check_function_call(
                 })?;
             Ok(function_type.return_type)
         }
-        Some(_) => Err(
-            TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(expression.span),
-        ),
+        Some(_) => {
+            Err(TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(span))
+        }
         // Treat the function as an unknown extern
         None => Ok(Type::Unknown),
     }
 }
 
 pub fn check_index(
-    expression: &Expression,
-    lhs: &Expression,
-    rhs: &Expression,
+    span: Span,
+    lhs: &mut Expression,
+    rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
@@ -154,7 +160,7 @@ pub fn check_index(
                 expected: Type::Pointer(Box::new(Type::Unknown)),
                 got: lhs_type,
             }
-            .at(expression.span));
+            .at(span));
         }
     };
 
@@ -164,19 +170,20 @@ pub fn check_index(
             expected: Type::Int(IntType::I64),
             got: rhs_type,
         }
-        .at(expression.span));
+        .at(span));
     }
 
     Ok(element_type)
 }
 
 pub fn check_cast(
-    expression: &Expression,
-    lhs: &Expression,
-    casted_type: &Type,
+    span: Span,
+    lhs: &mut Expression,
+    casted_type: &mut Type,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
+    *casted_type = type_scope.resolve(casted_type, span)?;
     if lhs_type.castable(casted_type) {
         Ok(casted_type.clone())
     } else {
@@ -184,14 +191,14 @@ pub fn check_cast(
             lhs_type,
             casted_type: casted_type.clone(),
         }
-        .at(expression.span))
+        .at(span))
     }
 }
 
 pub fn check_struct_instantiation(
-    expression: &Expression,
+    span: Span,
     struct_type_name: &str,
-    fields: &[(String, Expression)],
+    fields: &mut [(String, Expression)],
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     match type_scope.lookup(struct_type_name) {
@@ -212,24 +219,19 @@ pub fn check_struct_instantiation(
 
             Ok(Type::Struct(struct_def))
         }
-        Some(_) => {
-            Err(TypeCheckErrorKind::NotAStruct(struct_type_name.to_string()).at(expression.span))
-        }
-        None => Err(
-            TypeCheckErrorKind::IdentifierNotFound(struct_type_name.to_string())
-                .at(expression.span),
-        ),
+        Some(_) => Err(TypeCheckErrorKind::NotAStruct(struct_type_name.to_string()).at(span)),
+        None => Err(TypeCheckErrorKind::IdentifierNotFound(struct_type_name.to_string()).at(span)),
     }
 }
 
 pub fn check_struct_access(
-    expression: &Expression,
-    struct_var_name: &str,
+    span: Span,
+    base: &mut Expression,
     field_name: &str,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    match type_scope.lookup(struct_var_name) {
-        Some(Type::Struct(struct_type)) => struct_type
+    match check_types_expression(base, type_scope)? {
+        Type::Struct(struct_type) => struct_type
             .fields
             .iter()
             .find(|f| f.name == field_name)
@@ -239,14 +241,9 @@ pub fn check_struct_access(
                     struct_type: *struct_type.clone(),
                     field_name: field_name.to_string(),
                 }
-                .at(expression.span)
+                .at(span)
             }),
-        Some(_) => {
-            Err(TypeCheckErrorKind::NotAStruct(struct_var_name.to_string()).at(expression.span))
-        }
-        None => Err(
-            TypeCheckErrorKind::IdentifierNotFound(struct_var_name.to_string()).at(expression.span),
-        ),
+        _ => Err(TypeCheckErrorKind::NotAStruct(base.to_string()).at(span)),
     }
 }
 
@@ -264,6 +261,12 @@ pub fn expect_type(
             narrow_expression(expression, expected.clone(), type_scope);
             Ok(())
         }
+        (Type::Pointer(to), Type::Pointer(from))
+            if to.is_number_type() && **from == Type::Int(IntType::Coercible) =>
+        {
+            narrow_expression(expression, expected.clone(), type_scope);
+            Ok(())
+        }
         _ => Err(TypeCheckErrorKind::TypeMismatch {
             expected: expected.clone(),
             got: got.clone(),
@@ -278,6 +281,11 @@ pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut Type
         ExpressionKind::Binary(_, lhs, rhs) => {
             narrow_expression(lhs, t.clone(), type_scope);
             narrow_expression(rhs, t, type_scope);
+        }
+        ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
+            if let Type::Pointer(pointee) = t {
+                narrow_expression(inner, *pointee, type_scope);
+            }
         }
         ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
             narrow_expression(inner, t, type_scope);
@@ -1166,6 +1174,136 @@ mod test {
                 })
             ),
             "expected NotAStruct, got {result:?}"
+        );
+    }
+
+    macro_rules! expect_err {
+        ($source:expr, $kind:pat) => {{
+            let source = $source;
+            let result = check(&source);
+            assert!(
+                matches!(result, Err(TypeCheckError { kind: $kind, .. })),
+                "expected {} for {source}, got {result:?}",
+                stringify!($kind)
+            );
+        }};
+    }
+
+    #[test]
+    fn supports_pointer_declaration() -> Result<(), TypeCheckError> {
+        check("let x: i64 = 1; let p: *i64 = &x;")
+    }
+
+    #[test]
+    fn supports_assign_through_pointer() -> Result<(), TypeCheckError> {
+        check("let x: i64 = 1; let p = &x; *p = 2; *p += 3;")
+    }
+
+    #[test]
+    fn supports_assign_through_pointer_to_pointer() -> Result<(), TypeCheckError> {
+        check("let x: i64 = 1; let p = &x; let pp = &p; **pp = 2;")
+    }
+
+    #[test]
+    fn supports_upcasting_through_pointer() -> Result<(), TypeCheckError> {
+        check("let x: u64 = 1; let p = &x; let small: u8 = 2; *p = small;")
+    }
+
+    #[test]
+    fn supports_assign_to_field_through_pointer() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{POINT} let s = P {{ x: 1, y: true }}; let p = &s; (*p).x = 5; (*p).y = false;"
+        ))
+    }
+
+    #[test]
+    fn supports_increment_through_pointer() -> Result<(), TypeCheckError> {
+        check("let x: i64 = 1; let p = &x; (*p)++;")
+    }
+
+    #[test]
+    fn supports_passing_address_to_function() -> Result<(), TypeCheckError> {
+        check("def inc(p: *i64) { *p = *p + 1; } let x: i64 = 1; inc(&x);")
+    }
+
+    #[test]
+    fn supports_passing_struct_address_to_function() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{POINT} def set(p: *P) {{ (*p).x = 2; }} let s = P {{ x: 1, y: true }}; set(&s);"
+        ))
+    }
+
+    #[test]
+    fn supports_returning_pointer_arg() -> Result<(), TypeCheckError> {
+        check("def id(p: *i64): *i64 { return p; } let x: i64 = 1; let q: *i64 = id(&x);")
+    }
+
+    #[test]
+    fn supports_address_of_untyped_variable() -> Result<(), TypeCheckError> {
+        check("def f(p: *i64) {} let x = 1; f(&x);")
+    }
+
+    #[test]
+    fn type_error_for_mismatched_pointer_declaration() {
+        expect_err!(
+            "let x: u8 = 1; let p: *i64 = &x;",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+        expect_err!(
+            "let x: i64 = 1; let p: i64 = &x;",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_assign_through_pointer_mismatch() {
+        expect_err!(
+            "let x: bool = true; let p = &x; *p = 2;",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+        expect_err!(
+            "let x: i64 = 1; let p = &x; *p = true;",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_downcasting_through_pointer() {
+        expect_err!(
+            "let x: u8 = 1; let p = &x; let big: u64 = 2; *p = big;",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_field_through_pointer_mismatch() {
+        expect_err!(
+            format!("{POINT} let s = P {{ x: 1, y: true }}; let p = &s; (*p).y = 1;"),
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_passing_wrong_pointer_type() {
+        expect_err!(
+            "def f(p: *i64) {} let x: u8 = 1; f(&x);",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+        expect_err!(
+            "def f(p: *i64) {} let x: i64 = 1; f(x);",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+        expect_err!(
+            "def f(p: i64) {} let x: i64 = 1; f(&x);",
+            TypeCheckErrorKind::TypeMismatch { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_deref_assign_to_non_pointer() {
+        expect_err!(
+            "let x: i64 = 1; *x = 2;",
+            TypeCheckErrorKind::NotDerefable(_)
         );
     }
 

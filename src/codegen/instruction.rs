@@ -164,6 +164,10 @@ pub enum Instruction {
     },
     Ret,
     Comment(String),
+    Lea {
+        dst: Register,
+        src: Address,
+    },
 }
 
 impl Instruction {
@@ -307,6 +311,10 @@ impl Instruction {
     pub fn comment(text: impl Into<String>) -> Self {
         Self::Comment(text.into())
     }
+
+    pub fn lea(dst: Register, src: Address) -> Instruction {
+        Self::Lea { dst, src }
+    }
 }
 
 impl fmt::Display for Size {
@@ -418,6 +426,7 @@ impl fmt::Display for Instruction {
             Instruction::Label { name } => write!(f, "{name}:"),
             Instruction::Ret => write!(f, "\tret"),
             Instruction::Comment(c) => write!(f, "; {c}"),
+            Instruction::Lea { dst, src } => write!(f, "\tlea {dst}, {src}"),
         }
     }
 }

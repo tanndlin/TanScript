@@ -1,0 +1,75 @@
+let x: i64 = 5;
+let p = &x;
+printf("%d\n", *p);
+*p = 7;
+printf("%d\n", x);
+*p += 3;
+printf("%d\n", x);
+(*p)++;
+printf("%d\n", x);
+
+let pp = &p;
+**pp = 42;
+printf("%d %d\n", x, **pp);
+
+let a: u8 = 1;
+let b: u8 = 2;
+let pa = &a;
+*pa = 9;
+printf("%d %d\n", a, b);
+
+def swap(l: *i64, r: *i64) {
+    let t = *l;
+    *l = *r;
+    *r = t;
+}
+
+let m: i64 = 1;
+let n: i64 = 2;
+swap(&m, &n);
+printf("%d %d\n", m, n);
+
+def addTo(total: *i64, amount: i64) {
+    *total += amount;
+}
+
+let sum: i64 = 0;
+for (let i = 1; i <= 10; i++) {
+    addTo(&sum, i);
+}
+printf("%d\n", sum);
+
+let buf: *char = malloc(3);
+buf[0] = 'h';
+buf[1] = 'i';
+buf[2] = '\0';
+*buf = 'H';
+printf("%s\n", buf);
+let rest = &buf[1];
+printf("%s\n", rest);
+
+struct Person {
+    name: *char,
+    age: u8,
+}
+
+def printPerson(p: *Person) {
+    printf("%s's age: %d\n", (*p).name, (*p).age);
+}
+
+def birthday(p: *Person) {
+    (*p).age = (*p).age + 1;
+}
+
+let person = Person {
+    name: "Tanner",
+    age: 25,
+};
+
+printPerson(&person);
+birthday(&person);
+printf("%d\n", person.age);
+
+let agePtr = &person.age;
+*agePtr = 30;
+printPerson(&person);

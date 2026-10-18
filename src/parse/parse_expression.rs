@@ -30,11 +30,8 @@ pub fn parse_expression_or_assignment(
 }
 
 fn parse_assignment_with_lhs(lexer: &mut Lexer, lhs: Expression) -> Result<Assignment, ParseError> {
-    match lhs.kind {
-        ExpressionKind::Atom(AtomType::Identifier(_))
-        | ExpressionKind::Index(_, _)
-        | ExpressionKind::StructAccess { .. } => {}
-        _ => return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span)),
+    if !lhs.is_place() {
+        return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
     }
 
     let tok = lexer.next_or_eof("assignment operator")?;
@@ -93,6 +90,9 @@ fn parse_expression_with(
                 return Err(expected("expression", token));
             };
             let rhs = parse_expression_with(lexer, UnaryOp::BINDING_POWER, allow_struct)?;
+            if op == UnaryOp::AddressOf && !rhs.is_place() {
+                return Err(ParseErrorKind::NotAddressable(rhs.to_string()).at(rhs.span));
+            }
             Expression::new(ExpressionKind::Unary(op, Box::new(rhs)), token.span)
         }
     };
@@ -102,17 +102,33 @@ fn parse_expression_with(
             break;
         };
 
-        if let OperatorType::OpenBracket = op {
-            const INDEX_BINDING_POWER: u8 = 13;
-            if INDEX_BINDING_POWER < min_bp {
+        if let OperatorType::OpenBracket | OperatorType::Dot = op {
+            const ACCESS_BINDING_POWER: u8 = 13;
+            if ACCESS_BINDING_POWER < min_bp {
                 break;
             }
 
+            let is_index = matches!(op, OperatorType::OpenBracket);
             lexer.next();
-            let index = parse_expression(lexer, 0)?;
-            lexer.expect("]")?;
             let span = lhs.span;
-            lhs = Expression::new(ExpressionKind::Index(Box::new(lhs), Box::new(index)), span);
+            let kind = if is_index {
+                let index = parse_expression(lexer, 0)?;
+                lexer.expect("]")?;
+                ExpressionKind::Index(Box::new(lhs), Box::new(index))
+            } else {
+                if !lhs.is_place() {
+                    return Err(ParseErrorKind::NotAddressable(lhs.to_string()).at(span));
+                }
+                let token = lexer.next_or_eof("field name")?;
+                let Token::Atom(LexerAtomType::Identifier(field_name)) = &token.token_type else {
+                    return Err(expected("field name", token));
+                };
+                ExpressionKind::StructAccess {
+                    base: Box::new(lhs),
+                    field_name: field_name.clone(),
+                }
+            };
+            lhs = Expression::new(kind, span);
             continue;
         }
 
@@ -134,17 +150,12 @@ fn parse_expression_with(
                 break;
             }
             lexer.next();
-            let operand = match lhs.kind {
-                ExpressionKind::Atom(AtomType::Identifier(_))
-                | ExpressionKind::Index(_, _)
-                | ExpressionKind::StructAccess { .. } => lhs,
-                _ => {
-                    return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
-                }
-            };
+            if !lhs.is_place() {
+                return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
+            }
 
-            let span = operand.span;
-            lhs = Expression::new(ExpressionKind::Postfix(op, Box::new(operand)), span);
+            let span = lhs.span;
+            lhs = Expression::new(ExpressionKind::Postfix(op, Box::new(lhs)), span);
             continue;
         }
 
@@ -189,7 +200,6 @@ fn parse_identifier_or_function_call_or_struct(
         Some(Token::Op(OperatorType::OpenCurly)) if allow_struct => {
             parse_struct_instantiation(lexer, s.to_string(), span)?
         }
-        Some(Token::Op(OperatorType::Dot)) => parse_struct_access(lexer, s.to_string(), span)?,
         _ => Expression::new(
             ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
             span,
@@ -258,27 +268,6 @@ fn parse_struct_instantiation(
         ExpressionKind::StructInstantiation {
             struct_type_name,
             fields,
-        },
-        span,
-    ))
-}
-
-fn parse_struct_access(
-    lexer: &mut Lexer,
-    struct_name: String,
-    span: Span,
-) -> Result<Expression, ParseError> {
-    lexer.expect(".")?;
-
-    let token = lexer.next_or_eof("field name")?;
-    let Token::Atom(LexerAtomType::Identifier(field_name)) = &token.token_type else {
-        return Err(expected("field name", token));
-    };
-
-    Ok(Expression::new(
-        ExpressionKind::StructAccess {
-            struct_var_name: struct_name,
-            field_name: field_name.clone(),
         },
         span,
     ))

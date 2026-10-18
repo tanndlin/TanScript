@@ -71,12 +71,19 @@ pub enum Address {
         index: Register,
         size: u32,
     },
+    Deref {
+        base: Register,
+        offset: u32,
+    },
 }
 
 impl Address {
     pub fn lower_8_bits(self) -> String {
         match self {
-            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => self.to_string(),
+            Address::Stack(_)
+            | Address::StackArg(_)
+            | Address::Indexed { .. }
+            | Address::Deref { .. } => self.to_string(),
             Address::Register(reg) => match reg {
                 Register::RAX => "al".to_string(),
                 Register::RBX => "bl".to_string(),
@@ -99,7 +106,10 @@ impl Address {
     pub fn is_memory(self) -> bool {
         match self {
             Address::Register(_) => false,
-            Address::Stack(_) | Address::StackArg(_) | Address::Indexed { .. } => true,
+            Address::Stack(_)
+            | Address::StackArg(_)
+            | Address::Indexed { .. }
+            | Address::Deref { .. } => true,
         }
     }
 }
@@ -118,6 +128,8 @@ impl fmt::Display for Address {
                     write!(f, "[{base} + {index}]")
                 }
             }
+            Address::Deref { base, offset: 0 } => write!(f, "[{base}]"),
+            Address::Deref { base, offset } => write!(f, "[{base} + {offset}]"),
         }
     }
 }

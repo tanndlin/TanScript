@@ -201,11 +201,10 @@ pub fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
         return Ok(Type::Pointer(Box::new(parse_type(lexer)?)));
     }
 
-    let span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
         return Err(expected("type", tok));
     };
-    Type::from_str(&type_name).map_err(|_| ParseErrorKind::UnknownType(type_name).at(span))
+    Ok(Type::from_str(&type_name).unwrap_or(Type::Named(type_name)))
 }
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {

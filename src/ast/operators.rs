@@ -23,6 +23,8 @@ pub enum BinaryOp {
 pub enum UnaryOp {
     Negate,
     Not,
+    AddressOf,
+    Deref,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,16 +111,20 @@ impl UnaryOp {
         Some(match op {
             OperatorType::Subtract => UnaryOp::Negate,
             OperatorType::Not => UnaryOp::Not,
+            OperatorType::Reference => UnaryOp::AddressOf,
+            OperatorType::Multiply => UnaryOp::Deref,
             _ => return None,
         })
     }
 
-    pub const BINDING_POWER: u8 = 9;
+    pub const BINDING_POWER: u8 = 11;
 
     fn symbol(self) -> &'static str {
         match self {
             UnaryOp::Negate => "-",
             UnaryOp::Not => "!",
+            UnaryOp::AddressOf => "&",
+            UnaryOp::Deref => "*",
         }
     }
 }

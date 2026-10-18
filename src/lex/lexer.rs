@@ -890,6 +890,35 @@ mod test {
     #[test]
     fn reject_incomplete_operator() {
         assert!(Lexer::new("a | b").is_err());
-        assert!(Lexer::new("a & b").is_err());
+    }
+
+    fn lex_symbols(input: &str) -> Vec<String> {
+        let mut lexer = Lexer::new(input).unwrap();
+        std::iter::from_fn(|| lexer.next())
+            .map(|token| token.token_type.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn lex_address_of() {
+        assert_eq!(lex_symbols("&x"), ["&", "x"]);
+        assert_eq!(lex_symbols("& x"), ["&", "x"]);
+        assert_eq!(
+            lex_symbols("f(&x, &y)"),
+            ["f", "(", "&", "x", ",", "&", "y", ")"]
+        );
+    }
+
+    #[test]
+    fn lex_logical_and_is_greedy_over_address_of() {
+        assert_eq!(lex_symbols("a && b"), ["a", "&&", "b"]);
+        assert_eq!(lex_symbols("a && &b"), ["a", "&&", "&", "b"]);
+    }
+
+    #[test]
+    fn lex_deref() {
+        assert_eq!(lex_symbols("*p"), ["*", "p"]);
+        assert_eq!(lex_symbols("**pp"), ["*", "*", "pp"]);
+        assert_eq!(lex_symbols("(*p).age"), ["(", "*", "p", ")", ".", "age"]);
     }
 }
