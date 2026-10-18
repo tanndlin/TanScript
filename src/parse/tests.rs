@@ -300,6 +300,16 @@ fn parse_while_loop() {
 }
 
 #[test]
+fn parse_for_loop() {
+    integration_test!(
+        "for (let i = 0; i < 10; i++) { a = a + i; }",
+        "for (let i = 0;(< i 10);(++ i)) {
+a = (+ a i)
+}"
+    );
+}
+
+#[test]
 fn parse_if_statement() {
     integration_test!(
         "if (a < 10) { a = a + 1; }",

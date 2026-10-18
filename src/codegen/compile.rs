@@ -1150,10 +1150,15 @@ mod test {
     }
 
     #[test]
-    fn compile_function_args_dont_collide_with_locals() {
+    fn compile_function_with_locals() {
         let asm = compile("def f(a: i32): i32 { let b = 1; a + b } f(1);");
         assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 48], 1"), "{asm}");
+        assert_eq!(
+            asm.lines().filter(|l| l.trim() == "ret").count(),
+            1,
+            "{asm}"
+        );
     }
 
     #[test]
@@ -1174,16 +1179,6 @@ mod test {
     }
 
     #[test]
-    fn compile_function_with_locals_has_single_ret() {
-        let asm = compile("def f(a: i32): i32 { let b = 1; a + b } f(1);");
-        assert_eq!(
-            asm.lines().filter(|l| l.trim() == "ret").count(),
-            1,
-            "{asm}"
-        );
-    }
-
-    #[test]
     fn compile_nested_call_saves_loaded_args() {
         // r8 already holds 2 when f is called, and f is free to clobber it
         let asm =
@@ -1197,6 +1192,58 @@ mod test {
         let asm = compile("let a = true; let b = false;");
         assert!(asm.contains("mov QWORD [rbp - 8], 1"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 16], 0"), "{asm}");
+    }
+
+    #[test]
+    fn compile_comparisons_set_their_condition() {
+        for (op, set) in [
+            ("<", "setl"),
+            ("<=", "setle"),
+            (">", "setg"),
+            (">=", "setge"),
+            ("==", "sete"),
+            ("!=", "setne"),
+        ] {
+            let asm = compile(&format!("let a = 1; let b = a {op} 2;"));
+            assert!(asm.contains("cmp QWORD [rbp - 8], 2"), "{asm}");
+            assert!(asm.contains(&format!("	{set} [rbp - 16]")), "{asm}");
+        }
+    }
+
+    #[test]
+    fn compile_logical_ops_on_values() {
+        let asm = compile("let a = true; let b = false; let c = a && b; let d = a || b;");
+        assert!(asm.contains("and [rbp - 24], "), "{asm}");
+        assert!(asm.contains("or [rbp - 32], "), "{asm}");
+    }
+
+    #[test]
+    fn compile_and_condition_jumps_to_end_on_either_failure() {
+        let asm = compile("let a = 1; if (a < 2 && a > 0) { printf(\"x\"); }");
+        assert!(asm.contains("jge endif"), "{asm}");
+        assert!(asm.contains("jle endif"), "{asm}");
+        assert!(!asm.contains("cond_skip"), "{asm}");
+    }
+
+    #[test]
+    fn compile_or_condition_skips_second_check() {
+        let asm = compile("let a = 1; if (a < 2 || a > 5) { printf(\"x\"); }");
+        let skip = asm.find("jl cond_skip_").unwrap();
+        let second = asm.find("jle endif").unwrap();
+        let label = asm
+            .find(
+                "
+cond_skip_",
+            )
+            .unwrap();
+        assert!(skip < second && second < label, "{asm}");
+    }
+
+    #[test]
+    fn compile_if_on_bool_tests_value() {
+        let asm = compile("let a = true; if (a) { printf(\"x\"); }");
+        assert!(asm.lines().any(|l| l.trim().starts_with("test ")), "{asm}");
+        assert!(asm.contains("je endif"), "{asm}");
     }
 
     #[test]
@@ -1229,6 +1276,7 @@ mod test {
         assert!(asm.contains("mov QWORD [rbp - 8], 97"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 16], 90"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 24], 48"), "{asm}");
+        assert!(!asm.contains("db "), "{asm}");
     }
 
     #[test]
@@ -1237,12 +1285,6 @@ mod test {
         assert!(asm.contains("mov QWORD [rbp - 8], 10"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 16], 0"), "{asm}");
         assert!(asm.contains("mov QWORD [rbp - 24], 39"), "{asm}");
-    }
-
-    #[test]
-    fn compile_char_is_not_a_string() {
-        let asm = compile("let a: char = 'a';");
-        assert!(!asm.contains("db "), "{asm}");
     }
 
     #[test]

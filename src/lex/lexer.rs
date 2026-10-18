@@ -428,15 +428,6 @@ mod test {
     }
 
     #[test]
-    fn test_get_identifier() {
-        let mut lexer = Lexer::new("variableName123").unwrap();
-        token_eq!(
-            lexer,
-            Token::Atom(LexerAtomType::Identifier("variableName123".to_string()))
-        );
-    }
-
-    #[test]
     fn lex_number() {
         let mut lexer = Lexer::new("123").unwrap();
         token_eq!(
@@ -446,7 +437,7 @@ mod test {
     }
 
     #[test]
-    fn lex_indentifier() {
+    fn lex_identifier() {
         let mut lexer = Lexer::new("abc123").unwrap();
         token_eq!(
             lexer,
@@ -519,6 +510,15 @@ mod test {
         lex_token!("==", Token::Op(Equal));
         lex_token!("!=", Token::Op(NotEqual));
         lex_token!("!", Token::Op(Not));
+        lex_token!("||", Token::Op(Or));
+        lex_token!("&&", Token::Op(And));
+        lex_token!("+=", Token::Op(AddAssign));
+        lex_token!("-=", Token::Op(SubAssign));
+        lex_token!("*=", Token::Op(MulAssign));
+        lex_token!("/=", Token::Op(DivAssign));
+        lex_token!("%=", Token::Op(ModAssign));
+        lex_token!("++", Token::Op(Increment));
+        lex_token!("--", Token::Op(Decrement));
 
         let mut lexer = Lexer::new("< = > = ! = = <= >= != ==").unwrap();
         token_eq!(lexer, Token::Op(LessThan));
@@ -532,101 +532,6 @@ mod test {
         token_eq!(lexer, Token::Op(GreaterOrEqual));
         token_eq!(lexer, Token::Op(NotEqual));
         token_eq!(lexer, Token::Op(Equal));
-    }
-
-    #[test]
-    fn lex_add() {
-        lex_token!("+", Token::Op(OperatorType::Add));
-    }
-
-    #[test]
-    fn lex_subtract() {
-        lex_token!("-", Token::Op(OperatorType::Subtract));
-    }
-
-    #[test]
-    fn lex_multiply() {
-        lex_token!("*", Token::Op(OperatorType::Multiply));
-    }
-
-    #[test]
-    fn lex_divide() {
-        lex_token!("/", Token::Op(OperatorType::Divide));
-    }
-
-    #[test]
-    fn lex_modulo() {
-        lex_token!("%", Token::Op(OperatorType::Modulo));
-    }
-
-    #[test]
-    fn lex_less_than() {
-        lex_token!("<", Token::Op(OperatorType::LessThan));
-    }
-
-    #[test]
-    fn lex_less_or_equal() {
-        lex_token!("<=", Token::Op(OperatorType::LessOrEqual));
-    }
-
-    #[test]
-    fn lex_greater_than() {
-        lex_token!(">", Token::Op(OperatorType::GreaterThan));
-    }
-
-    #[test]
-    fn lex_greater_or_equal() {
-        lex_token!(">=", Token::Op(OperatorType::GreaterOrEqual));
-    }
-
-    #[test]
-    fn lex_not() {
-        lex_token!("!", Token::Op(OperatorType::Not));
-    }
-
-    #[test]
-    fn lex_equal() {
-        lex_token!("==", Token::Op(OperatorType::Equal));
-    }
-
-    #[test]
-    fn lex_not_equal() {
-        lex_token!("!=", Token::Op(OperatorType::NotEqual));
-    }
-
-    #[test]
-    fn lex_logical_or() {
-        lex_token!("||", Token::Op(OperatorType::Or));
-    }
-
-    #[test]
-    fn lex_logical_and() {
-        lex_token!("&&", Token::Op(OperatorType::And));
-    }
-
-    #[test]
-    fn lex_add_assign() {
-        lex_token!("+=", Token::Op(OperatorType::AddAssign));
-    }
-
-    #[test]
-    fn lex_sub_assign() {
-        lex_token!("-=", Token::Op(OperatorType::SubAssign));
-    }
-
-    #[test]
-    fn lex_mul_assign() {
-        lex_token!("*=", Token::Op(OperatorType::MulAssign));
-    }
-
-    #[test]
-    fn lex_div_assign() {
-        lex_token!("/=", Token::Op(OperatorType::DivAssign));
-    }
-
-    #[test]
-    fn lex_mod_assign() {
-        lex_token!("%=", Token::Op(OperatorType::ModAssign));
     }
 
     #[test]
@@ -696,16 +601,6 @@ mod test {
             lexer,
             Token::Atom(LexerAtomType::Number(NumberType::Coercible(1)))
         );
-    }
-
-    #[test]
-    fn lex_increment() {
-        lex_token!("++", Token::Op(OperatorType::Increment));
-    }
-
-    #[test]
-    fn lex_decrement() {
-        lex_token!("--", Token::Op(OperatorType::Decrement));
     }
 
     #[test]

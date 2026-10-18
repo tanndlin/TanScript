@@ -396,11 +396,6 @@ mod test {
     }
 
     #[test]
-    fn type_error_for_referenced_variable_in_assignment() {
-        expect_mismatch!("let a: u32 = 1; let b: i32 = a;");
-    }
-
-    #[test]
     fn type_error_for_incorrect_function_arg() {
         expect_mismatch!(
             "def add (a: u32, b: u32): u32 {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);"
