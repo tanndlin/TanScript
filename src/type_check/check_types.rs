@@ -297,275 +297,168 @@ pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut Type
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::{Statement, StatementOrExpression},
+        ast::{Program, Statement, StatementOrExpression},
         lex::Lexer,
         parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
         types::IntType,
     };
 
+    const POINT: &str = "struct P { x: u32, y: bool }";
+
+    fn check(source: &str) -> Result<(), TypeCheckError> {
+        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
+        check_types(&mut program)
+    }
+
+    fn checked(source: &str) -> Program {
+        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
+        check_types(&mut program).unwrap();
+        program
+    }
+
+    macro_rules! expect_err {
+        ($source:expr, $kind:pat $(if $guard:expr)?) => {{
+            let source = $source;
+            let result = check(&source);
+            assert!(
+                matches!(result, Err(TypeCheckError { kind: $kind, .. }) $(if $guard)?),
+                "expected {} for {source}, got {result:?}",
+                stringify!($kind)
+            );
+        }};
+    }
+
+    macro_rules! expect_mismatch {
+        ($source:expr) => {
+            expect_err!($source, TypeCheckErrorKind::TypeMismatch { .. })
+        };
+    }
+
     #[test]
     fn supports_coercing_literal_assignments() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u32 = 1;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u32 = 1;")
     }
 
     #[test]
     fn supports_upcasting_u8_to_u32() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u8 = 1; let b: u32 = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u8 = 1; let b: u32 = a;")
     }
 
     #[test]
     fn supports_upcasting_u8_to_u64() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u8 = 1; let b: u64 = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u8 = 1; let b: u64 = a;")
     }
 
     #[test]
     fn supports_upcasting_u32_to_u64() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u32 = 1; let b: u64 = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u32 = 1; let b: u64 = a;")
     }
 
     #[test]
     fn supports_upcasting_in_assignment() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("let a: u8 = 1; let b: u64 = 2; b = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u8 = 1; let b: u64 = 2; b = a;")
     }
 
     #[test]
     fn supports_upcasting_function_arg() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (x: u64) {} let a: u8 = 1; f(a);").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (x: u64) {} let a: u8 = 1; f(a);")
     }
 
     #[test]
     fn supports_upcasting_return() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("def f (a: u8): u32 { a }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (a: u8): u32 { a }")
     }
 
     #[test]
     fn type_error_for_downcasting_u64_to_u32() {
-        let mut program = parse(Lexer::new("let a: u64 = 1; let b: u32 = a;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u64 = 1; let b: u32 = a;");
     }
 
     #[test]
     fn supports_upcasting_u32_to_i64() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i64 = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u32 = 1; let b: i64 = a;")
     }
 
     #[test]
     fn supports_upcasting_u8_to_i32() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("let a: u8 = 1; let b: i32 = a;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: u8 = 1; let b: i32 = a;")
     }
 
     #[test]
     fn type_error_for_u32_to_i32() {
-        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i32 = a;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u32 = 1; let b: i32 = a;");
     }
 
     #[test]
     fn type_error_for_i32_to_u64() {
-        let mut program = parse(Lexer::new("let a: i32 = 1; let b: u64 = a;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: i32 = 1; let b: u64 = a;");
     }
 
     #[test]
     fn type_error_for_referenced_variable_in_assignment() {
-        let mut program = parse(Lexer::new("let a: u32 = 1; let b: i32 = a;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u32 = 1; let b: i32 = a;");
     }
 
     #[test]
     fn type_error_for_incorrect_function_arg() {
-        let mut program = parse(
-            Lexer::new(
-                "def add (a: u32, b: u32): u32 {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);",
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_mismatch!(
+            "def add (a: u32, b: u32): u32 {a + b} let a: i32 = 1; let b: u32 = 2; add(a,b);"
         );
     }
 
     #[test]
     fn type_error_for_coerced_variable_used_as_arg_then_assigned_to_different_type() {
-        let mut program = parse(Lexer::new(
-            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; add(a, b); let c: i32 = a;",
-        ).unwrap())
-        .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_mismatch!(
+            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; add(a, b); let c: i32 = a;"
         );
     }
 
     #[test]
     fn type_error_for_coerced_variable_assigned_then_used_as_arg_of_different_type() {
-        let mut program = parse(Lexer::new(
-            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; let c: i32 = a; add(a, b);",
-        ).unwrap())
-        .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_mismatch!(
+            "def add (a: u32, b: u32): u32 {a + b} let a = 6; let b = 9; let c: i32 = a; add(a, b);"
         );
     }
 
     #[test]
     fn supports_boolean_declaration() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("let a: bool = true; let b: bool = false; let c: bool = a;").unwrap())
-                .unwrap();
-        check_types(&mut program)
+        check("let a: bool = true; let b: bool = false; let c: bool = a;")
     }
 
     #[test]
     fn type_error_for_boolean_assigned_to_number() {
-        let mut program = parse(Lexer::new("let a: u32 = true;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u32 = true;");
     }
 
     #[test]
     fn type_error_for_number_assigned_to_boolean() {
-        let mut program = parse(Lexer::new("let a: bool = 1;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: bool = 1;");
     }
 
     #[test]
     fn type_error_for_boolean_function_arg() {
-        let mut program = parse(Lexer::new("def f (a: u32): u32 {a} f(true);").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (a: u32): u32 {a} f(true);");
     }
 
     #[test]
     fn supports_comparison_assigned_to_boolean() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("let a: i32 = 1; let b: bool = a < 2;").unwrap()).unwrap();
-        check_types(&mut program)
+        check("let a: i32 = 1; let b: bool = a < 2;")
     }
 
     #[test]
     fn supports_using_function_params_in_body() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (arr: *i32, i: i32): i32 { let x = arr[i]; x }").unwrap())
-                .unwrap();
-        check_types(&mut program)
+        check("def f (arr: *i32, i: i32): i32 { let x = arr[i]; x }")
     }
 
     #[test]
     fn supports_untyped_char_variable_as_char_arg() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f(c: char) {} let c = 'c'; f(c);").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f(c: char) {} let c = 'c'; f(c);")
     }
 
     #[test]
     fn untyped_char_declaration_is_char() {
-        let mut program = parse(Lexer::new("let c = 'c';").unwrap()).unwrap();
-        check_types(&mut program).unwrap();
+        let program = checked("let c = 'c';");
 
         let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
             panic!("expected a statement");
@@ -578,12 +471,8 @@ mod test {
 
     #[test]
     fn shadowed_declaration_keeps_its_own_type() {
-        let mut program = parse(
-            Lexer::new("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }")
-                .unwrap(),
-        )
-        .unwrap();
-        check_types(&mut program).unwrap();
+        let program =
+            checked("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }");
 
         let StatementOrExpression::Statement(statement) = &program.block.children[1] else {
             panic!("expected a statement");
@@ -602,421 +491,214 @@ mod test {
 
     #[test]
     fn type_error_inside_loop_body() {
-        let mut program =
-            parse(Lexer::new("let a: u32 = 1; while true { let b: i32 = a; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u32 = 1; while true { let b: i32 = a; }");
     }
 
     #[test]
-    fn cast_allows_assignment_of_different_type() {
-        let mut program =
-            parse(Lexer::new("let a: u32 = 1; let b: i32 = 2; a = b as u32;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(result.is_ok(), "expected Ok, got {result:?}");
+    fn cast_allows_assignment_of_different_type() -> Result<(), TypeCheckError> {
+        check("let a: u32 = 1; let b: i32 = 2; a = b as u32;")
     }
 
     #[test]
     fn type_error_for_uncastable_types() {
-        let mut program =
-            parse(Lexer::new("let a: i64 = 1; let b: bool = a as bool;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::Uncastable { .. },
-                    ..
-                })
-            ),
-            "expected Uncastable, got {result:?}"
+        expect_err!(
+            "let a: i64 = 1; let b: bool = a as bool;",
+            TypeCheckErrorKind::Uncastable { .. }
         );
     }
 
     #[test]
     fn type_error_for_mismatched_assignment() {
-        let mut program =
-            parse(Lexer::new("let a: u32 = 1; let b: i32 = 2; a = b;").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("let a: u32 = 1; let b: i32 = 2; a = b;");
     }
 
     #[test]
     fn supports_indexing_with_unknown_type() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (s: *char) { let i = ftell(0); s[i] = 'a'; }").unwrap())
-                .unwrap();
-        check_types(&mut program)
+        check("def f (s: *char) { let i = ftell(0); s[i] = 'a'; }")
     }
 
     #[test]
     fn type_error_for_number_stored_in_bool_pointer() {
-        let mut program =
-            parse(Lexer::new("def f (flags: *bool) { flags[0] = 300; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (flags: *bool) { flags[0] = 300; }");
     }
 
     #[test]
     fn supports_return_matching_declared_return_type() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("def f (a: u32): u32 { return a; }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (a: u32): u32 { return a; }")
     }
 
     #[test]
     fn supports_implicit_return_matching_declared_return_type() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (a: i32, b: i32): i32 { a + b }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (a: i32, b: i32): i32 { a + b }")
     }
 
     #[test]
     fn supports_literal_return_coercing_to_declared_return_type() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("def one (): u64 { 1 }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def one (): u64 { 1 }")
     }
 
     #[test]
     fn supports_multiple_returns_matching_declared_return_type() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (a: u32, b: u32): u32 { return a; return b; }").unwrap())
-                .unwrap();
-        check_types(&mut program)
+        check("def f (a: u32, b: u32): u32 { return a; return b; }")
     }
 
     #[test]
     fn type_error_for_return_not_matching_declared_return_type() {
-        let mut program = parse(Lexer::new("def f (a: i32): u32 { return a; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (a: i32): u32 { return a; }");
     }
 
     #[test]
     fn type_error_for_implicit_return_not_matching_declared_return_type() {
-        let mut program = parse(Lexer::new("def f (a: u32): bool { a }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (a: u32): bool { a }");
     }
 
     #[test]
     fn type_error_for_number_literal_returned_from_bool_function() {
-        let mut program = parse(Lexer::new("def f (): bool { 1 }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (): bool { 1 }");
     }
 
     #[test]
     fn type_error_for_nested_return_not_matching_declared_return_type() {
-        let mut program =
-            parse(Lexer::new("def f (a: i32): u32 { if true { return a; } return 1; }").unwrap())
-                .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!("def f (a: i32): u32 { if true { return a; } return 1; }");
     }
 
     #[test]
     fn type_error_for_empty_body_with_declared_return_type() {
-        let mut program = parse(Lexer::new("def f (): u32 { }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(result.is_err(), "expected Err, got {result:?}");
+        assert!(check("def f (): u32 { }").is_err());
     }
 
     #[test]
     fn type_error_for_missing_return_with_declared_return_type() {
-        let mut program =
-            parse(Lexer::new("def f (a: u32): u32 { let b = a + 1; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(result.is_err(), "expected Err, got {result:?}");
+        assert!(check("def f (a: u32): u32 { let b = a + 1; }").is_err());
     }
 
     #[test]
     fn type_error_for_empty_return_with_declared_return_type() {
-        let mut program = parse(Lexer::new("def f (): bool { return; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(result.is_err(), "expected Err, got {result:?}");
+        assert!(check("def f (): bool { return; }").is_err());
     }
 
     #[test]
     fn supports_missing_return_without_declared_return_type() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("def f (a: u32) { let b = a + 1; }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (a: u32) { let b = a + 1; }")
     }
 
     #[test]
     fn type_error_for_value_returned_from_function_without_return_type() {
-        let mut program = parse(Lexer::new("def f (a: u32) { return a; }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch {
-                        expected: Type::Unit,
-                        ..
-                    },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_err!(
+            "def f (a: u32) { return a; }",
+            TypeCheckErrorKind::TypeMismatch {
+                expected: Type::Unit,
+                ..
+            }
         );
     }
 
     #[test]
     fn type_error_for_implicit_return_from_function_without_return_type() {
-        let mut program = parse(Lexer::new("def f (a: u32) { a }").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch {
-                        expected: Type::Unit,
-                        ..
-                    },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_err!(
+            "def f (a: u32) { a }",
+            TypeCheckErrorKind::TypeMismatch {
+                expected: Type::Unit,
+                ..
+            }
         );
     }
 
     #[test]
     fn supports_empty_return_from_function_without_return_type() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def f (a: u32) { if a > 1 { return; } }").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f (a: u32) { if a > 1 { return; } }")
     }
 
     #[test]
     fn type_error_for_unit_function_result_assigned_to_number() {
-        let mut program = parse(Lexer::new("def f () { } let a: u32 = f();").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch {
-                        got: Type::Unit,
-                        ..
-                    },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_err!(
+            "def f () { } let a: u32 = f();",
+            TypeCheckErrorKind::TypeMismatch {
+                got: Type::Unit,
+                ..
+            }
         );
     }
 
     #[test]
     fn supports_correct_number_of_args() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1, 2);").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def add (a: u32, b: u32): u32 {a + b} add(1, 2);")
     }
 
     #[test]
     fn supports_calling_zero_arg_function_with_no_args() -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new("def f () {} f();").unwrap()).unwrap();
-        check_types(&mut program)
+        check("def f () {} f();")
     }
 
     #[test]
     fn type_error_for_too_few_args() {
-        let mut program =
-            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1);").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 2,
-                        given: 1
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def add (a: u32, b: u32): u32 {a + b} add(1);",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 2,
+                given: 1
+            }
         );
     }
 
     #[test]
     fn type_error_for_too_many_args() {
-        let mut program =
-            parse(Lexer::new("def add (a: u32, b: u32): u32 {a + b} add(1, 2, 3);").unwrap())
-                .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 2,
-                        given: 3
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def add (a: u32, b: u32): u32 {a + b} add(1, 2, 3);",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 2,
+                given: 3
+            }
         );
     }
 
     #[test]
     fn type_error_for_no_args_to_function_with_params() {
-        let mut program = parse(Lexer::new("def f (a: u32) {} f();").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 1,
-                        given: 0
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def f (a: u32) {} f();",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 1,
+                given: 0
+            }
         );
     }
 
     #[test]
     fn type_error_for_args_to_zero_arg_function() {
-        let mut program = parse(Lexer::new("def f () {} f(1);").unwrap()).unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 0,
-                        given: 1
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def f () {} f(1);",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 0,
+                given: 1
+            }
         );
     }
 
     #[test]
     fn type_error_for_incorrect_number_of_args_in_nested_call() {
-        let mut program = parse(
-            Lexer::new("def add (a: u32, b: u32): u32 {a + b} let x: u32 = add(add(1), 2);")
-                .unwrap(),
-        )
-        .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 2,
-                        given: 1
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def add (a: u32, b: u32): u32 {a + b} let x: u32 = add(add(1), 2);",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 2,
+                given: 1
+            }
         );
     }
 
     #[test]
     fn type_error_for_incorrect_number_of_args_inside_function_body() {
-        let mut program =
-            parse(Lexer::new("def f (a: u32): u32 {a} def g (): u32 { f(1, 2) }").unwrap())
-                .unwrap();
-        let result = check_types(&mut program);
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IncorrectNumberOfArgs {
-                        expected: 1,
-                        given: 2
-                    },
-                    ..
-                })
-            ),
-            "expected IncorrectNumberOfArgs, got {result:?}"
+        expect_err!(
+            "def f (a: u32): u32 {a} def g (): u32 { f(1, 2) }",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 1,
+                given: 2
+            }
         );
     }
 
     #[test]
     fn supports_any_number_of_args_to_extern() -> Result<(), TypeCheckError> {
-        let mut program =
-            parse(Lexer::new("printf(\"%d\"); printf(\"%d %d\", 1, 2);").unwrap()).unwrap();
-        check_types(&mut program)
-    }
-
-    const POINT: &str = "struct P { x: u32, y: bool }";
-
-    fn check(source: &str) -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
-        check_types(&mut program)
+        check("printf(\"%d\"); printf(\"%d %d\", 1, 2);")
     }
 
     #[test]
@@ -1052,14 +734,9 @@ mod test {
 
     #[test]
     fn struct_access_has_field_type() {
-        let mut program = parse(
-            Lexer::new(&format!(
-                "{POINT} let p = P {{ x: 1, y: true }}; let a = p.y;"
-            ))
-            .unwrap(),
-        )
-        .unwrap();
-        check_types(&mut program).unwrap();
+        let program = checked(&format!(
+            "{POINT} let p = P {{ x: 1, y: true }}; let a = p.y;"
+        ));
         let StatementOrExpression::Statement(statement) = &program.block.children[2] else {
             panic!("expected statement");
         };
@@ -1071,122 +748,55 @@ mod test {
 
     #[test]
     fn type_error_for_struct_field_mismatch() {
-        let result = check(&format!("{POINT} let p = P {{ x: true, y: true }};"));
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch {
-                        expected: Type::Int(IntType::U32),
-                        got: Type::Boolean
-                    },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
+        expect_err!(
+            format!("{POINT} let p = P {{ x: true, y: true }};"),
+            TypeCheckErrorKind::TypeMismatch {
+                expected: Type::Int(IntType::U32),
+                got: Type::Boolean
+            }
         );
     }
 
     #[test]
     fn type_error_for_unknown_field_in_instantiation() {
-        let result = check(&format!("{POINT} let p = P {{ x: 1, z: 2 }};"));
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::NoSuchField { ref field_name, .. },
-                    ..
-                }) if field_name == "z"
-            ),
-            "expected NoSuchField, got {result:?}"
+        expect_err!(
+            format!("{POINT} let p = P {{ x: 1, z: 2 }};"),
+            TypeCheckErrorKind::NoSuchField { ref field_name, .. } if field_name == "z"
         );
     }
 
     #[test]
     fn type_error_for_unknown_field_in_access() {
-        let result = check(&format!("{POINT} let p = P {{ x: 1, y: true }}; p.z;"));
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::NoSuchField { ref field_name, .. },
-                    ..
-                }) if field_name == "z"
-            ),
-            "expected NoSuchField, got {result:?}"
+        expect_err!(
+            format!("{POINT} let p = P {{ x: 1, y: true }}; p.z;"),
+            TypeCheckErrorKind::NoSuchField { ref field_name, .. } if field_name == "z"
         );
     }
 
     #[test]
     fn type_error_for_struct_field_assignment_mismatch() {
-        let result = check(&format!("{POINT} let p = P {{ x: 1, y: true }}; p.y = 1;"));
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::TypeMismatch { .. },
-                    ..
-                })
-            ),
-            "expected TypeMismatch, got {result:?}"
-        );
+        expect_mismatch!(format!("{POINT} let p = P {{ x: 1, y: true }}; p.y = 1;"));
     }
 
     #[test]
     fn type_error_for_instantiating_non_struct() {
-        let result = check("let a = 1; let p = (a { x: 1 });");
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::NotAStruct(_),
-                    ..
-                })
-            ),
-            "expected NotAStruct, got {result:?}"
+        expect_err!(
+            "let a = 1; let p = (a { x: 1 });",
+            TypeCheckErrorKind::NotAStruct(_)
         );
     }
 
     #[test]
     fn type_error_for_unknown_struct() {
-        let result = check("let p = Q { x: 1 };");
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::IdentifierNotFound(ref name),
-                    ..
-                }) if name == "Q"
-            ),
-            "expected IdentifierNotFound, got {result:?}"
+        expect_err!(
+            "let p = Q { x: 1 };",
+            TypeCheckErrorKind::IdentifierNotFound(ref name) if name == "Q"
         );
     }
 
     #[test]
     fn type_error_for_accessing_field_of_non_struct() {
-        let result = check("let a = 1; a.x;");
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::NotAStruct(_),
-                    ..
-                })
-            ),
-            "expected NotAStruct, got {result:?}"
-        );
-    }
-
-    macro_rules! expect_err {
-        ($source:expr, $kind:pat) => {{
-            let source = $source;
-            let result = check(&source);
-            assert!(
-                matches!(result, Err(TypeCheckError { kind: $kind, .. })),
-                "expected {} for {source}, got {result:?}",
-                stringify!($kind)
-            );
-        }};
+        expect_err!("let a = 1; a.x;", TypeCheckErrorKind::NotAStruct(_));
     }
 
     #[test]
@@ -1245,58 +855,33 @@ mod test {
 
     #[test]
     fn type_error_for_mismatched_pointer_declaration() {
-        expect_err!(
-            "let x: u8 = 1; let p: *i64 = &x;",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
-        expect_err!(
-            "let x: i64 = 1; let p: i64 = &x;",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
+        expect_mismatch!("let x: u8 = 1; let p: *i64 = &x;");
+        expect_mismatch!("let x: i64 = 1; let p: i64 = &x;");
     }
 
     #[test]
     fn type_error_for_assign_through_pointer_mismatch() {
-        expect_err!(
-            "let x: bool = true; let p = &x; *p = 2;",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
-        expect_err!(
-            "let x: i64 = 1; let p = &x; *p = true;",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
+        expect_mismatch!("let x: bool = true; let p = &x; *p = 2;");
+        expect_mismatch!("let x: i64 = 1; let p = &x; *p = true;");
     }
 
     #[test]
     fn type_error_for_downcasting_through_pointer() {
-        expect_err!(
-            "let x: u8 = 1; let p = &x; let big: u64 = 2; *p = big;",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
+        expect_mismatch!("let x: u8 = 1; let p = &x; let big: u64 = 2; *p = big;");
     }
 
     #[test]
     fn type_error_for_field_through_pointer_mismatch() {
-        expect_err!(
-            format!("{POINT} let s = P {{ x: 1, y: true }}; let p = &s; (*p).y = 1;"),
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
+        expect_mismatch!(format!(
+            "{POINT} let s = P {{ x: 1, y: true }}; let p = &s; (*p).y = 1;"
+        ));
     }
 
     #[test]
     fn type_error_for_passing_wrong_pointer_type() {
-        expect_err!(
-            "def f(p: *i64) {} let x: u8 = 1; f(&x);",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
-        expect_err!(
-            "def f(p: *i64) {} let x: i64 = 1; f(x);",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
-        expect_err!(
-            "def f(p: i64) {} let x: i64 = 1; f(&x);",
-            TypeCheckErrorKind::TypeMismatch { .. }
-        );
+        expect_mismatch!("def f(p: *i64) {} let x: u8 = 1; f(&x);");
+        expect_mismatch!("def f(p: *i64) {} let x: i64 = 1; f(x);");
+        expect_mismatch!("def f(p: i64) {} let x: i64 = 1; f(&x);");
     }
 
     #[test]
@@ -1309,16 +894,9 @@ mod test {
 
     #[test]
     fn type_error_for_duplicate_struct_definition() {
-        let result = check(&format!("{POINT} {POINT}"));
-        assert!(
-            matches!(
-                result,
-                Err(TypeCheckError {
-                    kind: TypeCheckErrorKind::DuplicateIdentifiers(_),
-                    ..
-                })
-            ),
-            "expected DuplicateIdentifiers, got {result:?}"
+        expect_err!(
+            format!("{POINT} {POINT}"),
+            TypeCheckErrorKind::DuplicateIdentifiers(_)
         );
     }
 }
