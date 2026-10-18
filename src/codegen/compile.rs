@@ -476,27 +476,36 @@ pub fn with_place_address(
     }
 }
 
+fn narrow_size(element: &Type) -> Option<(Size, bool)> {
+    match element {
+        Type::Int(int) if int.size() == 4 => Some((Size::Dword, int.is_signed())),
+        Type::Int(int) if int.size() == 1 => Some((Size::Byte, int.is_signed())),
+        Type::Boolean | Type::Char => Some((Size::Byte, false)),
+        _ => None,
+    }
+}
+
+fn extend(element: &Type, dst: Register, src: impl Into<Address>) -> Option<Instruction> {
+    narrow_size(element).map(|(size, signed)| {
+        if signed {
+            Instruction::movsx(dst, src, size)
+        } else {
+            Instruction::movzx(dst, src, size)
+        }
+    })
+}
+
 /// Loading from memory
 fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
-    match element {
-        Type::Int(int) if int.size() == 4 && int.is_signed() => {
-            Instruction::movsx(dst, memory, Size::Dword)
-        }
-        Type::Int(int) if int.size() == 4 => Instruction::movzx(dst, memory, Size::Dword),
-        Type::Int(int) if int.size() == 1 => Instruction::movzx(dst, memory, Size::Byte),
-        Type::Boolean | Type::Char => Instruction::movzx(dst, memory, Size::Byte),
-        _ => Instruction::mov(dst, memory),
-    }
+    extend(element, dst, memory).unwrap_or_else(|| Instruction::mov(dst, memory))
 }
 
 /// Storing to memory
 pub fn store_element(element: &Type, memory: Address, src: Register) -> Instruction {
-    match element {
-        Type::Int(int) if int.size() == 4 => Instruction::store(memory, src, Size::Dword),
-        Type::Int(int) if int.size() == 1 => Instruction::store(memory, src, Size::Byte),
-        Type::Boolean | Type::Char => Instruction::store(memory, src, Size::Byte),
-        _ => Instruction::mov(memory, src),
-    }
+    narrow_size(element).map_or_else(
+        || Instruction::mov(memory, src),
+        |(size, _)| Instruction::store(memory, src, size),
+    )
 }
 
 // This will have to take other types eventually
@@ -835,15 +844,7 @@ fn compile_cast(
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let mut instructions = inner.compile(compile_scope, dst, register_handler)?;
-    let truncate = |reg: Register| match cast_type {
-        Type::Int(int) if int.size() == 4 && int.is_signed() => {
-            Some(Instruction::movsx(reg, reg, Size::Dword))
-        }
-        Type::Int(int) if int.size() == 4 => Some(Instruction::movzx(reg, reg, Size::Dword)),
-        Type::Int(int) if int.size() == 1 => Some(Instruction::movzx(reg, reg, Size::Byte)),
-        Type::Char => Some(Instruction::movzx(reg, reg, Size::Byte)),
-        _ => None,
-    };
+    let truncate = |reg: Register| extend(cast_type, reg, reg);
 
     match dst {
         Address::Register(reg) => instructions.extend(truncate(reg)),
