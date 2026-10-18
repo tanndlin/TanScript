@@ -11,3 +11,6 @@
   - reuse registers for intermediate results instead of allocating new ones
   - keep loop variables in registers across iterations
 - dont push rbp; sub rsp when its a leaf function that doesnt need shadow space for args
+- Dont allow a struct as a defined arg type
+- Make register allocation deterministic
+- Allow struct literal inside a struct literal (e.g. `struct { a: 1, b: struct { c: 2 } }`)
