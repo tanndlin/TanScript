@@ -1,4 +1,7 @@
-use crate::ast::{AtomType, Block, Expression, ExpressionKind, Statement, StatementOrExpression};
+use crate::{
+    ast::{AtomType, Block, Expression, ExpressionKind, Statement, StatementOrExpression},
+    type_check::Type,
+};
 
 impl Block {
     pub fn references(&self, names: &mut Vec<String>) {
@@ -22,14 +25,23 @@ impl Statement {
                 s.lhs.references(names);
                 s.expression.references(names);
             }
-            Statement::Declaration(s) => s.assign.expression.references(names),
+            Statement::Declaration(s) => {
+                if let Some(dtype) = &s.dtype {
+                    dtype.references(names);
+                }
+                s.assign.expression.references(names);
+            }
             Statement::ForLoop(s) => {
                 s.init.references(names);
                 s.condition.references(names);
                 s.update.references(names);
                 s.block.references(names);
             }
-            Statement::FunctionDefinition(s) => s.body.references(names),
+            Statement::FunctionDefinition(s) => {
+                s.args.iter().for_each(|a| a.atype.references(names));
+                s.return_type.references(names);
+                s.body.references(names);
+            }
             Statement::IfStatement(s) => {
                 s.condition.references(names);
                 s.block.references(names);
@@ -46,10 +58,10 @@ impl Statement {
                 s.condition.references(names);
                 s.block.references(names);
             }
-            Statement::StructDefinition(_)
-            | Statement::EnumDefinition(_)
-            | Statement::Break(_)
-            | Statement::Continue(_) => {}
+            Statement::StructDefinition(s) => {
+                s.fields.iter().for_each(|f| f.ftype.references(names));
+            }
+            Statement::EnumDefinition(_) | Statement::Break(_) | Statement::Continue(_) => {}
         }
     }
 }
@@ -59,14 +71,19 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => names.push(name.clone()),
             ExpressionKind::StructAccess { base, .. } => base.references(names),
-            ExpressionKind::Atom(_) | ExpressionKind::EnumVariant { .. } => {}
+            ExpressionKind::Atom(_) => {}
+            ExpressionKind::EnumVariant { enum_name, .. } => names.push(enum_name.clone()),
             ExpressionKind::Binary(_, lhs, rhs) | ExpressionKind::Index(lhs, rhs) => {
                 lhs.references(names);
                 rhs.references(names);
             }
-            ExpressionKind::Unary(_, inner)
-            | ExpressionKind::Postfix(_, inner)
-            | ExpressionKind::Cast(inner, _) => inner.references(names),
+            ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
+                inner.references(names);
+            }
+            ExpressionKind::Cast(inner, ctype) => {
+                ctype.references(names);
+                inner.references(names);
+            }
             ExpressionKind::FunctionCall(name, args) => {
                 names.push(name.clone());
                 for arg in args {
@@ -82,6 +99,22 @@ impl Expression {
                     field.references(names);
                 }
             }
+        }
+    }
+}
+
+impl Type {
+    pub fn references(&self, names: &mut Vec<String>) {
+        match self {
+            Type::Named(name) => names.push(name.clone()),
+            Type::Struct(s) => names.push(s.name.clone()),
+            Type::Enum(e) => names.push(e.name.clone()),
+            Type::Pointer(inner) => inner.references(names),
+            Type::Function(f) => {
+                f.args.iter().for_each(|a| a.references(names));
+                f.return_type.references(names);
+            }
+            Type::Int(_) | Type::Char | Type::Boolean | Type::Unit | Type::Unknown => {}
         }
     }
 }

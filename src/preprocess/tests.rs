@@ -51,6 +51,7 @@ fn definitions(program: &Program) -> Vec<String> {
             StatementOrExpression::Statement(s) => match s.as_ref() {
                 Statement::FunctionDefinition(d) => Some(d.name.clone()),
                 Statement::StructDefinition(d) => Some(d.name.clone()),
+                Statement::EnumDefinition(d) => Some(d.name.clone()),
                 _ => None,
             },
             StatementOrExpression::Expression(_) => None,
@@ -103,6 +104,43 @@ fn imports_transitive_dependencies_in_module_order() {
         ],
     );
     assert_eq!(definitions(&result.unwrap()), ["square", "cube"]);
+}
+
+#[test]
+fn imports_types_referenced_by_signatures() {
+    let lexer = "
+enum Token { Number }
+struct LexerToken { token_type: Token }
+struct Unused { a: u32 }
+def tokenize(path: *char): *LexerToken { 0 }
+";
+    let (result, _) = resolve(
+        "types",
+        &[
+            ("main.tan", "use lexer::{tokenize};\ntokenize(\"a\");"),
+            ("lexer.tan", lexer),
+        ],
+    );
+    assert_eq!(
+        definitions(&result.unwrap()),
+        ["Token", "LexerToken", "tokenize"]
+    );
+}
+
+#[test]
+fn imports_enum_used_by_variant() {
+    let colors = "
+enum Color { Red }
+def red(): Color { Color::Red }
+";
+    let (result, _) = resolve(
+        "enum_variant",
+        &[
+            ("main.tan", "use colors::{red};\nred();"),
+            ("colors.tan", colors),
+        ],
+    );
+    assert_eq!(definitions(&result.unwrap()), ["Color", "red"]);
 }
 
 #[test]

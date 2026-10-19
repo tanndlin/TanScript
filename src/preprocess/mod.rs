@@ -160,6 +160,7 @@ fn definition(child: &StatementOrExpression) -> Option<(&String, Span)> {
     match statement.as_ref() {
         Statement::FunctionDefinition(d) => Some((&d.name, d.span)),
         Statement::StructDefinition(d) => Some((&d.name, d.span)),
+        Statement::EnumDefinition(d) => Some((&d.name, d.span)),
         _ => None,
     }
 }
