@@ -52,6 +52,7 @@ impl fmt::Display for StructDefinition {
 pub struct StructField {
     pub name: String,
     pub ftype: Type,
+    pub span: Span,
 }
 
 impl fmt::Display for StructField {

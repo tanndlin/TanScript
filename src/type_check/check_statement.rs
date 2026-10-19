@@ -196,7 +196,7 @@ impl StructDefinition {
         }
 
         for field in &mut self.fields {
-            field.ftype = type_scope.resolve(&field.ftype, self.span)?;
+            field.ftype = type_scope.resolve(&field.ftype, field.span)?;
         }
         type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
         Ok(())

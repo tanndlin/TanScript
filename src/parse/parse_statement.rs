@@ -14,7 +14,7 @@ use crate::{
         parse_expression::{parse_condition, parse_expression, parse_expression_or_assignment},
     },
     type_check::Type,
-    types::Token,
+    types::{Span, Token},
 };
 
 pub fn parse_statement_or_expression(
@@ -211,15 +211,21 @@ fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, ParseError> 
 }
 
 pub fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
+    parse_type_with_span(lexer).map(|(t, _)| t)
+}
+
+pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseError> {
     let tok = lexer.next_or_eof("type")?;
     if let Token::Op(OperatorType::Multiply) = tok.token_type {
-        return Ok(Type::Pointer(Box::new(parse_type(lexer)?)));
+        let (inner, span) = parse_type_with_span(lexer)?;
+        return Ok((Type::Pointer(Box::new(inner)), span));
     }
 
+    let span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
         return Err(expected("type", tok));
     };
-    Ok(Type::from_str(&type_name).unwrap_or(Type::Named(type_name)))
+    Ok((Type::from_str(&type_name).unwrap_or(Type::Named(type_name)), span))
 }
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {
@@ -360,8 +366,8 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
             unreachable!();
         };
         lexer.expect(":")?;
-        let ftype = parse_type(lexer)?;
-        fields.push(StructField { name, ftype });
+        let (ftype, span) = parse_type_with_span(lexer)?;
+        fields.push(StructField { name, ftype, span });
 
         let tok = lexer.peek_or_eof(", or }")?;
         if tok.token_type == Token::Atom(LexerAtomType::Comma) {
