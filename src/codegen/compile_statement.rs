@@ -67,6 +67,12 @@ impl Assignment {
                 compile_scope,
                 register_handler,
                 &mut |compile_scope, register_handler, address, t| {
+                    if let Type::Struct(_) = t {
+                        return self
+                            .expression
+                            .compile(compile_scope, address, register_handler);
+                    }
+
                     register_handler.lease_with_scope(|register_handler, value_dst| {
                         let mut instructions =
                             self.expression

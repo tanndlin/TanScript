@@ -1,0 +1,27 @@
+struct Token {
+    kind: u8,
+    data: u64,
+}
+
+struct Node {
+    value: Token,
+    next: *Node,
+}
+
+let tokens: *Token = calloc(4, 16);
+let t = Token { kind: 1, data: 100 };
+tokens[0] = t;
+tokens[1] = Token { kind: 2, data: 200 };
+tokens[2].kind = 3;
+tokens[2].data = 300;
+
+for (let i = 0; i < 3; i++) {
+    printf("%d %llu\n", tokens[i].kind, tokens[i].data);
+}
+
+let node: *Node = calloc(1, 32);
+(*node).value = t;
+printf("%d %llu\n", (*node).value.kind, (*node).value.data);
+
+(*node).value = tokens[1];
+printf("%d %llu\n", (*node).value.kind, (*node).value.data);

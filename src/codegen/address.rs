@@ -62,6 +62,37 @@ impl Register {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scale {
+    One,
+    Two,
+    Four,
+    Eight,
+}
+
+impl Scale {
+    pub fn from_size(size: u32) -> Option<Scale> {
+        match size {
+            1 => Some(Scale::One),
+            2 => Some(Scale::Two),
+            4 => Some(Scale::Four),
+            8 => Some(Scale::Eight),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for Scale {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Scale::One => write!(f, "1"),
+            Scale::Two => write!(f, "2"),
+            Scale::Four => write!(f, "4"),
+            Scale::Eight => write!(f, "8"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Address {
     Register(Register),
     Stack(i32), // Offset below rbp; negative offsets are above rbp (e.g. function args)
@@ -69,7 +100,8 @@ pub enum Address {
     Indexed {
         base: Register,
         index: Register,
-        size: u32,
+        scale: Scale,
+        offset: u32,
     },
     Deref {
         base: Register,
@@ -121,12 +153,20 @@ impl fmt::Display for Address {
             Address::Stack(off) if *off < 0 => write!(f, "[rbp + {}]", -off),
             Address::Stack(off) => write!(f, "[rbp - {off}]"),
             Address::StackArg(off) => write!(f, "[rsp + {off}]"),
-            Address::Indexed { base, index, size } => {
-                if *size > 1 {
-                    write!(f, "[{base} + {index} * {size}]")
-                } else {
-                    write!(f, "[{base} + {index}]")
+            Address::Indexed {
+                base,
+                index,
+                scale,
+                offset,
+            } => {
+                write!(f, "[{base} + {index}")?;
+                if *scale != Scale::One {
+                    write!(f, " * {scale}")?;
                 }
+                if *offset > 0 {
+                    write!(f, " + {offset}")?;
+                }
+                write!(f, "]")
             }
             Address::Deref { base, offset: 0 } => write!(f, "[{base}]"),
             Address::Deref { base, offset } => write!(f, "[{base} + {offset}]"),

@@ -220,10 +220,3 @@ impl<'a> CompileScope<'a> {
             .or_else(|| self.parent.and_then(|p| p.lookup_struct(name)))
     }
 }
-
-impl StructDefinition {
-    pub fn field_address(&self, struct_address: i32, field_name: &str) -> Address {
-        let offset = i32::try_from(self.get_byte_offset(field_name)).unwrap();
-        Address::Stack(struct_address - offset)
-    }
-}

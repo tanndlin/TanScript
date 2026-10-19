@@ -6,7 +6,7 @@ use crate::{
     },
     codegen::{
         CodegenError, CodegenErrorKind,
-        address::{Address, Register},
+        address::{Address, Register, Scale},
         compile_scope::{CompileScope, SLOT_SIZE},
         instruction::{Condition, Instruction, Operand, Size},
         register_handler::RegisterHandler,
@@ -178,8 +178,11 @@ impl Expression {
                 self,
                 compile_scope,
                 register_handler,
-                &mut |_, register_handler, address, t| {
-                    move_into(dst, register_handler, |reg| load_element(&t, reg, address))
+                &mut |_, register_handler, address, t| match t {
+                    Type::Struct(struct_def) => {
+                        mem_copy(&struct_def, dst, address, register_handler)
+                    }
+                    _ => move_into(dst, register_handler, |reg| load_element(&t, reg, address)),
                 },
             ),
             ExpressionKind::Unary(op, child) => {
@@ -482,14 +485,13 @@ fn compile_struct_instantiation(
         .unwrap()
         .clone();
 
-    let Address::Stack(stack_offset_start) = dst else {
-        panic!("Cannot put a struct into a register")
-    };
+    assert!(dst.is_memory(), "Cannot put a struct into a register");
 
     let mut instructions = vec![];
     for (field_name, expr) in fields {
         let field_type = struct_def.get_field_type(field_name).unwrap().clone();
-        let address = struct_def.field_address(stack_offset_start, field_name);
+        let offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
+        let address = offset_address(dst, offset);
 
         instructions.extend(register_handler.lease_with_scope(|register_handler, reg| {
             let mut field = expr.compile(compile_scope, reg, register_handler)?;
@@ -524,11 +526,11 @@ pub fn with_place_address(
             let element = compile_scope.element_type(lhs).at(lhs.span)?;
             register_handler.lease_with_scope(|register_handler, offset| {
                 let mut instructions = index.compile(compile_scope, offset, register_handler)?;
-                let mut size = u32::try_from(element.size()).unwrap();
-                if !matches!(size, 1 | 2 | 4 | 8) {
+                let size = u32::try_from(element.size()).unwrap();
+                let scale = Scale::from_size(size).unwrap_or_else(|| {
                     instructions.push(Instruction::imul(offset, size));
-                    size = 1; // Hack: Make the * size short circuit
-                }
+                    Scale::One
+                });
                 instructions.extend(register_handler.lease_with_scope(
                     |register_handler, base| {
                         let mut instructions =
@@ -536,7 +538,8 @@ pub fn with_place_address(
                         let address = Address::Indexed {
                             base,
                             index: offset,
-                            size,
+                            scale,
+                            offset: 0,
                         };
                         instructions.extend(f(compile_scope, register_handler, address, element)?);
                         Ok(instructions)
@@ -564,37 +567,12 @@ pub fn with_place_address(
                 };
                 let field_type = struct_def.get_field_type(field_name).unwrap().clone();
                 let field_offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
-                match address {
-                    Address::Stack(struct_address) => f(
-                        compile_scope,
-                        register_handler,
-                        struct_def.field_address(struct_address, field_name),
-                        field_type,
-                    ),
-                    Address::Deref { base, offset } => f(
-                        compile_scope,
-                        register_handler,
-                        Address::Deref {
-                            base,
-                            offset: offset + field_offset,
-                        },
-                        field_type,
-                    ),
-                    _ => register_handler.lease_with_scope(|register_handler, base| {
-                        let mut instructions = vec![Instruction::lea(base, address)];
-                        let address = Address::Deref {
-                            base,
-                            offset: field_offset,
-                        };
-                        instructions.extend(f(
-                            compile_scope,
-                            register_handler,
-                            address,
-                            field_type,
-                        )?);
-                        Ok(instructions)
-                    }),
-                }
+                f(
+                    compile_scope,
+                    register_handler,
+                    offset_address(address, field_offset),
+                    field_type,
+                )
             },
         ),
         _ => unreachable!("({place}) is not a place"),
@@ -652,13 +630,25 @@ pub fn mem_copy(
             ));
         }
 
-        Ok::<_, CodegenError>(instructions)
+        Ok(instructions)
     })
 }
 
 fn offset_address(address: Address, offset: u32) -> Address {
     match address {
         Address::Stack(start) => Address::Stack(start - i32::try_from(offset).unwrap()),
+        Address::StackArg(start) => Address::StackArg(start + i32::try_from(offset).unwrap()),
+        Address::Indexed {
+            base,
+            index,
+            scale,
+            offset: start,
+        } => Address::Indexed {
+            base,
+            index,
+            scale,
+            offset: start + offset,
+        },
         Address::Deref {
             base,
             offset: start,
@@ -666,7 +656,7 @@ fn offset_address(address: Address, offset: u32) -> Address {
             base,
             offset: start + offset,
         },
-        _ => panic!("Cannot offset ({address})"),
+        Address::Register(_) => panic!("Cannot offset ({address})"),
     }
 }
 
@@ -1665,6 +1655,27 @@ cond_skip_",
                 .iter()
                 .any(|l| l.contains("BYTE [") && l.contains(" + 8]")),
             "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_struct_store_through_pointer_field() {
+        compile(
+            "struct T { k: u8, d: u64, } struct N { v: T, n: *N, } let v = T { k: 1, d: 2 }; let p: *N = calloc(1, 17); (*p).v = v;",
+        );
+    }
+
+    #[test]
+    fn compile_struct_store_through_pointer_field_in_function() {
+        compile(
+            "struct T { k: u8, d: u64, } struct N { v: T, n: *N, } def f(v: T) { let p: *N = calloc(1, 17); (*p).v = v; } f(T { k: 1, d: 2 });",
+        );
+    }
+
+    #[test]
+    fn compile_struct_store_through_index() {
+        compile(
+            "struct T { k: u8, d: u64, } let ts: *T = calloc(2, 9); let t = T { k: 1, d: 2 }; ts[1] = t;",
         );
     }
 
