@@ -266,7 +266,7 @@ pub fn check_struct_access(
                 }
                 .at(span)
             }),
-        _ => Err(TypeCheckErrorKind::NotAStruct(base.to_string()).at(span)),
+        t => Err(TypeCheckErrorKind::NotAStruct(t.to_string()).at(span)),
     }
 }
 
@@ -815,6 +815,14 @@ mod test {
     #[test]
     fn type_error_for_accessing_field_of_non_struct() {
         expect_err!("let a = 1; a.x;", TypeCheckErrorKind::NotAStruct(_));
+    }
+
+    #[test]
+    fn type_error_for_accessing_field_of_pointer_names_the_type() {
+        expect_err!(
+            format!("{POINT} let s = P {{ x: 1, y: true }}; let p = &s; p.x;"),
+            TypeCheckErrorKind::NotAStruct(ref name) if name == "*P"
+        );
     }
 
     #[test]
