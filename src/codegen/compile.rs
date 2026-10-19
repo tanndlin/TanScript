@@ -22,7 +22,7 @@ impl Program {
         let mut global_scope = CompileScope::new(None);
         let mut register_handler = RegisterHandler::new();
 
-        let mut symbol_table = SymbolTable::new();
+        let mut symbol_table = SymbolTable::default();
         self.block.discover(&mut symbol_table);
         symbol_table.externs.insert("exit".to_string());
         for def in symbol_table.functions.values() {
@@ -30,6 +30,9 @@ impl Program {
         }
         for def in symbol_table.structs.values() {
             global_scope.insert_struct(def.clone());
+        }
+        for def in symbol_table.enums.values() {
+            global_scope.insert_enum(def.clone());
         }
 
         let instructions = render(
@@ -201,6 +204,16 @@ impl Expression {
                 dst,
                 register_handler,
             ),
+            ExpressionKind::EnumVariant {
+                enum_name,
+                variant_name,
+            } => compile_enum(
+                enum_name,
+                variant_name,
+                compile_scope,
+                dst,
+                register_handler,
+            ),
         }
     }
 
@@ -231,9 +244,26 @@ impl Expression {
             }
             ExpressionKind::Atom(_)
             | ExpressionKind::StructInstantiation { .. }
-            | ExpressionKind::StructAccess { .. } => Ok(vec![]),
+            | ExpressionKind::StructAccess { .. }
+            | ExpressionKind::EnumVariant { .. } => Ok(vec![]),
         }
     }
+}
+
+fn compile_enum(
+    enum_name: &str,
+    variant_name: &str,
+    compile_scope: &mut CompileScope,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let enum_def = compile_scope.lookup_enum(enum_name).unwrap();
+    let index = enum_def.variant_index(variant_name).unwrap();
+    compile_number(
+        NumberType::U8(u8::try_from(index).unwrap()),
+        dst,
+        register_handler,
+    )
 }
 
 /// Registers the Win64 calling convention allows a callee to clobber
@@ -570,7 +600,7 @@ fn narrow_size(element: &Type) -> Option<(Size, bool)> {
     match element {
         Type::Int(int) if int.size() == 4 => Some((Size::Dword, int.is_signed())),
         Type::Int(int) if int.size() == 1 => Some((Size::Byte, int.is_signed())),
-        Type::Boolean | Type::Char => Some((Size::Byte, false)),
+        Type::Boolean | Type::Char | Type::Enum(_) => Some((Size::Byte, false)),
         _ => None,
     }
 }

@@ -46,7 +46,10 @@ impl Statement {
                 s.condition.references(names);
                 s.block.references(names);
             }
-            Statement::StructDefinition(_) | Statement::Break(_) | Statement::Continue(_) => {}
+            Statement::StructDefinition(_)
+            | Statement::EnumDefinition(_)
+            | Statement::Break(_)
+            | Statement::Continue(_) => {}
         }
     }
 }
@@ -56,7 +59,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => names.push(name.clone()),
             ExpressionKind::StructAccess { base, .. } => base.references(names),
-            ExpressionKind::Atom(_) => {}
+            ExpressionKind::Atom(_) | ExpressionKind::EnumVariant { .. } => {}
             ExpressionKind::Binary(_, lhs, rhs) | ExpressionKind::Index(lhs, rhs) => {
                 lhs.references(names);
                 rhs.references(names);

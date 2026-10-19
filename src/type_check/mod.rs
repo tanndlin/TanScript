@@ -13,7 +13,7 @@ use core::fmt;
 use std::str::FromStr;
 
 use crate::{
-    ast::{AtomType, StructDefinition},
+    ast::{AtomType, EnumDefinition, StructDefinition},
     types::IntType,
 };
 
@@ -30,6 +30,7 @@ pub enum Type {
     Boolean,
     Function(Box<FunctionType>), // Types of args
     Struct(Box<StructDefinition>),
+    Enum(Box<EnumDefinition>),
     Pointer(Box<Type>),
     Named(String),
     Unit,
@@ -46,7 +47,7 @@ impl Type {
             Self::Int(int) => int.size(),
             Self::Struct(s) => s.size(),
             Self::Unit => 0,
-            Self::Boolean | Self::Char => 1,
+            Self::Boolean | Self::Char | Self::Enum(_) => 1,
             Self::Function(_) | Self::Pointer(_) | Self::Unknown => 8,
             Self::Named(name) => unreachable!("unresolved type ({name})"),
         }
@@ -58,6 +59,7 @@ impl Type {
             (Type::Unknown, _)
             | (_, Type::Unknown)
             | (Type::Int(_) | Type::Char | Type::Boolean, Type::Int(_) | Type::Char)
+            | (Type::Enum(_), Type::Int(_))
             | (Type::Pointer(_), Type::Pointer(_)) => true,
             (Type::Pointer(_), Type::Int(int)) | (Type::Int(int), Type::Pointer(_)) => {
                 int.size() == 8
@@ -99,9 +101,13 @@ impl PartialEq for Type {
             | (Self::Unknown, Self::Unknown) => true,
             (Self::Function(a), Self::Function(b)) => a == b,
             (Self::Struct(a), Self::Struct(b)) => a == b,
+            (Self::Enum(a), Self::Enum(b)) => a == b,
             (Self::Pointer(a), Self::Pointer(b)) => a == b,
             (Self::Named(a), Self::Named(b)) => a == b,
             (Self::Named(name), Self::Struct(def)) | (Self::Struct(def), Self::Named(name)) => {
+                *name == def.name
+            }
+            (Self::Named(name), Self::Enum(def)) | (Self::Enum(def), Self::Named(name)) => {
                 *name == def.name
             }
             _ => false,
@@ -120,6 +126,7 @@ impl fmt::Display for Type {
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Boolean => write!(f, "bool"),
             Type::Struct(_) => write!(f, "struct"),
+            Type::Enum(def) => write!(f, "{}", def.name),
             Type::Named(name) => write!(f, "{name}"),
         }
     }

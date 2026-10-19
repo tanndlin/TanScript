@@ -36,6 +36,10 @@ impl Statement {
                 compile_scope.insert_struct(def.clone());
                 Ok(vec![])
             }
+            Statement::EnumDefinition(def) => {
+                compile_scope.insert_enum(def.clone());
+                Ok(vec![])
+            }
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::StructDefinition,
+    ast::{EnumDefinition, StructDefinition},
     error::{At, Spanned},
     type_check::Type,
 };
@@ -23,9 +23,14 @@ pub enum TypeCheckErrorKind {
         given: usize,
     },
     NotAStruct(String),
+    NotAnEnum(String),
     NoSuchField {
         struct_type: StructDefinition,
         field_name: String,
+    },
+    NoSuchVariant {
+        enum_type: EnumDefinition,
+        variant_name: String,
     },
     DuplicateIdentifiers(String),
     StructAsArgument,
@@ -63,12 +68,20 @@ impl fmt::Display for TypeCheckErrorKind {
                 )
             }
             Self::NotAStruct(given_type) => write!(f, "Type: ({given_type}) is not a struct"),
+            Self::NotAnEnum(given_type) => write!(f, "Type: ({given_type}) is not an enum"),
             Self::NoSuchField {
                 struct_type,
                 field_name,
             } => write!(
                 f,
                 "Struct: ({struct_type}) does not contain a field called ({field_name})"
+            ),
+            Self::NoSuchVariant {
+                enum_type,
+                variant_name,
+            } => write!(
+                f,
+                "Enum: ({enum_type}) does not contain a variant called ({variant_name})"
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
             Self::StructAsArgument => write!(f, "Structs cannot be passed as function arguments"),

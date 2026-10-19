@@ -210,6 +210,7 @@ fn parse_identifier_or_function_call_or_struct(
         Some(Token::Op(OperatorType::OpenCurly)) if allow_struct => {
             parse_struct_instantiation(lexer, s.to_string(), span)?
         }
+        Some(Token::Op(OperatorType::PathSep)) => parse_enum_variant(lexer, s.to_string(), span)?,
         _ => Expression::new(
             ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
             span,
@@ -240,6 +241,26 @@ fn parse_function_call(lexer: &mut Lexer, s: String, span: Span) -> Result<Expre
     }
 
     Ok(Expression::new(ExpressionKind::FunctionCall(s, args), span))
+}
+
+fn parse_enum_variant(
+    lexer: &mut Lexer,
+    enum_name: String,
+    span: Span,
+) -> Result<Expression, ParseError> {
+    lexer.expect("::")?;
+    let token = lexer.next_or_eof("variant name")?;
+    let Token::Atom(LexerAtomType::Identifier(variant_name)) = token.token_type else {
+        return Err(expected("variant name", token));
+    };
+
+    Ok(Expression::new(
+        ExpressionKind::EnumVariant {
+            enum_name,
+            variant_name,
+        },
+        span,
+    ))
 }
 
 fn parse_struct_instantiation(

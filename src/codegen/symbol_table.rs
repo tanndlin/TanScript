@@ -1,23 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    Block, Expression, ExpressionKind, FunctionDefinition, Statement, StatementOrExpression,
-    StructDefinition,
+    Block, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, Statement,
+    StatementOrExpression, StructDefinition,
 };
 
+#[derive(Default)]
 pub struct SymbolTable {
     pub functions: HashMap<String, FunctionDefinition>,
     pub structs: HashMap<String, StructDefinition>,
     pub externs: HashSet<String>,
-}
-impl SymbolTable {
-    pub fn new() -> Self {
-        Self {
-            functions: HashMap::new(),
-            structs: HashMap::new(),
-            externs: HashSet::new(),
-        }
-    }
+    pub enums: HashMap<String, EnumDefinition>,
 }
 
 impl Block {
@@ -71,6 +64,9 @@ impl Statement {
             Statement::StructDefinition(s) => {
                 symbols.structs.insert(s.name.clone(), s.clone());
             }
+            Statement::EnumDefinition(s) => {
+                symbols.enums.insert(s.name.clone(), s.clone());
+            }
             Statement::Continue(_) | Statement::Break(_) => {}
         }
     }
@@ -88,7 +84,9 @@ impl Expression {
                     arg.discover(symbols);
                 }
             }
-            ExpressionKind::Atom(_) | ExpressionKind::Postfix(_, _) => {}
+            ExpressionKind::Atom(_)
+            | ExpressionKind::Postfix(_, _)
+            | ExpressionKind::EnumVariant { .. } => {}
             ExpressionKind::StructAccess { base, .. } => base.discover(symbols),
             ExpressionKind::Binary(_, left, right) => {
                 left.discover(symbols);

@@ -1,8 +1,8 @@
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, ExpressionKind, ForLoop, FunctionDefinition,
-        IfStatement, ReturnStatement, Statement, StatementOrExpression, StructDefinition,
-        WhileLoop,
+        Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind, ForLoop,
+        FunctionDefinition, IfStatement, ReturnStatement, Statement, StatementOrExpression,
+        StructDefinition, WhileLoop,
     },
     error::{At, ResultAt},
     type_check::{
@@ -73,6 +73,7 @@ impl Statement {
             Self::IfStatement(s) => s.check_types(type_scope),
             Self::Return(s) => s.check_types(type_scope),
             Self::WhileLoop(s) => s.check_types(type_scope),
+            Self::EnumDefinition(s) => s.check_types(type_scope),
             Self::Break(_) | Self::Continue(_) => Ok(()),
         }
     }
@@ -88,7 +89,8 @@ impl Statement {
             | Self::Return(_)
             | Self::Break(_)
             | Self::Continue(_)
-            | Self::StructDefinition(_) => {}
+            | Self::StructDefinition(_)
+            | Self::EnumDefinition(_) => {}
         }
     }
 }
@@ -185,6 +187,23 @@ impl FunctionDefinition {
             }
             .at(self.span));
         }
+        Ok(())
+    }
+}
+
+impl EnumDefinition {
+    pub fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        if type_scope.lookup(&self.name).is_some() {
+            return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
+        }
+
+        for (i, variant) in self.variants.iter().enumerate() {
+            if self.variants[..i].contains(variant) {
+                return Err(TypeCheckErrorKind::DuplicateIdentifiers(variant.clone()).at(self.span));
+            }
+        }
+
+        type_scope.insert(self.name.clone(), Type::Enum(Box::new(self.clone())));
         Ok(())
     }
 }

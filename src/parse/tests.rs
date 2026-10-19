@@ -954,3 +954,10 @@ fn depth_resets_between_statements() {
     let statement = format!("{}a;", "!".repeat(n - 2));
     assert!(!is_too_deep(&statement.repeat(3)));
 }
+
+#[test]
+fn parse_enum_variant() {
+    test_parse_expression!("Color::Red", "Color::Red");
+    test_parse_expression!("Color::Red as u32", "(Color::Red as u32)");
+    integration_test!("let c = Color::Red;", "let c = Color::Red");
+}

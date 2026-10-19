@@ -29,7 +29,7 @@ impl Expression {
 
     pub fn contains_call(&self) -> bool {
         match &self.kind {
-            ExpressionKind::Atom(_) => false,
+            ExpressionKind::Atom(_) | ExpressionKind::EnumVariant { .. } => false,
             ExpressionKind::FunctionCall(_, _) => true,
             ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
                 left.contains_call() || right.contains_call()
@@ -67,6 +67,10 @@ pub enum ExpressionKind {
     StructAccess {
         base: Box<Expression>,
         field_name: String,
+    },
+    EnumVariant {
+        enum_name: String,
+        variant_name: String,
     },
 }
 
@@ -108,6 +112,10 @@ impl fmt::Display for ExpressionKind {
             ExpressionKind::StructAccess { base, field_name } => {
                 write!(f, "{base}.{field_name}")
             }
+            ExpressionKind::EnumVariant {
+                enum_name,
+                variant_name,
+            } => write!(f, "{enum_name}::{variant_name}"),
         }
     }
 }

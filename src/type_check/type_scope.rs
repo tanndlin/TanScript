@@ -73,7 +73,7 @@ impl TypeScope {
     pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckErrorKind> {
         match t {
             Type::Named(name) => match self.lookup(name) {
-                Some(struct_type @ Type::Struct(_)) => Ok(struct_type.clone()),
+                Some(named_type @ (Type::Struct(_) | Type::Enum(_))) => Ok(named_type.clone()),
                 Some(Type::Named(_)) => Err(TypeCheckErrorKind::RecursiveStruct(name.clone())),
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone())),
             },
@@ -90,7 +90,7 @@ impl TypeScope {
     pub fn expand(&self, t: Type) -> Type {
         match &t {
             Type::Named(name) => match self.lookup(name) {
-                Some(struct_type @ Type::Struct(_)) => struct_type.clone(),
+                Some(named_type @ (Type::Struct(_) | Type::Enum(_))) => named_type.clone(),
                 _ => t,
             },
             _ => t,

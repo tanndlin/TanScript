@@ -3,9 +3,9 @@ use std::str::FromStr;
 use crate::{
     ast::{
         Arg, Assignment, AtomType, Block, BreakStatement, ContinueStatement, Declaration,
-        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, Import, ImportName,
-        OperatorType, ReturnStatement, Statement, StatementOrExpression, StructDefinition,
-        StructField, WhileLoop,
+        EnumDefinition, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
+        Import, ImportName, OperatorType, ReturnStatement, Statement, StatementOrExpression,
+        StructDefinition, StructField, WhileLoop,
     },
     error::At,
     lex::{Lexer, LexerAtomType},
@@ -69,6 +69,7 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
         "if" => parse_if_statement(lexer)?.into(),
         "def" => parse_function_definition(lexer)?.into(),
         "struct" => parse_struct_definition(lexer)?.into(),
+        "enum" => parse_enum_definition(lexer)?.into(),
         "return" => parse_return(lexer)?.into(),
         "break" => {
             let span = lexer.next().unwrap().span;
@@ -225,7 +226,10 @@ pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseErro
     let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
         return Err(expected("type", tok));
     };
-    Ok((Type::from_str(&type_name).unwrap_or(Type::Named(type_name)), span))
+    Ok((
+        Type::from_str(&type_name).unwrap_or(Type::Named(type_name)),
+        span,
+    ))
 }
 
 fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {
@@ -439,4 +443,41 @@ fn parse_import_list(lexer: &mut Lexer) -> Result<Vec<ImportName>, ParseError> {
     }
     lexer.expect("}")?;
     Ok(names)
+}
+
+fn parse_enum_definition(lexer: &mut Lexer) -> Result<EnumDefinition, ParseError> {
+    lexer.expect("enum")?;
+    let tok = lexer.next_or_eof("identifier")?;
+    let span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(enum_name)) = tok.token_type else {
+        return Err(expected("identifier", tok));
+    };
+
+    lexer.expect("{")?;
+    let mut variants = vec![];
+    loop {
+        let tok = lexer.peek_or_eof("variant name or }")?;
+        if !matches!(tok.token_type, Token::Atom(LexerAtomType::Identifier(_))) {
+            break;
+        }
+        let Token::Atom(LexerAtomType::Identifier(name)) = lexer.next().unwrap().token_type else {
+            unreachable!();
+        };
+
+        variants.push(name);
+
+        let tok = lexer.peek_or_eof(", or }")?;
+        if tok.token_type == Token::Atom(LexerAtomType::Comma) {
+            lexer.next();
+        } else {
+            break;
+        }
+    }
+    lexer.expect("}")?;
+
+    Ok(EnumDefinition {
+        name: enum_name,
+        variants,
+        span,
+    })
 }

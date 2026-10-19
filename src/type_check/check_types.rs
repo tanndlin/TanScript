@@ -53,7 +53,32 @@ pub fn check_types_expression(
         ExpressionKind::StructAccess { base, field_name } => {
             check_struct_access(span, base, field_name, type_scope)
         }
+        ExpressionKind::EnumVariant {
+            enum_name,
+            variant_name,
+        } => check_enum_variant(span, enum_name, variant_name, type_scope),
     }
+}
+
+pub fn check_enum_variant(
+    span: Span,
+    enum_name: &str,
+    variant_name: &str,
+    type_scope: &TypeScope,
+) -> Result<Type, TypeCheckError> {
+    let Some(Type::Enum(enum_def)) = type_scope.lookup(enum_name) else {
+        return Err(TypeCheckErrorKind::NotAnEnum(enum_name.to_string()).at(span));
+    };
+
+    if enum_def.variant_index(variant_name).is_none() {
+        return Err(TypeCheckErrorKind::NoSuchVariant {
+            enum_type: *enum_def.clone(),
+            variant_name: variant_name.to_string(),
+        }
+        .at(span));
+    }
+
+    Ok(Type::Enum(enum_def.clone()))
 }
 
 pub fn check_binary(
@@ -889,6 +914,14 @@ mod test {
     fn type_error_for_duplicate_struct_definition() {
         expect_err!(
             format!("{POINT} {POINT}"),
+            TypeCheckErrorKind::DuplicateIdentifiers(_)
+        );
+    }
+
+    #[test]
+    fn type_error_for_duplicate_enum_variant() {
+        expect_err!(
+            "enum Color { Red, Green, Red }",
             TypeCheckErrorKind::DuplicateIdentifiers(_)
         );
     }

@@ -1,6 +1,6 @@
 use crate::ast::{
-    Assignment, BreakStatement, ContinueStatement, Declaration, ForLoop, FunctionDefinition,
-    IfStatement, ReturnStatement, StructDefinition, WhileLoop,
+    Assignment, BreakStatement, ContinueStatement, Declaration, EnumDefinition, ForLoop,
+    FunctionDefinition, IfStatement, ReturnStatement, StructDefinition, WhileLoop,
 };
 use derive_more::{Display, From};
 
@@ -11,6 +11,7 @@ pub enum Statement {
     ForLoop(ForLoop),
     FunctionDefinition(FunctionDefinition),
     StructDefinition(StructDefinition),
+    EnumDefinition(EnumDefinition),
     IfStatement(IfStatement),
     Return(ReturnStatement),
     WhileLoop(WhileLoop),
@@ -28,6 +29,7 @@ impl Statement {
                 | Statement::WhileLoop(_)
                 | Statement::FunctionDefinition(_)
                 | Statement::StructDefinition(_)
+                | Statement::EnumDefinition(_)
         )
     }
 }

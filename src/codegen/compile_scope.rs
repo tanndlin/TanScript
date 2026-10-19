@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{AtomType, Expression, ExpressionKind, FunctionDefinition, StructDefinition, UnaryOp},
+    ast::{
+        AtomType, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, StructDefinition,
+        UnaryOp,
+    },
     codegen::{
         CodegenErrorKind,
         address::{Address, Register},
@@ -20,6 +23,7 @@ pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, StructDefinition>,
+    enums: HashMap<String, EnumDefinition>,
     functions: HashMap<String, FunctionDefinition>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
@@ -34,6 +38,7 @@ impl<'a> CompileScope<'a> {
             parent,
             variables: HashMap::new(),
             structs: HashMap::new(),
+            enums: HashMap::new(),
             functions: HashMap::new(),
             loop_context: None,
             function_context: None,
@@ -133,6 +138,9 @@ impl<'a> CompileScope<'a> {
                 .lookup_function(name)
                 .cloned()
                 .map_or(Type::Unknown, |f| f.return_type),
+            ExpressionKind::EnumVariant { enum_name, .. } => self
+                .lookup_enum(enum_name)
+                .map_or(Type::Unknown, |def| Type::Enum(Box::new(def.clone()))),
         })
     }
 
@@ -186,6 +194,10 @@ impl<'a> CompileScope<'a> {
         self.structs.insert(def.name.clone(), def);
     }
 
+    pub fn insert_enum(&mut self, def: EnumDefinition) {
+        self.enums.insert(def.name.clone(), def);
+    }
+
     pub fn insert_function(&mut self, name: String, def: FunctionDefinition) {
         self.functions.insert(name, def);
     }
@@ -194,6 +206,12 @@ impl<'a> CompileScope<'a> {
         self.functions
             .get(name)
             .or_else(|| self.parent.and_then(|p| p.lookup_function(name)))
+    }
+
+    pub fn lookup_enum(&self, name: &str) -> Option<&EnumDefinition> {
+        self.enums
+            .get(name)
+            .or_else(|| self.parent.and_then(|p| p.lookup_enum(name)))
     }
 
     pub fn lookup_struct(&self, name: &str) -> Option<&StructDefinition> {
