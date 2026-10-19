@@ -320,11 +320,19 @@ fn compile_function_call(
     // Register args are already in place, so evaluate these directly into their slots
     for (i, arg) in stack_args.iter().enumerate() {
         let offset = 32 + i32::try_from(i).unwrap() * 8;
-        instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
-            let mut arg = arg.compile(compile_scope, tmp, register_handler)?;
-            arg.push(Instruction::mov(Address::StackArg(offset), tmp));
-            Ok(arg)
-        })?);
+        if arg.contains_call() {
+            instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
+                let mut arg = arg.compile(compile_scope, tmp, register_handler)?;
+                arg.push(Instruction::mov(Address::StackArg(offset), tmp));
+                Ok(arg)
+            })?);
+        } else {
+            instructions.extend(arg.compile(
+                compile_scope,
+                Address::StackArg(offset),
+                register_handler,
+            )?);
+        }
     }
 
     instructions.push(Instruction::call(name));
@@ -1180,9 +1188,17 @@ mod test {
         let asm = compile("printf(\"%d %d %d %d %d\", 1, 2, 3, 4, 5);");
         // 32 shadow + 2 stack args, rounded up to 16
         assert!(asm.contains("sub rsp, 48"), "{asm}");
-        assert!(asm.contains("mov [rsp + 32], "), "{asm}");
-        assert!(asm.contains("mov [rsp + 40], "), "{asm}");
+        assert!(asm.contains("[rsp + 32], "), "{asm}");
+        assert!(asm.contains("[rsp + 40], "), "{asm}");
         assert!(asm.contains("add rsp, 48"), "{asm}");
+    }
+
+    #[test]
+    fn compile_call_stack_arg_written_after_nested_call_restores_registers() {
+        let asm = compile("def f(x: i32): i32 { x } printf(\"%d %d %d %d %d\", 1, 2, 3, f(4), 5);");
+        let store = asm.find("[rsp + 32], ").expect(&asm);
+        let restore = asm.rfind("pop rcx").expect(&asm);
+        assert!(restore < store, "{asm}");
     }
 
     #[test]

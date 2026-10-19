@@ -26,6 +26,23 @@ impl Expression {
                 | ExpressionKind::Unary(UnaryOp::Deref, _)
         )
     }
+
+    pub fn contains_call(&self) -> bool {
+        match &self.kind {
+            ExpressionKind::Atom(_) => false,
+            ExpressionKind::FunctionCall(_, _) => true,
+            ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
+                left.contains_call() || right.contains_call()
+            }
+            ExpressionKind::Unary(_, child)
+            | ExpressionKind::Postfix(_, child)
+            | ExpressionKind::Cast(child, _)
+            | ExpressionKind::StructAccess { base: child, .. } => child.contains_call(),
+            ExpressionKind::StructInstantiation { fields, .. } => {
+                fields.iter().any(|(_, field)| field.contains_call())
+            }
+        }
+    }
 }
 
 impl fmt::Display for Expression {
