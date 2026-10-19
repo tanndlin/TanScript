@@ -33,6 +33,9 @@ fn parse_cast() {
     test_parse_expression!("a + b as i32 * c", "(+ a (* (b as i32) c))");
     test_parse_expression!("p as *char", "(p as *char)");
     test_parse_expression!("a as i64 as char", "((a as i64) as char)");
+    test_parse_expression!("*p as u32", "((* p) as u32)");
+    test_parse_expression!("-a as u32", "((- a) as u32)");
+    test_parse_expression!("a * b as u32", "(* a (b as u32))");
 }
 
 #[test]

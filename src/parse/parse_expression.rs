@@ -143,7 +143,7 @@ fn parse_expression_at_depth(
         }
 
         if let OperatorType::Cast = op {
-            const CAST_BINDING_POWER: u8 = 11;
+            const CAST_BINDING_POWER: u8 = 10;
             if CAST_BINDING_POWER < min_bp {
                 break;
             }
