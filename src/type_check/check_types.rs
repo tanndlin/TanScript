@@ -105,14 +105,6 @@ pub fn check_function_call(
         .map(|a| check_types_expression(a, type_scope))
         .collect::<Result<Vec<_>, _>>()?;
 
-    if let Some((given, _)) = given_args
-        .iter()
-        .zip(&given_types)
-        .find(|(_, t)| matches!(t, Type::Struct(_)))
-    {
-        return Err(TypeCheckErrorKind::StructAsArgument.at(given.span));
-    }
-
     match type_scope.lookup(function_name) {
         Some(Type::Function(function_type)) => {
             if given_args.len() != function_type.args.len() {
@@ -137,7 +129,14 @@ pub fn check_function_call(
             Err(TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(span))
         }
         // Treat the function as an unknown extern
-        None => Ok(Type::Unknown),
+        None => match given_args
+            .iter()
+            .zip(&given_types)
+            .find(|(_, t)| matches!(t, Type::Struct(_)))
+        {
+            Some((given, _)) => Err(TypeCheckErrorKind::StructAsArgument.at(given.span)),
+            None => Ok(Type::Unknown),
+        },
     }
 }
 

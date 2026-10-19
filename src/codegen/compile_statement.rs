@@ -6,7 +6,10 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile::{NON_VOLATILE_REGISTERS, compile_jump_unless, store_element, with_place_address},
+        compile::{
+            NON_VOLATILE_REGISTERS, compile_jump_unless, mem_copy, store_element,
+            with_place_address,
+        },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
         instruction::Instruction,
@@ -180,7 +183,9 @@ impl FunctionDefinition {
 
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
+        let outer_touched = std::mem::take(&mut register_handler.touched);
         let mut arg_homes = vec![];
+        let mut struct_copies = vec![];
         for (i, arg) in self.args.iter().enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
@@ -192,13 +197,35 @@ impl FunctionDefinition {
                 arg_homes.push(Instruction::mov(new_address, *reg));
             }
 
-            // Update its location in the scope
-            scope
-                .add_variable(arg.name.clone(), new_address, arg.atype.clone())
-                .at(arg.span)?;
+            let Type::Struct(struct_def) = &arg.atype else {
+                // Update its location in the scope
+                scope
+                    .add_variable(arg.name.clone(), new_address, arg.atype.clone())
+                    .at(arg.span)?;
+                continue;
+            };
+
+            struct_copies.push(
+                scope
+                    .allocate_variable(arg.name.clone(), arg.atype.clone())
+                    .at(arg.span)?,
+            );
+            let local = scope.get_variable(&arg.name).at(arg.span)?;
+            struct_copies.extend(register_handler.lease_with_scope(|register_handler, ptr| {
+                let mut copy = vec![Instruction::mov(ptr, new_address)];
+                copy.extend(mem_copy(
+                    struct_def,
+                    local,
+                    Address::Deref {
+                        base: ptr,
+                        offset: 0,
+                    },
+                    register_handler,
+                )?);
+                Ok::<_, CodegenError>(copy)
+            })?);
         }
 
-        let outer_touched = std::mem::take(&mut register_handler.touched);
         let body = self.body.compile(&mut scope, register_handler);
         let touched = std::mem::replace(&mut register_handler.touched, outer_touched);
         let body = body?; // ? after the replace to preserve incase we implement multiple errors
@@ -221,6 +248,7 @@ impl FunctionDefinition {
                 .map(|(reg, slot)| Instruction::mov(*slot, *reg)),
         );
         instructions.extend(arg_homes);
+        instructions.extend(struct_copies);
         instructions.extend(body);
         instructions.push(Instruction::label(epilogue_label));
         instructions.extend(

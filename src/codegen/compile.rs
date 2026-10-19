@@ -7,7 +7,7 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile_scope::CompileScope,
+        compile_scope::{CompileScope, SLOT_SIZE},
         instruction::{Condition, Instruction, Operand, Size},
         register_handler::RegisterHandler,
         symbol_table::SymbolTable,
@@ -294,15 +294,28 @@ fn compile_function_call(
         .into_iter()
         .filter(|reg| register_handler.is_used(*reg) && dst != Some(Address::Register(*reg)))
         .collect::<Vec<_>>();
-    let mut instructions = saved_registers
-        .iter()
-        .map(|reg| Instruction::push(*reg))
-        .collect::<Vec<_>>();
+    let depth = compile_scope.stack_depth;
+    let (mut instructions, temporaries) =
+        struct_temporaries(args, compile_scope, register_handler)?;
+    let temporaries_size = compile_scope.stack_depth - depth;
+    let (register_temporaries, stack_temporaries) = temporaries.split_at(register_args.len());
+
+    instructions.extend(saved_registers.iter().map(|reg| Instruction::push(*reg)));
 
     // Registers already in use were saved above, so only the free ones need to be claimed
-    let mut requested_registers = vec![];
-    for (arg, dst_reg) in register_args.iter().zip(target_registers) {
-        instructions.extend(arg.compile(compile_scope, dst_reg, register_handler)?);
+    let mut requested_registers: Vec<Register> = vec![];
+    for ((arg, temporary), dst_reg) in register_args
+        .iter()
+        .zip(register_temporaries)
+        .zip(target_registers)
+    {
+        instructions.extend(compile_arg(
+            arg,
+            *temporary,
+            dst_reg.into(),
+            compile_scope,
+            register_handler,
+        )?);
         //  Prevent register from being modified
         if register_handler.request_register(dst_reg).is_ok() {
             requested_registers.push(dst_reg);
@@ -318,18 +331,21 @@ fn compile_function_call(
     instructions.push(Instruction::sub(Register::RSP, stack_size));
 
     // Register args are already in place, so evaluate these directly into their slots
-    for (i, arg) in stack_args.iter().enumerate() {
+    for (i, (arg, temporary)) in stack_args.iter().zip(stack_temporaries).enumerate() {
         let offset = 32 + i32::try_from(i).unwrap() * 8;
         if arg.contains_call() {
             instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
-                let mut arg = arg.compile(compile_scope, tmp, register_handler)?;
+                let mut arg =
+                    compile_arg(arg, *temporary, tmp.into(), compile_scope, register_handler)?;
                 arg.push(Instruction::mov(Address::StackArg(offset), tmp));
                 Ok(arg)
             })?);
         } else {
-            instructions.extend(arg.compile(
-                compile_scope,
+            instructions.extend(compile_arg(
+                arg,
+                *temporary,
                 Address::StackArg(offset),
+                compile_scope,
                 register_handler,
             )?);
         }
@@ -355,7 +371,73 @@ fn compile_function_call(
             .map(|reg| Instruction::pop(*reg)),
     );
 
+    if temporaries_size > 0 {
+        instructions.push(Instruction::add(Register::RSP, temporaries_size));
+        compile_scope.stack_depth -= temporaries_size;
+    }
+
     Ok(instructions)
+}
+
+/// Structs are passed as a pointer and the callee copies them into its own frame. Places already
+/// have an address to point at, but anything else (a struct literal) is built into stack space
+/// here first. This happens before the saved registers are pushed so `stack_depth` covers it when
+/// aligning the call, and the caller frees it once the call returns
+fn struct_temporaries(
+    args: &[Expression],
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<(Vec<Instruction>, Vec<Option<Address>>), CodegenError> {
+    let mut instructions = vec![];
+    let mut temporaries = vec![];
+    for arg in args {
+        let arg_type = compile_scope.expression_type(arg).at(arg.span)?;
+        if !matches!(arg_type, Type::Struct(_)) || arg.is_place() {
+            temporaries.push(None);
+            continue;
+        }
+
+        let size = u32::try_from(arg_type.size())
+            .unwrap()
+            .next_multiple_of(SLOT_SIZE);
+        compile_scope.stack_depth += size;
+        let temporary = Address::Stack(i32::try_from(compile_scope.stack_depth).unwrap());
+        instructions.push(Instruction::sub(Register::RSP, size));
+        instructions.extend(arg.compile(compile_scope, temporary, register_handler)?);
+        temporaries.push(Some(temporary));
+    }
+
+    Ok((instructions, temporaries))
+}
+
+fn compile_arg(
+    arg: &Expression,
+    temporary: Option<Address>,
+    dst: Address,
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    if let Some(temporary) = temporary {
+        return move_into(dst, register_handler, |reg| {
+            Instruction::lea(reg, temporary)
+        });
+    }
+
+    if !matches!(
+        compile_scope.expression_type(arg).at(arg.span)?,
+        Type::Struct(_)
+    ) {
+        return arg.compile(compile_scope, dst, register_handler);
+    }
+
+    with_place_address(
+        arg,
+        compile_scope,
+        register_handler,
+        &mut |_, register_handler, address, _| {
+            move_into(dst, register_handler, |reg| Instruction::lea(reg, address))
+        },
+    )
 }
 
 fn compile_struct_instantiation(
@@ -524,26 +606,33 @@ pub fn mem_copy(
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
     register_handler.lease_with_scope(|_, reg| {
-        let Address::Stack(dst) = dst else { panic!() };
-        let Address::Stack(src) = src else { panic!() };
-
         let mut instructions = vec![];
         for field in &element.fields {
-            let offset = i32::try_from(element.get_byte_offset(&field.name)).unwrap();
-            instructions.push(load_element(
-                &field.ftype,
-                reg,
-                Address::Stack(src - offset),
-            ));
+            let offset = u32::try_from(element.get_byte_offset(&field.name)).unwrap();
+            instructions.push(load_element(&field.ftype, reg, offset_address(src, offset)));
             instructions.push(store_element(
                 &field.ftype,
-                Address::Stack(dst - offset),
+                offset_address(dst, offset),
                 reg,
             ));
         }
 
         Ok::<_, CodegenError>(instructions)
     })
+}
+
+fn offset_address(address: Address, offset: u32) -> Address {
+    match address {
+        Address::Stack(start) => Address::Stack(start - i32::try_from(offset).unwrap()),
+        Address::Deref {
+            base,
+            offset: start,
+        } => Address::Deref {
+            base,
+            offset: start + offset,
+        },
+        _ => panic!("Cannot offset ({address})"),
+    }
 }
 
 fn compile_number(
@@ -1199,6 +1288,26 @@ mod test {
         let store = asm.find("[rsp + 32], ").expect(&asm);
         let restore = asm.rfind("pop rcx").expect(&asm);
         assert!(restore < store, "{asm}");
+    }
+
+    #[test]
+    fn compile_struct_arg_passes_pointer_and_callee_copies() {
+        let asm = compile(
+            "struct P { a: i64, b: i64, } def f(p: P): i64 { p.a } let p = P { a: 1, b: 2 }; f(p);",
+        );
+        assert!(asm.contains("lea rcx, [rbp - 16]"), "{asm}");
+        assert!(asm.contains(", [rbp + 16]"), "{asm}");
+        assert!(asm.contains("+ 8]"), "{asm}");
+    }
+
+    #[test]
+    fn compile_struct_literal_arg_uses_temporary() {
+        let asm =
+            compile("struct P { a: i64, b: i64, } def f(p: P): i64 { p.a } f(P { a: 1, b: 2 });");
+        let call = asm.find("call f").expect(&asm);
+        assert!(asm[..call].contains("sub rsp, 16"), "{asm}");
+        assert!(asm[call..].contains("add rsp, 16"), "{asm}");
+        assert!(asm.contains("lea rcx, [rbp - "), "{asm}");
     }
 
     #[test]

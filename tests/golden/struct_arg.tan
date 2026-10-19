@@ -1,0 +1,27 @@
+struct Point {
+    x: i64,
+    y: i32,
+    z: u8,
+}
+
+def bump(p: Point): i64 {
+    p.x = p.x + 100;
+    p.y = p.y + 10;
+    p.z = p.z + 1;
+    p.x + p.y + p.z
+}
+
+def last(a: i64, b: i64, c: i64, d: i64, p: Point): i64 {
+    a + b + c + d + p.x + p.y + p.z
+}
+
+let p = Point { x: 1, y: 2, z: 3 };
+printf("%lld\n", bump(p));
+printf("%lld %d %d\n", p.x, p.y, p.z);
+printf("%lld\n", bump(Point { x: 4, y: 5, z: 6 }));
+printf("%lld\n", last(1, 2, 3, 4, p));
+printf("%lld\n", last(1, 2, 3, 4, Point { x: 10, y: 20, z: 30 }));
+
+let points = &p;
+printf("%lld\n", bump(*points));
+printf("%lld\n", bump(p) + bump(p));

@@ -205,7 +205,6 @@ mod test {
         for code in [
             "struct P { a: i64, } let p = P { a: 1 }; printf(\"%d\", p);",
             "struct P { a: i64, } let p = P { a: 1 }; f(1, 2, 3, 4, p);",
-            "struct P { a: i64, } def f(x: i64): i64 { return x; } let p = P { a: 1 }; f(p);",
         ] {
             let result = infer_last(code);
             assert!(
@@ -219,6 +218,28 @@ mod test {
                 "expected StructAsArgument for {code}, got {result:?}"
             );
         }
+    }
+
+    #[test]
+    fn struct_as_defined_function_arg() {
+        let result = infer_last(
+            "struct P { a: i64, } def f(p: P): i64 { return p.a; } let p = P { a: 1 }; f(p);",
+        );
+        assert!(result.is_ok(), "{result:?}");
+
+        let result = infer_last(
+            "struct P { a: i64, } def f(x: i64): i64 { return x; } let p = P { a: 1 }; f(p);",
+        );
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::TypeMismatch { .. },
+                    ..
+                })
+            ),
+            "{result:?}"
+        );
     }
 
     #[test]
