@@ -125,7 +125,7 @@ impl fmt::Display for Type {
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Boolean => write!(f, "bool"),
-            Type::Struct(_) => write!(f, "struct"),
+            Type::Struct(def) => write!(f, "{}", def.name),
             Type::Enum(def) => write!(f, "{}", def.name),
             Type::Named(name) => write!(f, "{name}"),
         }
