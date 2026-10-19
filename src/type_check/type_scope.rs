@@ -74,6 +74,7 @@ impl TypeScope {
         match t {
             Type::Named(name) => match self.lookup(name) {
                 Some(struct_type @ Type::Struct(_)) => Ok(struct_type.clone()),
+                Some(Type::Named(_)) => Err(TypeCheckErrorKind::RecursiveStruct(name.clone())),
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone())),
             },
             Type::Pointer(inner) => match inner.as_ref() {

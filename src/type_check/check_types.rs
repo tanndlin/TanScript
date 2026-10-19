@@ -906,7 +906,7 @@ mod test {
     fn type_error_for_self_referential_struct_without_pointer() {
         expect_err!(
             "struct N { v: i64, next: N }",
-            TypeCheckErrorKind::UnknownType(ref name) if name == "N"
+            TypeCheckErrorKind::RecursiveStruct(ref name) if name == "N"
         );
     }
 
