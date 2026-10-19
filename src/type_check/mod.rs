@@ -23,7 +23,7 @@ pub struct FunctionType {
     pub return_type: Type,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum Type {
     Int(IntType),
     Char,
@@ -85,6 +85,26 @@ impl FromStr for Type {
             Ok(Type::Pointer(Box::new(Type::from_str(inner)?)))
         } else {
             Err(format!("Unknown type: {s}"))
+        }
+    }
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Int(a), Self::Int(b)) => a == b,
+            (Self::Char, Self::Char)
+            | (Self::Boolean, Self::Boolean)
+            | (Self::Unit, Self::Unit)
+            | (Self::Unknown, Self::Unknown) => true,
+            (Self::Function(a), Self::Function(b)) => a == b,
+            (Self::Struct(a), Self::Struct(b)) => a == b,
+            (Self::Pointer(a), Self::Pointer(b)) => a == b,
+            (Self::Named(a), Self::Named(b)) => a == b,
+            (Self::Named(name), Self::Struct(def)) | (Self::Struct(def), Self::Named(name)) => {
+                *name == def.name
+            }
+            _ => false,
         }
     }
 }

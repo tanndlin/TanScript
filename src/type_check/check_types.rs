@@ -1,6 +1,6 @@
 use crate::{
     ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, UnaryOp},
-    error::At,
+    error::{At, ResultAt},
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
     types::{IntType, Span},
 };
@@ -34,7 +34,7 @@ pub fn check_types_expression(
         ))),
         ExpressionKind::Unary(UnaryOp::Deref, inner) => {
             match check_types_expression(inner, type_scope)? {
-                Type::Pointer(pointee) => Ok(*pointee),
+                Type::Pointer(pointee) => Ok(type_scope.expand(*pointee)),
                 other => Err(TypeCheckErrorKind::NotDerefable(other).at(inner.span)),
             }
         }
@@ -151,7 +151,7 @@ pub fn check_index(
 
     // LHS must be a pointer
     let element_type = match lhs_type {
-        Type::Pointer(t) => *t,
+        Type::Pointer(t) => type_scope.expand(*t),
         Type::Unknown => Type::Unknown,
         _ => {
             return Err(TypeCheckErrorKind::TypeMismatch {
@@ -181,7 +181,7 @@ pub fn check_cast(
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
-    *casted_type = type_scope.resolve(casted_type, span)?;
+    *casted_type = type_scope.resolve(casted_type).at(span)?;
     if lhs_type.castable(casted_type) {
         Ok(casted_type.clone())
     } else {
@@ -891,5 +891,37 @@ mod test {
             format!("{POINT} {POINT}"),
             TypeCheckErrorKind::DuplicateIdentifiers(_)
         );
+    }
+
+    const NODE: &str = "struct N { v: i64, next: *N, children: **N }";
+
+    #[test]
+    fn supports_self_referential_struct_pointers() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{NODE} let b = N {{ v: 2, next: 0 as *N, children: 0 as **N }};              let a = N {{ v: 1, next: &b, children: 0 as **N }};              let x: i64 = (*a.next).v;              let n: N = *a.next;              let c: *N = a.children[0];              (*a.next).next = &a;"
+        ))
+    }
+
+    #[test]
+    fn type_error_for_self_referential_struct_without_pointer() {
+        expect_err!(
+            "struct N { v: i64, next: N }",
+            TypeCheckErrorKind::UnknownType(ref name) if name == "N"
+        );
+    }
+
+    #[test]
+    fn type_error_for_unknown_field_through_self_referential_pointer() {
+        expect_err!(
+            format!("{NODE} let a = N {{ v: 1, next: 0 as *N, children: 0 as **N }}; (*a.next).z;"),
+            TypeCheckErrorKind::NoSuchField { ref field_name, .. } if field_name == "z"
+        );
+    }
+
+    #[test]
+    fn type_error_for_assigning_wrong_pointer_to_self_referential_field() {
+        expect_mismatch!(format!(
+            "{NODE} {POINT} let p = P {{ x: 1, y: true }};              let a = N {{ v: 1, next: 0 as *N, children: 0 as **N }}; a.next = &p;"
+        ));
     }
 }

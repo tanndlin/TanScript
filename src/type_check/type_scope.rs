@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    error::At,
-    type_check::{Type, TypeCheckError, TypeCheckErrorKind},
-    types::{IntType, Span},
+    type_check::{Type, TypeCheckErrorKind},
+    types::IntType,
 };
 
 #[derive(Debug)]
@@ -71,14 +70,29 @@ impl TypeScope {
         &self.bindings[id]
     }
 
-    pub fn resolve(&self, t: &Type, span: Span) -> Result<Type, TypeCheckError> {
+    pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckErrorKind> {
         match t {
             Type::Named(name) => match self.lookup(name) {
                 Some(struct_type @ Type::Struct(_)) => Ok(struct_type.clone()),
-                _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(span)),
+                _ => Err(TypeCheckErrorKind::UnknownType(name.clone())),
             },
-            Type::Pointer(inner) => Ok(Type::Pointer(Box::new(self.resolve(inner, span)?))),
+            Type::Pointer(inner) => match inner.as_ref() {
+                Type::Named(name) if matches!(self.lookup(name), Some(Type::Named(_))) => {
+                    Ok(t.clone())
+                }
+                _ => Ok(Type::Pointer(Box::new(self.resolve(inner)?))),
+            },
             _ => Ok(t.clone()),
+        }
+    }
+
+    pub fn expand(&self, t: Type) -> Type {
+        match &t {
+            Type::Named(name) => match self.lookup(name) {
+                Some(struct_type @ Type::Struct(_)) => struct_type.clone(),
+                _ => t,
+            },
+            _ => t,
         }
     }
 }

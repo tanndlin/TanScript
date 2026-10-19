@@ -1,0 +1,35 @@
+struct Node {
+    value: i64,
+    next: *Node,
+}
+
+def sum(head: *Node): i64 {
+    let total: i64 = 0;
+    let current = head;
+    while current as i64 != 0 {
+        total += (*current).value;
+        current = (*current).next;
+    }
+    return total;
+}
+
+let c = Node {
+    value: 3,
+    next: 0 as *Node,
+};
+let b = Node {
+    value: 2,
+    next: &c,
+};
+let a = Node {
+    value: 1,
+    next: &b,
+};
+
+printf("%d\n", (*a.next).value);
+printf("%d\n", (*(*a.next).next).value);
+printf("%d\n", sum(&a));
+
+(*a.next).value = 20;
+printf("%d\n", b.value);
+printf("%d\n", sum(&a));
