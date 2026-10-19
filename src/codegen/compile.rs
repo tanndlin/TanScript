@@ -524,6 +524,11 @@ pub fn with_place_address(
             let element = compile_scope.element_type(lhs).at(lhs.span)?;
             register_handler.lease_with_scope(|register_handler, offset| {
                 let mut instructions = index.compile(compile_scope, offset, register_handler)?;
+                let mut size = u32::try_from(element.size()).unwrap();
+                if !matches!(size, 1 | 2 | 4 | 8) {
+                    instructions.push(Instruction::imul(offset, size));
+                    size = 1; // Hack: Make the * size short circuit
+                }
                 instructions.extend(register_handler.lease_with_scope(
                     |register_handler, base| {
                         let mut instructions =
@@ -531,7 +536,7 @@ pub fn with_place_address(
                         let address = Address::Indexed {
                             base,
                             index: offset,
-                            size: u32::try_from(element.size()).unwrap(),
+                            size,
                         };
                         instructions.extend(f(compile_scope, register_handler, address, element)?);
                         Ok(instructions)
@@ -1661,6 +1666,22 @@ cond_skip_",
                 .any(|l| l.contains("BYTE [") && l.contains(" + 8]")),
             "{asm}"
         );
+    }
+
+    #[test]
+    fn compile_index_into_odd_sized_struct_uses_valid_scale() {
+        let asm = compile(
+            "struct T { k: u8, d: u64, } let ts: *T = calloc(2, 9); let i = 1; let k = ts[i].k;",
+        );
+        for line in asm.lines().filter(|l| !l.trim_start().starts_with(';')) {
+            if let Some((_, scale)) = line.split_once(" * ") {
+                let scale = scale.trim_end_matches(']');
+                assert!(
+                    matches!(scale, "1" | "2" | "4" | "8"),
+                    "invalid scale in `{line}`\n{asm}"
+                );
+            }
+        }
     }
 
     #[test]
