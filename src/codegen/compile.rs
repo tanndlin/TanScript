@@ -672,6 +672,27 @@ fn compile_simple_binary(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
+    let left_is_dst =
+        matches!(as_operand(left, compile_scope), Some(Operand::Address(a)) if a == dst);
+    let right_is_imm = matches!(
+        as_operand(right, compile_scope),
+        Some(Operand::Immediate(_))
+    );
+    if dst.is_memory() && !left_is_dst && !right_is_imm {
+        return register_handler.lease_with_scope(|register_handler, reg| {
+            let mut instructions = compile_simple_binary(
+                instruction,
+                compile_scope,
+                left,
+                right,
+                reg.into(),
+                register_handler,
+            )?;
+            instructions.push(Instruction::mov(dst, reg));
+            Ok(instructions)
+        });
+    }
+
     let mut instructions = left.compile(compile_scope, dst, register_handler)?;
     if let Some(rhs_op) = as_operand(right, compile_scope)
         && !(dst.is_memory() && rhs_op.is_memory())
@@ -1062,6 +1083,31 @@ mod test {
     }
 
     #[test]
+    fn compile_assignment_reads_target_before_overwriting_it() {
+        for input in [
+            "let a: i64 = 25; a = 0 - a;",
+            "let a: i64 = 25; a = 1 + a;",
+            "let a: i64 = 25; let z: i64 = 3; a = z - a;",
+            "let a: i64 = 25; a = 1 + (a - 5);",
+        ] {
+            let asm = compile(input);
+            let assignment = asm
+                .lines()
+                .skip_while(|l| !l.starts_with("; a = "))
+                .collect::<Vec<_>>();
+            let first_write = assignment
+                .iter()
+                .position(|l| l.contains("[rbp - 8],"))
+                .unwrap();
+            let last_read = assignment
+                .iter()
+                .rposition(|l| l.contains(", [rbp - 8]"))
+                .unwrap();
+            assert!(last_read < first_write, "{input}\n{asm}");
+        }
+    }
+
+    #[test]
     fn compile_negate() {
         let asm = compile("let a = 5; let b = -a;");
         assert!(asm.contains("neg QWORD"));
@@ -1213,8 +1259,10 @@ mod test {
     #[test]
     fn compile_logical_ops_on_values() {
         let asm = compile("let a = true; let b = false; let c = a && b; let d = a || b;");
-        assert!(asm.contains("and [rbp - 24], "), "{asm}");
-        assert!(asm.contains("or [rbp - 32], "), "{asm}");
+        assert!(asm.contains(", [rbp - 16]\n\tmov [rbp - 24], "), "{asm}");
+        assert!(asm.contains("\tand r"), "{asm}");
+        assert!(asm.contains(", [rbp - 16]\n\tmov [rbp - 32], "), "{asm}");
+        assert!(asm.contains("\tor r"), "{asm}");
     }
 
     #[test]
