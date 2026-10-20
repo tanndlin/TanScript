@@ -964,3 +964,13 @@ fn parse_enum_variant() {
     test_parse_expression!("Color::Red as u32", "(Color::Red as u32)");
     integration_test!("let c = Color::Red;", "let c = Color::Red");
 }
+
+#[test]
+fn parse_null_literal() {
+    let mut lexer = Lexer::new("null").unwrap();
+    let expression = parse_expression(&mut lexer, 0).unwrap();
+    assert!(
+        matches!(expression.kind, ExpressionKind::Atom(AtomType::Null)),
+        "{expression:?}"
+    );
+}

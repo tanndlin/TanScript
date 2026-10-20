@@ -278,7 +278,7 @@ pub fn expect_type(
 ) -> Result<(), TypeCheckError> {
     match (expected, got) {
         _ if expected == got => Ok(()),
-        (Type::Unknown, _) | (_, Type::Unknown) => Ok(()),
+        (Type::Unknown, _) | (_, Type::Unknown) | (Type::Pointer(_), Type::Null) => Ok(()),
         (Type::Int(to), Type::Int(from)) if from.widens_to(*to) => Ok(()),
         (t, Type::Int(IntType::Coercible)) if t.is_number_type() => {
             narrow_expression(expression, expected.clone(), type_scope);
@@ -964,5 +964,26 @@ mod test {
         expect_mismatch!(format!(
             "{NODE} {POINT} let p = P {{ x: 1, y: true }};              let a = N {{ v: 1, next: 0 as *N, children: 0 as **N }}; a.next = &p;"
         ));
+    }
+
+    #[test]
+    fn supports_comparing_pointer_to_null() -> Result<(), TypeCheckError> {
+        check("let p: *u8 = malloc(1); let a = p != null; let b = null == p;")
+    }
+
+    #[test]
+    fn supports_assigning_null_to_pointer() -> Result<(), TypeCheckError> {
+        check("struct N { next: *N, } let n = N { next: null }; let p: *u8 = null; p = null;")
+    }
+
+    #[test]
+    fn type_error_for_null_as_int() {
+        expect_mismatch!("let a: u64 = null;");
+        expect_mismatch!("let a: u64 = 1; let b = a == null;");
+    }
+
+    #[test]
+    fn type_error_for_comparing_pointer_to_number() {
+        expect_mismatch!("let p: *u8 = malloc(1); let a = p != 0;");
     }
 }

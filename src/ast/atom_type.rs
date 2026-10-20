@@ -7,6 +7,8 @@ pub enum AtomType {
     Char(char),
     Identifier(String),
     Boolean(bool),
+    #[display("null")]
+    Null,
     #[display("\"{}\"", _0.escape_default())]
     String(String),
 }

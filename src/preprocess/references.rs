@@ -114,7 +114,8 @@ impl Type {
                 f.args.iter().for_each(|a| a.references(names));
                 f.return_type.references(names);
             }
-            Type::Int(_) | Type::Char | Type::Boolean | Type::Unit | Type::Unknown => {}
+            Type::Int(_) | Type::Char | Type::Boolean | Type::Unit | Type::Null | Type::Unknown => {
+            }
         }
     }
 }

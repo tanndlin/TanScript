@@ -168,6 +168,7 @@ impl Expression {
                 }
                 AtomType::String(s) => compile_string(s, dst, register_handler),
                 AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
+                AtomType::Null => Ok(vec![Instruction::mov(dst, NumberType::I64(0))]),
             },
             ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)

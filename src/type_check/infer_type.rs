@@ -4,7 +4,8 @@ pub fn unify(a: &Type, b: &Type) -> Option<Type> {
     match (a, b) {
         _ if a == b => Some(a.clone()),
         (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b.clone()),
-        (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean) => Some(a.clone()),
+        (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean)
+        | (Type::Pointer(_), Type::Null) => Some(a.clone()),
         (Type::Char, Type::Int(IntType::Coercible)) => Some(Type::Char),
         (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
         (Type::Unknown, _) => Some(b.clone()),

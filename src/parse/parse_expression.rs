@@ -203,6 +203,10 @@ fn parse_identifier_or_function_call_or_struct(
         ));
     }
 
+    if s == "null" {
+        return Ok(Expression::new(ExpressionKind::Atom(AtomType::Null), span));
+    }
+
     Ok(match lexer.peek().map(|t| &t.token_type) {
         Some(Token::Op(OperatorType::OpenParen)) => {
             parse_function_call(lexer, s.to_string(), span)?

@@ -32,6 +32,7 @@ pub enum Type {
     Struct(Box<StructDefinition>),
     Enum(Box<EnumDefinition>),
     Pointer(Box<Type>),
+    Null,
     Named(String),
     Unit,
     Unknown,
@@ -48,7 +49,7 @@ impl Type {
             Self::Struct(s) => s.size(),
             Self::Unit => 0,
             Self::Boolean | Self::Char | Self::Enum(_) => 1,
-            Self::Function(_) | Self::Pointer(_) | Self::Unknown => 8,
+            Self::Function(_) | Self::Pointer(_) | Self::Null | Self::Unknown => 8,
             Self::Named(name) => unreachable!("unresolved type ({name})"),
         }
     }
@@ -60,7 +61,7 @@ impl Type {
             | (_, Type::Unknown)
             | (Type::Int(_) | Type::Char | Type::Boolean, Type::Int(_) | Type::Char)
             | (Type::Enum(_), Type::Int(_))
-            | (Type::Pointer(_), Type::Pointer(_)) => true,
+            | (Type::Pointer(_) | Type::Null, Type::Pointer(_)) => true,
             (Type::Pointer(_), Type::Int(int)) | (Type::Int(int), Type::Pointer(_)) => {
                 int.size() == 8
             }
@@ -98,6 +99,7 @@ impl PartialEq for Type {
             (Self::Char, Self::Char)
             | (Self::Boolean, Self::Boolean)
             | (Self::Unit, Self::Unit)
+            | (Self::Null, Self::Null)
             | (Self::Unknown, Self::Unknown) => true,
             (Self::Function(a), Self::Function(b)) => a == b,
             (Self::Struct(a), Self::Struct(b)) => a == b,
@@ -124,6 +126,7 @@ impl fmt::Display for Type {
             Type::Unit => write!(f, "()"),
             Type::Unknown => write!(f, "Unknown"),
             Type::Pointer(t) => write!(f, "*{t}"),
+            Type::Null => write!(f, "null"),
             Type::Boolean => write!(f, "bool"),
             Type::Struct(def) => write!(f, "{}", def.name),
             Type::Enum(def) => write!(f, "{}", def.name),
@@ -139,6 +142,7 @@ impl From<&AtomType> for Type {
             AtomType::Identifier(_) => unreachable!(),
             AtomType::String(_) => Type::Pointer(Box::new(Type::Char)),
             AtomType::Boolean(_) => Type::Boolean,
+            AtomType::Null => Type::Null,
             AtomType::Char(_) => Type::Char,
         }
     }
