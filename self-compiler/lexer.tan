@@ -1,0 +1,78 @@
+use list::{List, Node};
+use token::{Token, LexerToken};
+
+struct Lexer {
+    chars: *char,
+    index: u32,
+}
+
+
+def linked_list_push(node: *Node<LexerToken>, value: LexerToken) {
+    while (*node).next != null {
+        node = (*node).next;
+    }
+
+    let new_node: *Node<LexerToken> = calloc(1, 17);
+    (*new_node).value = value;
+    (*node).next = new_node;
+}
+
+def linked_list_to_list(node: *Node<LexerToken>): *List<LexerToken> {
+    let length: u32 = 0;
+    let ptr = node;
+    while ptr != null {
+        ptr = (*ptr).next;
+        length++;
+    }
+
+    let list: *List<LexerToken> = malloc(12);
+    (*list).arr = malloc(length * 9);
+    (*list).length = length;
+    for (let i: u32 = 0; i < length; i++) {
+        (*list).arr[i] = (*node).value;
+        node = (*node).next;
+    }
+
+    list
+}
+
+def tokenize(file_path: *char): *List<LexerToken> {
+    let fp = fopen(file_path, "rb");
+    fseek(fp, 0, 2);
+    let size = ftell(fp);
+    let contents: *char = malloc(size + 1);
+    fseek(fp, 0, 0);
+    fread(contents, 1, size, fp);
+    contents[size] = '\0';
+    fclose(fp);
+
+    let lexer = Lexer {
+        chars: contents,
+        index: 0,
+    };
+
+    let head: *Node<LexerToken> = calloc(1, 17);
+    while lexer.chars[lexer.index] != '\0' {
+        let c = lexer.chars[lexer.index];
+        if c >= '0' && c <= '9' {
+            let value: u64 = 0;
+            while lexer.chars[lexer.index] >= '0' && lexer.chars[lexer.index] <= '9' {
+                value = value * 10 + (lexer.chars[lexer.index] as u64 - '0' as u64);
+                lexer.index++;
+            }
+
+            linked_list_push(head, LexerToken { token_type: Token::Number, data: value });
+        } else if c == '+' {
+            linked_list_push(head, LexerToken { token_type: Token::Add, data: 0 });
+            lexer.index++;
+        } else if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+            lexer.index++;
+        } else {
+            printf("Unexpected character '%c'\n", c);
+            exit(1);
+        }
+    }
+
+    linked_list_push(head, LexerToken { token_type: Token::Eof, data: 0 });
+    linked_list_to_list((*head).next)
+}

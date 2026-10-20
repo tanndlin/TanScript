@@ -1,0 +1,11 @@
+enum Token {
+    Number,
+    Identifier,
+    Add,
+    Eof,
+}
+
+struct LexerToken {
+    token_type: Token,
+    data: u64
+}

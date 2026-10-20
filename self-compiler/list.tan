@@ -1,0 +1,11 @@
+use token::{LexerToken};
+
+struct List<T> {
+    arr: *T,
+    length: u32
+}
+
+struct Node<T> {
+    value: T,
+    next: *Node,
+}
