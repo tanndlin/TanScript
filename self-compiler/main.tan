@@ -1,7 +1,8 @@
 use lexer::{tokenize};
+use token::{printToken};
 
 let tokens = tokenize("script.tan");
 
 for (let i: u32 = 0; i < (*tokens).length; i++) {
-    printf("%d %llu\n", (*tokens).arr[i].token_type, (*tokens).arr[i].data);
+    printToken((*tokens).arr[i]);
 }

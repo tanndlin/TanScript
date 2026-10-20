@@ -2,10 +2,20 @@ enum Token {
     Number,
     Identifier,
     Add,
+    SemiColon,
     Eof,
 }
 
 struct LexerToken {
     token_type: Token,
     data: u64
+}
+
+def printToken(lexer_token: LexerToken) {
+    printf("Token Type: %d: ", lexer_token.token_type);
+    if lexer_token.token_type == Token::Identifier {
+        printf("%s\n", lexer_token.data);
+    } else {
+        printf("%lld\n", lexer_token.data);
+    }
 }

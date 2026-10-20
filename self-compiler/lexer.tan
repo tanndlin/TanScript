@@ -1,4 +1,5 @@
 use list::{List, Node};
+use char_utils::{isAlphabetic, isAlphanumeric};
 use token::{Token, LexerToken};
 
 struct Lexer {
@@ -36,6 +37,20 @@ def linked_list_to_list(node: *Node<LexerToken>): *List<LexerToken> {
     list
 }
 
+def get_identifier(lexer: *Lexer): *char {
+    let start = (*lexer).index;
+    while isAlphanumeric((*lexer).chars[(*lexer).index]) {
+        (*lexer).index++;
+    }
+
+    let ident: *char = calloc((*lexer).index - start + 1, 1);
+    for(let i = start; i < (*lexer).index; i++) {
+        ident[i - start] = (*lexer).chars[i];
+    }
+
+    ident
+}
+
 def tokenize(file_path: *char): *List<LexerToken> {
     let fp = fopen(file_path, "rb");
     fseek(fp, 0, 2);
@@ -64,6 +79,12 @@ def tokenize(file_path: *char): *List<LexerToken> {
             linked_list_push(head, LexerToken { token_type: Token::Number, data: value });
         } else if c == '+' {
             linked_list_push(head, LexerToken { token_type: Token::Add, data: 0 });
+            lexer.index++;
+        } else if isAlphabetic(c)  {
+            let ident = get_identifier(&lexer);
+            linked_list_push(head, LexerToken { token_type: Token::Identifier, data: ident as u64});
+        } else if c == ';' {
+            linked_list_push(head, LexerToken { token_type: Token::SemiColon, data: ';' as u64 });
             lexer.index++;
         } else if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
             lexer.index++;
