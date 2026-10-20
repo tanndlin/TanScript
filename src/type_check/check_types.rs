@@ -24,7 +24,7 @@ pub fn check_types_expression(
             .cloned()
             .ok_or_else(|| TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(span)),
         ExpressionKind::Atom(atom_type) => Ok(Type::from(&*atom_type)),
-        ExpressionKind::Binary(op, lhs, rhs) => check_binary(span, *op, lhs, rhs, type_scope),
+        ExpressionKind::Binary(op, lhs, rhs) => check_binary(*op, lhs, rhs, type_scope),
         ExpressionKind::Unary(UnaryOp::Not, inner) => {
             check_types_expression(inner, type_scope)?;
             Ok(Type::Boolean)
@@ -82,34 +82,34 @@ pub fn check_enum_variant(
 }
 
 pub fn check_binary(
-    span: Span,
     op: BinaryOp,
     lhs: &mut Expression,
     rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    let lhs = check_types_expression(lhs, type_scope)?;
-    let rhs = check_types_expression(rhs, type_scope)?;
+    let lhs_type = check_types_expression(lhs, type_scope)?;
+    let rhs_type = check_types_expression(rhs, type_scope)?;
 
-    if let Some(struct_type) = [&lhs, &rhs]
+    // Cant do a binary op on a struct
+    if let Some((struct_type, operand)) = [(&lhs_type, &*lhs), (&rhs_type, &*rhs)]
         .into_iter()
-        .find(|t| matches!(t, Type::Struct(_)))
+        .find(|(t, _)| matches!(t, Type::Struct(_)))
     {
         return Err(TypeCheckErrorKind::TypeMismatch {
             expected: Type::Int(IntType::I64),
             got: struct_type.clone(),
         }
-        .at(span));
+        .at(operand.span));
     }
 
-    let unified = unify(&lhs, &rhs)
-        .or_else(|| unify(&rhs, &lhs))
+    let unified = unify(&lhs_type, &rhs_type)
+        .or_else(|| unify(&rhs_type, &lhs_type))
         .ok_or_else(|| {
             TypeCheckErrorKind::TypeMismatch {
-                expected: lhs.clone(),
-                got: rhs.clone(),
+                expected: lhs_type.clone(),
+                got: rhs_type.clone(),
             }
-            .at(span)
+            .at(rhs.span)
         })?;
 
     Ok(if op.returns_boolean() {
