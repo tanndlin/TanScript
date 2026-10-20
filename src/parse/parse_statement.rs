@@ -292,7 +292,13 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
         }
     }
 
-    let return_type = parse_type_annotation(lexer)?.unwrap_or(Type::Unit);
+    let (return_type, return_type_span) =
+        if let Some(Token::Atom(LexerAtomType::Colon)) = lexer.peek().map(|tok| &tok.token_type) {
+            lexer.next();
+            parse_type_with_span(lexer)?
+        } else {
+            (Type::Unit, span)
+        };
     let body = parse_function_body(lexer)?;
 
     Ok(FunctionDefinition {
@@ -300,6 +306,7 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
         args,
         body,
         return_type,
+        return_type_span,
         span,
     })
 }

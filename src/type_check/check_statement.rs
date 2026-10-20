@@ -160,7 +160,7 @@ impl FunctionDefinition {
         for arg in &mut self.args {
             arg.atype = type_scope.resolve(&arg.atype).at(arg.span)?;
         }
-        self.return_type = type_scope.resolve(&self.return_type).at(self.span)?;
+        self.return_type = type_scope.resolve(&self.return_type).at(self.return_type_span)?;
 
         type_scope.insert(
             self.name.clone(),
