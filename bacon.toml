@@ -26,7 +26,12 @@ watch = ["self-compiler", "script.tan"]
 ignore = ["*.asm", "*.o", "*.exe", "*.pdb"]
 apply_gitignore = false
 
+[jobs.lsp]
+command = ["cargo", "build", "-p", "tanscript-lsp"]
+need_stdout = false
+
 [keybindings]
+l = "job:lsp"
 c = "job:clippy"
 t = "job:test"
 r = "job:run"

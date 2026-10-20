@@ -359,6 +359,16 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
         return Err(expected("identifier", tok));
     };
 
+    let mut generics = vec![];
+
+    // Check for generic type
+    if let Token::Op(OperatorType::LessThan) = lexer.peek_or_eof("< or {")?.token_type {
+        //TODO: Parse multiple generics
+        lexer.expect("<")?;
+        generics.push(parse_type(lexer)?);
+        lexer.expect(">")?;
+    }
+
     lexer.expect("{")?;
     let mut fields = vec![];
     loop {

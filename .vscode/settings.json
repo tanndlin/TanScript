@@ -1,4 +1,5 @@
 {
+    "tanscript.serverPath": "C:\\Users\\Tanner\\Projects\\Github\\TanScript\\target\\debug\\tanscript-lsp.exe",
     "restoreTerminals.terminals": [
         {
             "splitTerminals": [
@@ -38,6 +39,12 @@
                     "name": "Git",
                     "commands": [
                         "git status"
+                    ]
+                },
+                {
+                    "name": "LSP",
+                    "commands": [
+                        "bacon lsp"
                     ]
                 }
             ],
