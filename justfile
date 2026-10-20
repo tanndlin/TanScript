@@ -1,19 +1,19 @@
 set shell := ["cmd.exe", "/c"]
 
-asm:
-    nasm -g -f win64 script.asm -o script.o
-    gcc script.o -o script
-    powershell -NoProfile -Command Write-Host ('Runtime: {0:N3} ms' -f (Measure-Command { .\script.exe ^| Out-Host }).TotalMilliseconds)
-    del script.exe
-    del script.o
+asm file="script.asm":
+    nasm -g -f win64 {{file}} -o {{replace(without_extension(file), '/', '')}}.o
+    gcc {{replace(without_extension(file), '/', '')}}.o -o {{replace(without_extension(file), '/', '')}}
+    powershell -NoProfile -Command Write-Host ('Runtime: {0:N3} ms' -f (Measure-Command { .\{{replace(without_extension(file), '/', '')}}.exe ^| Out-Host }).TotalMilliseconds)
+    del {{replace(without_extension(file), '/', '')}}.exe
+    del {{replace(without_extension(file), '/', '')}}.o
 
 profile:
     nasm -g -f win64 script.asm -o script.o
     clang --target=x86_64-w64-mingw32 --sysroot=C:/mingw64 -fuse-ld=lld script.o -o script.exe -Wl,--pdb=script.pdb
     del script.o
 
-watch:
-    nodemon -w script.asm -e asm -x "just asm"
+watch file="script.asm":
+    nodemon -w {{file}} -e asm -x "just asm {{file}}"
 
 coverage:
     cargo tarpaulin --out Html

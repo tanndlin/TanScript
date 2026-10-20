@@ -27,7 +27,7 @@
                 {
                     "name": "ASM",
                     "commands": [
-                        "just watch"
+                        "just watch script.asm"
                     ]
                 }
             ],
