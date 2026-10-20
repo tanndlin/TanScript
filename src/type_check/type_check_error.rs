@@ -46,6 +46,7 @@ pub enum TypeCheckErrorKind {
     UnknownType(String),
     RecursiveStruct(String),
     NotDerefable(Type),
+    NotIndexable(Type),
 }
 
 impl At for TypeCheckErrorKind {}
@@ -112,6 +113,7 @@ impl fmt::Display for TypeCheckErrorKind {
                 "Recursive struct ({name}) has infinite size; use (*{name}) instead"
             ),
             Self::NotDerefable(t) => write!(f, "Type: ({t}) cannot be dereferenced"),
+            Self::NotIndexable(t) => write!(f, "Type: ({t}) cannot be indexed"),
         }
     }
 }

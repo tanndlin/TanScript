@@ -179,7 +179,7 @@ pub fn check_index(
     // LHS must be a pointer
     let element_type = match lhs_type {
         Type::Pointer(t) => type_scope.expand(*t),
-        Type::Unknown => Type::Unknown,
+        Type::Unknown => return Err(TypeCheckErrorKind::NotIndexable(lhs_type).at(lhs.span)),
         _ => {
             return Err(TypeCheckErrorKind::TypeMismatch {
                 expected: Type::Pointer(Box::new(Type::Unknown)),
@@ -547,6 +547,14 @@ mod test {
     #[test]
     fn supports_indexing_with_unknown_type() -> Result<(), TypeCheckError> {
         check("def f (s: *char) { let i = ftell(0); s[i] = 'a'; }")
+    }
+
+    #[test]
+    fn type_error_for_indexing_unknown_type() {
+        expect_err!(
+            "let p = calloc(4, 1); p[1] = 'a';",
+            TypeCheckErrorKind::NotIndexable(Type::Unknown)
+        );
     }
 
     #[test]
