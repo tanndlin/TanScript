@@ -5,6 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "extensionHost",
+            "request": "launch",
+            "name": "Run TanScript extension",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/editors/vscode",
+                "${workspaceFolder}/self-compiler"
+            ],
+            "env": {
+                "TANSCRIPT_LSP": "${workspaceFolder}/target/debug/tanscript-lsp.exe"
+            },
+            "preLaunchTask": "cargo build lsp"
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "name": "Debug executable 'tanscript'",

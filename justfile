@@ -25,3 +25,10 @@ fuzz *args:
 
 tmin artifact:
     set PATH={{asan_path}};%PATH%&& cargo fuzz tmin compile {{artifact}}
+
+install-extension:
+    -del %USERPROFILE%\.cargo\bin\tanscript-lsp.old.exe 2>nul
+    -move /y %USERPROFILE%\.cargo\bin\tanscript-lsp.exe %USERPROFILE%\.cargo\bin\tanscript-lsp.old.exe >nul 2>nul
+    cargo install --path lsp
+    -taskkill /f /im tanscript-lsp.exe >nul 2>nul
+    cd editors\vscode && npx --yes @vscode/vsce package --allow-missing-repository --skip-license -o tanscript.vsix && code --install-extension tanscript.vsix --force

@@ -72,7 +72,8 @@ impl Style {
 }
 
 /// Spans only mark where something starts, so underline the word there, or one character
-fn underline_len(line: &str, col: usize) -> usize {
+#[must_use]
+pub fn underline_len(line: &str, col: usize) -> usize {
     let is_word = |c: &char| c.is_alphanumeric() || *c == '_';
     line.chars().skip(col).take_while(is_word).count().max(1)
 }

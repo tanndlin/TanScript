@@ -1,0 +1,48 @@
+{
+  "name": "tanscript",
+  "displayName": "TanScript",
+  "version": "0.0.1",
+  "publisher": "tanndlin",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tanscript",
+        "aliases": [
+          "TanScript"
+        ],
+        "extensions": [
+          ".tan"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tanscript",
+        "scopeName": "source.tan",
+        "path": "./syntaxes/tanscript.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "TanScript",
+      "properties": {
+        "tanscript.serverPath": {
+          "type": "string",
+          "default": "tanscript-lsp",
+          "description": "Path to the tanscript-lsp executable."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.1.2"
+  }
+}

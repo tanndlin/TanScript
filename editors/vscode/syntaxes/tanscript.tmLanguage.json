@@ -1,0 +1,92 @@
+{
+  "scopeName": "source.tan",
+  "patterns": [
+    { "include": "#strings" },
+    { "include": "#chars" },
+    { "include": "#definitions" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#namespaces" },
+    { "include": "#calls" },
+    { "include": "#properties" },
+    { "include": "#type-names" },
+    { "include": "#operators" },
+    { "include": "#variables" }
+  ],
+  "repository": {
+    "strings": {
+      "name": "string.quoted.double.tan",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "name": "constant.character.escape.tan", "match": "\\\\." }]
+    },
+    "chars": {
+      "name": "string.quoted.single.tan",
+      "match": "'(\\\\.|[^'\\\\])'"
+    },
+    "definitions": {
+      "patterns": [
+        {
+          "match": "\\b(def)\\s+([A-Za-z_]\\w*)",
+          "captures": {
+            "1": { "name": "storage.type.function.tan" },
+            "2": { "name": "entity.name.function.tan" }
+          }
+        },
+        {
+          "match": "\\b(struct|enum)\\s+([A-Za-z_]\\w*)",
+          "captures": {
+            "1": { "name": "storage.type.tan" },
+            "2": { "name": "entity.name.type.tan" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "keyword.control.tan", "match": "\\b(if|else|while|for|return|break|continue)\\b" },
+        { "name": "keyword.control.import.tan", "match": "\\buse\\b" },
+        { "name": "storage.type.tan", "match": "\\b(let|def|struct|enum)\\b" },
+        { "name": "keyword.operator.cast.tan", "match": "\\bas\\b" }
+      ]
+    },
+    "types": {
+      "name": "support.type.primitive.tan",
+      "match": "\\b(u8|u32|u64|i32|i64|bool|char)\\b"
+    },
+    "constants": {
+      "name": "constant.language.tan",
+      "match": "\\b(true|false|null)\\b"
+    },
+    "numbers": {
+      "name": "constant.numeric.tan",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+    "namespaces": {
+      "match": "\\b([A-Za-z_]\\w*)\\s*(?=::)",
+      "captures": { "1": { "name": "entity.name.namespace.tan" } }
+    },
+    "properties": {
+      "name": "variable.other.property.tan",
+      "match": "(?<=\\.)[A-Za-z_]\\w*"
+    },
+    "type-names": {
+      "name": "entity.name.type.tan",
+      "match": "\\b[A-Z]\\w*"
+    },
+    "variables": {
+      "name": "variable.other.tan",
+      "match": "\\b[A-Za-z_]\\w*"
+    },
+    "calls": {
+      "match": "\\b([A-Za-z_]\\w*)\\s*(?=\\()",
+      "captures": { "1": { "name": "entity.name.function.call.tan" } }
+    },
+    "operators": {
+      "name": "keyword.operator.tan",
+      "match": "\\+\\+|--|[-+*/%]=?|==|!=|<=|>=|&&|\\|\\||[<>=!&]"
+    }
+  }
+}

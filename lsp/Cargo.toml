@@ -1,0 +1,12 @@
+[package]
+name = "tanscript-lsp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tanscript = { version = "0.1.0", path = ".." }
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "macros", "io-std"] }
+tower-lsp = "0.20"
+
+[lints.clippy]
+pedantic = "warn"

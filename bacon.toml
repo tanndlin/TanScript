@@ -18,11 +18,12 @@ command = ["cargo", "fmt", "--", "--check"]
 need_stdout = true
 
 [jobs.run]
-command = ["cargo", "run", "--", "script.tan"]
+command = ["cargo", "run", "--", "self-compiler/main.tan"]
 need_stdout = true
 allow_warnings = true
 background = false
-watch = ["script.tan"]
+watch = ["self-compiler", "script.tan"]
+ignore = ["*.asm", "*.o", "*.exe", "*.pdb"]
 apply_gitignore = false
 
 [keybindings]

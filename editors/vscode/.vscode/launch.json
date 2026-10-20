@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "extensionHost",
+            "request": "launch",
+            "name": "Run TanScript extension",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "${workspaceFolder}/../../self-compiler"
+            ],
+            "env": {
+                "TANSCRIPT_LSP": "${workspaceFolder}/../../target/debug/tanscript-lsp.exe"
+            },
+            "preLaunchTask": "cargo build lsp"
+        }
+    ]
+}
