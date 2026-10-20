@@ -15,3 +15,6 @@
 - Make register allocation deterministic
 - Allow struct literal inside a struct literal (e.g. `struct { a: 1, b: struct { c: 2 } }`)
 - sizeof operator or some other way to get the size of a type at compile time
+- enums storing values
+- `impl struct` syntax sugar
+- `0 < x < 10` syntax sugar for range checks
