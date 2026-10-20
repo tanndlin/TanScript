@@ -286,6 +286,174 @@ mod test {
         }
     }
 
+    #[test]
+    fn generic_struct_fields_take_type_argument() {
+        let Type::Pointer(inner) =
+            infer_last("struct N<T> { value: T, ptr: *T, next: *N<T>, } 0 as *N<i64>;").unwrap()
+        else {
+            panic!("expected a pointer");
+        };
+        let Type::Struct(def) = *inner else {
+            panic!("expected a struct, got {inner}");
+        };
+        let concrete = Type::Int(IntType::I64);
+        assert_eq!(def.fields[0].ftype, concrete);
+        assert_eq!(def.fields[1].ftype, pointer_to(concrete));
+    }
+
+    #[test]
+    fn generic_does_not_leak_out_of_struct() {
+        for code in [
+            "struct N<T> { value: T, } 0 as *T;",
+            "struct N<T> { value: T, } struct M { value: T, } 1;",
+            "struct N<T> { value: T, } def f(t: T): i64 { return 1; } f;",
+        ] {
+            let result = infer_last(code);
+            assert!(
+                matches!(
+                    &result,
+                    Err(TypeCheckError {
+                        kind: TypeCheckErrorKind::UnknownType(name),
+                        ..
+                    }) if name == "T"
+                ),
+                "expected UnknownType(T) for {code}, got {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn type_error_for_unknown_type_in_generic_struct() {
+        let result = infer_last("struct N<T> { value: U, } 1;");
+        assert!(
+            matches!(
+                &result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::UnknownType(name),
+                    ..
+                }) if name == "U"
+            ),
+            "{result:?}"
+        );
+    }
+
+    const NODE: &str = "struct N<T> { value: T, next: *N<T>, } ";
+
+    fn infer_with_node(code: &str) -> Result<Type, TypeCheckError> {
+        infer_last(&format!("{NODE}{code}"))
+    }
+
+    fn is_mismatch(result: &Result<Type, TypeCheckError>) -> bool {
+        matches!(
+            result,
+            Err(TypeCheckError {
+                kind: TypeCheckErrorKind::TypeMismatch { .. },
+                ..
+            })
+        )
+    }
+
+    #[test]
+    fn generic_field_takes_type_argument() {
+        assert_eq!(
+            infer_with_node("let n: *N<i64> = calloc(1, 16); (*n).value;").unwrap(),
+            Type::Int(IntType::I64)
+        );
+        assert_eq!(
+            infer_with_node("let n: *N<u8> = calloc(1, 9); (*n).value;").unwrap(),
+            Type::Int(IntType::U8)
+        );
+        assert_eq!(
+            infer_with_node("let n: *N<*char> = calloc(1, 16); (*n).value;").unwrap(),
+            pointer_to(Type::Char)
+        );
+    }
+
+    #[test]
+    fn generic_self_reference_keeps_type_argument() {
+        assert_eq!(
+            infer_with_node("let n: *N<u8> = calloc(1, 9); (*(*n).next).value;").unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn generic_field_takes_struct_type_argument() {
+        let result = infer_with_node(
+            "struct Tok { kind: u8, } let n: *N<Tok> = calloc(1, 9); (*n).value.kind;",
+        );
+        assert_eq!(result.unwrap(), Type::Int(IntType::U8));
+    }
+
+    #[test]
+    fn generic_struct_as_function_arg() {
+        let result = infer_with_node(
+            "struct Tok { kind: u8, } def push(n: *N<Tok>, v: Tok) { (*n).value = v; } push;",
+        );
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn nested_type_arguments() {
+        assert_eq!(
+            infer_with_node("let n: *N<*N<u8>> = calloc(1, 16); (*(*n).value).value;").unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn type_mismatch_assigning_to_generic_field() {
+        let result = infer_with_node(
+            "struct Tok { kind: u8, } let n: *N<i64> = calloc(1, 16); let t = Tok { kind: 1 }; (*n).value = t; 1;",
+        );
+        assert!(is_mismatch(&result), "{result:?}");
+    }
+
+    #[test]
+    fn different_instantiations_are_different_types() {
+        let result = infer_with_node(
+            "let a: *N<i64> = calloc(1, 16); let b: *N<u8> = calloc(1, 9); a = b; 1;",
+        );
+        assert!(is_mismatch(&result), "{result:?}");
+    }
+
+    #[test]
+    fn same_instantiations_are_the_same_type() {
+        let result = infer_with_node(
+            "let a: *N<i64> = calloc(1, 16); let b: *N<i64> = calloc(1, 16); a = b; 1;",
+        );
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn type_error_for_unknown_type_argument() {
+        let result = infer_with_node("let n: *N<Q> = calloc(1, 16); n;");
+        assert!(
+            matches!(
+                &result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::UnknownType(name),
+                    ..
+                }) if name == "Q"
+            ),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn type_error_for_wrong_number_of_type_arguments() {
+        for code in [
+            "let n: *N<i64, u8> = calloc(1, 16); n;",
+            "struct P { a: i64, } let p: *P<i64> = calloc(1, 8); p;",
+        ] {
+            let result = infer_with_node(code);
+            assert!(
+                result.is_err(),
+                "expected an error for {code}, got {result:?}"
+            );
+        }
+    }
+
     fn pointer_to(t: Type) -> Type {
         Type::Pointer(Box::new(t))
     }

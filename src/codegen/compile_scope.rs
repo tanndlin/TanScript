@@ -94,7 +94,7 @@ impl<'a> CompileScope<'a> {
     pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         Ok(match self.expression_type(expr)? {
             Type::Pointer(inner) => match *inner {
-                Type::Named(name) => self
+                Type::Named { name, .. } => self
                     .lookup_struct(&name)
                     .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
                 t => t,

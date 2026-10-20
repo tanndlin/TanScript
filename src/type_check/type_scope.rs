@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    ast::StructDefinition,
     type_check::{Type, TypeCheckErrorKind},
     types::IntType,
 };
@@ -72,13 +73,30 @@ impl TypeScope {
 
     pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckErrorKind> {
         match t {
-            Type::Named(name) => match self.lookup(name) {
-                Some(named_type @ (Type::Struct(_) | Type::Enum(_))) => Ok(named_type.clone()),
-                Some(Type::Named(_)) => Err(TypeCheckErrorKind::RecursiveStruct(name.clone())),
+            Type::Named {
+                name,
+                concrete_generics,
+            } => match self.lookup(name) {
+                Some(Type::Struct(def)) => self.instantiate(def, concrete_generics),
+                Some(named_type @ (Type::Enum(_) | Type::Generic(_)))
+                    if concrete_generics.is_empty() =>
+                {
+                    Ok(named_type.clone())
+                }
+                Some(Type::Enum(_) | Type::Generic(_)) => {
+                    Err(TypeCheckErrorKind::IncorrectNumberOfGenerics {
+                        name: name.clone(),
+                        expected: 0,
+                        given: concrete_generics.len(),
+                    })
+                }
+                Some(Type::Named { .. }) => Err(TypeCheckErrorKind::RecursiveStruct(name.clone())),
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone())),
             },
             Type::Pointer(inner) => match inner.as_ref() {
-                Type::Named(name) if matches!(self.lookup(name), Some(Type::Named(_))) => {
+                Type::Named { name, .. }
+                    if matches!(self.lookup(name), Some(Type::Named { .. })) =>
+                {
                     Ok(t.clone())
                 }
                 _ => Ok(Type::Pointer(Box::new(self.resolve(inner)?))),
@@ -89,11 +107,60 @@ impl TypeScope {
 
     pub fn expand(&self, t: Type) -> Type {
         match &t {
-            Type::Named(name) => match self.lookup(name) {
-                Some(named_type @ (Type::Struct(_) | Type::Enum(_))) => named_type.clone(),
-                _ => t,
-            },
+            Type::Named { .. } => self.resolve(&t).unwrap_or(t),
             _ => t,
         }
+    }
+
+    /// Copies `def` with its generics replaced by `concrete_generics` in every field.
+    fn instantiate(
+        &self,
+        def: &StructDefinition,
+        concrete_generics: &[Type],
+    ) -> Result<Type, TypeCheckErrorKind> {
+        if def.generics.len() != concrete_generics.len() {
+            return Err(TypeCheckErrorKind::IncorrectNumberOfGenerics {
+                name: def.name.clone(),
+                expected: def.generics.len(),
+                given: concrete_generics.len(),
+            });
+        }
+
+        let concrete_generics = concrete_generics
+            .iter()
+            .map(|t| self.resolve(t))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut def = def.clone();
+        for field in &mut def.fields {
+            field.ftype = substitute(&field.ftype, &def.generics, &concrete_generics);
+        }
+        Ok(Type::Struct(Box::new(def)))
+    }
+}
+
+/// Replaces each generic in `t` with its concrete type, through pointers and type arguments.
+fn substitute(t: &Type, generics: &[String], concrete_generics: &[Type]) -> Type {
+    match t {
+        Type::Generic(name)
+        | Type::Named {
+            name,
+            concrete_generics: _,
+        } if let Some(index) = generics.iter().position(|g| g == name) => {
+            concrete_generics[index].clone()
+        }
+        Type::Named {
+            name,
+            concrete_generics: args,
+        } => Type::Named {
+            name: name.clone(),
+            concrete_generics: args
+                .iter()
+                .map(|arg| substitute(arg, generics, concrete_generics))
+                .collect(),
+        },
+        Type::Pointer(inner) => {
+            Type::Pointer(Box::new(substitute(inner, generics, concrete_generics)))
+        }
+        _ => t.clone(),
     }
 }

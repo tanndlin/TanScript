@@ -106,7 +106,7 @@ impl Expression {
 impl Type {
     pub fn references(&self, names: &mut Vec<String>) {
         match self {
-            Type::Named(name) => names.push(name.clone()),
+            Type::Named { name, .. } => names.push(name.clone()),
             Type::Struct(s) => names.push(s.name.clone()),
             Type::Enum(e) => names.push(e.name.clone()),
             Type::Pointer(inner) => inner.references(names),
@@ -114,8 +114,13 @@ impl Type {
                 f.args.iter().for_each(|a| a.references(names));
                 f.return_type.references(names);
             }
-            Type::Int(_) | Type::Char | Type::Boolean | Type::Unit | Type::Null | Type::Unknown => {
-            }
+            Type::Int(_)
+            | Type::Char
+            | Type::Boolean
+            | Type::Unit
+            | Type::Null
+            | Type::Unknown
+            | Type::Generic(_) => {}
         }
     }
 }

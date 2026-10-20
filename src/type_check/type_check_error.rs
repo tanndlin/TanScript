@@ -22,6 +22,11 @@ pub enum TypeCheckErrorKind {
         expected: usize,
         given: usize,
     },
+    IncorrectNumberOfGenerics {
+        name: String,
+        expected: usize,
+        given: usize,
+    },
     NotAStruct(String),
     NotAnEnum(String),
     NoSuchField {
@@ -67,6 +72,14 @@ impl fmt::Display for TypeCheckErrorKind {
                     "Incorrect number of args passed to function. Expected: ({expected}), got: ({given})"
                 )
             }
+            Self::IncorrectNumberOfGenerics {
+                name,
+                expected,
+                given,
+            } => write!(
+                f,
+                "Incorrect number of generics passed to ({name}). Expected: ({expected}), got: ({given})"
+            ),
             Self::NotAStruct(given_type) => write!(f, "Type: ({given_type}) is not a struct"),
             Self::NotAnEnum(given_type) => write!(f, "Type: ({given_type}) is not an enum"),
             Self::NoSuchField {

@@ -1659,6 +1659,51 @@ cond_skip_",
         );
     }
 
+    const NODE: &str = "struct N<T> { value: T, next: *N<T>, } ";
+
+    #[test]
+    fn compile_unused_generic_struct() {
+        compile(&format!("{NODE}let x = 1;"));
+    }
+
+    #[test]
+    fn compile_generic_field_offset_depends_on_type_argument() {
+        let asm = compile(&format!(
+            "{NODE}let n: *N<u8> = calloc(1, 9); let next = (*n).next;"
+        ));
+        assert!(derefs(&asm).iter().any(|l| l.contains(" + 1]")), "{asm}");
+
+        let asm = compile(&format!(
+            "{NODE}let n: *N<i64> = calloc(1, 16); let next = (*n).next;"
+        ));
+        assert!(derefs(&asm).iter().any(|l| l.contains(" + 8]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_generic_field_store_uses_type_argument_size() {
+        let asm = compile(&format!(
+            "{NODE}let n: *N<u8> = calloc(1, 9); (*n).value = 3;"
+        ));
+        assert!(derefs(&asm).iter().any(|l| l.contains("BYTE [")), "{asm}");
+    }
+
+    #[test]
+    fn compile_two_instantiations_of_one_generic() {
+        let asm = compile(&format!(
+            "{NODE}let a: *N<u8> = calloc(1, 9); let b: *N<i64> = calloc(1, 16); let x = (*a).next; let y = (*b).next;"
+        ));
+        let derefs = derefs(&asm);
+        assert!(derefs.iter().any(|l| l.contains(" + 1]")), "{asm}");
+        assert!(derefs.iter().any(|l| l.contains(" + 8]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_generic_struct_store_in_function() {
+        compile(&format!(
+            "struct T {{ k: u8, d: u64, }} {NODE}def push(n: *N<T>, v: T) {{ (*n).value = v; }} let n: *N<T> = calloc(1, 17); push(n, T {{ k: 1, d: 2 }});"
+        ));
+    }
+
     #[test]
     fn compile_struct_store_through_pointer_field() {
         compile(

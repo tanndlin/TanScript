@@ -214,10 +214,21 @@ impl StructDefinition {
             return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
         }
 
-        type_scope.insert(self.name.clone(), Type::Named(self.name.clone()));
+        type_scope.insert(
+            self.name.clone(),
+            Type::Named {
+                name: self.name.clone(),
+                concrete_generics: vec![],
+            },
+        );
+        type_scope.push();
+        for generic in &self.generics {
+            type_scope.insert(generic.clone(), Type::Generic(generic.clone()));
+        }
         for field in &mut self.fields {
             field.ftype = type_scope.resolve(&field.ftype).at(field.span)?;
         }
+        type_scope.pop();
         type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
         Ok(())
     }

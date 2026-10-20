@@ -757,6 +757,132 @@ fn expect_field_name_in_struct_access() {
 }
 
 #[test]
+fn parse_generic_struct_definition() {
+    let program = parse(Lexer::new("struct N<T> { value: T, next: *N }").unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::StructDefinition(def) = statement.as_ref() else {
+        panic!("expected a struct definition, got {statement}");
+    };
+    assert_eq!(def.generics, vec!["T".to_string()]);
+    assert_eq!(
+        def.fields[0].ftype,
+        Type::Named {
+            name: "T".to_string(),
+            concrete_generics: vec![]
+        }
+    );
+}
+
+#[test]
+fn non_generic_struct_has_no_generics() {
+    let program = parse(Lexer::new("struct P { x: u32 }").unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::StructDefinition(def) = statement.as_ref() else {
+        panic!("expected a struct definition, got {statement}");
+    };
+    assert!(def.generics.is_empty());
+}
+
+#[test]
+fn expect_generic_name_in_struct_definition() {
+    for code in ["struct N<*T> { }", "struct N<1> { }", "struct N<> { }"] {
+        let err = parse(Lexer::new(code).unwrap()).unwrap_err();
+        assert!(
+            matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "generic name"),
+            "expected generic name error for {code}, got {err:?}"
+        );
+    }
+}
+
+#[test]
+fn expect_close_angle_in_generic_struct_definition() {
+    let err = parse(Lexer::new("struct N<T { }").unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ">"));
+}
+
+fn declared_type(code: &str) -> Type {
+    let program = parse(Lexer::new(code).unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::Declaration(declaration) = statement.as_ref() else {
+        panic!("expected a declaration, got {statement}");
+    };
+    declaration.dtype.clone().unwrap()
+}
+
+#[test]
+fn parse_type_arguments() {
+    assert_eq!(
+        declared_type("let n: Node<i64> = x;").to_string(),
+        "Node<i64>"
+    );
+    assert_eq!(
+        declared_type("let n: *Node<i64> = x;").to_string(),
+        "*Node<i64>"
+    );
+    assert_eq!(
+        declared_type("let n: *Node<*char> = x;").to_string(),
+        "*Node<*char>"
+    );
+}
+
+#[test]
+fn parse_nested_type_arguments() {
+    assert_eq!(
+        declared_type("let n: *Node<*Node<u8>> = x;").to_string(),
+        "*Node<*Node<u8>>"
+    );
+}
+
+#[test]
+fn parse_type_arguments_in_function_signature() {
+    integration_test!(
+        "def f(n: *Node<i64>): *Node<i64> { return n; }",
+        "def f(n: *Node<i64>): *Node<i64> {return n}"
+    );
+}
+
+#[test]
+fn parse_type_arguments_in_cast() {
+    test_parse_expression!("p as *Node<i64>", "(p as *Node<i64>)");
+    test_parse_expression!("p as *Node<i64> == q", "(== (p as *Node<i64>) q)");
+}
+
+#[test]
+fn parse_generic_field_with_type_arguments() {
+    let program = parse(Lexer::new("struct N<T> { value: T, next: *N<T> }").unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::StructDefinition(def) = statement.as_ref() else {
+        panic!("expected a struct definition, got {statement}");
+    };
+    assert_eq!(def.fields[1].ftype.to_string(), "*N<T>");
+}
+
+#[test]
+fn expect_close_angle_in_type_arguments() {
+    let err = parse(Lexer::new("let n: *Node<i64 = x;").unwrap()).unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ", or >")
+    );
+}
+
+#[test]
+fn expect_type_in_type_arguments() {
+    let err = parse(Lexer::new("let n: *Node<> = x;").unwrap()).unwrap_err();
+    assert!(
+        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "type"),
+        "{err:?}"
+    );
+}
+
+#[test]
 fn parse_imports() {
     integration_test!(
         "use math::{square, cube};",

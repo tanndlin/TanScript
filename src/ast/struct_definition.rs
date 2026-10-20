@@ -5,6 +5,7 @@ use crate::{type_check::Type, types::Span};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructDefinition {
     pub name: String,
+    pub generics: Vec<String>,
     pub fields: Vec<StructField>,
     pub span: Span,
 }

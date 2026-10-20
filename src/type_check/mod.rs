@@ -33,7 +33,11 @@ pub enum Type {
     Enum(Box<EnumDefinition>),
     Pointer(Box<Type>),
     Null,
-    Named(String),
+    Named {
+        name: String,
+        concrete_generics: Vec<Type>,
+    },
+    Generic(String),
     Unit,
     Unknown,
 }
@@ -50,7 +54,8 @@ impl Type {
             Self::Unit => 0,
             Self::Boolean | Self::Char | Self::Enum(_) => 1,
             Self::Function(_) | Self::Pointer(_) | Self::Null | Self::Unknown => 8,
-            Self::Named(name) => unreachable!("unresolved type ({name})"),
+            Self::Named { name, .. } => unreachable!("unresolved type ({name})"),
+            Self::Generic(name) => unreachable!("uninstantiated generic ({name})"),
         }
     }
 
@@ -105,13 +110,21 @@ impl PartialEq for Type {
             (Self::Struct(a), Self::Struct(b)) => a == b,
             (Self::Enum(a), Self::Enum(b)) => a == b,
             (Self::Pointer(a), Self::Pointer(b)) => a == b,
-            (Self::Named(a), Self::Named(b)) => a == b,
-            (Self::Named(name), Self::Struct(def)) | (Self::Struct(def), Self::Named(name)) => {
-                *name == def.name
-            }
-            (Self::Named(name), Self::Enum(def)) | (Self::Enum(def), Self::Named(name)) => {
-                *name == def.name
-            }
+            (
+                Self::Named {
+                    name: a,
+                    concrete_generics: a_generics,
+                },
+                Self::Named {
+                    name: b,
+                    concrete_generics: b_generics,
+                },
+            ) => a == b && a_generics == b_generics,
+            (Self::Generic(a), Self::Generic(b)) => a == b,
+            (Self::Named { name, .. }, Self::Struct(def))
+            | (Self::Struct(def), Self::Named { name, .. }) => *name == def.name,
+            (Self::Named { name, .. }, Self::Enum(def))
+            | (Self::Enum(def), Self::Named { name, .. }) => *name == def.name,
             _ => false,
         }
     }
@@ -130,7 +143,23 @@ impl fmt::Display for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Struct(def) => write!(f, "{}", def.name),
             Type::Enum(def) => write!(f, "{}", def.name),
-            Type::Named(name) => write!(f, "{name}"),
+            Type::Named {
+                name,
+                concrete_generics,
+            } if concrete_generics.is_empty() => write!(f, "{name}"),
+            Type::Named {
+                name,
+                concrete_generics,
+            } => write!(
+                f,
+                "{name}<{}>",
+                concrete_generics
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Type::Generic(name) => write!(f, "{name}"),
         }
     }
 }

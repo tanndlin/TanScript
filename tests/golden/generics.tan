@@ -1,0 +1,58 @@
+struct Token {
+    kind: u8,
+    data: u64,
+}
+
+struct Node<T> {
+    value: T,
+    next: *Node<T>,
+}
+
+def sum(head: *Node<i64>): i64 {
+    let total: i64 = 0;
+    let current = head;
+    while current != null {
+        total += (*current).value;
+        current = (*current).next;
+    }
+    return total;
+}
+
+def push(head: *Node<Token>, value: Token) {
+    let current = head;
+    while (*current).next != null {
+        current = (*current).next;
+    }
+    let node: *Node<Token> = calloc(1, 17);
+    (*node).value = value;
+    (*current).next = node;
+}
+
+let c: *Node<i64> = calloc(1, 16);
+(*c).value = 3;
+let b: *Node<i64> = calloc(1, 16);
+(*b).value = 2;
+(*b).next = c;
+let a: *Node<i64> = calloc(1, 16);
+(*a).value = 1;
+(*a).next = b;
+printf("%d\n", sum(a));
+
+let byte: *Node<u8> = calloc(1, 9);
+(*byte).value = 200;
+printf("%d\n", (*byte).value);
+printf("%d\n", (*byte).next == null);
+
+let tokens: *Node<Token> = calloc(1, 17);
+(*tokens).value = Token { kind: 1, data: 100 };
+push(tokens, Token { kind: 2, data: 200 });
+push(tokens, Token { kind: 3, data: 300 });
+let current = tokens;
+while current != null {
+    printf("%d %llu\n", (*current).value.kind, (*current).value.data);
+    current = (*current).next;
+}
+
+let nested: *Node<*Node<i64>> = calloc(1, 16);
+(*nested).value = a;
+printf("%d\n", (*(*(*nested).value).next).value);

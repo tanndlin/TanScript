@@ -226,8 +226,32 @@ pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseErro
     let Token::Atom(LexerAtomType::Identifier(type_name)) = tok.token_type else {
         return Err(expected("type", tok));
     };
+
+    if let Ok(t) = Type::from_str(&type_name) {
+        return Ok((t, span));
+    }
+
+    let mut concrete_generics = vec![];
+
+    // Check for generics
+    if let Some(Token::Op(OperatorType::LessThan)) = lexer.peek().map(|tok| &tok.token_type) {
+        lexer.expect("<")?;
+        loop {
+            concrete_generics.push(parse_type(lexer)?);
+            let tok = lexer.next_or_eof(", or >")?;
+            match tok.token_type {
+                Token::Op(OperatorType::GreaterThan) => break,
+                Token::Atom(LexerAtomType::Comma) => (),
+                _ => return Err(expected(", or >", tok)),
+            }
+        }
+    }
+
     Ok((
-        Type::from_str(&type_name).unwrap_or(Type::Named(type_name)),
+        Type::Named {
+            name: type_name,
+            concrete_generics,
+        },
         span,
     ))
 }
@@ -365,7 +389,11 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
     if let Token::Op(OperatorType::LessThan) = lexer.peek_or_eof("< or {")?.token_type {
         //TODO: Parse multiple generics
         lexer.expect("<")?;
-        generics.push(parse_type(lexer)?);
+        let tok = lexer.next_or_eof("generic name")?;
+        let Token::Atom(LexerAtomType::Identifier(generic)) = tok.token_type else {
+            return Err(expected("generic name", tok));
+        };
+        generics.push(generic);
         lexer.expect(">")?;
     }
 
@@ -394,6 +422,7 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
 
     Ok(StructDefinition {
         name: struct_name,
+        generics,
         fields,
         span,
     })
