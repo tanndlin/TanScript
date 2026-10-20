@@ -1,8 +1,43 @@
 enum Token {
     Number,
     Identifier,
-    Add,
+    String,
+    Char,
     SemiColon,
+    Colon,
+    Comma,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual,
+    Equal,
+    NotEqual,
+    Or,
+    And,
+    Assign,
+    OpenCurly,
+    CloseCurly,
+    OpenParen,
+    CloseParen,
+    OpenBracket,
+    CloseBracket,
+    Not,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
+    Increment,
+    Decrement,
+    Dot,
+    PathSep,
+    Reference,
+    Cast,
     Eof,
 }
 
@@ -15,6 +50,10 @@ def printToken(lexer_token: LexerToken) {
     printf("Token Type: %d: ", lexer_token.token_type);
     if lexer_token.token_type == Token::Identifier {
         printf("%s\n", lexer_token.data);
+    } else if lexer_token.token_type == Token::String {
+        printf("\"%s\"\n", lexer_token.data);
+    } else if lexer_token.token_type == Token::Char {
+        printf("'%c'\n", lexer_token.data);
     } else {
         printf("%lld\n", lexer_token.data);
     }
