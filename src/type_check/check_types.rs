@@ -229,7 +229,7 @@ pub fn check_struct_instantiation(
     match type_scope.lookup(struct_type_name) {
         Some(Type::Struct(struct_def)) => {
             let struct_def = struct_def.clone();
-            for (field_name, field_expr) in fields {
+            for (field_name, field_expr) in fields.iter_mut() {
                 let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name) else {
                     return Err(TypeCheckErrorKind::NoSuchField {
                         struct_type: struct_def.clone(),
@@ -240,6 +240,18 @@ pub fn check_struct_instantiation(
 
                 let got = check_types_expression(field_expr, type_scope)?;
                 expect_type(field_expr, &field.ftype, &got, type_scope)?;
+            }
+
+            if let Some(missing) = struct_def
+                .fields
+                .iter()
+                .find(|f| !fields.iter().any(|(name, _)| *name == f.name))
+            {
+                return Err(TypeCheckErrorKind::MissingField {
+                    struct_type: struct_def.clone(),
+                    field_name: missing.name.clone(),
+                }
+                .at(span));
             }
 
             Ok(Type::Struct(struct_def))
@@ -782,6 +794,14 @@ mod test {
         expect_err!(
             format!("{POINT} let p = P {{ x: 1, z: 2 }};"),
             TypeCheckErrorKind::NoSuchField { ref field_name, .. } if field_name == "z"
+        );
+    }
+
+    #[test]
+    fn type_error_for_missing_field_in_instantiation() {
+        expect_err!(
+            format!("{POINT} let p = P {{ x: 1 }};"),
+            TypeCheckErrorKind::MissingField { ref field_name, .. } if field_name == "y"
         );
     }
 

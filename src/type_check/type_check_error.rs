@@ -33,6 +33,10 @@ pub enum TypeCheckErrorKind {
         struct_type: Box<StructDefinition>,
         field_name: String,
     },
+    MissingField {
+        struct_type: Box<StructDefinition>,
+        field_name: String,
+    },
     NoSuchVariant {
         enum_type: Box<EnumDefinition>,
         variant_name: String,
@@ -89,6 +93,10 @@ impl fmt::Display for TypeCheckErrorKind {
                 f,
                 "Struct: ({struct_type}) does not contain a field called ({field_name})"
             ),
+            Self::MissingField {
+                struct_type,
+                field_name,
+            } => write!(f, "Struct: ({struct_type}) is missing field ({field_name})"),
             Self::NoSuchVariant {
                 enum_type,
                 variant_name,
