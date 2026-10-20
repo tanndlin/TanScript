@@ -73,3 +73,20 @@ printf("%d\n", person.age);
 let agePtr = &person.age;
 *agePtr = 30;
 printPerson(&person);
+
+def describe(p: *i64) {
+    if p == null {
+        printf("null\n");
+    } else {
+        printf("%d\n", *p);
+    }
+}
+
+let maybe: *i64 = null;
+describe(maybe);
+describe(null);
+maybe = &x;
+describe(maybe);
+printf("%d\n", null != maybe);
+maybe = null;
+printf("%d\n", maybe as i64);
