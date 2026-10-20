@@ -14,3 +14,4 @@
 - Win64 ABI for struct args to extern functions: structs of 1, 2, 4 or 8 bytes go by value in a register/stack slot, larger ones need a caller-made copy since a C callee may modify it (TanScript functions currently get a pointer to the original and copy it themselves, so structs to externs are rejected by the type checker)
 - Make register allocation deterministic
 - Allow struct literal inside a struct literal (e.g. `struct { a: 1, b: struct { c: 2 } }`)
+- sizeof operator or some other way to get the size of a type at compile time
