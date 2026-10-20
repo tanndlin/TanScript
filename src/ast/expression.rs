@@ -10,11 +10,16 @@ use crate::{
 pub struct Expression {
     pub kind: ExpressionKind,
     pub span: Span,
+    pub etype: Box<Type>,
 }
 
 impl Expression {
     pub fn new(kind: ExpressionKind, span: Span) -> Self {
-        Self { kind, span }
+        Self {
+            kind,
+            span,
+            etype: Box::new(Type::Unknown),
+        }
     }
 
     pub fn is_place(&self) -> bool {

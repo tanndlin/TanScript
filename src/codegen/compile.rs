@@ -524,7 +524,7 @@ pub fn with_place_address(
             f(compile_scope, register_handler, address, t)
         }
         ExpressionKind::Index(lhs, index) => {
-            let element = compile_scope.element_type(lhs).at(lhs.span)?;
+            let element = (*place.etype).clone();
             register_handler.lease_with_scope(|register_handler, offset| {
                 let mut instructions = index.compile(compile_scope, offset, register_handler)?;
                 let size = u32::try_from(element.size()).unwrap();
@@ -550,7 +550,7 @@ pub fn with_place_address(
             })
         }
         ExpressionKind::Unary(UnaryOp::Deref, pointer) => {
-            let element = compile_scope.element_type(pointer).at(pointer.span)?;
+            let element = (*place.etype).clone();
             register_handler.lease_with_scope(|register_handler, base| {
                 let mut instructions = pointer.compile(compile_scope, base, register_handler)?;
                 let address = Address::Deref { base, offset: 0 };
@@ -1695,6 +1695,22 @@ cond_skip_",
         let derefs = derefs(&asm);
         assert!(derefs.iter().any(|l| l.contains(" + 1]")), "{asm}");
         assert!(derefs.iter().any(|l| l.contains(" + 8]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_double_deref_through_generic_self_reference() {
+        let asm = compile(&format!(
+            "{NODE}let n: *N<u8> = calloc(1, 9); let m = (*(*n).next).next;"
+        ));
+        assert!(derefs(&asm).iter().any(|l| l.contains(" + 1]")), "{asm}");
+    }
+
+    #[test]
+    fn compile_index_through_generic_self_reference() {
+        let asm = compile(&format!(
+            "{NODE}let n: *N<u8> = calloc(1, 9); let v = (*n).next[0].value;"
+        ));
+        assert!(derefs(&asm).iter().any(|l| l.contains("BYTE [")), "{asm}");
     }
 
     #[test]

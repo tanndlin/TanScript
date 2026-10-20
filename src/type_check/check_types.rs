@@ -18,7 +18,7 @@ pub fn check_types_expression(
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let span = expression.span;
-    match &mut expression.kind {
+    let t = match &mut expression.kind {
         ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
             .lookup(ident)
             .cloned()
@@ -57,7 +57,9 @@ pub fn check_types_expression(
             enum_name,
             variant_name,
         } => check_enum_variant(span, enum_name, variant_name, type_scope),
-    }
+    }?;
+    expression.etype = Box::new(t.clone());
+    Ok(t)
 }
 
 pub fn check_enum_variant(

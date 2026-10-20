@@ -91,18 +91,6 @@ impl<'a> CompileScope<'a> {
         self.lookup(name).map(|(_, t)| t)
     }
 
-    pub fn element_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
-        Ok(match self.expression_type(expr)? {
-            Type::Pointer(inner) => match *inner {
-                Type::Named { name, .. } => self
-                    .lookup_struct(&name)
-                    .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
-                t => t,
-            },
-            _ => Type::Unknown,
-        })
-    }
-
     pub fn expression_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
         Ok(match &expr.kind {
             ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
@@ -116,8 +104,8 @@ impl<'a> CompileScope<'a> {
             ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
                 Type::Pointer(Box::new(self.expression_type(inner)?))
             }
-            ExpressionKind::Unary(UnaryOp::Deref, inner) | ExpressionKind::Index(inner, _) => {
-                self.element_type(inner)?
+            ExpressionKind::Unary(UnaryOp::Deref, _) | ExpressionKind::Index(_, _) => {
+                (*expr.etype).clone()
             }
             ExpressionKind::Cast(_, cast_type) => cast_type.clone(),
             ExpressionKind::StructAccess { base, field_name } => {
