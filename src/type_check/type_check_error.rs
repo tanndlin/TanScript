@@ -30,11 +30,11 @@ pub enum TypeCheckErrorKind {
     NotAStruct(String),
     NotAnEnum(String),
     NoSuchField {
-        struct_type: StructDefinition,
+        struct_type: Box<StructDefinition>,
         field_name: String,
     },
     NoSuchVariant {
-        enum_type: EnumDefinition,
+        enum_type: Box<EnumDefinition>,
         variant_name: String,
     },
     DuplicateIdentifiers(String),

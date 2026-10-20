@@ -784,7 +784,7 @@ fn non_generic_struct_has_no_generics() {
     let Statement::StructDefinition(def) = statement.as_ref() else {
         panic!("expected a struct definition, got {statement}");
     };
-    assert!(def.generics.is_empty());
+    assert_eq!(def.generics, Vec::<String>::new());
 }
 
 #[test]

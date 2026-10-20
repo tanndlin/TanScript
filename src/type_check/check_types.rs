@@ -74,7 +74,7 @@ pub fn check_enum_variant(
 
     if enum_def.variant_index(variant_name).is_none() {
         return Err(TypeCheckErrorKind::NoSuchVariant {
-            enum_type: *enum_def.clone(),
+            enum_type: enum_def.clone(),
             variant_name: variant_name.to_string(),
         }
         .at(span));
@@ -232,7 +232,7 @@ pub fn check_struct_instantiation(
             for (field_name, field_expr) in fields {
                 let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name) else {
                     return Err(TypeCheckErrorKind::NoSuchField {
-                        struct_type: *struct_def.clone(),
+                        struct_type: struct_def.clone(),
                         field_name: field_name.clone(),
                     }
                     .at(field_expr.span));
@@ -263,7 +263,7 @@ pub fn check_struct_access(
             .map(|field| field.ftype.clone())
             .ok_or_else(|| {
                 TypeCheckErrorKind::NoSuchField {
-                    struct_type: *struct_type.clone(),
+                    struct_type: struct_type.clone(),
                     field_name: field_name.to_string(),
                 }
                 .at(span)
