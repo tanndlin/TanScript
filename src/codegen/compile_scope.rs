@@ -124,8 +124,7 @@ impl<'a> CompileScope<'a> {
                 .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
             ExpressionKind::FunctionCall(name, _) => self
                 .lookup_function(name)
-                .cloned()
-                .map_or(Type::Unknown, |f| f.return_type),
+                .map_or(Type::Unknown, |f| f.return_type.clone()),
             ExpressionKind::EnumVariant { enum_name, .. } => self
                 .lookup_enum(enum_name)
                 .map_or(Type::Unknown, |def| Type::Enum(Box::new(def.clone()))),
