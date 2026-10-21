@@ -7,9 +7,9 @@ use crate::{
         Import, ImportName, OperatorType, ReturnStatement, Statement, StatementOrExpression,
         StructDefinition, StructField, WhileLoop,
     },
-    lex::{Lexer, LexerAtomType},
+    lex::LexerAtomType,
     parse::{
-        ParseError, expected,
+        ParseError, Parser, expected,
         parse_expression::{parse_condition, parse_expression, parse_expression_or_assignment},
     },
     type_check::Type,
@@ -17,17 +17,17 @@ use crate::{
 };
 
 pub fn parse_statement_or_expression(
-    lexer: &mut Lexer,
+    tokens: &mut Parser,
 ) -> Result<Option<StatementOrExpression>, ParseError> {
-    if lexer.peek().is_none() {
+    if tokens.peek().is_none() {
         Ok(None)
     } else {
-        let result = parse_unterminated_statement_or_expression(lexer)?;
+        let result = parse_unterminated_statement_or_expression(tokens)?;
         // Do not expect semicolon for certain statements
         match &result {
             StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => (),
             _ => {
-                lexer.expect(";")?;
+                tokens.expect(";")?;
             }
         }
         Ok(Some(result))
@@ -36,16 +36,16 @@ pub fn parse_statement_or_expression(
 
 /// Parses a statement or expression without consuming a trailing semicolon.
 pub fn parse_unterminated_statement_or_expression(
-    lexer: &mut Lexer,
+    tokens: &mut Parser,
 ) -> Result<StatementOrExpression, ParseError> {
-    Ok(match parse_statement(lexer)? {
+    Ok(match parse_statement(tokens)? {
         Some(statement) => StatementOrExpression::Statement(Box::new(statement)),
-        None => parse_expression_or_assignment(lexer)?,
+        None => parse_expression_or_assignment(tokens)?,
     })
 }
 
-fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
-    let tok = lexer.peek_or_eof("statement")?;
+fn parse_statement(tokens: &mut Parser) -> Result<Option<Statement>, ParseError> {
+    let tok = tokens.peek_or_eof("statement")?;
     let keyword = match &tok.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => s.as_str(),
         Token::Op(_)
@@ -62,43 +62,43 @@ fn parse_statement(lexer: &mut Lexer) -> Result<Option<Statement>, ParseError> {
     };
 
     Ok(Some(match keyword {
-        "let" => parse_declaration(lexer)?.into(),
-        "while" => parse_while_loop(lexer)?.into(),
-        "for" => parse_for_loop(lexer)?.into(),
-        "if" => parse_if_statement(lexer)?.into(),
-        "def" => parse_function_definition(lexer)?.into(),
-        "struct" => parse_struct_definition(lexer)?.into(),
-        "enum" => parse_enum_definition(lexer)?.into(),
-        "return" => parse_return(lexer)?.into(),
+        "let" => parse_declaration(tokens)?.into(),
+        "while" => parse_while_loop(tokens)?.into(),
+        "for" => parse_for_loop(tokens)?.into(),
+        "if" => parse_if_statement(tokens)?.into(),
+        "def" => parse_function_definition(tokens)?.into(),
+        "struct" => parse_struct_definition(tokens)?.into(),
+        "enum" => parse_enum_definition(tokens)?.into(),
+        "return" => parse_return(tokens)?.into(),
         "break" => {
-            let span = lexer.next().unwrap().span;
+            let span = tokens.next().unwrap().span;
             BreakStatement { span }.into()
         }
         "continue" => {
-            let span = lexer.next().unwrap().span;
+            let span = tokens.next().unwrap().span;
             ContinueStatement { span }.into()
         }
         _ => return Ok(None),
     }))
 }
 
-fn parse_while_loop(lexer: &mut Lexer) -> Result<WhileLoop, ParseError> {
-    lexer.expect("while")?;
-    let condition = parse_condition(lexer)?;
-    let block = parse_block(lexer)?;
+fn parse_while_loop(tokens: &mut Parser) -> Result<WhileLoop, ParseError> {
+    tokens.expect("while")?;
+    let condition = parse_condition(tokens)?;
+    let block = parse_block(tokens)?;
     Ok(WhileLoop { condition, block })
 }
 
-fn parse_for_loop(lexer: &mut Lexer) -> Result<ForLoop, ParseError> {
-    lexer.expect("for")?;
-    lexer.expect("(")?;
-    let init = parse_unterminated_statement_or_expression(lexer)?;
-    lexer.expect(";")?;
-    let condition = parse_expression(lexer, 0)?;
-    lexer.expect(";")?;
-    let update = parse_unterminated_statement_or_expression(lexer)?;
-    lexer.expect(")")?;
-    let block = parse_block(lexer)?;
+fn parse_for_loop(tokens: &mut Parser) -> Result<ForLoop, ParseError> {
+    tokens.expect("for")?;
+    tokens.expect("(")?;
+    let init = parse_unterminated_statement_or_expression(tokens)?;
+    tokens.expect(";")?;
+    let condition = parse_expression(tokens, 0)?;
+    tokens.expect(";")?;
+    let update = parse_unterminated_statement_or_expression(tokens)?;
+    tokens.expect(")")?;
+    let block = parse_block(tokens)?;
     Ok(ForLoop {
         init,
         condition,
@@ -107,16 +107,16 @@ fn parse_for_loop(lexer: &mut Lexer) -> Result<ForLoop, ParseError> {
     })
 }
 
-fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
-    lexer.expect("if")?;
-    let condition = parse_condition(lexer)?;
-    let block = parse_block(lexer)?;
-    let else_block = match lexer.peek() {
+fn parse_if_statement(tokens: &mut Parser) -> Result<IfStatement, ParseError> {
+    tokens.expect("if")?;
+    let condition = parse_condition(tokens)?;
+    let block = parse_block(tokens)?;
+    let else_block = match tokens.peek() {
         None => None,
         Some(tok) => match &tok.token_type {
             Token::Atom(LexerAtomType::Identifier(s)) if s == "else" => {
-                lexer.expect("else")?;
-                Some(parse_else_block(lexer)?)
+                tokens.expect("else")?;
+                Some(parse_else_block(tokens)?)
             }
             _ => None,
         },
@@ -129,55 +129,55 @@ fn parse_if_statement(lexer: &mut Lexer) -> Result<IfStatement, ParseError> {
     })
 }
 
-fn parse_else_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
-    match lexer.peek().map(|tok| &tok.token_type) {
+fn parse_else_block(tokens: &mut Parser) -> Result<Block, ParseError> {
+    match tokens.peek().map(|tok| &tok.token_type) {
         Some(Token::Atom(LexerAtomType::Identifier(s))) if s == "if" => Ok(Block {
             children: vec![StatementOrExpression::Statement(Box::new(
-                Statement::IfStatement(lexer.nested("if", parse_if_statement)?),
+                Statement::IfStatement(tokens.nested("if", parse_if_statement)?),
             ))],
         }),
-        _ => parse_block(lexer),
+        _ => parse_block(tokens),
     }
 }
 
-fn parse_block(lexer: &mut Lexer) -> Result<Block, ParseError> {
-    lexer.nested("{", parse_block_at_depth)
+fn parse_block(tokens: &mut Parser) -> Result<Block, ParseError> {
+    tokens.nested("{", parse_block_at_depth)
 }
 
-fn parse_block_at_depth(lexer: &mut Lexer) -> Result<Block, ParseError> {
-    lexer.expect("{")?;
+fn parse_block_at_depth(tokens: &mut Parser) -> Result<Block, ParseError> {
+    tokens.expect("{")?;
     let mut children = vec![];
-    // while let Some(statement) = parse_statement_or_expression(lexer)? {
+    // while let Some(statement) = parse_statement_or_expression(tokens)? {
     //     children.push(statement)
     // }
 
     loop {
-        match lexer.peek_or_eof("}")?.token_type {
+        match tokens.peek_or_eof("}")?.token_type {
             Token::Op(OperatorType::CloseCurly) => break,
             _ => children
-                .push(parse_statement_or_expression(lexer)?.ok_or_else(|| lexer.eof_error("}"))?),
+                .push(parse_statement_or_expression(tokens)?.ok_or_else(|| tokens.eof_error("}"))?),
         }
     }
 
-    lexer.expect("}")?;
+    tokens.expect("}")?;
 
     Ok(Block { children })
 }
 
-fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, ParseError> {
-    let span = lexer.peek_or_eof("let")?.span;
-    lexer.expect("let")?;
+fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
+    let span = tokens.peek_or_eof("let")?.span;
+    tokens.expect("let")?;
 
-    let tok = lexer.next_or_eof("identifier")?;
+    let tok = tokens.next_or_eof("identifier")?;
     let ident_span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(ident)) = tok.token_type else {
         return Err(expected("identifier", tok));
     };
 
-    let dtype = parse_type_annotation(lexer)?;
+    let dtype = parse_type_annotation(tokens)?;
 
     // Only a plain `=` is allowed; compound assigns need an existing value
-    let tok = lexer.next_or_eof("=")?;
+    let tok = tokens.next_or_eof("=")?;
     if tok.token_type != Token::Op(OperatorType::Assign) {
         return Err(expected("=", tok));
     }
@@ -188,7 +188,7 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, ParseError> {
                 ExpressionKind::Atom(AtomType::Identifier(ident)),
                 ident_span,
             ),
-            expression: parse_expression(lexer, 0)?,
+            expression: parse_expression(tokens, 0)?,
         },
         dtype,
         binding: None,
@@ -197,23 +197,23 @@ fn parse_declaration(lexer: &mut Lexer) -> Result<Declaration, ParseError> {
 }
 
 /// Parses an optional `: type` annotation
-fn parse_type_annotation(lexer: &mut Lexer) -> Result<Option<Type>, ParseError> {
-    if let Some(Token::Atom(LexerAtomType::Colon)) = lexer.peek().map(|tok| &tok.token_type) {
-        lexer.next();
-        Ok(Some(parse_type(lexer)?))
+fn parse_type_annotation(tokens: &mut Parser) -> Result<Option<Type>, ParseError> {
+    if let Some(Token::Atom(LexerAtomType::Colon)) = tokens.peek().map(|tok| &tok.token_type) {
+        tokens.next();
+        Ok(Some(parse_type(tokens)?))
     } else {
         Ok(None)
     }
 }
 
-pub fn parse_type(lexer: &mut Lexer) -> Result<Type, ParseError> {
-    parse_type_with_span(lexer).map(|(t, _)| t)
+pub fn parse_type(tokens: &mut Parser) -> Result<Type, ParseError> {
+    parse_type_with_span(tokens).map(|(t, _)| t)
 }
 
-pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseError> {
-    let tok = lexer.next_or_eof("type")?;
+pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseError> {
+    let tok = tokens.next_or_eof("type")?;
     if let Token::Op(OperatorType::Multiply) = tok.token_type {
-        let (inner, span) = parse_type_with_span(lexer)?;
+        let (inner, span) = parse_type_with_span(tokens)?;
         return Ok((Type::Pointer(Box::new(inner)), span));
     }
 
@@ -229,11 +229,11 @@ pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseErro
     let mut concrete_generics = vec![];
 
     // Check for generics
-    if let Some(Token::Op(OperatorType::LessThan)) = lexer.peek().map(|tok| &tok.token_type) {
-        lexer.expect("<")?;
+    if let Some(Token::Op(OperatorType::LessThan)) = tokens.peek().map(|tok| &tok.token_type) {
+        tokens.expect("<")?;
         loop {
-            concrete_generics.push(parse_type(lexer)?);
-            let tok = lexer.next_or_eof(", or >")?;
+            concrete_generics.push(parse_type(tokens)?);
+            let tok = tokens.next_or_eof(", or >")?;
             match tok.token_type {
                 Token::Op(OperatorType::GreaterThan) => break,
                 Token::Atom(LexerAtomType::Comma) => (),
@@ -251,20 +251,20 @@ pub fn parse_type_with_span(lexer: &mut Lexer) -> Result<(Type, Span), ParseErro
     ))
 }
 
-fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, ParseError> {
-    let span = lexer.expect("def")?.span;
+fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, ParseError> {
+    let span = tokens.expect("def")?.span;
 
-    let tok = lexer.next_or_eof("function name")?;
+    let tok = tokens.next_or_eof("function name")?;
     let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
         return Err(expected("function name", tok));
     };
 
-    lexer.expect("(")?;
+    tokens.expect("(")?;
 
     let mut args = vec![];
 
     loop {
-        let tok = lexer.next_or_eof("argument name or )")?;
+        let tok = tokens.next_or_eof("argument name or )")?;
         let span = tok.span;
         let name = match tok.token_type {
             Token::Atom(LexerAtomType::Identifier(name)) => name,
@@ -272,14 +272,14 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
             _ => return Err(expected("argument name or )", tok)),
         };
 
-        lexer.expect(":")?;
+        tokens.expect(":")?;
         args.push(Arg {
             name,
-            atype: parse_type(lexer)?,
+            atype: parse_type(tokens)?,
             span,
         });
 
-        let tok = lexer.next_or_eof(", or )")?;
+        let tok = tokens.next_or_eof(", or )")?;
         match tok.token_type {
             Token::Atom(LexerAtomType::Comma) => {}
             Token::Op(OperatorType::CloseParen) => break,
@@ -288,13 +288,13 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
     }
 
     let (return_type, return_type_span) =
-        if let Some(Token::Atom(LexerAtomType::Colon)) = lexer.peek().map(|tok| &tok.token_type) {
-            lexer.next();
-            parse_type_with_span(lexer)?
+        if let Some(Token::Atom(LexerAtomType::Colon)) = tokens.peek().map(|tok| &tok.token_type) {
+            tokens.next();
+            parse_type_with_span(tokens)?
         } else {
             (Type::Unit, span)
         };
-    let body = parse_function_body(lexer)?;
+    let body = parse_function_body(tokens)?;
 
     Ok(FunctionDefinition {
         name,
@@ -306,20 +306,20 @@ fn parse_function_definition(lexer: &mut Lexer) -> Result<FunctionDefinition, Pa
     })
 }
 
-fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
-    lexer.expect("{")?;
+fn parse_function_body(tokens: &mut Parser) -> Result<Block, ParseError> {
+    tokens.expect("{")?;
 
     let mut children = vec![];
 
     loop {
-        let token = lexer.peek_or_eof("}")?;
+        let token = tokens.peek_or_eof("}")?;
 
         // `}` means the function has no implicit return expression.
         if token.token_type == Token::Op(OperatorType::CloseCurly) {
             break;
         }
 
-        let item = parse_statement(lexer)?;
+        let item = parse_statement(tokens)?;
 
         if let Some(statement) = item {
             children.push(StatementOrExpression::Statement(Box::new(statement)));
@@ -329,18 +329,18 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
                 StatementOrExpression::Statement(statement) if !statement.requires_semicolon() => {}
 
                 _ => {
-                    lexer.expect(";")?;
+                    tokens.expect(";")?;
                 }
             }
         } else {
-            match parse_expression_or_assignment(lexer)? {
+            match parse_expression_or_assignment(tokens)? {
                 // Assignments are statements, never an implicit return.
                 StatementOrExpression::Statement(assign) => {
                     children.push(StatementOrExpression::Statement(assign));
-                    lexer.expect(";")?;
+                    tokens.expect(";")?;
                 }
 
-                StatementOrExpression::Expression(expression) => match lexer.peek() {
+                StatementOrExpression::Expression(expression) => match tokens.peek() {
                     // Final expression: implicit return.
                     Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
                         children.push(StatementOrExpression::Statement(Box::new(
@@ -354,7 +354,7 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
 
                     // Non-final expression must have a semicolon.
                     _ => {
-                        lexer.expect(";")?;
+                        tokens.expect(";")?;
                         children.push(StatementOrExpression::Expression(expression));
                     }
                 },
@@ -362,24 +362,24 @@ fn parse_function_body(lexer: &mut Lexer) -> Result<Block, ParseError> {
         }
     }
 
-    lexer.expect("}")?;
+    tokens.expect("}")?;
 
     Ok(Block { children })
 }
 
-fn parse_return(lexer: &mut Lexer) -> Result<ReturnStatement, ParseError> {
-    let span = lexer.peek_or_eof("return")?.span;
-    lexer.expect("return")?;
-    let expr = match lexer.peek().map(|tok| &tok.token_type) {
+fn parse_return(tokens: &mut Parser) -> Result<ReturnStatement, ParseError> {
+    let span = tokens.peek_or_eof("return")?.span;
+    tokens.expect("return")?;
+    let expr = match tokens.peek().map(|tok| &tok.token_type) {
         Some(Token::Atom(LexerAtomType::Semicolon) | Token::Op(OperatorType::CloseCurly)) => None,
-        _ => Some(parse_expression(lexer, 0)?),
+        _ => Some(parse_expression(tokens, 0)?),
     };
     Ok(ReturnStatement { expr, span })
 }
 
-fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseError> {
-    lexer.expect("struct")?;
-    let tok = lexer.next_or_eof("identifier")?;
+fn parse_struct_definition(tokens: &mut Parser) -> Result<StructDefinition, ParseError> {
+    tokens.expect("struct")?;
+    let tok = tokens.next_or_eof("identifier")?;
     let span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(struct_name)) = tok.token_type else {
         return Err(expected("identifier", tok));
@@ -388,39 +388,39 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
     let mut generics = vec![];
 
     // Check for generic type
-    if let Token::Op(OperatorType::LessThan) = lexer.peek_or_eof("< or {")?.token_type {
+    if let Token::Op(OperatorType::LessThan) = tokens.peek_or_eof("< or {")?.token_type {
         //TODO: Parse multiple generics
-        lexer.expect("<")?;
-        let tok = lexer.next_or_eof("generic name")?;
+        tokens.expect("<")?;
+        let tok = tokens.next_or_eof("generic name")?;
         let Token::Atom(LexerAtomType::Identifier(generic)) = tok.token_type else {
             return Err(expected("generic name", tok));
         };
         generics.push(generic);
-        lexer.expect(">")?;
+        tokens.expect(">")?;
     }
 
-    lexer.expect("{")?;
+    tokens.expect("{")?;
     let mut fields = vec![];
     loop {
-        let tok = lexer.peek_or_eof("field name or }")?;
+        let tok = tokens.peek_or_eof("field name or }")?;
         if !matches!(tok.token_type, Token::Atom(LexerAtomType::Identifier(_))) {
             break;
         }
-        let Token::Atom(LexerAtomType::Identifier(name)) = lexer.next().unwrap().token_type else {
+        let Token::Atom(LexerAtomType::Identifier(name)) = tokens.next().unwrap().token_type else {
             unreachable!();
         };
-        lexer.expect(":")?;
-        let (ftype, span) = parse_type_with_span(lexer)?;
+        tokens.expect(":")?;
+        let (ftype, span) = parse_type_with_span(tokens)?;
         fields.push(StructField { name, ftype, span });
 
-        let tok = lexer.peek_or_eof(", or }")?;
+        let tok = tokens.peek_or_eof(", or }")?;
         if tok.token_type == Token::Atom(LexerAtomType::Comma) {
-            lexer.next();
+            tokens.next();
         } else {
             break;
         }
     }
-    lexer.expect("}")?;
+    tokens.expect("}")?;
 
     Ok(StructDefinition {
         name: struct_name,
@@ -430,34 +430,34 @@ fn parse_struct_definition(lexer: &mut Lexer) -> Result<StructDefinition, ParseE
     })
 }
 
-pub fn parse_import(lexer: &mut Lexer) -> Result<Import, ParseError> {
-    let span = lexer.expect("use")?.span;
-    let mut path = vec![parse_import_name(lexer)?.name];
-    lexer.expect("::")?;
+pub fn parse_import(tokens: &mut Parser) -> Result<Import, ParseError> {
+    let span = tokens.expect("use")?.span;
+    let mut path = vec![parse_import_name(tokens)?.name];
+    tokens.expect("::")?;
 
     let names = loop {
-        if lexer.peek_or_eof("{")?.token_type == Token::Op(OperatorType::OpenCurly) {
-            break parse_import_list(lexer)?;
+        if tokens.peek_or_eof("{")?.token_type == Token::Op(OperatorType::OpenCurly) {
+            break parse_import_list(tokens)?;
         }
 
-        let name = parse_import_name(lexer)?;
-        if lexer
+        let name = parse_import_name(tokens)?;
+        if tokens
             .peek()
             .is_some_and(|tok| tok.token_type == Token::Op(OperatorType::PathSep))
         {
-            lexer.next();
+            tokens.next();
             path.push(name.name);
         } else {
             break vec![name];
         }
     };
 
-    lexer.expect(";")?;
+    tokens.expect(";")?;
     Ok(Import { path, names, span })
 }
 
-fn parse_import_name(lexer: &mut Lexer) -> Result<ImportName, ParseError> {
-    let tok = lexer.next_or_eof("identifier")?;
+fn parse_import_name(tokens: &mut Parser) -> Result<ImportName, ParseError> {
+    let tok = tokens.next_or_eof("identifier")?;
     let span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
         return Err(expected("identifier", tok));
@@ -465,56 +465,56 @@ fn parse_import_name(lexer: &mut Lexer) -> Result<ImportName, ParseError> {
     Ok(ImportName { name, span })
 }
 
-fn parse_import_list(lexer: &mut Lexer) -> Result<Vec<ImportName>, ParseError> {
-    lexer.expect("{")?;
+fn parse_import_list(tokens: &mut Parser) -> Result<Vec<ImportName>, ParseError> {
+    tokens.expect("{")?;
     let mut names = vec![];
     loop {
-        if lexer.peek_or_eof("}")?.token_type == Token::Op(OperatorType::CloseCurly) {
+        if tokens.peek_or_eof("}")?.token_type == Token::Op(OperatorType::CloseCurly) {
             break;
         }
 
-        names.push(parse_import_name(lexer)?);
+        names.push(parse_import_name(tokens)?);
 
-        let tok = lexer.peek_or_eof(", or }")?;
+        let tok = tokens.peek_or_eof(", or }")?;
         if tok.token_type == Token::Atom(LexerAtomType::Comma) {
-            lexer.next();
+            tokens.next();
         } else {
             break;
         }
     }
-    lexer.expect("}")?;
+    tokens.expect("}")?;
     Ok(names)
 }
 
-fn parse_enum_definition(lexer: &mut Lexer) -> Result<EnumDefinition, ParseError> {
-    lexer.expect("enum")?;
-    let tok = lexer.next_or_eof("identifier")?;
+fn parse_enum_definition(tokens: &mut Parser) -> Result<EnumDefinition, ParseError> {
+    tokens.expect("enum")?;
+    let tok = tokens.next_or_eof("identifier")?;
     let span = tok.span;
     let Token::Atom(LexerAtomType::Identifier(enum_name)) = tok.token_type else {
         return Err(expected("identifier", tok));
     };
 
-    lexer.expect("{")?;
+    tokens.expect("{")?;
     let mut variants = vec![];
     loop {
-        let tok = lexer.peek_or_eof("variant name or }")?;
+        let tok = tokens.peek_or_eof("variant name or }")?;
         if !matches!(tok.token_type, Token::Atom(LexerAtomType::Identifier(_))) {
             break;
         }
-        let Token::Atom(LexerAtomType::Identifier(name)) = lexer.next().unwrap().token_type else {
+        let Token::Atom(LexerAtomType::Identifier(name)) = tokens.next().unwrap().token_type else {
             unreachable!();
         };
 
         variants.push(name);
 
-        let tok = lexer.peek_or_eof(", or }")?;
+        let tok = tokens.peek_or_eof(", or }")?;
         if tok.token_type == Token::Atom(LexerAtomType::Comma) {
-            lexer.next();
+            tokens.next();
         } else {
             break;
         }
     }
-    lexer.expect("}")?;
+    tokens.expect("}")?;
 
     Ok(EnumDefinition {
         name: enum_name,

@@ -335,7 +335,7 @@ pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut Type
 mod test {
     use crate::{
         ast::{Program, Statement, StatementOrExpression},
-        lex::Lexer,
+        lex::lex,
         parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, check_types},
         types::IntType,
@@ -344,12 +344,12 @@ mod test {
     const POINT: &str = "struct P { x: u32, y: bool }";
 
     fn check(source: &str) -> Result<(), TypeCheckError> {
-        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
+        let mut program = parse(lex(source, 0).unwrap()).unwrap();
         check_types(&mut program)
     }
 
     fn checked(source: &str) -> Program {
-        let mut program = parse(Lexer::new(source).unwrap()).unwrap();
+        let mut program = parse(lex(source, 0).unwrap()).unwrap();
         check_types(&mut program).unwrap();
         program
     }

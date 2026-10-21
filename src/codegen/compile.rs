@@ -1197,10 +1197,10 @@ fn fits_imm32(n: NumberType) -> bool {
 #[cfg(test)]
 mod test {
     use super::NON_VOLATILE_REGISTERS;
-    use crate::{lex::Lexer, parse::parse, type_check::check_types};
+    use crate::{lex::lex, parse::parse, type_check::check_types};
 
     fn compile(input: &str) -> String {
-        let mut ast = parse(Lexer::new(input).unwrap()).unwrap();
+        let mut ast = parse(lex(input, 0).unwrap()).unwrap();
         check_types(&mut ast).unwrap();
         ast.compile().unwrap()
     }

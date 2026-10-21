@@ -1,21 +1,22 @@
 use crate::{
     ast::{AtomType, ExpressionKind, Statement, StatementOrExpression},
-    lex::{Lexer, MAX_DEPTH},
+    lex::lex,
+    parse::{MAX_DEPTH, Parser},
     parse::{ParseErrorKind, parse, parse_expression::parse_expression},
     type_check::Type,
 };
 
 macro_rules! test_parse_expression {
     ($input:expr, $expected:expr) => {
-        let mut lexer = Lexer::new($input).unwrap();
-        let s = parse_expression(&mut lexer, 0).unwrap();
+        let mut tokens = Parser::new(lex($input, 0).unwrap());
+        let s = parse_expression(&mut tokens, 0).unwrap();
         assert_eq!(s.to_string(), $expected);
     };
 }
 
 macro_rules! integration_test {
     ($input:expr, $expected:expr) => {
-        let program = parse(Lexer::new($input).unwrap()).unwrap();
+        let program = parse(lex($input, 0).unwrap()).unwrap();
         assert_eq!(program.to_string(), $expected);
     };
 }
@@ -113,15 +114,15 @@ fn parse_compound_assign_in_if_else() {
 
 #[test]
 fn reject_compound_assign_in_declaration() {
-    let err = parse(Lexer::new("let a += 1;").unwrap()).unwrap_err();
+    let err = parse(lex("let a += 1;", 0).unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
-    let err = parse(Lexer::new("let a -= 1;").unwrap()).unwrap_err();
+    let err = parse(lex("let a -= 1;", 0).unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
 }
 
 #[test]
 fn expect_compound_assign_semicolon() {
-    let program = parse(Lexer::new("a += 1 b -= 2;").unwrap()).unwrap_err();
+    let program = parse(lex("a += 1 b -= 2;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
     );
@@ -135,7 +136,7 @@ fn parse_declaration() {
 
 #[test]
 fn expect_statement_semicolon() {
-    let program = parse(Lexer::new("let a = 1 let b = 2;").unwrap()).unwrap_err();
+    let program = parse(lex("let a = 1 let b = 2;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
     );
@@ -244,7 +245,7 @@ fn parse_increment_in_while_loop() {
 
 #[test]
 fn expect_increment_statement_semicolon() {
-    let program = parse(Lexer::new("a++ b--;").unwrap()).unwrap_err();
+    let program = parse(lex("a++ b--;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
     );
@@ -253,9 +254,10 @@ fn expect_increment_statement_semicolon() {
 #[test]
 fn reject_stray_comma() {
     let err = parse(
-        Lexer::new(
+        lex(
             "if (true) {,
 }",
+            0,
         )
         .unwrap(),
     )
@@ -267,7 +269,7 @@ fn reject_stray_comma() {
 
 #[test]
 fn reject_colon_as_expression() {
-    let err = parse(Lexer::new("let a = :;").unwrap()).unwrap_err();
+    let err = parse(lex("let a = :;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
     );
@@ -275,7 +277,7 @@ fn reject_colon_as_expression() {
 
 #[test]
 fn reject_stray_semicolon() {
-    let err = parse(Lexer::new("let a = 1;;").unwrap()).unwrap_err();
+    let err = parse(lex("let a = 1;;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
     );
@@ -283,9 +285,9 @@ fn reject_stray_semicolon() {
 
 #[test]
 fn reject_increment_on_non_identifier() {
-    assert!(parse(Lexer::new("5++;").unwrap()).is_err());
-    assert!(parse(Lexer::new("(a + b)--;").unwrap()).is_err());
-    assert!(parse(Lexer::new("foo()++;").unwrap()).is_err());
+    assert!(parse(lex("5++;", 0).unwrap()).is_err());
+    assert!(parse(lex("(a + b)--;", 0).unwrap()).is_err());
+    assert!(parse(lex("foo()++;", 0).unwrap()).is_err());
 }
 
 #[test]
@@ -497,30 +499,33 @@ fn parse_index_in_while_loop() {
 
 #[test]
 fn reject_unclosed_index() {
-    assert!(parse(Lexer::new("a[0;").unwrap()).is_err());
-    assert!(parse(Lexer::new("let x = a[0;").unwrap()).is_err());
-    assert!(parse(Lexer::new("a[b[0];").unwrap()).is_err());
+    assert!(parse(lex("a[0;", 0).unwrap()).is_err());
+    assert!(parse(lex("let x = a[0;", 0).unwrap()).is_err());
+    assert!(parse(lex("a[b[0];", 0).unwrap()).is_err());
 }
 
 #[test]
 fn reject_empty_index() {
-    assert!(parse(Lexer::new("a[];").unwrap()).is_err());
+    assert!(parse(lex("a[];", 0).unwrap()).is_err());
 }
 
 #[test]
 fn reject_unmatched_close_bracket() {
-    assert!(parse(Lexer::new("a];").unwrap()).is_err());
-    assert!(parse(Lexer::new("a[0]];").unwrap()).is_err());
+    assert!(parse(lex("a];", 0).unwrap()).is_err());
+    assert!(parse(lex("a[0]];", 0).unwrap()).is_err());
 }
 
 #[test]
 fn expression_spans() {
-    let mut lexer = Lexer::new(
-        "1 +
+    let mut tokens = Parser::new(
+        lex(
+            "1 +
   foo(-a, (b)[0])",
-    )
-    .unwrap();
-    let expr = parse_expression(&mut lexer, 0).unwrap();
+            0,
+        )
+        .unwrap(),
+    );
+    let expr = parse_expression(&mut tokens, 0).unwrap();
     assert_eq!((expr.span.line, expr.span.col), (0, 0));
 
     let ExpressionKind::Binary(_, _, rhs) = &expr.kind else {
@@ -538,8 +543,8 @@ fn expression_spans() {
 #[test]
 fn parse_boolean_literals() {
     for input in ["true", "false"] {
-        let mut lexer = Lexer::new(input).unwrap();
-        let expression = parse_expression(&mut lexer, 0).unwrap();
+        let mut tokens = Parser::new(lex(input, 0).unwrap());
+        let expression = parse_expression(&mut tokens, 0).unwrap();
         assert!(
             matches!(
                 expression.kind,
@@ -552,7 +557,7 @@ fn parse_boolean_literals() {
 
 #[test]
 fn parse_boolean_followed_by_token() {
-    let program = parse(Lexer::new("true; false;").unwrap()).unwrap();
+    let program = parse(lex("true; false;", 0).unwrap()).unwrap();
     let values: Vec<_> = program
         .block
         .children
@@ -609,8 +614,8 @@ fn parse_char_literals() {
         (r"'\\'", '\\'),
         (r"'\''", '\''),
     ] {
-        let mut lexer = Lexer::new(input).unwrap();
-        let expression = parse_expression(&mut lexer, 0).unwrap();
+        let mut tokens = Parser::new(lex(input, 0).unwrap());
+        let expression = parse_expression(&mut tokens, 0).unwrap();
         assert!(
             matches!(
                 expression.kind,
@@ -633,7 +638,7 @@ fn parse_char_expressions() {
 fn parse_char_declaration() {
     integration_test!("let c: char = 'a';", "let c = 'a'");
 
-    let program = parse(Lexer::new("let c: char = 'a';").unwrap()).unwrap();
+    let program = parse(lex("let c: char = 'a';", 0).unwrap()).unwrap();
     let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
         panic!("expected a statement, got {program}");
     };
@@ -690,7 +695,7 @@ a = 1
 
 #[test]
 fn expect_char_statement_semicolon() {
-    let err = parse(Lexer::new("'a' 'b';").unwrap()).unwrap_err();
+    let err = parse(lex("'a' 'b';", 0).unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";"));
 }
 
@@ -744,13 +749,13 @@ fn parse_struct_in_parenthesized_condition() {
 
 #[test]
 fn expect_colon_in_struct_instantiation() {
-    let err = parse(Lexer::new("let p = P { x 1 };").unwrap()).unwrap_err();
+    let err = parse(lex("let p = P { x 1 };", 0).unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ":"));
 }
 
 #[test]
 fn expect_field_name_in_struct_access() {
-    let err = parse(Lexer::new("p.1;").unwrap()).unwrap_err();
+    let err = parse(lex("p.1;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "field name")
     );
@@ -758,7 +763,7 @@ fn expect_field_name_in_struct_access() {
 
 #[test]
 fn parse_generic_struct_definition() {
-    let program = parse(Lexer::new("struct N<T> { value: T, next: *N }").unwrap()).unwrap();
+    let program = parse(lex("struct N<T> { value: T, next: *N }", 0).unwrap()).unwrap();
     let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
         panic!("expected a statement, got {program}");
     };
@@ -777,7 +782,7 @@ fn parse_generic_struct_definition() {
 
 #[test]
 fn non_generic_struct_has_no_generics() {
-    let program = parse(Lexer::new("struct P { x: u32 }").unwrap()).unwrap();
+    let program = parse(lex("struct P { x: u32 }", 0).unwrap()).unwrap();
     let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
         panic!("expected a statement, got {program}");
     };
@@ -790,7 +795,7 @@ fn non_generic_struct_has_no_generics() {
 #[test]
 fn expect_generic_name_in_struct_definition() {
     for code in ["struct N<*T> { }", "struct N<1> { }", "struct N<> { }"] {
-        let err = parse(Lexer::new(code).unwrap()).unwrap_err();
+        let err = parse(lex(code, 0).unwrap()).unwrap_err();
         assert!(
             matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "generic name"),
             "expected generic name error for {code}, got {err:?}"
@@ -800,12 +805,12 @@ fn expect_generic_name_in_struct_definition() {
 
 #[test]
 fn expect_close_angle_in_generic_struct_definition() {
-    let err = parse(Lexer::new("struct N<T { }").unwrap()).unwrap_err();
+    let err = parse(lex("struct N<T { }", 0).unwrap()).unwrap_err();
     assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ">"));
 }
 
 fn declared_type(code: &str) -> Type {
-    let program = parse(Lexer::new(code).unwrap()).unwrap();
+    let program = parse(lex(code, 0).unwrap()).unwrap();
     let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
         panic!("expected a statement, got {program}");
     };
@@ -855,7 +860,7 @@ fn parse_type_arguments_in_cast() {
 
 #[test]
 fn parse_generic_field_with_type_arguments() {
-    let program = parse(Lexer::new("struct N<T> { value: T, next: *N<T> }").unwrap()).unwrap();
+    let program = parse(lex("struct N<T> { value: T, next: *N<T> }", 0).unwrap()).unwrap();
     let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
         panic!("expected a statement, got {program}");
     };
@@ -867,7 +872,7 @@ fn parse_generic_field_with_type_arguments() {
 
 #[test]
 fn expect_close_angle_in_type_arguments() {
-    let err = parse(Lexer::new("let n: *Node<i64 = x;").unwrap()).unwrap_err();
+    let err = parse(lex("let n: *Node<i64 = x;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ", or >")
     );
@@ -875,7 +880,7 @@ fn expect_close_angle_in_type_arguments() {
 
 #[test]
 fn expect_type_in_type_arguments() {
-    let err = parse(Lexer::new("let n: *Node<> = x;").unwrap()).unwrap_err();
+    let err = parse(lex("let n: *Node<> = x;", 0).unwrap()).unwrap_err();
     assert!(
         matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "type"),
         "{err:?}"
@@ -911,9 +916,9 @@ x()"
 
 #[test]
 fn parse_import_errors() {
-    assert!(parse(Lexer::new("use math;").unwrap()).is_err());
-    assert!(parse(Lexer::new("use math::{square}").unwrap()).is_err());
-    assert!(parse(Lexer::new("use math::{1};").unwrap()).is_err());
+    assert!(parse(lex("use math;", 0).unwrap()).is_err());
+    assert!(parse(lex("use math::{square}", 0).unwrap()).is_err());
+    assert!(parse(lex("use math::{1};", 0).unwrap()).is_err());
 }
 
 #[test]
@@ -972,8 +977,8 @@ fn parse_chained_field_access() {
 
 #[test]
 fn reject_field_access_on_non_place() {
-    assert!(parse(Lexer::new("f().a;").unwrap()).is_err());
-    assert!(parse(Lexer::new("(a + b).a;").unwrap()).is_err());
+    assert!(parse(lex("f().a;", 0).unwrap()).is_err());
+    assert!(parse(lex("(a + b).a;", 0).unwrap()).is_err());
 }
 
 #[test]
@@ -1012,14 +1017,14 @@ fn parse_pointer_declarations() {
 
 #[test]
 fn reject_address_of_non_place() {
-    assert!(parse(Lexer::new("&1;").unwrap()).is_err());
-    assert!(parse(Lexer::new("&(a + b);").unwrap()).is_err());
-    assert!(parse(Lexer::new("&f();").unwrap()).is_err());
+    assert!(parse(lex("&1;", 0).unwrap()).is_err());
+    assert!(parse(lex("&(a + b);", 0).unwrap()).is_err());
+    assert!(parse(lex("&f();", 0).unwrap()).is_err());
 }
 
 fn is_too_deep(input: &str) -> bool {
     matches!(
-        parse(Lexer::new(input).unwrap()),
+        parse(lex(input, 0).unwrap()),
         Err(err) if matches!(err.kind, ParseErrorKind::TooDeep)
     )
 }
@@ -1093,8 +1098,8 @@ fn parse_enum_variant() {
 
 #[test]
 fn parse_null_literal() {
-    let mut lexer = Lexer::new("null").unwrap();
-    let expression = parse_expression(&mut lexer, 0).unwrap();
+    let mut tokens = Parser::new(lex("null", 0).unwrap());
+    let expression = parse_expression(&mut tokens, 0).unwrap();
     assert!(
         matches!(expression.kind, ExpressionKind::Atom(AtomType::Null)),
         "{expression:?}"

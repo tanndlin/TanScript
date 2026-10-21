@@ -15,7 +15,7 @@ use std::{
 use crate::{
     ast::{Import, Program, Statement, StatementOrExpression},
     error::{At, CompilerError},
-    lex::Lexer,
+    lex::lex,
     parse::parse,
     source_map::SourceMap,
     types::Span,
@@ -144,7 +144,7 @@ impl Resolver {
 
         let text = fs::read_to_string(&path).map_err(could_not_read)?;
         let file = sources.add(path.clone(), text);
-        let mut program = parse(Lexer::for_file(&sources.get(file).text, file)?)?;
+        let mut program = parse(lex(&sources.get(file).text, file)?)?;
 
         let module = Rc::new(self.resolve(&mut program, &path, sources)?);
         self.modules.insert(canonical, module.clone());

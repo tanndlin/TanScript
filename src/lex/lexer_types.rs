@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::VecDeque, fmt};
 
 use crate::types::{NumberType, Span, Token};
 
@@ -37,6 +37,12 @@ impl LexerToken {
     pub fn new(token_type: Token, span: Span) -> LexerToken {
         LexerToken { token_type, span }
     }
+}
+
+#[derive(Debug)]
+pub struct Tokens {
+    pub tokens: VecDeque<LexerToken>,
+    pub eof: Span,
 }
 
 impl fmt::Display for LexerToken {

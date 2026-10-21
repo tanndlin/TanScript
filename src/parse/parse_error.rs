@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     error::{At, Spanned},
-    lex::MAX_DEPTH,
+    parse::MAX_DEPTH,
     types::Token,
 };
 

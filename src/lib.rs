@@ -14,7 +14,7 @@ mod type_check;
 mod types;
 
 use crate::{
-    error::CompilerError, lex::Lexer, parse::parse, preprocess::resolve_imports,
+    error::CompilerError, lex::lex, parse::parse, preprocess::resolve_imports,
     source_map::SourceMap, type_check::check_types,
 };
 
@@ -30,13 +30,13 @@ pub fn compile(
     sources: &mut SourceMap,
     emit: Option<&Emit>,
 ) -> Result<String, CompilerError> {
-    let lexer = Lexer::for_file(&sources.get(file).text, file)?;
+    let tokens = lex(&sources.get(file).text, file)?;
     if let Some(Emit::Tokens) = emit {
-        let tokens: Vec<String> = lexer.tokens.iter().rev().map(ToString::to_string).collect();
+        let tokens: Vec<String> = tokens.tokens.iter().map(ToString::to_string).collect();
         return Ok(tokens.join("\n") + "\n");
     }
 
-    let mut ast = parse(lexer)?;
+    let mut ast = parse(tokens)?;
     resolve_imports(&mut ast, file, sources)?;
     if let Some(Emit::AST) = emit {
         return Ok(format!("{ast}\n"));

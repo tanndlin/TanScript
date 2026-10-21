@@ -17,14 +17,14 @@ pub fn unify(a: &Type, b: &Type) -> Option<Type> {
 mod test {
     use crate::{
         ast::StatementOrExpression,
-        lex::Lexer,
+        lex::lex,
         parse::parse,
         type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression},
         types::IntType,
     };
 
     fn infer_last(code: &str) -> Result<Type, TypeCheckError> {
-        let mut program = parse(Lexer::new(code).unwrap()).unwrap();
+        let mut program = parse(lex(code, 0).unwrap()).unwrap();
         let mut type_scope = TypeScope::default();
         let (last, rest) = program.block.children.split_last_mut().unwrap();
         for child in rest {

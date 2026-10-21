@@ -7,7 +7,7 @@ use std::{
 use crate::{
     ast::{Program, Statement, StatementOrExpression},
     error::{CompilerError, CompilerErrorKind},
-    lex::Lexer,
+    lex::lex,
     parse::parse,
     preprocess::{PreprocessErrorKind, resolve_imports},
     source_map::SourceMap,
@@ -36,7 +36,7 @@ fn resolve(test: &str, files: &[(&str, &str)]) -> (Result<Program, CompilerError
     let path = dir.join(files[0].0);
     let mut sources = SourceMap::default();
     let file = sources.add(path.clone(), fs::read_to_string(&path).unwrap());
-    let mut program = parse(Lexer::for_file(&sources.get(file).text, file).unwrap()).unwrap();
+    let mut program = parse(lex(&sources.get(file).text, file).unwrap()).unwrap();
     let result = resolve_imports(&mut program, file, &mut sources).map(|()| program);
     let _ = fs::remove_dir_all(&dir);
     (result, sources)
