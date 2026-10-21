@@ -1,3 +1,5 @@
+use std::str::Chars;
+
 use crate::{
     ast::{OPERATORS, OperatorType},
     error::At,
@@ -22,102 +24,50 @@ impl Lexer {
     }
 
     pub fn for_file(input: &str, file: u32) -> Result<Lexer, LexError> {
-        let mut line_number = 0u32;
-        let mut chars = input.chars().rev().collect::<Vec<char>>();
-        let mut line_start = chars.len();
+        let mut chars = Cursor::new(input);
 
         let mut tokens = vec![];
-        while let Some(&cur) = chars.last() {
-            if cur == '\n' {
-                line_number += 1;
-                chars.pop();
-                line_start = chars.len();
-                continue;
-            }
-
+        while let Some(cur) = chars.peek() {
             if cur.is_whitespace() {
-                chars.pop();
+                chars.next();
                 continue;
             }
 
-            let col = u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX);
-            let span = Span::new(file, line_number, col);
+            let span = Span::new(file, chars.line, chars.col);
 
-            if cur.is_ascii_digit() {
-                tokens.push(LexerToken::new(
-                    Token::Atom(LexerAtomType::Number(get_number(&mut chars, span)?)),
-                    span,
-                ));
-                continue;
-            }
-
-            if cur.is_alphabetic() || cur == '_' {
+            let token = if cur.is_ascii_digit() {
+                Token::Atom(LexerAtomType::Number(get_number(&mut chars, span)?))
+            } else if cur.is_alphabetic() || cur == '_' {
                 let identifier = get_identifier(&mut chars);
-                let token = if identifier == OperatorType::Cast.symbol() {
+                if identifier == OperatorType::Cast.symbol() {
                     Token::Op(OperatorType::Cast)
                 } else {
                     Token::Atom(LexerAtomType::Identifier(identifier))
-                };
-                tokens.push(LexerToken::new(token, span));
-                continue;
-            }
+                }
+            } else if let Some(op) = get_operator(&mut chars) {
+                Token::Op(op)
+            } else {
+                chars.next();
+                Token::Atom(match cur {
+                    '"' => LexerAtomType::String(get_string(&mut chars, span)?),
+                    '\'' => LexerAtomType::Char(get_char(&mut chars, span)?),
+                    ';' => LexerAtomType::Semicolon,
+                    ':' => LexerAtomType::Colon,
+                    ',' => LexerAtomType::Comma,
+                    _ => return Err(LexErrorKind::UnknownCharacter(cur).at(span)),
+                })
+            };
 
-            if let Some(op) = get_operator(&mut chars) {
-                tokens.push(LexerToken::new(Token::Op(op), span));
-                continue;
-            }
-
-            match cur {
-                '"' => {
-                    tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::String(get_string(
-                            &mut chars,
-                            span,
-                            &mut line_number,
-                            &mut line_start,
-                        )?)),
-                        span,
-                    ));
-                }
-                '\'' => {
-                    tokens.push(LexerToken::new(
-                        Token::Atom(LexerAtomType::Char(get_char(&mut chars, span)?)),
-                        span,
-                    ));
-                }
-                ';' => {
-                    chars.pop();
-                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Semicolon), span));
-                }
-                ':' => {
-                    chars.pop();
-                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Colon), span));
-                }
-                ',' => {
-                    chars.pop();
-                    tokens.push(LexerToken::new(Token::Atom(LexerAtomType::Comma), span));
-                }
-                _ => {
-                    return Err(LexErrorKind::UnknownCharacter(cur).at(span));
-                }
-            }
+            tokens.push(LexerToken::new(token, span));
         }
 
         tokens.reverse();
-        let eof = Span::new(
-            file,
-            line_number,
-            u32::try_from(line_start - chars.len()).unwrap_or(u32::MAX),
-        );
+        let eof = Span::new(file, chars.line, chars.col);
         Ok(Lexer {
             tokens,
             eof,
             depth: 0,
         })
-    }
-
-    pub fn next(&mut self) -> Option<LexerToken> {
-        self.tokens.pop()
     }
 
     pub fn descend(&mut self, span: Span) -> Result<(), ParseError> {
@@ -152,21 +102,18 @@ impl Lexer {
     }
 
     pub fn next_or_eof(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
-        self.next().ok_or_else(|| {
-            ParseErrorKind::UnexpectedEof {
-                expected: expected.to_string(),
-            }
-            .at(self.eof)
-        })
+        self.next().ok_or_else(|| self.eof_error(expected))
     }
 
     pub fn peek_or_eof(&self, expected: &str) -> Result<&LexerToken, ParseError> {
-        self.peek().ok_or_else(|| {
-            ParseErrorKind::UnexpectedEof {
-                expected: expected.to_string(),
-            }
-            .at(self.eof)
-        })
+        self.peek().ok_or_else(|| self.eof_error(expected))
+    }
+
+    pub fn eof_error(&self, expected: &str) -> ParseError {
+        ParseErrorKind::UnexpectedEof {
+            expected: expected.to_string(),
+        }
+        .at(self.eof)
     }
 
     pub fn expect(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
@@ -197,89 +144,102 @@ impl Lexer {
     }
 }
 
-fn get_number(input: &mut Vec<char>, span: Span) -> Result<NumberType, LexError> {
-    let mut chars = vec![];
+struct Cursor<'a> {
+    chars: Chars<'a>,
+    line: u32,
+    col: u32,
+}
 
-    while let Some(c) = input.last() {
-        if !c.is_ascii_digit() {
-            break;
+impl<'a> Cursor<'a> {
+    fn new(input: &'a str) -> Self {
+        Cursor {
+            chars: input.chars(),
+            line: 0,
+            col: 0,
         }
-
-        chars.push(input.pop().unwrap());
     }
 
-    let digits = chars.into_iter().collect::<String>();
+    fn peek(&self) -> Option<char> {
+        self.rest().chars().next()
+    }
+
+    fn rest(&self) -> &'a str {
+        self.chars.as_str()
+    }
+
+    fn next_if(&mut self, f: impl Fn(char) -> bool) -> Option<char> {
+        self.peek().filter(|&c| f(c))?;
+        self.next()
+    }
+
+    fn eat_while(&mut self, f: impl Fn(char) -> bool) -> String {
+        std::iter::from_fn(|| self.next_if(&f)).collect()
+    }
+}
+
+impl Iterator for Cursor<'_> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<char> {
+        let c = self.chars.next()?;
+        if c == '\n' {
+            self.line += 1;
+            self.col = 0;
+        } else {
+            self.col += 1;
+        }
+        Some(c)
+    }
+}
+
+fn get_number(input: &mut Cursor, span: Span) -> Result<NumberType, LexError> {
+    let digits = input.eat_while(|c| c.is_ascii_digit());
     let n = digits
         .parse::<i64>()
-        .map_err(|_| LexErrorKind::NumberTooLarge(digits.clone()).at(span))?;
+        .map_err(|_| LexErrorKind::NumberTooLarge(digits).at(span))?;
 
     // TODO: Parse as coercible for now, but may want to delegate out actual number type later
     // if we want to support 0u32 type syntax
     Ok(NumberType::Coercible(n))
 }
 
-fn get_identifier(input: &mut Vec<char>) -> String {
-    let mut string_vec = vec![];
-
-    while let Some(c) = &input.last() {
-        if !c.is_alphanumeric() && **c != '_' {
-            break;
-        }
-
-        string_vec.push(input.pop().unwrap());
-    }
-
-    string_vec.into_iter().collect::<String>()
+fn get_identifier(input: &mut Cursor) -> String {
+    input.eat_while(|c| c.is_alphanumeric() || c == '_')
 }
 
-fn get_string(
-    input: &mut Vec<char>,
-    span: Span,
-    line_number: &mut u32,
-    line_start: &mut usize,
-) -> Result<String, LexError> {
-    // Remove the leading quote
-    input.pop().unwrap();
-
-    let mut chars = vec![];
+fn get_string(input: &mut Cursor, span: Span) -> Result<String, LexError> {
+    let mut string = String::new();
     loop {
-        match input.pop() {
+        match input.next() {
             None => return Err(LexErrorKind::MissingClosingQuote.at(span)),
             Some('"') => break,
-            Some('\\') => match input.pop() {
-                Some(c) => chars
-                    .push(get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))?),
-                None => return Err(LexErrorKind::MissingClosingQuote.at(span)),
-            },
-            Some('\n') => {
-                *line_number += 1;
-                *line_start = input.len();
-                chars.push('\n');
+            Some('\\') => {
+                string.push(get_escaped(input, span, LexErrorKind::MissingClosingQuote)?);
             }
-            Some(c) => chars.push(c),
+            Some(c) => string.push(c),
         }
     }
 
-    Ok(chars.into_iter().collect())
+    Ok(string)
 }
 
-fn get_char(input: &mut Vec<char>, span: Span) -> Result<char, LexError> {
-    input.pop().unwrap();
-
-    let c = match input.pop() {
+fn get_char(input: &mut Cursor, span: Span) -> Result<char, LexError> {
+    let c = match input.next() {
         None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
         Some('\'') => return Err(LexErrorKind::EmptyChar.at(span)),
-        Some('\\') => match input.pop() {
-            Some(c) => get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))?,
-            None => return Err(LexErrorKind::MissingClosingCharQuote.at(span)),
-        },
+        Some('\\') => get_escaped(input, span, LexErrorKind::MissingClosingCharQuote)?,
         Some(c) => c,
     };
 
-    match input.pop() {
+    match input.next() {
         Some('\'') => Ok(c),
         _ => Err(LexErrorKind::MissingClosingCharQuote.at(span)),
     }
+}
+
+fn get_escaped(input: &mut Cursor, span: Span, missing: LexErrorKind) -> Result<char, LexError> {
+    let c = input.next().ok_or_else(|| missing.at(span))?;
+    get_escape(c).ok_or_else(|| LexErrorKind::UnknownEscape(c).at(span))
 }
 
 fn get_escape(c: char) -> Option<char> {
@@ -293,17 +253,14 @@ fn get_escape(c: char) -> Option<char> {
     }
 }
 
-/// Pops the longest operator at the front of `chars`, if there is one
-fn get_operator(chars: &mut Vec<char>) -> Option<OperatorType> {
-    // `chars` is reversed, so the upcoming characters are at the end
-    let upcoming = chars.iter().rev();
+/// Consumes the longest operator at the front of `chars`, if there is one
+fn get_operator(chars: &mut Cursor) -> Option<OperatorType> {
     let (symbol, op) = OPERATORS
         .iter()
-        .filter(|(symbol, _)| symbol.chars().zip(upcoming.clone()).all(|(s, c)| s == *c))
-        .filter(|(symbol, _)| symbol.len() <= chars.len())
+        .filter(|(symbol, _)| chars.rest().starts_with(symbol))
         .max_by_key(|(symbol, _)| symbol.len())?;
 
-    chars.truncate(chars.len() - symbol.len());
+    chars.by_ref().take(symbol.chars().count()).for_each(drop);
     Some(op.clone())
 }
 
@@ -311,7 +268,7 @@ impl Iterator for Lexer {
     type Item = LexerToken;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next()
+        self.tokens.pop()
     }
 }
 
@@ -409,8 +366,8 @@ mod test {
 
     #[test]
     fn lex_string_escaped_quote_columns() {
-        let mut lexer = Lexer::new(r#""a\"b" + x"#).unwrap();
-        let cols: Vec<u32> = std::iter::from_fn(|| lexer.next())
+        let cols: Vec<u32> = Lexer::new(r#""a\"b" + x"#)
+            .unwrap()
             .map(|token| token.span.col)
             .collect();
         assert_eq!(cols, vec![0, 7, 9]);
@@ -687,8 +644,8 @@ mod test {
 
     #[test]
     fn lex_line_numbers() {
-        let mut lexer = Lexer::new("a;\n\nb;\r\nc").unwrap();
-        let lines: Vec<u32> = std::iter::from_fn(|| lexer.next())
+        let lines: Vec<u32> = Lexer::new("a;\n\nb;\r\nc")
+            .unwrap()
             .map(|token| token.span.line)
             .collect();
         assert_eq!(lines, vec![0, 0, 2, 2, 3]);
@@ -696,8 +653,8 @@ mod test {
 
     #[test]
     fn lex_line_numbers_after_multiline_string() {
-        let mut lexer = Lexer::new("\"a\nb\n\" x;").unwrap();
-        let spans: Vec<(u32, u32)> = std::iter::from_fn(|| lexer.next())
+        let spans: Vec<(u32, u32)> = Lexer::new("\"a\nb\n\" x;")
+            .unwrap()
             .map(|token| (token.span.line, token.span.col))
             .collect();
         assert_eq!(spans, vec![(0, 0), (2, 2), (2, 3)]);
@@ -705,8 +662,8 @@ mod test {
 
     #[test]
     fn lex_columns() {
-        let mut lexer = Lexer::new("let x = 10;\n  foo(\"hi\");").unwrap();
-        let spans: Vec<(u32, u32)> = std::iter::from_fn(|| lexer.next())
+        let spans: Vec<(u32, u32)> = Lexer::new("let x = 10;\n  foo(\"hi\");")
+            .unwrap()
             .map(|token| (token.span.line, token.span.col))
             .collect();
         assert_eq!(
@@ -780,8 +737,8 @@ mod test {
 
     #[test]
     fn lex_char_columns() {
-        let mut lexer = Lexer::new(r"'a' + '\n'").unwrap();
-        let cols: Vec<u32> = std::iter::from_fn(|| lexer.next())
+        let cols: Vec<u32> = Lexer::new(r"'a' + '\n'")
+            .unwrap()
             .map(|token| token.span.col)
             .collect();
         assert_eq!(cols, vec![0, 4, 6]);
@@ -822,8 +779,8 @@ mod test {
     }
 
     fn lex_symbols(input: &str) -> Vec<String> {
-        let mut lexer = Lexer::new(input).unwrap();
-        std::iter::from_fn(|| lexer.next())
+        Lexer::new(input)
+            .unwrap()
             .map(|token| token.token_type.to_string())
             .collect()
     }

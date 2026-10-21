@@ -7,10 +7,9 @@ use crate::{
         Import, ImportName, OperatorType, ReturnStatement, Statement, StatementOrExpression,
         StructDefinition, StructField, WhileLoop,
     },
-    error::At,
     lex::{Lexer, LexerAtomType},
     parse::{
-        ParseError, ParseErrorKind, expected,
+        ParseError, expected,
         parse_expression::{parse_condition, parse_expression, parse_expression_or_assignment},
     },
     type_check::Type,
@@ -155,12 +154,8 @@ fn parse_block_at_depth(lexer: &mut Lexer) -> Result<Block, ParseError> {
     loop {
         match lexer.peek_or_eof("}")?.token_type {
             Token::Op(OperatorType::CloseCurly) => break,
-            _ => children.push(parse_statement_or_expression(lexer)?.ok_or_else(|| {
-                ParseErrorKind::UnexpectedEof {
-                    expected: "}".to_string(),
-                }
-                .at(lexer.eof)
-            })?),
+            _ => children
+                .push(parse_statement_or_expression(lexer)?.ok_or_else(|| lexer.eof_error("}"))?),
         }
     }
 
