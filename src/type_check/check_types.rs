@@ -58,7 +58,7 @@ pub fn check_types_expression(
             variant_name,
         } => check_enum_variant(span, enum_name, variant_name, type_scope),
     }?;
-    expression.etype = Box::new(t.clone());
+    *expression.etype = t.clone();
     Ok(t)
 }
 
