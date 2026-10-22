@@ -780,6 +780,25 @@ mod test {
     }
 
     #[test]
+    fn functions_can_be_called_before_definition() -> Result<(), TypeCheckError> {
+        check(
+            "def g(p: P): i64 { f(p) } def f(p: P): i64 { p.a } struct P { a: i64, } g(P { a: 1 });",
+        )
+    }
+
+    #[test]
+    fn mutually_recursive_functions() -> Result<(), TypeCheckError> {
+        check(
+            "def even(n: i64): bool { if n == 0 { return true; } return odd(n - 1); }              def odd(n: i64): bool { if n == 0 { return false; } return even(n - 1); }",
+        )
+    }
+
+    #[test]
+    fn type_error_for_bad_argument_to_function_defined_later() {
+        expect_mismatch!("def g(): i64 { f(1) } def f(a: bool): i64 { 1 }");
+    }
+
+    #[test]
     fn unknown_generic_argument_error_points_at_argument() {
         let source = "struct N<T> { v: T, } struct B { c: *N<Missing>, }";
         let error = check(source).unwrap_err();

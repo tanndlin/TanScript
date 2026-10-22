@@ -15,12 +15,38 @@ use crate::{
 impl Block {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
-        let result = self
-            .children
-            .iter_mut()
-            .try_for_each(|child| child.check_types(type_scope));
+        let result = self.declare(type_scope).and_then(|()| {
+            self.children.iter_mut().try_for_each(|child| match child {
+                StatementOrExpression::Statement(statement) => match statement.as_mut() {
+                    Statement::StructDefinition(_) | Statement::EnumDefinition(_) => Ok(()),
+                    Statement::FunctionDefinition(s) => s.check_body(type_scope),
+                    _ => child.check_types(type_scope),
+                },
+                StatementOrExpression::Expression(_) => child.check_types(type_scope),
+            })
+        });
         type_scope.pop();
         result
+    }
+
+    fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        for child in &mut self.children {
+            if let StatementOrExpression::Statement(statement) = child {
+                match statement.as_mut() {
+                    Statement::StructDefinition(s) => s.check_types(type_scope)?,
+                    Statement::EnumDefinition(s) => s.check_types(type_scope)?,
+                    _ => {}
+                }
+            }
+        }
+        for child in &mut self.children {
+            if let StatementOrExpression::Statement(statement) = child
+                && let Statement::FunctionDefinition(s) = statement.as_mut()
+            {
+                s.declare(type_scope)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
@@ -157,6 +183,11 @@ impl ForLoop {
 
 impl FunctionDefinition {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        self.declare(type_scope)?;
+        self.check_body(type_scope)
+    }
+
+    fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         for arg in &mut self.args {
             arg.atype = type_scope.resolve(&arg.atype)?;
         }
@@ -169,7 +200,10 @@ impl FunctionDefinition {
                 return_type: self.return_type.clone(),
             })),
         );
+        Ok(())
+    }
 
+    fn check_body(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
         type_scope.push_function(self.return_type.clone());
         for arg in &self.args {
