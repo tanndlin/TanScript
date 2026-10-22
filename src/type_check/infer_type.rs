@@ -212,7 +212,7 @@ mod test {
                 matches!(
                     result,
                     Err(TypeCheckError {
-                        kind: TypeCheckErrorKind::StructAsArgument,
+                        kind: TypeCheckErrorKind::StructAsArgument(_),
                         ..
                     })
                 ),

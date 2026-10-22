@@ -161,7 +161,9 @@ pub fn check_function_call(
             .zip(&given_types)
             .find(|(_, t)| matches!(t, Type::Struct(_)))
         {
-            Some((given, _)) => Err(TypeCheckErrorKind::StructAsArgument.at(given.span)),
+            Some((given, _)) => {
+                Err(TypeCheckErrorKind::StructAsArgument(function_name.to_string()).at(given.span))
+            }
             None => Ok(Type::Unknown),
         },
     }

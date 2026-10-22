@@ -42,7 +42,7 @@ pub enum TypeCheckErrorKind {
         variant_name: String,
     },
     DuplicateIdentifiers(String),
-    StructAsArgument,
+    StructAsArgument(String),
     UnknownType(String),
     RecursiveStruct(String),
     NotDerefable(Type),
@@ -106,7 +106,10 @@ impl fmt::Display for TypeCheckErrorKind {
                 "Enum: ({enum_type}) does not contain a variant called ({variant_name})"
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
-            Self::StructAsArgument => write!(f, "Structs cannot be passed as function arguments"),
+            Self::StructAsArgument(function_name) => write!(
+                f,
+                "Structs cannot be passed to undeclared function ({function_name}); define it before this call"
+            ),
             Self::UnknownType(name) => write!(f, "Unknown type ({name})"),
             Self::RecursiveStruct(name) => write!(
                 f,
