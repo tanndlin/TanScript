@@ -9,14 +9,14 @@ use crate::{
 #[derive(Debug)]
 pub enum TypeCheckErrorKind {
     TypeMismatch {
-        expected: Type,
-        got: Type,
+        expected: Box<Type>,
+        got: Box<Type>,
     },
     NotCallableIdentifer(String),
     IdentifierNotFound(String),
     Uncastable {
-        lhs_type: Type,
-        casted_type: Type,
+        lhs_type: Box<Type>,
+        casted_type: Box<Type>,
     },
     IncorrectNumberOfArgs {
         expected: usize,

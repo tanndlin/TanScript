@@ -106,7 +106,16 @@ impl Expression {
 impl Type {
     pub fn references(&self, names: &mut Vec<String>) {
         match self {
-            Type::Named { name, .. } => names.push(name.clone()),
+            Type::Named {
+                name,
+                concrete_generics,
+                ..
+            } => {
+                names.push(name.clone());
+                for g in concrete_generics {
+                    g.references(names);
+                }
+            }
             Type::Struct(s) => names.push(s.name.clone()),
             Type::Enum(e) => names.push(e.name.clone()),
             Type::Pointer(inner) => inner.references(names),

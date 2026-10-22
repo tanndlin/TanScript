@@ -8,7 +8,6 @@ pub struct FunctionDefinition {
     pub args: Vec<Arg>,
     pub body: Block,
     pub return_type: Type,
-    pub return_type_span: Span,
     pub span: Span,
 }
 

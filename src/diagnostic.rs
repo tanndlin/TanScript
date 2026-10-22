@@ -134,8 +134,8 @@ mod test {
     #[test]
     fn handles_span_past_end_of_source() {
         let error: CompilerError = TypeCheckErrorKind::TypeMismatch {
-            expected: Type::Int(IntType::I32),
-            got: Type::Boolean,
+            expected: Box::new(Type::Int(IntType::I32)),
+            got: Box::new(Type::Boolean),
         }
         .at(Span::new(0, 5, 0))
         .into();

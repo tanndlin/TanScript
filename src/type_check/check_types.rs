@@ -1,6 +1,6 @@
 use crate::{
     ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, UnaryOp},
-    error::{At, ResultAt},
+    error::At,
     type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
     types::{IntType, Span},
 };
@@ -98,8 +98,8 @@ pub fn check_binary(
         .find(|(t, _)| matches!(t, Type::Struct(_)))
     {
         return Err(TypeCheckErrorKind::TypeMismatch {
-            expected: Type::Int(IntType::I64),
-            got: struct_type.clone(),
+            expected: Box::new(Type::Int(IntType::I64)),
+            got: Box::new(struct_type.clone()),
         }
         .at(operand.span));
     }
@@ -108,8 +108,8 @@ pub fn check_binary(
         .or_else(|| unify(&rhs_type, &lhs_type))
         .ok_or_else(|| {
             TypeCheckErrorKind::TypeMismatch {
-                expected: lhs_type.clone(),
-                got: rhs_type.clone(),
+                expected: Box::new(lhs_type.clone()),
+                got: Box::new(rhs_type.clone()),
             }
             .at(rhs.span)
         })?;
@@ -182,8 +182,8 @@ pub fn check_index(
         Type::Unknown => return Err(TypeCheckErrorKind::NotIndexable(lhs_type).at(lhs.span)),
         _ => {
             return Err(TypeCheckErrorKind::TypeMismatch {
-                expected: Type::Pointer(Box::new(Type::Unknown)),
-                got: lhs_type,
+                expected: Box::new(Type::Pointer(Box::new(Type::Unknown))),
+                got: Box::new(lhs_type),
             }
             .at(span));
         }
@@ -192,8 +192,8 @@ pub fn check_index(
     // RHS must come down to a number
     if rhs_type != Type::Unknown && !rhs_type.is_number_type() {
         return Err(TypeCheckErrorKind::TypeMismatch {
-            expected: Type::Int(IntType::I64),
-            got: rhs_type,
+            expected: Box::new(Type::Int(IntType::I64)),
+            got: Box::new(rhs_type),
         }
         .at(span));
     }
@@ -208,13 +208,13 @@ pub fn check_cast(
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
-    *casted_type = type_scope.resolve(casted_type).at(span)?;
+    *casted_type = type_scope.resolve(casted_type)?;
     if lhs_type.castable(casted_type) {
         Ok(casted_type.clone())
     } else {
         Err(TypeCheckErrorKind::Uncastable {
-            lhs_type,
-            casted_type: casted_type.clone(),
+            lhs_type: Box::new(lhs_type),
+            casted_type: Box::new(casted_type.clone()),
         }
         .at(span))
     }
@@ -305,8 +305,8 @@ pub fn expect_type(
             Ok(())
         }
         _ => Err(TypeCheckErrorKind::TypeMismatch {
-            expected: expected.clone(),
-            got: got.clone(),
+            expected: Box::new(expected.clone()),
+            got: Box::new(got.clone()),
         }
         .at(expression.span)),
     }
@@ -626,10 +626,7 @@ mod test {
     fn type_error_for_value_returned_from_function_without_return_type() {
         expect_err!(
             "def f (a: u32) { return a; }",
-            TypeCheckErrorKind::TypeMismatch {
-                expected: Type::Unit,
-                ..
-            }
+            TypeCheckErrorKind::TypeMismatch { ref expected, .. } if **expected == Type::Unit
         );
     }
 
@@ -637,10 +634,7 @@ mod test {
     fn type_error_for_implicit_return_from_function_without_return_type() {
         expect_err!(
             "def f (a: u32) { a }",
-            TypeCheckErrorKind::TypeMismatch {
-                expected: Type::Unit,
-                ..
-            }
+            TypeCheckErrorKind::TypeMismatch { ref expected, .. } if **expected == Type::Unit
         );
     }
 
@@ -653,10 +647,7 @@ mod test {
     fn type_error_for_unit_function_result_assigned_to_number() {
         expect_err!(
             "def f () { } let a: u32 = f();",
-            TypeCheckErrorKind::TypeMismatch {
-                got: Type::Unit,
-                ..
-            }
+            TypeCheckErrorKind::TypeMismatch { ref got, .. } if **got == Type::Unit
         );
     }
 
@@ -787,13 +778,21 @@ mod test {
     }
 
     #[test]
+    fn unknown_generic_argument_error_points_at_argument() {
+        let source = "struct N<T> { v: T, } struct B { c: *N<Missing>, }";
+        let error = check(source).unwrap_err();
+        assert!(matches!(&error.kind, TypeCheckErrorKind::UnknownType(name) if name == "Missing"));
+        assert_eq!(error.span.col as usize, source.find("Missing").unwrap());
+    }
+
+    #[test]
     fn type_error_for_struct_field_mismatch() {
         expect_err!(
             format!("{POINT} let p = P {{ x: true, y: true }};"),
             TypeCheckErrorKind::TypeMismatch {
-                expected: Type::Int(IntType::U32),
-                got: Type::Boolean
-            }
+                ref expected,
+                ref got,
+            } if **expected == Type::Int(IntType::U32) && **got == Type::Boolean
         );
     }
 

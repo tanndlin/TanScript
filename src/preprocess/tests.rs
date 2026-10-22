@@ -128,6 +128,31 @@ def tokenize(path: *char): *LexerToken { 0 }
 }
 
 #[test]
+fn imports_types_referenced_by_generic_arguments() {
+    let parse = "
+struct Node<T> { value: T }
+struct AST { data: u64 }
+struct ASTBlock { children: *Node<AST> }
+def parse(): *ASTBlock { 0 }
+";
+    let (result, _) = resolve(
+        "generic_arguments",
+        &[
+            (
+                "main.tan",
+                "use parse::{parse};
+parse();",
+            ),
+            ("parse.tan", parse),
+        ],
+    );
+    assert_eq!(
+        definitions(&result.unwrap()),
+        ["Node", "AST", "ASTBlock", "parse"]
+    );
+}
+
+#[test]
 fn imports_enum_used_by_variant() {
     let colors = "
 enum Color { Red }

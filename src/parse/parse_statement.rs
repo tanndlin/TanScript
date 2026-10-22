@@ -246,6 +246,7 @@ pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseEr
         Type::Named {
             name: type_name,
             concrete_generics,
+            span,
         },
         span,
     ))
@@ -287,12 +288,12 @@ fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, 
         }
     }
 
-    let (return_type, return_type_span) =
+    let return_type =
         if let Some(Token::Atom(LexerAtomType::Colon)) = tokens.peek().map(|tok| &tok.token_type) {
             tokens.next();
-            parse_type_with_span(tokens)?
+            parse_type(tokens)?
         } else {
-            (Type::Unit, span)
+            Type::Unit
         };
     let body = parse_function_body(tokens)?;
 
@@ -301,7 +302,6 @@ fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, 
         args,
         body,
         return_type,
-        return_type_span,
         span,
     })
 }

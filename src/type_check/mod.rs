@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 use crate::{
     ast::{AtomType, EnumDefinition, StructDefinition},
-    types::IntType,
+    types::{IntType, Span},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +36,7 @@ pub enum Type {
     Named {
         name: String,
         concrete_generics: Vec<Type>,
+        span: Span,
     },
     Generic(String),
     Unit,
@@ -114,10 +115,12 @@ impl PartialEq for Type {
                 Self::Named {
                     name: a,
                     concrete_generics: a_generics,
+                    ..
                 },
                 Self::Named {
                     name: b,
                     concrete_generics: b_generics,
+                    ..
                 },
             ) => a == b && a_generics == b_generics,
             (Self::Generic(a), Self::Generic(b)) => a == b,
@@ -146,10 +149,12 @@ impl fmt::Display for Type {
             Type::Named {
                 name,
                 concrete_generics,
+                ..
             } if concrete_generics.is_empty() => write!(f, "{name}"),
             Type::Named {
                 name,
                 concrete_generics,
+                ..
             } => write!(
                 f,
                 "{name}<{}>",

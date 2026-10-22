@@ -4,7 +4,7 @@ use crate::{
         FunctionDefinition, IfStatement, ReturnStatement, Statement, StatementOrExpression,
         StructDefinition, WhileLoop,
     },
-    error::{At, ResultAt},
+    error::At,
     type_check::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression,
         expect_type, narrow_expression,
@@ -118,7 +118,7 @@ impl Declaration {
         let Some(expected) = self
             .dtype
             .as_ref()
-            .map(|t| type_scope.resolve(t).at(self.assign.lhs.span))
+            .map(|t| type_scope.resolve(t))
             .transpose()?
         else {
             self.binding = Some(type_scope.insert(ident.clone(), got));
@@ -158,11 +158,9 @@ impl ForLoop {
 impl FunctionDefinition {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         for arg in &mut self.args {
-            arg.atype = type_scope.resolve(&arg.atype).at(arg.span)?;
+            arg.atype = type_scope.resolve(&arg.atype)?;
         }
-        self.return_type = type_scope
-            .resolve(&self.return_type)
-            .at(self.return_type_span)?;
+        self.return_type = type_scope.resolve(&self.return_type)?;
 
         type_scope.insert(
             self.name.clone(),
@@ -184,8 +182,8 @@ impl FunctionDefinition {
 
         if self.return_type != Type::Unit && !self.body.always_returns() {
             return Err(TypeCheckErrorKind::TypeMismatch {
-                expected: self.return_type.clone(),
-                got: Type::Unit,
+                expected: Box::new(self.return_type.clone()),
+                got: Box::new(Type::Unit),
             }
             .at(self.span));
         }
@@ -221,6 +219,7 @@ impl StructDefinition {
             Type::Named {
                 name: self.name.clone(),
                 concrete_generics: vec![],
+                span: self.span,
             },
         );
         type_scope.push();
@@ -228,7 +227,7 @@ impl StructDefinition {
             type_scope.insert(generic.clone(), Type::Generic(generic.clone()));
         }
         for field in &mut self.fields {
-            field.ftype = type_scope.resolve(&field.ftype).at(field.span)?;
+            field.ftype = type_scope.resolve(&field.ftype)?;
         }
         type_scope.pop();
         type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
@@ -266,7 +265,11 @@ impl ReturnStatement {
         match &self.expr {
             Some(expr) => expect_type(expr, &expected, &got, type_scope),
             None if expected == Type::Unit => Ok(()),
-            None => Err(TypeCheckErrorKind::TypeMismatch { expected, got }.at(self.span)),
+            None => Err(TypeCheckErrorKind::TypeMismatch {
+                expected: Box::new(expected),
+                got: Box::new(got),
+            }
+            .at(self.span)),
         }
     }
 }

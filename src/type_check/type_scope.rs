@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     ast::StructDefinition,
-    type_check::{Type, TypeCheckErrorKind},
-    types::IntType,
+    error::At,
+    type_check::{Type, TypeCheckError, TypeCheckErrorKind},
+    types::{IntType, Span},
 };
 
 #[derive(Debug)]
@@ -71,13 +72,14 @@ impl TypeScope {
         &self.bindings[id]
     }
 
-    pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckErrorKind> {
+    pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckError> {
         match t {
             Type::Named {
                 name,
                 concrete_generics,
+                span,
             } => match self.lookup(name) {
-                Some(Type::Struct(def)) => self.instantiate(def, concrete_generics),
+                Some(Type::Struct(def)) => self.instantiate(def, concrete_generics, *span),
                 Some(named_type @ (Type::Enum(_) | Type::Generic(_)))
                     if concrete_generics.is_empty() =>
                 {
@@ -88,10 +90,13 @@ impl TypeScope {
                         name: name.clone(),
                         expected: 0,
                         given: concrete_generics.len(),
-                    })
+                    }
+                    .at(*span))
                 }
-                Some(Type::Named { .. }) => Err(TypeCheckErrorKind::RecursiveStruct(name.clone())),
-                _ => Err(TypeCheckErrorKind::UnknownType(name.clone())),
+                Some(Type::Named { .. }) => {
+                    Err(TypeCheckErrorKind::RecursiveStruct(name.clone()).at(*span))
+                }
+                _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(*span)),
             },
             Type::Pointer(inner) => match inner.as_ref() {
                 Type::Named { name, .. }
@@ -117,13 +122,15 @@ impl TypeScope {
         &self,
         def: &StructDefinition,
         concrete_generics: &[Type],
-    ) -> Result<Type, TypeCheckErrorKind> {
+        span: Span,
+    ) -> Result<Type, TypeCheckError> {
         if def.generics.len() != concrete_generics.len() {
             return Err(TypeCheckErrorKind::IncorrectNumberOfGenerics {
                 name: def.name.clone(),
                 expected: def.generics.len(),
                 given: concrete_generics.len(),
-            });
+            }
+            .at(span));
         }
 
         let concrete_generics = concrete_generics
@@ -141,18 +148,18 @@ impl TypeScope {
 /// Replaces each generic in `t` with its concrete type, through pointers and type arguments.
 fn substitute(t: &Type, generics: &[String], concrete_generics: &[Type]) -> Type {
     match t {
-        Type::Generic(name)
-        | Type::Named {
-            name,
-            concrete_generics: _,
-        } if let Some(index) = generics.iter().position(|g| g == name) => {
+        Type::Generic(name) | Type::Named { name, .. }
+            if let Some(index) = generics.iter().position(|g| g == name) =>
+        {
             concrete_generics[index].clone()
         }
         Type::Named {
             name,
             concrete_generics: args,
+            span,
         } => Type::Named {
             name: name.clone(),
+            span: *span,
             concrete_generics: args
                 .iter()
                 .map(|arg| substitute(arg, generics, concrete_generics))

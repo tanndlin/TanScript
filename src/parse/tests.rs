@@ -4,6 +4,7 @@ use crate::{
     parse::{MAX_DEPTH, Parser},
     parse::{ParseErrorKind, parse, parse_expression::parse_expression},
     type_check::Type,
+    types::Span,
 };
 
 macro_rules! test_parse_expression {
@@ -775,7 +776,8 @@ fn parse_generic_struct_definition() {
         def.fields[0].ftype,
         Type::Named {
             name: "T".to_string(),
-            concrete_generics: vec![]
+            concrete_generics: vec![],
+            span: Span::default(),
         }
     );
 }
