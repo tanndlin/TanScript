@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::codegen::{
     CodegenErrorKind,
@@ -24,7 +24,7 @@ impl RegisterState {
 
 pub struct RegisterHandler {
     pub data: Vec<String>,
-    registers: HashMap<Register, RegisterState>,
+    registers: BTreeMap<Register, RegisterState>,
     reserved_registers: Vec<Register>,
     pub touched: Vec<Register>,
     unique_id: u32,
@@ -35,20 +35,23 @@ impl RegisterHandler {
     pub fn new() -> RegisterHandler {
         RegisterHandler {
             data: vec![],
-            registers: HashMap::from([
-                (Register::RAX, RegisterState::new()),
-                (Register::RBX, RegisterState::new()),
-                (Register::RCX, RegisterState::new()),
-                (Register::RDX, RegisterState::new()),
-                (Register::R8, RegisterState::new()),
-                (Register::R9, RegisterState::new()),
-                (Register::R10, RegisterState::new()),
-                (Register::R11, RegisterState::new()),
-                (Register::R12, RegisterState::new()),
-                (Register::R13, RegisterState::new()),
-                (Register::R14, RegisterState::new()),
-                (Register::R15, RegisterState::new()),
-            ]),
+            registers: [
+                Register::RAX,
+                Register::RBX,
+                Register::RCX,
+                Register::RDX,
+                Register::R8,
+                Register::R9,
+                Register::R10,
+                Register::R11,
+                Register::R12,
+                Register::R13,
+                Register::R14,
+                Register::R15,
+            ]
+            .into_iter()
+            .map(|r| (r, RegisterState::new()))
+            .collect(),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
             touched: vec![],
             unique_id: 0,
@@ -80,14 +83,11 @@ impl RegisterHandler {
     }
 
     pub fn release_register(&mut self, register: Register) {
-        match self.registers.get_mut(&register) {
-            Some(state) => {
-                state.used = false;
-                // mark as recently used so LRU prefers other registers next
-                self.usage_counter = self.usage_counter.wrapping_add(1);
-                state.last_used = self.usage_counter;
-            }
-            None => panic!("Released unleasable register? {register}"),
+        if let Some(state) = self.registers.get_mut(&register) {
+            state.used = false;
+            // mark as recently used so LRU prefers other registers next
+            self.usage_counter = self.usage_counter.wrapping_add(1);
+            state.last_used = self.usage_counter;
         }
     }
 
