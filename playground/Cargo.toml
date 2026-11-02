@@ -1,0 +1,14 @@
+[package]
+name = "tanscript-playground"
+version = "0.1.0"
+edition = "2024"
+description = "WebAssembly build of the TanScript compiler for in-browser playgrounds"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tanscript = { path = ".." }
+
+[lints.clippy]
+pedantic = "warn"
