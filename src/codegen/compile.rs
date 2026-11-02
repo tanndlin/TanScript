@@ -9,7 +9,7 @@ use crate::{
         address::{Address, Register, Scale},
         compile_scope::{CompileScope, SLOT_SIZE},
         instruction::{Condition, Instruction, Operand, Size},
-        register_handler::RegisterHandler,
+        register_handler::{RegisterHandler, data_name},
         symbol_table::SymbolTable,
     },
     error::{At, ResultAt},
@@ -67,7 +67,8 @@ impl Program {
         let data = register_handler
             .data
             .iter()
-            .map(|d| format!("\t{d}"))
+            .enumerate()
+            .map(|(i, d)| format!("\t{}", format_data(&data_name(i), d)))
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -78,7 +79,7 @@ global main
 {globals}
 {extern_functions}
 
-SECTION .data
+SECTION .rdata
 {data}
 
 SECTION .text
@@ -1192,6 +1193,32 @@ fn fits_imm32(n: NumberType) -> bool {
         NumberType::U64(n) => i32::try_from(n).is_ok(),
         NumberType::I64(n) | NumberType::Coercible(n) => i32::try_from(n).is_ok(),
     }
+}
+
+fn format_data(name: &str, s: &str) -> String {
+    let mut parts = vec![];
+    let mut run = String::new();
+    for c in s.chars() {
+        if c == ' ' || (c.is_ascii_graphic() && c != '"') {
+            run.push(c);
+            continue;
+        }
+
+        if !run.is_empty() {
+            parts.push(format!("\"{run}\""));
+            run.clear();
+        }
+
+        let mut buf = [0; 4];
+        parts.extend(c.encode_utf8(&mut buf).bytes().map(|b| b.to_string()));
+    }
+
+    if !run.is_empty() {
+        parts.push(format!("\"{run}\""));
+    }
+    parts.push("0".to_string());
+
+    format!("{name} db {}", parts.join(", "))
 }
 
 #[cfg(test)]

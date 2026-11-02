@@ -142,11 +142,14 @@ impl RegisterHandler {
     }
 
     pub fn add_data(&mut self, s: &str) -> String {
-        let name = format!("data_{}", self.data.len());
-        let format = format_data(&name, s);
-        self.data.push(format);
+        let index = if let Some(index) = self.data.iter().position(|d| d == s) {
+            index
+        } else {
+            self.data.push(s.to_string());
+            self.data.len() - 1
+        };
 
-        name
+        data_name(index)
     }
 
     pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
@@ -176,30 +179,8 @@ impl RegisterHandler {
     }
 }
 
-fn format_data(name: &String, s: &str) -> String {
-    let mut parts = vec![];
-    let mut run = String::new();
-    for c in s.chars() {
-        if c == ' ' || (c.is_ascii_graphic() && c != '"') {
-            run.push(c);
-            continue;
-        }
-
-        if !run.is_empty() {
-            parts.push(format!("\"{run}\""));
-            run.clear();
-        }
-
-        let mut buf = [0; 4];
-        parts.extend(c.encode_utf8(&mut buf).bytes().map(|b| b.to_string()));
-    }
-
-    if !run.is_empty() {
-        parts.push(format!("\"{run}\""));
-    }
-    parts.push("0".to_string());
-
-    format!("{name} db {}", parts.join(", "))
+pub fn data_name(index: usize) -> String {
+    format!("data_{index}")
 }
 
 #[cfg(test)]
