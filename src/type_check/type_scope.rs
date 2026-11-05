@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::StructDefinition,
@@ -80,6 +80,7 @@ impl TypeScope {
                 span,
             } => match self.lookup(name) {
                 Some(Type::Struct(def)) => self.instantiate(def, concrete_generics, *span),
+                Some(Type::Named { .. }) => Ok(t.clone()),
                 Some(named_type @ (Type::Enum(_) | Type::Generic(_)))
                     if concrete_generics.is_empty() =>
                 {
@@ -93,9 +94,6 @@ impl TypeScope {
                     }
                     .at(*span))
                 }
-                Some(Type::Named { .. }) => {
-                    Err(TypeCheckErrorKind::RecursiveStruct(name.clone()).at(*span))
-                }
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(*span)),
             },
             Type::Pointer(inner) => match inner.as_ref() {
@@ -108,6 +106,34 @@ impl TypeScope {
             },
             _ => Ok(t.clone()),
         }
+    }
+
+    pub fn check_for_recursion(
+        &self,
+        t: &Type,
+        span: Span,
+        parent_structs: &mut HashSet<String>,
+    ) -> Result<(), TypeCheckError> {
+        let def = match t {
+            Type::Struct(def) => def.clone(),
+            Type::Named { name, .. } if parent_structs.contains(name) => {
+                return Err(TypeCheckErrorKind::RecursiveStruct(name.clone()).at(span));
+            }
+            Type::Named { .. } => match self.resolve(t) {
+                Ok(Type::Struct(def)) => def,
+                _ => return Ok(()),
+            },
+            _ => return Ok(()),
+        };
+
+        if !parent_structs.insert(def.name.clone()) {
+            return Err(TypeCheckErrorKind::RecursiveStruct(def.name).at(span));
+        }
+        for field in &def.fields {
+            self.check_for_recursion(&field.ftype, span, parent_structs)?;
+        }
+        parent_structs.remove(&def.name);
+        Ok(())
     }
 
     pub fn expand(&self, t: Type) -> Type {

@@ -17,8 +17,7 @@
 - enums storing values
 - `impl struct` syntax sugar
 - `0 < x < 10` syntax sugar for range checks
-- Forward references between structs: declare every struct name in a block before resolving any fields, so pointer fields can name structs defined later (by-value cycles still need an infinite-size check)
-- Allow the struct being defined as a generic argument behind a pointer (e.g. `items: *Cell<Node>` inside `Node`), currently a RecursiveStruct error
+- Allow the struct being defined as a generic argument behind a pointer (e.g. `items: *Cell<Node>` inside `Node`): the declaration now type-checks, but `resolve` instantiates `Cell<Node>` while `Node` is still a placeholder, so `value` is left as an unresolved `Named(Node)` and `(*n.items).value.v` fails with "(Node) is not a struct". Fix by expanding `Named` types on field access, or by deferring resolution of pointers whose generic arguments mention a placeholder (test: `supports_struct_as_generic_argument_behind_pointer`)
 - Auto-deref `.` on pointers (or a `->` operator) so `p.x` works for `p: *Struct` instead of `(*p).x`
 - Struct return values, following Win64: structs of 1, 2, 4 or 8 bytes return in rax, larger ones through a caller-allocated hidden pointer passed in rcx (shifting the other args) and returned in rax
 - Globals or top-level `const` visible inside functions

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     ast::{
         Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind, ForLoop,
@@ -30,15 +32,23 @@ impl Block {
     }
 
     fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let mut structs = vec![];
         for child in &mut self.children {
             if let StatementOrExpression::Statement(statement) = child {
                 match statement.as_mut() {
-                    Statement::StructDefinition(s) => s.check_types(type_scope)?,
+                    Statement::StructDefinition(s) => {
+                        s.declare(type_scope)?;
+                        structs.push(s);
+                    }
                     Statement::EnumDefinition(s) => s.check_types(type_scope)?,
                     _ => {}
                 }
             }
         }
+        for i in value_dependency_order(&structs) {
+            structs[i].check_types(type_scope)?;
+        }
+
         for child in &mut self.children {
             if let StatementOrExpression::Statement(statement) = child
                 && let Statement::FunctionDefinition(s) = statement.as_mut()
@@ -71,6 +81,52 @@ impl Block {
     }
 }
 
+fn value_dependency_order(structs: &[&mut StructDefinition]) -> Vec<usize> {
+    let mut visited = vec![false; structs.len()];
+    let mut order = vec![];
+    for i in 0..structs.len() {
+        visit_value_dependencies(i, structs, &mut visited, &mut order);
+    }
+    order
+}
+
+fn visit_value_dependencies(
+    i: usize,
+    structs: &[&mut StructDefinition],
+    visited: &mut [bool],
+    order: &mut Vec<usize>,
+) {
+    if visited[i] {
+        return;
+    }
+    visited[i] = true;
+
+    let mut names = vec![];
+    for field in &structs[i].fields {
+        value_dependencies(&field.ftype, &mut names);
+    }
+    for name in names {
+        if let Some(dep) = structs.iter().position(|s| s.name == name) {
+            visit_value_dependencies(dep, structs, visited, order);
+        }
+    }
+    order.push(i);
+}
+
+fn value_dependencies<'a>(t: &'a Type, names: &mut Vec<&'a str>) {
+    if let Type::Named {
+        name,
+        concrete_generics,
+        ..
+    } = t
+    {
+        names.push(name);
+        for generic in concrete_generics {
+            value_dependencies(generic, names);
+        }
+    }
+}
+
 impl StatementOrExpression {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         match self {
@@ -95,7 +151,10 @@ impl Statement {
             Self::Declaration(s) => s.check_types(type_scope),
             Self::ForLoop(s) => s.check_types(type_scope),
             Self::FunctionDefinition(s) => s.check_types(type_scope),
-            Self::StructDefinition(s) => s.check_types(type_scope),
+            Self::StructDefinition(s) => {
+                s.declare(type_scope)?;
+                s.check_types(type_scope)
+            }
             Self::IfStatement(s) => s.check_types(type_scope),
             Self::Return(s) => s.check_types(type_scope),
             Self::WhileLoop(s) => s.check_types(type_scope),
@@ -243,7 +302,7 @@ impl EnumDefinition {
 }
 
 impl StructDefinition {
-    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn declare(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         if type_scope.lookup(&self.name).is_some() {
             return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
         }
@@ -256,12 +315,19 @@ impl StructDefinition {
                 span: self.span,
             },
         );
+        Ok(())
+    }
+
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
         for generic in &self.generics {
             type_scope.insert(generic.clone(), Type::Generic(generic.clone()));
         }
+
+        let mut parent_structs = HashSet::from([self.name.clone()]);
         for field in &mut self.fields {
             field.ftype = type_scope.resolve(&field.ftype)?;
+            type_scope.check_for_recursion(&field.ftype, field.span, &mut parent_structs)?;
         }
         type_scope.pop();
         type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));

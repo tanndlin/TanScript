@@ -1002,6 +1002,43 @@ mod test {
     }
 
     #[test]
+    fn supports_forward_referenced_struct_pointers() -> Result<(), TypeCheckError> {
+        check(
+            "struct A { b: *B, v: i64, } struct B { a: *A, w: i64, }              let b = B { a: 0 as *A, w: 7 }; let a = A { b: &b, v: 1 };              b.a = &a; let x: i64 = (*(*a.b).a).v + (*a.b).w;",
+        )
+    }
+
+    #[test]
+    fn supports_forward_referenced_struct_by_value() -> Result<(), TypeCheckError> {
+        check(
+            "struct A { b: B, } struct B { c: C, } struct C { x: i64, }              let c = C { x: 1 }; let b = B { c: c }; let a = A { b: b }; let x: i64 = a.b.c.x;",
+        )
+    }
+
+    #[test]
+    fn supports_forward_referenced_generic_argument_by_value() -> Result<(), TypeCheckError> {
+        check(
+            "struct M { n: N<B>, } struct N<T> { v: T, } struct B { x: i64, }              def f(m: M): i64 { return m.n.v.x; }",
+        )
+    }
+
+    #[test]
+    fn supports_forward_referenced_enum_field() -> Result<(), TypeCheckError> {
+        check("struct S { k: K, } enum K { One, Two, } let s = S { k: K::Two };")
+    }
+
+    #[test]
+    fn type_error_for_mutually_recursive_structs_without_pointer() {
+        for source in [
+            "struct A { b: B, } struct B { a: A, }",
+            "struct A { b: B, } struct B { c: C, } struct C { a: A, }",
+            "struct M { n: N<M>, } struct N<T> { v: T, }",
+        ] {
+            expect_err!(source, TypeCheckErrorKind::RecursiveStruct(_));
+        }
+    }
+
+    #[test]
     fn type_error_for_unknown_field_through_self_referential_pointer() {
         expect_err!(
             format!("{NODE} let a = N {{ v: 1, next: 0 as *N, children: 0 as **N }}; (*a.next).z;"),
