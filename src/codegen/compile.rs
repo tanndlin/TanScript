@@ -607,7 +607,7 @@ fn extend(element: &Type, dst: Register, src: impl Into<Address>) -> Option<Inst
 }
 
 /// Loading from memory
-fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
+pub fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     extend(element, dst, memory).unwrap_or_else(|| Instruction::mov(dst, memory))
 }
 

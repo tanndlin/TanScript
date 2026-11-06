@@ -24,3 +24,36 @@ small[1] = 9;
 small[next(&calls)]++;
 small[1]++;
 printf("%d %d %d\n", small[0], small[1], calls);
+
+calls = 0;
+nums[next(&calls)] += 5;
+nums[next(&calls)] -= next(&calls);
+printf("%d %d %d\n", nums[0], nums[1], calls);
+
+calls = 0;
+nums[2] = 30;
+nums[3] = 47;
+nums[next(&calls) + 2] *= 3;
+nums[next(&calls) + 2] /= 4;
+printf("%d %d %d\n", nums[2], nums[3], calls);
+nums[next(&calls) + 1] %= 7;
+printf("%d %d\n", nums[3], calls);
+
+calls = 0;
+small[next(&calls)] += 100;
+small[next(&calls)] *= 2;
+printf("%d %d %d\n", small[0], small[1], calls);
+
+struct Counter {
+    hits: u8,
+    total: i64,
+}
+
+let counters: *Counter = malloc(16 * 2);
+(*counters).hits = 1;
+(*counters).total = 2;
+calls = 0;
+let pick = counters;
+(*pick).hits += 4;
+(*pick).total *= 10;
+printf("%d %d\n", (*counters).hits, (*counters).total);

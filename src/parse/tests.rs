@@ -58,58 +58,55 @@ fn parse_assignment() {
 
 #[test]
 fn parse_add_assign() {
-    integration_test!("a += 1;", "a = (+ a 1)");
+    integration_test!("a += 1;", "a += 1");
 }
 
 #[test]
 fn parse_sub_assign() {
-    integration_test!("a -= 1;", "a = (- a 1)");
+    integration_test!("a -= 1;", "a -= 1");
 }
 
 #[test]
 fn parse_mul_assign() {
-    integration_test!("a *= 2;", "a = (* a 2)");
+    integration_test!("a *= 2;", "a *= 2");
 }
 
 #[test]
 fn parse_div_assign() {
-    integration_test!("a /= 2;", "a = (/ a 2)");
+    integration_test!("a /= 2;", "a /= 2");
 }
 
 #[test]
 fn parse_mod_assign() {
-    integration_test!("a %= 2;", "a = (% a 2)");
+    integration_test!("a %= 2;", "a %= 2");
 }
 
 #[test]
 fn parse_compound_assign_groups_right_side() {
     // The whole right side is the operand, not just the first term
-    integration_test!("a -= 1 + 2;", "a = (- a (+ 1 2))");
-    integration_test!("a += b * 2;", "a = (+ a (* b 2))");
-    integration_test!("a -= b - c;", "a = (- a (- b c))");
-    integration_test!("a *= 1 + 2;", "a = (* a (+ 1 2))");
-    integration_test!("a /= b - c;", "a = (/ a (- b c))");
-    integration_test!("a %= b + 1;", "a = (% a (+ b 1))");
+    integration_test!("a -= 1 + 2;", "a -= (+ 1 2)");
+    integration_test!("a += b * 2;", "a += (* b 2)");
+    integration_test!("a -= b - c;", "a -= (- b c)");
+    integration_test!("a *= 1 + 2;", "a *= (+ 1 2)");
+    integration_test!("a /= b - c;", "a /= (- b c)");
+    integration_test!("a %= b + 1;", "a %= (+ b 1)");
 }
 
 #[test]
 fn parse_compound_assign_function_call() {
-    integration_test!("a += add(1, 2);", "a = (+ a add(1, 2))");
+    integration_test!("a += add(1, 2);", "a += add(1, 2)");
 }
 
 #[test]
 fn parse_compound_assign_in_while_loop() {
-    integration_test!(
-        "while (a < 10) { a += 1; }",
-        "while (< a 10) {\na = (+ a 1)\n}"
-    );
+    integration_test!("while (a < 10) { a += 1; }", "while (< a 10) {\na += 1\n}");
 }
 
 #[test]
 fn parse_compound_assign_in_if_else() {
     integration_test!(
         "if (a < 10) { a += 1; } else { a -= 1; }",
-        "if (< a 10) {\na = (+ a 1)\n} else {\na = (- a 1)\n}"
+        "if (< a 10) {\na += 1\n} else {\na -= 1\n}"
     );
 }
 
@@ -485,9 +482,9 @@ fn parse_assign_to_index() {
 
 #[test]
 fn parse_compound_assign_to_index() {
-    integration_test!("a[0] += 1;", "(a[0]) = (+ (a[0]) 1)");
-    integration_test!("a[i] -= 2;", "(a[i]) = (- (a[i]) 2)");
-    integration_test!("a[i] *= 3;", "(a[i]) = (* (a[i]) 3)");
+    integration_test!("a[0] += 1;", "(a[0]) += 1");
+    integration_test!("a[i] -= 2;", "(a[i]) -= 2");
+    integration_test!("a[i] *= 3;", "(a[i]) *= 3");
 }
 
 #[test]
@@ -659,7 +656,7 @@ c = 'x'"
     integration_test!(
         "let c: char = 'a'; c += 'a';",
         "let c = 'a'
-c = (+ c 'a')"
+c += 'a'"
     );
     integration_test!(
         "let s: *char = str; s[0] = 'x';",
@@ -730,7 +727,7 @@ fn parse_struct_access() {
 #[test]
 fn parse_struct_access_assignment() {
     integration_test!("p.x = 3;", "p.x = 3");
-    integration_test!("p.x += 1;", "p.x = (+ p.x 1)");
+    integration_test!("p.x += 1;", "p.x += 1");
 }
 
 #[test]
@@ -997,7 +994,7 @@ fn parse_assign_through_deref() {
 
 #[test]
 fn parse_compound_assign_through_deref() {
-    integration_test!("*p += 1;", "(* p) = (+ (* p) 1)");
+    integration_test!("*p += 1;", "(* p) += 1");
 }
 
 #[test]

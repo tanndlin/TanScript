@@ -2,14 +2,14 @@ use std::collections::HashSet;
 
 use crate::{
     ast::{
-        Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind, ForLoop,
-        FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
+        AssignOp, Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind,
+        ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
         StatementOrExpression, StructDefinition, WhileLoop,
     },
     error::At,
     type_check::{
-        FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression,
-        expect_type, narrow_expression,
+        FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_binary,
+        check_types_expression, expect_type, narrow_expression,
     },
     types::IntType,
 };
@@ -185,7 +185,12 @@ impl Statement {
 impl Assignment {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         let expected = check_types_expression(&mut self.lhs, type_scope)?;
-        let got = check_types_expression(&mut self.expression, type_scope)?;
+        let got = match self.op {
+            AssignOp::Assign => check_types_expression(&mut self.expression, type_scope)?,
+            AssignOp::Compound(op) => {
+                check_binary(op, &mut self.lhs, &mut self.expression, type_scope)?
+            }
+        };
 
         if expected == Type::Int(IntType::Coercible) && got.is_number_type() {
             narrow_expression(&self.lhs, got, type_scope);

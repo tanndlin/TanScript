@@ -35,7 +35,10 @@ impl StatementOrExpression {
 impl Statement {
     pub fn discover(&self, symbols: &mut SymbolTable) {
         match self {
-            Statement::Assignment(s) => s.expression.discover(symbols),
+            Statement::Assignment(s) => {
+                s.lhs.discover(symbols);
+                s.expression.discover(symbols);
+            }
             Statement::Declaration(s) => s.assign.expression.discover(symbols),
             Statement::ForLoop(s) => {
                 s.condition.discover(symbols);

@@ -1,15 +1,15 @@
 use crate::{
     ast::{
-        Assignment, AtomType, BreakStatement, ContinueStatement, Declaration, ExpressionKind,
-        ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
-        WhileLoop,
+        AssignOp, Assignment, AtomType, BinaryOp, BreakStatement, ContinueStatement, Declaration,
+        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, MatchStatement,
+        ReturnStatement, Statement, WhileLoop,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::{
-            NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, mem_copy, store_element,
-            with_place_address,
+            NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, load_element, mem_copy,
+            store_element, with_place_address,
         },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
@@ -61,8 +61,20 @@ impl Assignment {
         match &self.lhs.kind {
             ExpressionKind::Atom(AtomType::Identifier(ident)) => {
                 let address = compile_scope.get_variable(ident).at(self.lhs.span)?;
-                self.expression
-                    .compile(compile_scope, address, register_handler)
+                match self.op {
+                    AssignOp::Assign => {
+                        self.expression
+                            .compile(compile_scope, address, register_handler)
+                    }
+                    AssignOp::Compound(op) => self.apply(op, self.lhs.clone()).compile(
+                        compile_scope,
+                        address,
+                        register_handler,
+                    ),
+                }
+            }
+            _ if let AssignOp::Compound(op) = self.op => {
+                self.compile_compound(op, compile_scope, register_handler)
             }
             _ => with_place_address(
                 &self.lhs,
@@ -95,6 +107,48 @@ impl Assignment {
         let mut instructions = vec![Instruction::comment(self.to_string())];
         instructions.extend(self.compile_uncommented(compile_scope, register_handler)?);
         Ok(instructions)
+    }
+
+    /// Evaluates the place once so `a[next()] += 1` only calls `next()` once
+    fn compile_compound(
+        &self,
+        op: BinaryOp,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        const CURRENT: &str = "$compound";
+        with_place_address(
+            &self.lhs,
+            compile_scope,
+            register_handler,
+            &mut |compile_scope, register_handler, address, t| {
+                register_handler.lease_with_scope(|register_handler, value| {
+                    let mut scope = CompileScope::new(Some(compile_scope));
+                    scope
+                        .add_variable(CURRENT.to_string(), value.into(), t.clone())
+                        .at(self.lhs.span)?;
+
+                    let mut current = Expression::new(
+                        ExpressionKind::Atom(AtomType::Identifier(CURRENT.to_string())),
+                        self.lhs.span,
+                    );
+                    current.etype.clone_from(&self.lhs.etype);
+                    let expression = self.apply(op, current);
+
+                    let mut instructions = vec![load_element(&t, value, address)];
+                    instructions.extend(expression.compile(&mut scope, value, register_handler)?);
+                    instructions.push(store_element(&t, address, value));
+                    Ok(instructions)
+                })
+            },
+        )
+    }
+
+    fn apply(&self, op: BinaryOp, current: Expression) -> Expression {
+        Expression::new(
+            ExpressionKind::Binary(op, Box::new(current), Box::new(self.expression.clone())),
+            self.lhs.span,
+        )
     }
 }
 

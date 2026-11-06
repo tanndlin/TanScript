@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use crate::{
     ast::{
-        Arg, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement, Declaration,
-        EnumDefinition, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
-        Import, ImportName, MatchStatement, OperatorType, ReturnStatement, Statement,
+        Arg, AssignOp, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement,
+        Declaration, EnumDefinition, Expression, ExpressionKind, ForLoop, FunctionDefinition,
+        IfStatement, Import, ImportName, MatchStatement, OperatorType, ReturnStatement, Statement,
         StatementOrExpression, StructDefinition, StructField, WhileLoop,
     },
     lex::LexerAtomType,
@@ -189,6 +189,7 @@ fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
                 ExpressionKind::Atom(AtomType::Identifier(ident)),
                 ident_span,
             ),
+            op: AssignOp::Assign,
             expression: parse_expression(tokens, 0)?,
         },
         dtype,

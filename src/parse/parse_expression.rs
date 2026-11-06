@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, BinaryOp, Expression, ExpressionKind, OperatorType,
-        PostfixOp, Statement, StatementOrExpression, UnaryOp,
+        Assignment, AtomType, BinaryOp, Expression, ExpressionKind, OperatorType, PostfixOp,
+        Statement, StatementOrExpression, UnaryOp,
     },
     error::At,
     lex::LexerAtomType,
@@ -45,16 +45,11 @@ fn parse_assignment_with_lhs(
         return Err(expected("assignment operator", tok));
     };
 
-    let rhs = parse_expression(tokens, 0)?;
-    let expression = match op {
-        AssignOp::Compound(op) => Expression::new(
-            ExpressionKind::Binary(op, Box::new(lhs.clone()), Box::new(rhs)),
-            lhs.span,
-        ),
-        AssignOp::Assign => rhs,
-    };
-
-    Ok(Assignment { lhs, expression })
+    Ok(Assignment {
+        lhs,
+        op,
+        expression: parse_expression(tokens, 0)?,
+    })
 }
 
 pub fn parse_expression(tokens: &mut Parser, min_bp: u8) -> Result<Expression, ParseError> {
