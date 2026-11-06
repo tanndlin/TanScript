@@ -1,0 +1,27 @@
+struct Outer {
+    tag: u64,
+    inner: Inner,
+    after: u64,
+}
+
+struct Inner {
+    x: u64,
+    y: u64,
+}
+
+let lit = Outer { tag: 1, inner: Inner { x: 2, y: 3 }, after: 4 };
+printf("%llu %llu %llu %llu\n", lit.tag, lit.inner.x, lit.inner.y, lit.after);
+
+let i = Inner { x: 5, y: 6 };
+let var = Outer { tag: 7, inner: i, after: 8 };
+i.x = 100;
+printf("%llu %llu %llu %llu %llu\n", var.tag, var.inner.x, var.inner.y, var.after, i.x);
+
+let p = &i;
+let deref = Outer { tag: 9, inner: *p, after: 10 };
+printf("%llu %llu %llu %llu\n", deref.tag, deref.inner.x, deref.inner.y, deref.after);
+
+let arr: *Inner = calloc(2, 16);
+arr[1] = Inner { x: 11, y: 12 };
+let indexed = Outer { tag: 13, inner: arr[1], after: 14 };
+printf("%llu %llu %llu %llu\n", indexed.tag, indexed.inner.x, indexed.inner.y, indexed.after);

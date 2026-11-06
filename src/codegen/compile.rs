@@ -495,6 +495,12 @@ fn compile_struct_instantiation(
         let offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
         let address = offset_address(dst, offset);
 
+        // Allows for struct as-value in struct literal assignment
+        if let Type::Struct(_) = field_type {
+            instructions.extend(expr.compile(compile_scope, address, register_handler)?);
+            continue;
+        }
+
         instructions.extend(register_handler.lease_with_scope(|register_handler, reg| {
             let mut field = expr.compile(compile_scope, reg, register_handler)?;
             field.push(store_element(&field_type, address, reg));
