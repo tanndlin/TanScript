@@ -41,6 +41,10 @@ pub enum TypeCheckErrorKind {
         enum_type: Box<EnumDefinition>,
         variant_name: String,
     },
+    NonExhaustiveMatch {
+        enum_type: Box<EnumDefinition>,
+        missing: Vec<String>,
+    },
     DuplicateIdentifiers(String),
     StructAsArgument(String),
     UnknownType(String),
@@ -104,6 +108,11 @@ impl fmt::Display for TypeCheckErrorKind {
             } => write!(
                 f,
                 "Enum: ({enum_type}) does not contain a variant called ({variant_name})"
+            ),
+            Self::NonExhaustiveMatch { enum_type, missing } => write!(
+                f,
+                "Match on enum: ({enum_type}) is missing variants ({})",
+                missing.join(", ")
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
             Self::StructAsArgument(function_name) => write!(

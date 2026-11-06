@@ -50,6 +50,9 @@ impl Statement {
                 for case in &s.cases {
                     case.block.discover(symbols);
                 }
+                if let Some(default) = &s.default {
+                    default.discover(symbols);
+                }
             }
             Statement::IfStatement(s) => {
                 s.condition.discover(symbols);

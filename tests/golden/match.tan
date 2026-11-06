@@ -54,6 +54,7 @@ match a {
         match b {
             Color::Red => printf("a two, b red\n");
             Color::Green => printf("a two, b green\n");
+            Color::Blue => printf("a two, b blue\n");
         };
     }
 };
@@ -68,3 +69,34 @@ match n {
     1 => printf("unreachable\n");
 };
 printf("done\n");
+
+def describe(x: i32): i32 {
+    let kind = 0;
+    match x {
+        1 => kind = 1;
+        2 => kind = 2;
+        _ => kind = 99;
+    };
+    kind
+}
+
+printf("%d %d %d %d\n", describe(1), describe(2), describe(3), describe(-5));
+
+let shade = Color::Blue;
+match shade {
+    Color::Red => printf("warm\n");
+    _ => {
+        printf("cool\n");
+        printf("not red\n");
+    }
+};
+
+match n {
+    _ => printf("always\n");
+};
+
+let hit = Color::Red;
+match hit {
+    Color::Red => printf("matched before catch-all\n");
+    _ => printf("catch-all should not run\n");
+};

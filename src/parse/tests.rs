@@ -1107,3 +1107,22 @@ fn parse_null_literal() {
         "{expression:?}"
     );
 }
+
+#[test]
+fn parse_match_with_catch_all() {
+    let program = parse(lex("match a { 1 => b; _ => c; };", 0).unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement");
+    };
+    let Statement::MatchStatement(m) = statement.as_ref() else {
+        panic!("expected a match statement");
+    };
+    assert_eq!(m.cases.len(), 1);
+    assert!(m.default.is_some());
+}
+
+#[test]
+fn reject_match_case_after_catch_all() {
+    assert!(parse(lex("match a { _ => b; 1 => c; };", 0).unwrap()).is_err());
+    assert!(parse(lex("match a { _ => b; _ => c; };", 0).unwrap()).is_err());
+}

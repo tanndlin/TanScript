@@ -1,6 +1,9 @@
 use std::fmt;
 
-use crate::ast::{Block, Expression};
+use crate::{
+    ast::{Block, Expression},
+    types::Span,
+};
 
 #[derive(Debug, Clone)]
 pub struct Case {
@@ -12,6 +15,8 @@ pub struct Case {
 pub struct MatchStatement {
     pub lhs: Expression,
     pub cases: Vec<Case>,
+    pub default: Option<Block>,
+    pub span: Span,
 }
 
 impl fmt::Display for MatchStatement {
@@ -24,6 +29,14 @@ impl fmt::Display for MatchStatement {
 {}
 }}",
                 case.rhs, case.block
+            )?;
+        }
+        if let Some(default) = &self.default {
+            writeln!(
+                f,
+                "_ => {{
+{default}
+}}"
             )?;
         }
         write!(f, "}}")

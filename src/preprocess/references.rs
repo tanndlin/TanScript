@@ -54,6 +54,9 @@ impl Statement {
                 for case in &s.cases {
                     case.block.references(names);
                 }
+                if let Some(default) = &s.default {
+                    default.references(names);
+                }
             }
             Statement::Return(s) => {
                 if let Some(expr) = &s.expr {

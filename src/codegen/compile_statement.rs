@@ -366,6 +366,14 @@ impl MatchStatement {
                 )?);
             }
 
+            if let Some(default) = &self.default {
+                instructions.push(Instruction::comment("Case: _".to_string()));
+                instructions.extend(default.compile(
+                    &mut CompileScope::new(Some(compile_scope)),
+                    register_handler,
+                )?);
+            }
+
             Ok(instructions)
         })?;
 

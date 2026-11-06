@@ -363,12 +363,50 @@ impl MatchStatement {
             expect_type(&case.rhs, &expected, &got, type_scope)?;
             case.block.check_types(type_scope)?;
         }
-        Ok(())
+        if let Some(default) = &mut self.default {
+            return default.check_types(type_scope);
+        }
+        self.check_exhaustive(&expected)
+    }
+
+    fn check_exhaustive(&self, matched: &Type) -> Result<(), TypeCheckError> {
+        let Type::Enum(enum_def) = matched else {
+            return Ok(());
+        };
+
+        let covered: HashSet<&str> = self
+            .cases
+            .iter()
+            .filter_map(|case| match &case.rhs.kind {
+                ExpressionKind::EnumVariant { variant_name, .. } => Some(variant_name.as_str()),
+                _ => None,
+            })
+            .collect();
+
+        let missing: Vec<String> = enum_def
+            .variants
+            .iter()
+            .filter(|variant| !covered.contains(variant.as_str()))
+            .cloned()
+            .collect();
+
+        if missing.is_empty() {
+            Ok(())
+        } else {
+            Err(TypeCheckErrorKind::NonExhaustiveMatch {
+                enum_type: enum_def.clone(),
+                missing,
+            }
+            .at(self.span))
+        }
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         for case in &mut self.cases {
             case.block.resolve_types(type_scope);
+        }
+        if let Some(default) = &mut self.default {
+            default.resolve_types(type_scope);
         }
     }
 }

@@ -525,37 +525,50 @@ fn parse_enum_definition(tokens: &mut Parser) -> Result<EnumDefinition, ParseErr
 }
 
 fn parse_match_statement(tokens: &mut Parser) -> Result<MatchStatement, ParseError> {
-    tokens.expect("match")?;
+    let span = tokens.expect("match")?.span;
     let condition = parse_condition(tokens)?;
     tokens.expect("{")?;
 
     let mut cases = vec![];
-    while tokens.peek_or_eof("case or }")?.token_type != Token::Op(OperatorType::CloseCurly) {
-        cases.push(parse_match_case(tokens)?);
+    let mut default = None;
+    loop {
+        match &tokens.peek_or_eof("case or }")?.token_type {
+            Token::Op(OperatorType::CloseCurly) => break,
+            Token::Atom(LexerAtomType::Identifier(s)) if s == "_" => {
+                tokens.expect("_")?;
+                tokens.expect("=>")?;
+                default = Some(parse_match_case_body(tokens)?);
+                break;
+            }
+            _ => cases.push(parse_match_case(tokens)?),
+        }
     }
     tokens.expect("}")?;
 
     Ok(MatchStatement {
         lhs: condition,
         cases,
+        default,
+        span,
     })
 }
 
 fn parse_match_case(tokens: &mut Parser) -> Result<Case, ParseError> {
     let value = parse_condition(tokens)?;
     tokens.expect("=>")?;
+    let block = parse_match_case_body(tokens)?;
+    Ok(Case { rhs: value, block })
+}
 
-    let block = if tokens.peek_or_eof("case body")?.token_type == Token::Op(OperatorType::OpenCurly)
-    {
-        parse_block(tokens)?
+fn parse_match_case_body(tokens: &mut Parser) -> Result<Block, ParseError> {
+    if tokens.peek_or_eof("case body")?.token_type == Token::Op(OperatorType::OpenCurly) {
+        parse_block(tokens)
     } else {
-        Block {
+        Ok(Block {
             children: vec![
                 parse_statement_or_expression(tokens)?
                     .ok_or_else(|| tokens.eof_error("case body"))?,
             ],
-        }
-    };
-
-    Ok(Case { rhs: value, block })
+        })
+    }
 }

@@ -1080,4 +1080,77 @@ mod test {
     fn type_error_for_comparing_pointer_to_number() {
         expect_mismatch!("let p: *u8 = malloc(1); let a = p != 0;");
     }
+
+    const COLOR: &str = "enum Color { Red, Green, Blue, } enum Shape { Circle, Square, }";
+
+    #[test]
+    fn supports_matching_on_enum() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{COLOR} let c = Color::Red; match c {{ Color::Red => 1; Color::Green => 2; Color::Blue => 3; }};"
+        ))
+    }
+
+    #[test]
+    fn supports_matching_on_int() -> Result<(), TypeCheckError> {
+        check("let a: u32 = 1; match a { 1 => 1; 2 => { let b = a; } };")
+    }
+
+    #[test]
+    fn type_error_for_match_case_of_wrong_type() {
+        expect_mismatch!("let a: u32 = 1; match a { true => 1; };");
+        expect_mismatch!("let a = true; match a { 1 => 1; };");
+        expect_mismatch!(format!(
+            "{COLOR} let c = Color::Red; match c {{ 1 => 1; }};"
+        ));
+        expect_mismatch!(format!(
+            "{COLOR} let c = Color::Red; match c {{ Color::Red => 1; Shape::Circle => 2; }};"
+        ));
+    }
+
+    #[test]
+    fn type_error_for_unknown_variant_in_match_case() {
+        expect_err!(
+            format!("{COLOR} let c = Color::Red; match c {{ Color::Purple => 1; }};"),
+            TypeCheckErrorKind::NoSuchVariant { .. }
+        );
+    }
+
+    #[test]
+    fn type_error_for_error_inside_match_case_block() {
+        expect_mismatch!("let a: u32 = 1; match a { 1 => { let b: bool = 1; } };");
+    }
+
+    #[test]
+    fn type_error_for_non_exhaustive_enum_match() {
+        expect_err!(
+            format!(
+                "{COLOR} let c = Color::Red; match c {{ Color::Red => 1; Color::Green => 2; }};"
+            ),
+            TypeCheckErrorKind::NonExhaustiveMatch { ref missing, .. } if missing == &["Blue"]
+        );
+    }
+
+    #[test]
+    fn supports_catch_all_making_enum_match_exhaustive() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{COLOR} let c = Color::Red; match c {{ Color::Red => 1; _ => 2; }};"
+        ))
+    }
+
+    #[test]
+    fn supports_match_with_only_catch_all() -> Result<(), TypeCheckError> {
+        check(&format!(
+            "{COLOR} let c = Color::Red; match c {{ _ => 1; }};"
+        ))
+    }
+
+    #[test]
+    fn type_error_for_error_inside_catch_all_block() {
+        expect_mismatch!("let a: u32 = 1; match a { 1 => 1; _ => { let b: bool = 1; } };");
+    }
+
+    #[test]
+    fn type_error_for_wrong_case_type_before_catch_all() {
+        expect_mismatch!("let a: u32 = 1; match a { true => 1; _ => 2; };");
+    }
 }
