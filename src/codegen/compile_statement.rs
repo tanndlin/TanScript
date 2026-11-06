@@ -8,7 +8,7 @@ use crate::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::{
-            NON_VOLATILE_REGISTERS, compile_jump_unless, mem_copy, store_element,
+            NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, mem_copy, store_element,
             with_place_address,
         },
         compile_scope::{CompileScope, SLOT_SIZE},
@@ -325,59 +325,79 @@ impl MatchStatement {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
-        let id = register_handler.get_unique_id();
-        let end_label = format!("endmatch{id}");
+        let end_label = format!("endmatch{}", register_handler.get_unique_id());
+        let case_labels: Vec<String> = self
+            .cases
+            .iter()
+            .map(|_| format!("match_case{}", register_handler.get_unique_id()))
+            .collect();
 
-        let mut instructions = register_handler.lease_with_scope(|register_handler, lhs_reg| {
-            let mut instructions = vec![Instruction::comment(format!("match {}", self.lhs))];
-            let condition = self.lhs.compile(compile_scope, lhs_reg, register_handler)?;
-            instructions.extend(condition);
+        // TODO: This is a valid program getting rejected
+        // Use lease register because it returns OutOfRegisters
+        // RegisterHander::lease_with_scope would attemp push r {instructions} pop r
+        // but {instructions} would jump past the pop
+        let lhs_reg = register_handler
+            .lease_register()
+            .map_err(|e| e.at(self.span))?;
+        let chain =
+            self.compile_compare_chain(compile_scope, register_handler, lhs_reg, &case_labels);
+        register_handler.release_register(lhs_reg);
 
-            for case in &self.cases {
-                let id = register_handler.get_unique_id();
-                let block_end_label = format!("match_case_block_end{id}");
+        let mut instructions = vec![Instruction::comment(format!("match {}", self.lhs))];
+        instructions.extend(chain?);
 
-                instructions.extend(register_handler.lease_with_scope(
-                    |register_handler, rhs_reg| {
-                        let mut instructions = vec![];
-                        instructions.push(Instruction::comment(format!("Case: {}", case.rhs)));
-                        instructions.extend(case.rhs.compile(
-                            compile_scope,
-                            rhs_reg,
-                            register_handler,
-                        )?);
+        if let Some(default) = &self.default {
+            instructions.push(Instruction::comment("Case: _".to_string()));
+            instructions.extend(default.compile(
+                &mut CompileScope::new(Some(compile_scope)),
+                register_handler,
+            )?);
+        }
+        if !self.cases.is_empty() {
+            instructions.push(Instruction::jmp(end_label.clone()));
+        }
 
-                        // Compare the lhs to the rhs, jump if they are not equal
-                        instructions.push(Instruction::cmp(lhs_reg, rhs_reg));
-                        instructions.push(Instruction::jcc(
-                            Condition::NotEqual,
-                            block_end_label.clone(),
-                        ));
-
-                        instructions.extend(case.block.compile(
-                            &mut CompileScope::new(Some(compile_scope)),
-                            register_handler,
-                        )?);
-
-                        instructions.push(Instruction::jmp(end_label.clone()));
-                        instructions.push(Instruction::label(block_end_label.clone()));
-                        Ok(instructions)
-                    },
-                )?);
+        for (i, (case, label)) in self.cases.iter().zip(&case_labels).enumerate() {
+            instructions.push(Instruction::label(label.clone()));
+            instructions.push(Instruction::comment(format!("Case: {}", case.rhs)));
+            instructions.extend(case.block.compile(
+                &mut CompileScope::new(Some(compile_scope)),
+                register_handler,
+            )?);
+            if i + 1 < self.cases.len() {
+                instructions.push(Instruction::jmp(end_label.clone()));
             }
-
-            if let Some(default) = &self.default {
-                instructions.push(Instruction::comment("Case: _".to_string()));
-                instructions.extend(default.compile(
-                    &mut CompileScope::new(Some(compile_scope)),
-                    register_handler,
-                )?);
-            }
-
-            Ok(instructions)
-        })?;
+        }
 
         instructions.push(Instruction::label(end_label));
+        Ok(instructions)
+    }
+
+    // For match statement
+    fn compile_compare_chain(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+        lhs_reg: Register,
+        case_labels: &[String],
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let mut instructions = self.lhs.compile(compile_scope, lhs_reg, register_handler)?;
+
+        for (case, label) in self.cases.iter().zip(case_labels) {
+            match as_operand(&case.rhs, compile_scope) {
+                Some(rhs) => instructions.push(Instruction::cmp(lhs_reg, rhs)),
+                None => instructions.extend(register_handler.lease_with_scope(
+                    |register_handler, rhs_reg| {
+                        let mut instructions =
+                            case.rhs.compile(compile_scope, rhs_reg, register_handler)?;
+                        instructions.push(Instruction::cmp(lhs_reg, rhs_reg));
+                        Ok(instructions)
+                    },
+                )?),
+            }
+            instructions.push(Instruction::jcc(Condition::Equal, label.clone()));
+        }
+
         Ok(instructions)
     }
 }
@@ -472,5 +492,46 @@ impl BreakStatement {
 impl ContinueStatement {
     pub fn compile(&self, compile_scope: &CompileScope) -> Result<Vec<Instruction>, CodegenError> {
         jump_out_of_loop(compile_scope, "continue", self.span, |l| &l.continue_label)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        ast::{Statement, StatementOrExpression},
+        codegen::{
+            CodegenError, CodegenErrorKind, compile_scope::CompileScope,
+            register_handler::RegisterHandler,
+        },
+        lex::lex,
+        parse::parse,
+        type_check::check_types,
+    };
+
+    #[test]
+    fn match_errors_instead_of_borrowing_when_out_of_registers() {
+        let mut program = parse(lex("match 1 { 1 => 2; _ => 3; };", 0).unwrap()).unwrap();
+        check_types(&mut program).unwrap();
+        let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+            panic!("expected a statement");
+        };
+        let Statement::MatchStatement(m) = statement.as_ref() else {
+            panic!("expected a match statement");
+        };
+
+        let mut register_handler = RegisterHandler::new();
+        while register_handler.lease_register().is_ok() {}
+
+        let result = m.compile(&mut CompileScope::new(None), &mut register_handler);
+        assert!(
+            matches!(
+                result,
+                Err(CodegenError {
+                    kind: CodegenErrorKind::OutOfRegisters,
+                    ..
+                })
+            ),
+            "{result:?}"
+        );
     }
 }

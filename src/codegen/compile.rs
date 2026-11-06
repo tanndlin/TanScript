@@ -1181,12 +1181,21 @@ fn compile_boolean(b: bool, dst: Address) -> Instruction {
     Instruction::mov(dst, n)
 }
 
-fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
+pub fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
     match &expr.kind {
         ExpressionKind::Atom(AtomType::Number(n)) if fits_imm32(*n) => Some(Operand::Immediate(*n)),
         ExpressionKind::Atom(AtomType::Char(c)) => Some(Operand::from(*c)),
         ExpressionKind::Atom(AtomType::Identifier(name)) => {
             scope.get_variable(name).ok().map(Operand::from)
+        }
+        ExpressionKind::EnumVariant {
+            enum_name,
+            variant_name,
+        } => {
+            let index = scope.lookup_enum(enum_name)?.variant_index(variant_name)?;
+            Some(Operand::Immediate(NumberType::U8(
+                u8::try_from(index).ok()?,
+            )))
         }
         _ => None,
     }
