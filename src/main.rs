@@ -3,6 +3,7 @@ use std::{
     fs,
     io::{IsTerminal, stderr},
     path::Path,
+    thread,
 };
 
 use tanscript::{Emit, compile, diagnostic::Style, source_map::SourceMap};
@@ -14,9 +15,18 @@ struct CliArgs {
     emit: Option<Emit>,
 }
 
+const STACK_SIZE: usize = 8 * 1024 * 1024;
+
 fn main() {
     let style = Style::new(stderr().is_terminal());
-    if let Err(e) = run(&style) {
+    let result = thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(move || run(&style))
+        .expect("failed to spawn compiler thread")
+        .join()
+        .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+
+    if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
     }
