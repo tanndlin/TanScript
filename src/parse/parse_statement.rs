@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use crate::{
     ast::{
-        Arg, Assignment, AtomType, Block, BreakStatement, ContinueStatement, Declaration,
+        Arg, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement, Declaration,
         EnumDefinition, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
-        Import, ImportName, OperatorType, ReturnStatement, Statement, StatementOrExpression,
-        StructDefinition, StructField, WhileLoop,
+        Import, ImportName, MatchStatement, OperatorType, ReturnStatement, Statement,
+        StatementOrExpression, StructDefinition, StructField, WhileLoop,
     },
     lex::LexerAtomType,
     parse::{
@@ -69,6 +69,7 @@ fn parse_statement(tokens: &mut Parser) -> Result<Option<Statement>, ParseError>
         "def" => parse_function_definition(tokens)?.into(),
         "struct" => parse_struct_definition(tokens)?.into(),
         "enum" => parse_enum_definition(tokens)?.into(),
+        "match" => parse_match_statement(tokens)?.into(),
         "return" => parse_return(tokens)?.into(),
         "break" => {
             let span = tokens.next().unwrap().span;
@@ -521,4 +522,40 @@ fn parse_enum_definition(tokens: &mut Parser) -> Result<EnumDefinition, ParseErr
         variants,
         span,
     })
+}
+
+fn parse_match_statement(tokens: &mut Parser) -> Result<MatchStatement, ParseError> {
+    tokens.expect("match")?;
+    let condition = parse_condition(tokens)?;
+    tokens.expect("{")?;
+
+    let mut cases = vec![];
+    while tokens.peek_or_eof("case or }")?.token_type != Token::Op(OperatorType::CloseCurly) {
+        cases.push(parse_match_case(tokens)?);
+    }
+    tokens.expect("}")?;
+
+    Ok(MatchStatement {
+        lhs: condition,
+        cases,
+    })
+}
+
+fn parse_match_case(tokens: &mut Parser) -> Result<Case, ParseError> {
+    let value = parse_condition(tokens)?;
+    tokens.expect("=>")?;
+
+    let block = if tokens.peek_or_eof("case body")?.token_type == Token::Op(OperatorType::OpenCurly)
+    {
+        parse_block(tokens)?
+    } else {
+        Block {
+            children: vec![
+                parse_statement_or_expression(tokens)?
+                    .ok_or_else(|| tokens.eof_error("case body"))?,
+            ],
+        }
+    };
+
+    Ok(Case { rhs: value, block })
 }

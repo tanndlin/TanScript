@@ -55,6 +55,7 @@ operators! {
     PathSep => "::",
     Reference => "&",
     Cast => "as",
+    FatArrow => "=>",
 }
 
 impl fmt::Display for OperatorType {

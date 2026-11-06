@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use crate::{
     ast::{
         Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind, ForLoop,
-        FunctionDefinition, IfStatement, ReturnStatement, Statement, StatementOrExpression,
-        StructDefinition, WhileLoop,
+        FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
+        StatementOrExpression, StructDefinition, WhileLoop,
     },
     error::At,
     type_check::{
@@ -156,6 +156,7 @@ impl Statement {
                 s.check_types(type_scope)
             }
             Self::IfStatement(s) => s.check_types(type_scope),
+            Self::MatchStatement(s) => s.check_types(type_scope),
             Self::Return(s) => s.check_types(type_scope),
             Self::WhileLoop(s) => s.check_types(type_scope),
             Self::EnumDefinition(s) => s.check_types(type_scope),
@@ -169,6 +170,7 @@ impl Statement {
             Self::ForLoop(s) => s.resolve_types(type_scope),
             Self::FunctionDefinition(s) => s.body.resolve_types(type_scope),
             Self::IfStatement(s) => s.resolve_types(type_scope),
+            Self::MatchStatement(s) => s.resolve_types(type_scope),
             Self::WhileLoop(s) => s.block.resolve_types(type_scope),
             Self::Assignment(_)
             | Self::Return(_)
@@ -349,6 +351,24 @@ impl IfStatement {
         self.block.resolve_types(type_scope);
         if let Some(else_block) = &mut self.else_block {
             else_block.resolve_types(type_scope);
+        }
+    }
+}
+
+impl MatchStatement {
+    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let expected = check_types_expression(&mut self.lhs, type_scope)?;
+        for case in &mut self.cases {
+            let got = check_types_expression(&mut case.rhs, type_scope)?;
+            expect_type(&case.rhs, &expected, &got, type_scope)?;
+            case.block.check_types(type_scope)?;
+        }
+        Ok(())
+    }
+
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        for case in &mut self.cases {
+            case.block.resolve_types(type_scope);
         }
     }
 }

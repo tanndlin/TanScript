@@ -1,7 +1,8 @@
 use crate::{
     ast::{
         Assignment, AtomType, BreakStatement, ContinueStatement, Declaration, ExpressionKind,
-        ForLoop, FunctionDefinition, IfStatement, ReturnStatement, Statement, WhileLoop,
+        ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
+        WhileLoop,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
@@ -12,7 +13,7 @@ use crate::{
         },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
-        instruction::Instruction,
+        instruction::{Condition, Instruction},
         loop_context::LoopContext,
         register_handler::RegisterHandler,
     },
@@ -40,6 +41,7 @@ impl Statement {
                 compile_scope.insert_enum(def.clone());
                 Ok(vec![])
             }
+            Statement::MatchStatement(s) => s.compile(compile_scope, register_handler),
             Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
             Statement::Return(s) => s.compile(compile_scope, register_handler),
             Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),
@@ -311,6 +313,61 @@ impl IfStatement {
                 register_handler,
             )?);
         }
+
+        instructions.push(Instruction::label(end_label));
+        Ok(instructions)
+    }
+}
+
+impl MatchStatement {
+    pub fn compile(
+        &self,
+        compile_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let id = register_handler.get_unique_id();
+        let end_label = format!("endmatch{id}");
+
+        let mut instructions = register_handler.lease_with_scope(|register_handler, lhs_reg| {
+            let mut instructions = vec![Instruction::comment(format!("match {}", self.lhs))];
+            let condition = self.lhs.compile(compile_scope, lhs_reg, register_handler)?;
+            instructions.extend(condition);
+
+            for case in &self.cases {
+                let id = register_handler.get_unique_id();
+                let block_end_label = format!("match_case_block_end{id}");
+
+                instructions.extend(register_handler.lease_with_scope(
+                    |register_handler, rhs_reg| {
+                        let mut instructions = vec![];
+                        instructions.push(Instruction::comment(format!("Case: {}", case.rhs)));
+                        instructions.extend(case.rhs.compile(
+                            compile_scope,
+                            rhs_reg,
+                            register_handler,
+                        )?);
+
+                        // Compare the lhs to the rhs, jump if they are not equal
+                        instructions.push(Instruction::cmp(lhs_reg, rhs_reg));
+                        instructions.push(Instruction::jcc(
+                            Condition::NotEqual,
+                            block_end_label.clone(),
+                        ));
+
+                        instructions.extend(case.block.compile(
+                            &mut CompileScope::new(Some(compile_scope)),
+                            register_handler,
+                        )?);
+
+                        instructions.push(Instruction::jmp(end_label.clone()));
+                        instructions.push(Instruction::label(block_end_label.clone()));
+                        Ok(instructions)
+                    },
+                )?);
+            }
+
+            Ok(instructions)
+        })?;
 
         instructions.push(Instruction::label(end_label));
         Ok(instructions)

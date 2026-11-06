@@ -18,7 +18,7 @@ command = ["cargo", "fmt", "--", "--check"]
 need_stdout = true
 
 [jobs.run]
-command = ["cargo", "run", "--", "self-compiler/main.tan"]
+command = ["cargo", "run", "--", "script.tan"]
 need_stdout = true
 allow_warnings = true
 background = false

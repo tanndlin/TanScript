@@ -49,6 +49,12 @@ impl Statement {
                     else_block.references(names);
                 }
             }
+            Statement::MatchStatement(s) => {
+                s.lhs.references(names);
+                for case in &s.cases {
+                    case.block.references(names);
+                }
+            }
             Statement::Return(s) => {
                 if let Some(expr) = &s.expr {
                     expr.references(names);

@@ -45,6 +45,12 @@ impl Statement {
                 symbols.functions.insert(s.name.clone(), s.clone());
                 s.body.discover(symbols);
             }
+            Statement::MatchStatement(s) => {
+                s.lhs.discover(symbols);
+                for case in &s.cases {
+                    case.block.discover(symbols);
+                }
+            }
             Statement::IfStatement(s) => {
                 s.condition.discover(symbols);
                 s.block.discover(symbols);
