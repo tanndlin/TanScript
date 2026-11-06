@@ -11,6 +11,7 @@
     { "include": "#namespaces" },
     { "include": "#calls" },
     { "include": "#properties" },
+    { "include": "#enum-members" },
     { "include": "#type-names" },
     { "include": "#operators" },
     { "include": "#variables" }
@@ -36,7 +37,18 @@
           }
         },
         {
-          "match": "\\b(struct|enum)\\s+([A-Za-z_]\\w*)",
+          "begin": "\\b(enum)\\s+([A-Za-z_]\\w*)",
+          "beginCaptures": {
+            "1": { "name": "storage.type.tan" },
+            "2": { "name": "entity.name.type.tan" }
+          },
+          "end": "\\}",
+          "patterns": [
+            { "name": "variable.other.enummember.tan", "match": "\\b[A-Za-z_]\\w*" }
+          ]
+        },
+        {
+          "match": "\\b(struct)\\s+([A-Za-z_]\\w*)",
           "captures": {
             "1": { "name": "storage.type.tan" },
             "2": { "name": "entity.name.type.tan" }
@@ -71,6 +83,10 @@
     "properties": {
       "name": "variable.other.property.tan",
       "match": "(?<=\\.)[A-Za-z_]\\w*"
+    },
+    "enum-members": {
+      "name": "variable.other.enummember.tan",
+      "match": "(?<=::)[A-Za-z_]\\w*"
     },
     "type-names": {
       "name": "entity.name.type.tan",
