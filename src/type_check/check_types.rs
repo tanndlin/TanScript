@@ -1028,6 +1028,13 @@ mod test {
     }
 
     #[test]
+    fn supports_struct_as_generic_argument_behind_pointer() -> Result<(), TypeCheckError> {
+        check(
+            "struct Cell<T> { value: T, } struct Node { v: i64, items: *Cell<Node>, }              def f(n: Node): i64 { return (*n.items).value.v; }",
+        )
+    }
+
+    #[test]
     fn type_error_for_mutually_recursive_structs_without_pointer() {
         for source in [
             "struct A { b: B, } struct B { a: A, }",

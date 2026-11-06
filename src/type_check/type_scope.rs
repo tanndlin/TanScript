@@ -96,15 +96,26 @@ impl TypeScope {
                 }
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(*span)),
             },
-            Type::Pointer(inner) => match inner.as_ref() {
-                Type::Named { name, .. }
-                    if matches!(self.lookup(name), Some(Type::Named { .. })) =>
-                {
-                    Ok(t.clone())
-                }
-                _ => Ok(Type::Pointer(Box::new(self.resolve(inner)?))),
-            },
+            Type::Pointer(inner) if self.mentions_placeholder(inner) => Ok(t.clone()),
+            Type::Pointer(inner) => Ok(Type::Pointer(Box::new(self.resolve(inner)?))),
             _ => Ok(t.clone()),
+        }
+    }
+
+    fn mentions_placeholder(&self, t: &Type) -> bool {
+        match t {
+            Type::Named {
+                name,
+                concrete_generics,
+                ..
+            } => {
+                matches!(self.lookup(name), Some(Type::Named { .. }))
+                    || concrete_generics
+                        .iter()
+                        .any(|generic| self.mentions_placeholder(generic))
+            }
+            Type::Pointer(inner) => self.mentions_placeholder(inner),
+            _ => false,
         }
     }
 

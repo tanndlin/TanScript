@@ -13,11 +13,11 @@
 - dont push rbp; sub rsp when its a leaf function that doesnt need shadow space for args
 - Win64 ABI for struct args to extern functions: structs of 1, 2, 4 or 8 bytes go by value in a register/stack slot, larger ones need a caller-made copy since a C callee may modify it (TanScript functions currently get a pointer to the original and copy it themselves, so structs to externs are rejected by the type checker)
 - Allow struct literal inside a struct literal (e.g. `struct { a: 1, b: struct { c: 2 } }`)
+- Struct variable as a by-value field in a struct literal (`let b = B { x: 3 }; let a = A { b: b };`) panics in codegen with "Cannot offset (r10)" (`src/codegen/compile.rs:661`); the type checker accepts it
 - sizeof operator or some other way to get the size of a type at compile time
 - enums storing values
 - `impl struct` syntax sugar
 - `0 < x < 10` syntax sugar for range checks
-- Allow the struct being defined as a generic argument behind a pointer (e.g. `items: *Cell<Node>` inside `Node`): the declaration now type-checks, but `resolve` instantiates `Cell<Node>` while `Node` is still a placeholder, so `value` is left as an unresolved `Named(Node)` and `(*n.items).value.v` fails with "(Node) is not a struct". Fix by expanding `Named` types on field access, or by deferring resolution of pointers whose generic arguments mention a placeholder (test: `supports_struct_as_generic_argument_behind_pointer`)
 - Auto-deref `.` on pointers (or a `->` operator) so `p.x` works for `p: *Struct` instead of `(*p).x`
 - Struct return values, following Win64: structs of 1, 2, 4 or 8 bytes return in rax, larger ones through a caller-allocated hidden pointer passed in rcx (shifting the other args) and returned in rax
 - Globals or top-level `const` visible inside functions
