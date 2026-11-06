@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        Assignment, AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
+        AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
         StatementOrExpression::{self},
         StructDefinition, UnaryOp,
     },
@@ -1050,16 +1050,7 @@ fn compile_postfix(
     dst: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    // Postfix evaluates to the value before the update
-    let mut instructions = lhs.compile(compile_scope, dst, register_handler)?;
-    instructions.extend(compile_postfix_update(
-        op,
-        lhs,
-        compile_scope,
-        register_handler,
-    )?);
-
-    Ok(instructions)
+    compile_postfix_in_place(op, lhs, compile_scope, Some(dst), register_handler)
 }
 
 fn compile_postfix_update(
@@ -1068,21 +1059,40 @@ fn compile_postfix_update(
     compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    Assignment {
-        lhs: lhs.clone(),
-        expression: Expression::new(
-            ExpressionKind::Binary(
-                op.arithmetic(),
-                Box::new(lhs.clone()),
-                Box::new(Expression::new(
-                    ExpressionKind::Atom(AtomType::Number(NumberType::Coercible(1))),
-                    lhs.span,
-                )),
-            ),
-            lhs.span,
-        ),
-    }
-    .compile_uncommented(compile_scope, register_handler)
+    compile_postfix_in_place(op, lhs, compile_scope, None, register_handler)
+}
+
+/// Evaluates the place once so `a[next()]++` only calls `next()` once
+fn compile_postfix_in_place(
+    op: PostfixOp,
+    lhs: &Expression,
+    compile_scope: &mut CompileScope,
+    dst: Option<Address>,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    with_place_address(
+        lhs,
+        compile_scope,
+        register_handler,
+        &mut |_, register_handler, address, t| {
+            let update = |target: Address| match op {
+                PostfixOp::Increment => Instruction::add(target, 1),
+                PostfixOp::Decrement => Instruction::sub(target, 1),
+            };
+            if dst.is_none() && narrow_size(&t).is_none() {
+                return Ok(vec![update(address)]);
+            }
+            register_handler.lease_with_scope(|_, value| {
+                let mut instructions = vec![load_element(&t, value, address)];
+                if let Some(dst) = dst {
+                    instructions.push(Instruction::mov(dst, value));
+                }
+                instructions.push(update(value.into()));
+                instructions.push(store_element(&t, address, value));
+                Ok(instructions)
+            })
+        },
+    )
 }
 
 fn compile_multiply(

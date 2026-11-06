@@ -1,0 +1,26 @@
+def next(calls: *i64): i64 {
+    let v = *calls;
+    *calls = v + 1;
+    v
+}
+
+let calls: i64 = 0;
+let nums: *i64 = malloc(8 * 4);
+nums[0] = 10;
+nums[1] = 20;
+nums[2] = 30;
+nums[3] = 40;
+
+nums[next(&calls)]++;
+printf("%d %d %d\n", nums[0], nums[1], calls);
+
+let old = nums[next(&calls)]--;
+printf("%d %d %d\n", old, nums[1], calls);
+
+calls = 0;
+let small: *i32 = malloc(4 * 2);
+small[0] = 5;
+small[1] = 9;
+small[next(&calls)]++;
+small[1]++;
+printf("%d %d %d\n", small[0], small[1], calls);

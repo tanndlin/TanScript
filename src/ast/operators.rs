@@ -140,14 +140,6 @@ impl PostfixOp {
 
     pub const BINDING_POWER: u8 = 11;
 
-    /// The arithmetic applied to the variable, i.e. `a++` is `a = a + 1`
-    pub fn arithmetic(self) -> BinaryOp {
-        match self {
-            PostfixOp::Increment => BinaryOp::Add,
-            PostfixOp::Decrement => BinaryOp::Subtract,
-        }
-    }
-
     fn symbol(self) -> &'static str {
         match self {
             PostfixOp::Increment => "++",
