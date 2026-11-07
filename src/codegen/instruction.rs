@@ -298,7 +298,7 @@ impl Instruction {
         Self::Comment(text.into())
     }
 
-    pub fn lea(dst: Register, src: Address) -> Instruction {
+    pub fn lea(dst: Register, src: Address) -> Self {
         Self::Lea { dst, src }
     }
 
