@@ -90,14 +90,6 @@ pub enum Instruction {
         dst: Address,
         src: Operand,
     },
-    Or {
-        dst: Address,
-        src: Operand,
-    },
-    And {
-        dst: Address,
-        src: Operand,
-    },
     Xor {
         dst: Address,
         src: Operand,
@@ -187,20 +179,6 @@ impl Instruction {
 
     pub fn sub(dst: impl Into<Address>, src: impl Into<Operand>) -> Self {
         Self::Sub {
-            dst: dst.into(),
-            src: src.into(),
-        }
-    }
-
-    pub fn or(dst: impl Into<Address>, src: impl Into<Operand>) -> Self {
-        Self::Or {
-            dst: dst.into(),
-            src: src.into(),
-        }
-    }
-
-    pub fn and(dst: impl Into<Address>, src: impl Into<Operand>) -> Self {
-        Self::And {
             dst: dst.into(),
             src: src.into(),
         }
@@ -368,8 +346,6 @@ impl fmt::Display for Instruction {
             Instruction::Mov { dst, src } => write_binary(f, "mov", *dst, src),
             Instruction::Add { dst, src } => write_binary(f, "add", *dst, src),
             Instruction::Sub { dst, src } => write_binary(f, "sub", *dst, src),
-            Instruction::Or { dst, src } => write_binary(f, "or", *dst, src),
-            Instruction::And { dst, src } => write_binary(f, "and", *dst, src),
             Instruction::Xor { dst, src } => write_binary(f, "xor", *dst, src),
             Instruction::Cmp { lhs, rhs } => write_binary(f, "cmp", *lhs, rhs),
             Instruction::Test { lhs, rhs } => write_binary(f, "test", *lhs, rhs),

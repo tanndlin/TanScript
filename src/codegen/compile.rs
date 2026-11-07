@@ -171,6 +171,9 @@ impl Expression {
                 AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
                 AtomType::Null => Ok(vec![Instruction::mov(dst, NumberType::I64(0))]),
             },
+            ExpressionKind::Binary(BinaryOp::And | BinaryOp::Or, ..) => {
+                compile_logical_binary(self, compile_scope, dst, register_handler)
+            }
             ExpressionKind::Binary(op, left, right) => {
                 compile_binary(*op, left, right, compile_scope, dst, register_handler)
             }
@@ -758,25 +761,8 @@ fn compile_binary(
                 register_handler,
             );
         }
-        BinaryOp::Or => {
-            return compile_simple_binary(
-                Instruction::or,
-                compile_scope,
-                left,
-                right,
-                dst,
-                register_handler,
-            );
-        }
-        BinaryOp::And => {
-            return compile_simple_binary(
-                Instruction::and,
-                compile_scope,
-                left,
-                right,
-                dst,
-                register_handler,
-            );
+        BinaryOp::Or | BinaryOp::And => {
+            unreachable!("logical operators are compiled by compile_logical_binary")
         }
         BinaryOp::LessThan => Condition::Less,
         BinaryOp::LessOrEqual => Condition::LessEqual,
@@ -840,6 +826,30 @@ fn compile_simple_binary(
 
         Ok(instructions)
     }
+}
+
+fn compile_logical_binary(
+    condition: &Expression,
+    compile_scope: &mut CompileScope,
+    dst: Address,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let id = register_handler.get_unique_id();
+    let false_label = format!("logic_false_{id}");
+    let end_label = format!("logic_end_{id}");
+    let mut instructions = compile_jump(
+        condition,
+        &false_label,
+        false,
+        compile_scope,
+        register_handler,
+    )?;
+    instructions.push(Instruction::mov(dst, NumberType::I64(1)));
+    instructions.push(Instruction::jmp(end_label.clone()));
+    instructions.push(Instruction::label(false_label));
+    instructions.push(Instruction::mov(dst, NumberType::I64(0)));
+    instructions.push(Instruction::label(end_label));
+    Ok(instructions)
 }
 
 fn compile_compare(
@@ -1462,10 +1472,18 @@ mod test {
     #[test]
     fn compile_logical_ops_on_values() {
         let asm = compile("let a = true; let b = false; let c = a && b; let d = a || b;");
-        assert!(asm.contains(", [rbp - 16]\n\tmov [rbp - 24], "), "{asm}");
-        assert!(asm.contains("\tand r"), "{asm}");
-        assert!(asm.contains(", [rbp - 16]\n\tmov [rbp - 32], "), "{asm}");
-        assert!(asm.contains("\tor r"), "{asm}");
+        assert!(!asm.contains("	and "), "{asm}");
+        assert!(!asm.contains("	or "), "{asm}");
+        assert!(asm.contains("logic_false_"), "{asm}");
+        assert!(asm.contains("logic_end_"), "{asm}");
+    }
+
+    #[test]
+    fn compile_and_value_skips_right_side() {
+        let asm = compile("def f(): bool { true } let a = false; let b = a && f();");
+        let jump = asm.find("je logic_false_").unwrap();
+        let call = asm.find("call f").unwrap();
+        assert!(jump < call, "{asm}");
     }
 
     #[test]

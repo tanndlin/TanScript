@@ -19,4 +19,3 @@
 - Struct return values, following Win64: structs of 1, 2, 4 or 8 bytes return in rax, larger ones through a caller-allocated hidden pointer passed in rcx (shifting the other args) and returned in rax
 - Globals or top-level `const` visible inside functions
 - Mangle function labels (prefix or suffix) so functions named like NASM mnemonics can't break assembly
-- `&&`/`||` as values are bitwise and evaluate both sides, so `p != null && (*p).x == 1` dereferences null; only conditions short-circuit

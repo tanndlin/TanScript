@@ -1,0 +1,23 @@
+def touch(result: bool): bool {
+    printf("touch\n");
+    result
+}
+
+let a = false && touch(true);
+printf("%d\n", a);
+
+let b = true || touch(false);
+printf("%d\n", b);
+
+let c = true && touch(true);
+printf("%d\n", c);
+
+let d = false || touch(false);
+printf("%d\n", d);
+
+let e = 1 < 2 && (3 > 4 || touch(true));
+printf("%d\n", e);
+
+let f = true;
+f = f && false;
+printf("%d\n", f);
