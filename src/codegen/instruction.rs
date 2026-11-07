@@ -160,6 +160,14 @@ pub enum Instruction {
         dst: Register,
         src: Address,
     },
+    Shl {
+        dst: Register,
+        amount: u16,
+    },
+    Or {
+        dst: Register,
+        src: Operand,
+    },
 }
 
 impl Instruction {
@@ -293,6 +301,17 @@ impl Instruction {
     pub fn lea(dst: Register, src: Address) -> Instruction {
         Self::Lea { dst, src }
     }
+
+    pub fn shl(dst: Register, amount: u16) -> Self {
+        Self::Shl { dst, amount }
+    }
+
+    pub fn or(dst: Register, src: impl Into<Operand>) -> Self {
+        Self::Or {
+            dst,
+            src: src.into(),
+        }
+    }
 }
 
 impl fmt::Display for Size {
@@ -403,6 +422,8 @@ impl fmt::Display for Instruction {
             Instruction::Ret => write!(f, "\tret"),
             Instruction::Comment(c) => write!(f, "; {c}"),
             Instruction::Lea { dst, src } => write!(f, "\tlea {dst}, {src}"),
+            Instruction::Shl { dst, amount } => write!(f, "\tshl {dst}, {amount}"),
+            Instruction::Or { dst, src } => write!(f, "\tor {dst}, {src}"),
         }
     }
 }

@@ -490,7 +490,21 @@ fn compile_struct_instantiation(
         .unwrap()
         .clone();
 
-    assert!(dst.is_memory(), "Cannot put a struct into a register");
+    dbg!(struct_def.size());
+    if let Address::Register(dst) = dst {
+        assert!(
+            matches!(struct_def.size(), 1 | 2 | 4 | 8),
+            "Only structs of size (1 | 2 | 4 | 8) can be put into a register",
+        );
+
+        return compile_struct_instantiation_to_reg(
+            &struct_def,
+            fields,
+            compile_scope,
+            dst,
+            register_handler,
+        );
+    }
 
     let mut instructions = vec![];
     for (field_name, expr) in fields {
@@ -509,6 +523,43 @@ fn compile_struct_instantiation(
             field.push(store_element(&field_type, address, reg));
             Ok(field)
         })?);
+    }
+
+    Ok(instructions)
+}
+
+fn compile_struct_instantiation_to_reg(
+    struct_def: &StructDefinition,
+    fields: &[(String, Expression)],
+    compile_scope: &mut CompileScope,
+    dst: Register,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = vec![];
+    for (i, (field_name, expr)) in fields.iter().enumerate() {
+        let field_type = struct_def.get_field_type(field_name).unwrap().clone();
+        let offset = u16::try_from(struct_def.get_byte_offset(field_name)).unwrap();
+
+        if i == 0 {
+            instructions.extend(expr.compile(compile_scope, dst, register_handler)?);
+            instructions.extend(zero_extend(&field_type, expr, dst));
+            if offset != 0 {
+                instructions.push(Instruction::shl(dst, offset * 8));
+            }
+            continue;
+        }
+
+        instructions.extend(
+            register_handler.lease_with_scope(|register_handler, field_reg| {
+                let mut field = expr.compile(compile_scope, field_reg, register_handler)?;
+                field.extend(zero_extend(&field_type, expr, field_reg));
+                if offset != 0 {
+                    field.push(Instruction::shl(field_reg, offset * 8));
+                }
+                field.push(Instruction::or(dst, field_reg));
+                Ok(field)
+            })?,
+        );
     }
 
     Ok(instructions)
@@ -609,6 +660,25 @@ fn extend(element: &Type, dst: Register, src: impl Into<Address>) -> Option<Inst
     })
 }
 
+fn zero_extend(element: &Type, value: &Expression, reg: Register) -> Option<Instruction> {
+    if is_non_negative_literal(value) {
+        return None;
+    }
+
+    narrow_size(element).map(|(size, _)| Instruction::movzx(reg, reg, size))
+}
+
+fn is_non_negative_literal(expr: &Expression) -> bool {
+    match &expr.kind {
+        ExpressionKind::Atom(AtomType::Number(n)) => !matches!(
+            n,
+            NumberType::I32(..=-1) | NumberType::I64(..=-1) | NumberType::Coercible(..=-1)
+        ),
+        ExpressionKind::Atom(AtomType::Char(_) | AtomType::Boolean(_)) => true,
+        _ => false,
+    }
+}
+
 /// Loading from memory
 pub fn load_element(element: &Type, dst: Register, memory: Address) -> Instruction {
     extend(element, dst, memory).unwrap_or_else(|| Instruction::mov(dst, memory))
@@ -667,7 +737,7 @@ fn offset_address(address: Address, offset: u32) -> Address {
             base,
             offset: start + offset,
         },
-        Address::Register(_) => panic!("Cannot offset ({address})"),
+        Address::Register(_) => panic!("Cannot offset register ({address}) offset was: ({offset})"),
     }
 }
 
