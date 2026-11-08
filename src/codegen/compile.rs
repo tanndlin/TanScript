@@ -202,6 +202,11 @@ impl Expression {
             ExpressionKind::Cast(inner, cast_type) => {
                 compile_cast(inner, cast_type, compile_scope, dst, register_handler)
             }
+            ExpressionKind::SizeOf(sized_type) => compile_number(
+                NumberType::Coercible(i64::try_from(sized_type.size()).unwrap()),
+                dst,
+                register_handler,
+            ),
             ExpressionKind::StructInstantiation {
                 struct_type_name,
                 fields,
@@ -251,6 +256,7 @@ impl Expression {
                 Ok(instructions)
             }
             ExpressionKind::Atom(_)
+            | ExpressionKind::SizeOf(_)
             | ExpressionKind::StructInstantiation { .. }
             | ExpressionKind::StructAccess { .. }
             | ExpressionKind::EnumVariant { .. } => Ok(vec![]),

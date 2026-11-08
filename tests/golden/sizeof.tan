@@ -1,0 +1,31 @@
+struct Token {
+    kind: u8,
+    data: u64,
+}
+
+struct Node<T> {
+    value: T,
+    next: *Node<T>,
+}
+
+enum Color {
+    Red,
+    Green,
+}
+
+printf("%d %d %d %d %d\n", sizeof(u8), sizeof(i32), sizeof(u32), sizeof(i64), sizeof(u64));
+printf("%d %d %d\n", sizeof(char), sizeof(bool), sizeof(Color));
+printf("%d %d %d\n", sizeof(*char), sizeof(*Token), sizeof(*Node<Token>));
+printf("%d %d %d\n", sizeof(Token), sizeof(Node<Token>), sizeof(Node<u8>));
+
+let count: u32 = 3;
+let bytes = count * sizeof(Token);
+printf("%u\n", bytes);
+
+let head: *Node<Token> = calloc(1, sizeof(Node<Token>));
+head->value = Token { kind: 7, data: 1234 };
+let tokens: *Token = malloc(count * sizeof(Token));
+for (let i: u32 = 0; i < count; i++) {
+    tokens[i] = Token { kind: i as u8, data: i as u64 * 100 };
+}
+printf("%d %llu %d %llu\n", head->value.kind, head->value.data, tokens[2].kind, tokens[2].data);

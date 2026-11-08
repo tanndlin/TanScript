@@ -34,7 +34,9 @@ impl Expression {
 
     pub fn contains_call(&self) -> bool {
         match &self.kind {
-            ExpressionKind::Atom(_) | ExpressionKind::EnumVariant { .. } => false,
+            ExpressionKind::Atom(_)
+            | ExpressionKind::EnumVariant { .. }
+            | ExpressionKind::SizeOf(_) => false,
             ExpressionKind::FunctionCall(_, _) => true,
             ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
                 left.contains_call() || right.contains_call()
@@ -65,6 +67,7 @@ pub enum ExpressionKind {
     FunctionCall(String, Vec<Expression>),
     Index(Box<Expression>, Box<Expression>),
     Cast(Box<Expression>, Type),
+    SizeOf(Type),
     StructInstantiation {
         struct_type_name: String,
         fields: Vec<(String, Expression)>,
@@ -100,6 +103,7 @@ impl fmt::Display for ExpressionKind {
             ExpressionKind::Cast(expression, cast_type) => {
                 write!(f, "({expression} as {cast_type})")
             }
+            ExpressionKind::SizeOf(t) => write!(f, "sizeof({t})"),
             ExpressionKind::StructInstantiation {
                 struct_type_name,
                 fields,

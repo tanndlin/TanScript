@@ -61,7 +61,8 @@
         { "name": "keyword.control.tan", "match": "\\b(if|else|while|for|match|return|break|continue)\\b" },
         { "name": "keyword.control.import.tan", "match": "\\buse\\b" },
         { "name": "storage.type.tan", "match": "\\b(let|def|struct|enum)\\b" },
-        { "name": "keyword.operator.cast.tan", "match": "\\bas\\b" }
+        { "name": "keyword.operator.cast.tan", "match": "\\bas\\b" },
+        { "name": "keyword.operator.sizeof.tan", "match": "\\bsizeof\\b" }
       ]
     },
     "types": {

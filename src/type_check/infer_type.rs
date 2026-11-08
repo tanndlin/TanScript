@@ -255,6 +255,18 @@ mod test {
     }
 
     #[test]
+    fn infers_sizeof_as_coercible() {
+        assert_eq!(
+            infer_last("sizeof(u8);").unwrap(),
+            Type::Int(IntType::Coercible)
+        );
+        assert_eq!(
+            infer_last("let n: u32 = 3; n * sizeof(u64);").unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
     fn type_error_for_unknown_type() {
         for code in [
             "def f(p: P): i64 { return 1; } f;",
@@ -262,6 +274,7 @@ mod test {
             "struct Q { p: P, } 1;",
             "let x = 1; let y: x = 1; y;",
             "0 as *P;",
+            "sizeof(P);",
         ] {
             let result = infer_last(code);
             assert!(

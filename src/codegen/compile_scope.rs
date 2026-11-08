@@ -13,6 +13,7 @@ use crate::{
         loop_context::LoopContext,
     },
     type_check::{Type, unify},
+    types::IntType,
 };
 
 pub const SLOT_SIZE: u32 = 8;
@@ -108,6 +109,7 @@ impl<'a> CompileScope<'a> {
                 (*expr.etype).clone()
             }
             ExpressionKind::Cast(_, cast_type) => cast_type.clone(),
+            ExpressionKind::SizeOf(_) => Type::Int(IntType::Coercible),
             ExpressionKind::StructAccess { base, field_name } => {
                 match self.expression_type(base)? {
                     Type::Struct(struct_def) => struct_def

@@ -41,6 +41,14 @@ fn parse_cast() {
 }
 
 #[test]
+fn parse_sizeof() {
+    test_parse_expression!("sizeof(u32)", "sizeof(u32)");
+    test_parse_expression!("sizeof(*char)", "sizeof(*char)");
+    test_parse_expression!("sizeof(Node<i64>)", "sizeof(Node<i64>)");
+    test_parse_expression!("n * sizeof(Token)", "(* n sizeof(Token))");
+}
+
+#[test]
 fn parse_negative_numbers() {
     test_parse_expression!("-9", "(- 9)");
 }

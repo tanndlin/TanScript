@@ -116,6 +116,7 @@ for (let row: i64 = 0; row < height; row++) {
 
 - **Types**: `u8`, `i32`, `i64`, `u32`, `u64`, `char`, `bool`, pointers (`*T`), and structs. Variable types are inferred from their first assignment; function arguments require annotations.
 - **Type Checking**: Mismatched types, wrong argument counts, and invalid casts are reported with the source location and compile stage.
+- **sizeof**: `sizeof(Type)` gives the size of any type in bytes, resolved at compile time (`calloc(1, sizeof(Node<Token>))`).
 - **Casting**: Explicit casts with `as` (`big as u8`, `address as *char`). Integers implicitly widen when no information is lost.
 - **Variables**: `let` declarations, with optional annotations (`let c: char = 'a';`).
 - **Control Flow**: `if`/`else if`/`else`, `while`, `for`, `break`, and `continue`.

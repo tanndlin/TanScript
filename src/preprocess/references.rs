@@ -93,6 +93,7 @@ impl Expression {
                 ctype.references(names);
                 inner.references(names);
             }
+            ExpressionKind::SizeOf(sized_type) => sized_type.references(names),
             ExpressionKind::FunctionCall(name, args) => {
                 names.push(name.clone());
                 for arg in args {

@@ -46,6 +46,10 @@ pub fn check_types_expression(
         }
         ExpressionKind::Index(lhs, rhs) => check_index(span, lhs, rhs, type_scope),
         ExpressionKind::Cast(lhs, casted_type) => check_cast(span, lhs, casted_type, type_scope),
+        ExpressionKind::SizeOf(sized_type) => {
+            *sized_type = type_scope.resolve(sized_type)?;
+            Ok(Type::Int(IntType::Coercible))
+        }
         ExpressionKind::StructInstantiation {
             struct_type_name,
             fields,

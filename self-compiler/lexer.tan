@@ -13,7 +13,7 @@ def linked_list_push(node: *Node<LexerToken>, value: LexerToken) {
         node = node->next;
     }
 
-    let new_node: *Node<LexerToken> = calloc(1, 17);
+    let new_node: *Node<LexerToken> = calloc(1, sizeof(Node<LexerToken>));
     new_node->value = value;
     node->next = new_node;
 }
@@ -26,8 +26,8 @@ def linked_list_to_list(node: *Node<LexerToken>): *List<LexerToken> {
         length++;
     }
 
-    let list: *List<LexerToken> = malloc(12);
-    list->arr = malloc(length * 9);
+    let list: *List<LexerToken> = malloc(sizeof(List<LexerToken>));
+    list->arr = malloc(length * sizeof(LexerToken));
     list->length = length;
     for (let i: u32 = 0; i < length; i++) {
         list->arr[i] = node->value;
@@ -231,7 +231,7 @@ def tokenize(file_path: *char): *List<LexerToken> {
         index: 0,
     };
 
-    let head: *Node<LexerToken> = calloc(1, 17);
+    let head: *Node<LexerToken> = calloc(1, sizeof(Node<LexerToken>));
     while lexer.chars[lexer.index] != '\0' {
         let c = lexer.chars[lexer.index];
         if c >= '0' && c <= '9' {

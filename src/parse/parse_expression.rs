@@ -210,6 +210,12 @@ fn parse_identifier_or_function_call_or_struct(
     }
 
     Ok(match tokens.peek().map(|t| &t.token_type) {
+        Some(Token::Op(OperatorType::OpenParen)) if s == "sizeof" => {
+            tokens.expect("(")?;
+            let sized_type = parse_type(tokens)?;
+            tokens.expect(")")?;
+            Expression::new(ExpressionKind::SizeOf(sized_type), span)
+        }
         Some(Token::Op(OperatorType::OpenParen)) => {
             parse_function_call(tokens, s.to_string(), span)?
         }

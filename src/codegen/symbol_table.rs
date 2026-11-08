@@ -97,6 +97,7 @@ impl Expression {
                 }
             }
             ExpressionKind::Atom(_)
+            | ExpressionKind::SizeOf(_)
             | ExpressionKind::Postfix(_, _)
             | ExpressionKind::EnumVariant { .. } => {}
             ExpressionKind::StructAccess { base, .. } => base.discover(symbols),
