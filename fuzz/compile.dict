@@ -46,6 +46,7 @@ op_mod_assign="%="
 op_inc="++"
 op_dec="--"
 op_dot="."
+op_arrow="->"
 op_path="::"
 
 punct_lcurly="{"

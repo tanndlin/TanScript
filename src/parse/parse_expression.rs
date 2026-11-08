@@ -110,15 +110,19 @@ fn parse_expression_at_depth(
             break;
         };
 
-        if let OperatorType::OpenBracket | OperatorType::Dot = op {
+        if let OperatorType::OpenBracket | OperatorType::Dot | OperatorType::Arrow = op {
             const ACCESS_BINDING_POWER: u8 = 13;
             if ACCESS_BINDING_POWER < min_bp {
                 break;
             }
 
             let is_index = matches!(op, OperatorType::OpenBracket);
+            let is_arrow = matches!(op, OperatorType::Arrow);
             tokens.next_nested()?;
             let span = lhs.span;
+            if is_arrow {
+                lhs = Expression::new(ExpressionKind::Unary(UnaryOp::Deref, Box::new(lhs)), span);
+            }
             let kind = if is_index {
                 let index = parse_expression(tokens, 0)?;
                 tokens.expect("]")?;

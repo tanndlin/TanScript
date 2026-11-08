@@ -308,6 +308,7 @@ mod test {
             ("%=", ModAssign),
             ("++", Increment),
             ("--", Decrement),
+            ("->", Arrow),
         ] {
             assert_eq!(lex(input), [op(expected)], "{input}");
         }

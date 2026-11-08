@@ -14,6 +14,5 @@
 - enums storing values
 - `impl struct` syntax sugar
 - `0 < x < 10` syntax sugar for range checks
-- Auto-deref `.` on pointers (or a `->` operator) so `p.x` works for `p: *Struct` instead of `(*p).x`
 - Globals or top-level `const` visible inside functions
 - Mangle function labels (prefix or suffix) so functions named like NASM mnemonics can't break assembly

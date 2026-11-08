@@ -725,6 +725,15 @@ fn parse_struct_access() {
 }
 
 #[test]
+fn parse_arrow_access() {
+    test_parse_expression!("p->x", "(* p).x");
+    test_parse_expression!("p->next->x", "(* (* p).next).x");
+    test_parse_expression!("p->arr[0]", "((* p).arr[0])");
+    test_parse_expression!("a.p->x", "(* a.p).x");
+    integration_test!("p->x = 3;", "(* p).x = 3");
+}
+
+#[test]
 fn parse_struct_access_assignment() {
     integration_test!("p.x = 3;", "p.x = 3");
     integration_test!("p.x += 1;", "p.x += 1");
