@@ -1,15 +1,15 @@
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, BinaryOp, BreakStatement, ContinueStatement, Declaration,
-        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, MatchStatement,
-        ReturnStatement, Statement, WhileLoop,
+        Arg, AssignOp, Assignment, AtomType, BinaryOp, BreakStatement, ContinueStatement,
+        Declaration, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
+        MatchStatement, ReturnStatement, Statement, WhileLoop,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::{
             NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, load_element, mem_copy,
-            store_element, with_place_address,
+            returns_through_pointer, store_element, with_place_address,
         },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
@@ -237,12 +237,7 @@ impl FunctionDefinition {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let epilogue_label = format!("{}_epilogue", self.name);
-        let mut scope = CompileScope::new_function(
-            compile_scope,
-            FunctionContext {
-                epilogue_label: epilogue_label.clone(),
-            },
-        );
+        let mut scope = CompileScope::new_function(compile_scope, FunctionContext::from(self));
 
         let save_size = SLOT_SIZE * u32::try_from(NON_VOLATILE_REGISTERS.len()).unwrap();
         scope.stack_depth = save_size;
@@ -252,7 +247,18 @@ impl FunctionDefinition {
         let outer_touched = std::mem::take(&mut register_handler.touched);
         let mut arg_homes = vec![];
         let mut struct_copies = vec![];
-        for (i, arg) in self.args.iter().enumerate() {
+
+        let returns_odd_struct = returns_through_pointer(&self.return_type);
+
+        // Put the hidden arg first
+        // Its a pointer to the address of the returned struct
+        let hidden_return = returns_odd_struct.then(|| Arg {
+            name: "return".to_string(),
+            atype: Type::Pointer(Box::new(self.return_type.clone())),
+            span: self.span,
+        });
+
+        for (i, arg) in hidden_return.iter().chain(&self.args).enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
             let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
@@ -463,18 +469,42 @@ impl ReturnStatement {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let mut instructions = vec![Instruction::comment(self.to_string())];
+        let function = &compile_scope
+            .function_context()
+            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.span))?;
+        let epilogue_label = function.epilogue_label.clone();
+
         if let Some(expr) = &self.expr {
-            instructions.extend(register_handler.request_with_scope(
-                Register::RAX,
-                Register::RAX.into(),
-                |register_handler, rax| expr.compile(compile_scope, rax, register_handler),
-            )?);
+            // Special case for returning structs that dont align to register,
+            // need to move it into the address pointed to by rcx
+
+            if returns_through_pointer(&function.return_type) {
+                let address_of_pointer = compile_scope.get_variable("return").at(self.span)?;
+                instructions.extend(register_handler.request_with_scope(
+                    Register::RAX,
+                    Register::RAX.into(),
+                    |register_handler, rax| {
+                        let mut instructions = vec![Instruction::mov(rax, address_of_pointer)];
+                        instructions.extend(expr.compile(
+                            compile_scope,
+                            Address::Deref {
+                                base: rax,
+                                offset: 0,
+                            },
+                            register_handler,
+                        )?);
+                        Ok(instructions)
+                    },
+                )?);
+            } else {
+                instructions.extend(register_handler.request_with_scope(
+                    Register::RAX,
+                    Register::RAX.into(),
+                    |register_handler, rax| expr.compile(compile_scope, rax, register_handler),
+                )?);
+            }
         }
 
-        let epilogue_label = &compile_scope
-            .function_context()
-            .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.span))?
-            .epilogue_label;
         instructions.push(Instruction::jmp(epilogue_label));
         Ok(instructions)
     }

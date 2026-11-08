@@ -1,0 +1,99 @@
+struct Pair {
+    x: i32,
+    y: i32,
+}
+
+struct Quad {
+    a: u8,
+    b: u8,
+    c: u8,
+    d: u8,
+}
+
+struct Bytes {
+    a: u8,
+    b: u8,
+}
+
+struct One {
+    v: u8,
+}
+
+struct Holder {
+    tag: i64,
+    pair: Pair,
+}
+
+def make_pair(x: i32, y: i32): Pair {
+    return Pair { x: x, y: y };
+}
+
+def make_quad(a: u8, b: u8, c: u8, d: u8): Quad {
+    return Quad { a: a, b: b, c: c, d: d };
+}
+
+def make_bytes(a: u8, b: u8): Bytes {
+    return Bytes { a: a, b: b };
+}
+
+def make_one(v: u8): One {
+    return One { v: v };
+}
+
+def wrap_pair(x: i32): Pair {
+    return make_pair(x, x * 2);
+}
+
+def copy_pair(): Pair {
+    let p = Pair { x: -7, y: 8 };
+    return p;
+}
+
+def pair_from_field(): Pair {
+    let h = Holder { tag: 1, pair: Pair { x: 30, y: 40 } };
+    return h.pair;
+}
+
+def pair_from_pointer(p: *Pair): Pair {
+    return *p;
+}
+
+def bytes_from_pointer(p: *Bytes): Bytes {
+    return *p;
+}
+
+def sum_pair(p: Pair): i32 {
+    p.x + p.y
+}
+
+let p = make_pair(1, 2);
+printf("%d %d\n", p.x, p.y);
+
+let q = make_quad(1, 2, 3, 4);
+printf("%d %d %d %d\n", q.a, q.b, q.c, q.d);
+
+let b = make_bytes(5, 6);
+printf("%d %d\n", b.a, b.b);
+
+let o = make_one(42);
+printf("%d\n", o.v);
+
+let w = wrap_pair(10);
+printf("%d %d\n", w.x, w.y);
+
+let c = copy_pair();
+printf("%d %d\n", c.x, c.y);
+
+let f = pair_from_field();
+printf("%d %d\n", f.x, f.y);
+
+let d = pair_from_pointer(&p);
+printf("%d %d\n", d.x, d.y);
+
+let e = bytes_from_pointer(&b);
+printf("%d %d\n", e.a, e.b);
+
+printf("%d\n", sum_pair(make_pair(-3, 10)));
+
+make_pair(9, 9);
+printf("done\n");

@@ -41,6 +41,25 @@ impl fmt::Display for Register {
 }
 
 impl Register {
+    pub fn lower_16_bits(self) -> &'static str {
+        match self {
+            Register::RAX => "ax",
+            Register::RBX => "bx",
+            Register::RCX => "cx",
+            Register::RDX => "dx",
+            Register::R8 => "r8w",
+            Register::R9 => "r9w",
+            Register::R10 => "r10w",
+            Register::R11 => "r11w",
+            Register::R12 => "r12w",
+            Register::R13 => "r13w",
+            Register::R14 => "r14w",
+            Register::R15 => "r15w",
+            Register::RSP => "sp",
+            Register::RBP => "bp",
+        }
+    }
+
     pub fn lower_32_bits(self) -> &'static str {
         match self {
             Register::RAX => "eax",

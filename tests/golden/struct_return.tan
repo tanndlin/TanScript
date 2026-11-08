@@ -1,0 +1,56 @@
+struct Big {
+    a: i64,
+    b: i32,
+    c: u8,
+}
+
+struct Outer {
+    tag: i64,
+    inner: Big,
+}
+
+def make(x: i64, y: i32, z: u8, w: i64): Big {
+    return Big { a: x + w, b: y, c: z };
+}
+
+def wrap(x: i64): Big {
+    return make(x, 2, 3, 100);
+}
+
+def copy_local(): Big {
+    let b = Big { a: 7, b: 8, c: 9 };
+    return b;
+}
+
+def from_field(): Big {
+    let o = Outer { tag: 1, inner: Big { a: 40, b: 50, c: 60 } };
+    return o.inner;
+}
+
+def from_pointer(p: *Big): Big {
+    return *p;
+}
+
+def total(b: Big): i64 {
+    b.a + b.b + b.c
+}
+
+let p = make(1, 2, 3, 4);
+printf("%lld %d %d\n", p.a, p.b, p.c);
+
+let q = wrap(5);
+printf("%lld %d %d\n", q.a, q.b, q.c);
+
+let r = copy_local();
+printf("%lld %d %d\n", r.a, r.b, r.c);
+
+let f = from_field();
+printf("%lld %d %d\n", f.a, f.b, f.c);
+
+let d = from_pointer(&p);
+printf("%lld %d %d\n", d.a, d.b, d.c);
+
+printf("%lld\n", total(make(10, 20, 30, 40)));
+
+make(9, 9, 9, 9);
+printf("done\n");

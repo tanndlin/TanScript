@@ -62,6 +62,7 @@ impl From<char> for Operand {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Size {
     Byte,
+    Word,
     Dword,
     Qword,
 }
@@ -318,6 +319,7 @@ impl fmt::Display for Size {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Size::Byte => write!(f, "BYTE"),
+            Size::Word => write!(f, "WORD"),
             Size::Dword => write!(f, "DWORD"),
             Size::Qword => write!(f, "QWORD"),
         }
@@ -379,6 +381,7 @@ impl fmt::Display for Instruction {
                 size,
             } => match size {
                 Size::Byte => write!(f, "\tmovsx {dst}, {}", src.lower_8_bits()),
+                Size::Word => write!(f, "\tmovsx {dst}, {}", reg.lower_16_bits()),
                 Size::Dword => write!(f, "\tmovsxd {dst}, {}", reg.lower_32_bits()),
                 Size::Qword => write!(f, "\tmov {dst}, {src}"),
             },
@@ -388,16 +391,17 @@ impl fmt::Display for Instruction {
                 size,
             } => match size {
                 Size::Byte => write!(f, "\tmovzx {dst}, {}", src.lower_8_bits()),
+                Size::Word => write!(f, "\tmovzx {dst}, {}", reg.lower_16_bits()),
                 Size::Dword => write!(f, "\tmov {}, {}", dst.lower_32_bits(), reg.lower_32_bits()),
                 Size::Qword => write!(f, "\tmov {dst}, {src}"),
             },
             Instruction::Movsx { dst, src, size } => match size {
-                Size::Byte => write!(f, "\tmovsx {dst}, {size} {src}"),
+                Size::Byte | Size::Word => write!(f, "\tmovsx {dst}, {size} {src}"),
                 Size::Dword => write!(f, "\tmovsxd {dst}, {size} {src}"),
                 Size::Qword => write!(f, "\tmov {dst}, {src}"),
             },
             Instruction::Movzx { dst, src, size } => match size {
-                Size::Byte => write!(f, "\tmovzx {dst}, {size} {src}"),
+                Size::Byte | Size::Word => write!(f, "\tmovzx {dst}, {size} {src}"),
                 Size::Dword => write!(f, "\tmov {}, {size} {src}", dst.lower_32_bits()),
                 Size::Qword => write!(f, "\tmov {dst}, {src}"),
             },
@@ -407,6 +411,7 @@ impl fmt::Display for Instruction {
                     "\tmov {size} {dst}, {}",
                     Address::from(*src).lower_8_bits()
                 ),
+                Size::Word => write!(f, "\tmov {size} {dst}, {}", src.lower_16_bits()),
                 Size::Dword => write!(f, "\tmov {size} {dst}, {}", src.lower_32_bits()),
                 Size::Qword => write!(f, "\tmov {dst}, {src}"),
             },

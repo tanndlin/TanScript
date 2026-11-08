@@ -316,6 +316,10 @@ fn move_into(
     }
 }
 
+pub fn returns_through_pointer(t: &Type) -> bool {
+    matches!(t, Type::Struct(struct_def) if !matches!(struct_def.size(), 1 | 2 | 4 | 8))
+}
+
 fn compile_function_call(
     compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
@@ -323,8 +327,9 @@ fn compile_function_call(
     args: &[Expression],
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let target_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
-    let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
+    let return_type = compile_scope
+        .lookup_function(name)
+        .map(|function| function.return_type.clone());
 
     // The callee may clobber any volatile register, so save the ones in use. dst is left out, as
     // the caller wants it overwritten
@@ -333,8 +338,33 @@ fn compile_function_call(
         .filter(|reg| register_handler.is_used(*reg) && dst != Some(Address::Register(*reg)))
         .collect::<Vec<_>>();
     let depth = compile_scope.stack_depth;
-    let (mut instructions, temporaries) =
+    let mut instructions = vec![];
+
+    let hidden_return = match (&return_type, dst) {
+        (Some(t), Some(dst))
+            if returns_through_pointer(t) && !matches!(dst, Address::Register(_)) =>
+        {
+            Some(dst)
+        }
+        // Make extra room for the returned struct to go into stack
+        (Some(t), _) if returns_through_pointer(t) => {
+            let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
+            compile_scope.stack_depth += size;
+            instructions.push(Instruction::sub(Register::RSP, size));
+            Some(Address::Stack(
+                i32::try_from(compile_scope.stack_depth).unwrap(),
+            ))
+        }
+        _ => None,
+    };
+
+    let all_registers = [Register::RCX, Register::RDX, Register::R8, Register::R9];
+    let target_registers = &all_registers[usize::from(hidden_return.is_some())..];
+    let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
+
+    let (temporary_instructions, temporaries) =
         struct_temporaries(args, compile_scope, register_handler)?;
+    instructions.extend(temporary_instructions);
     let temporaries_size = compile_scope.stack_depth - depth;
     let (register_temporaries, stack_temporaries) = temporaries.split_at(register_args.len());
 
@@ -342,10 +372,17 @@ fn compile_function_call(
 
     // Registers already in use were saved above, so only the free ones need to be claimed
     let mut requested_registers: Vec<Register> = vec![];
+    if let Some(address) = hidden_return {
+        instructions.push(Instruction::lea(Register::RCX, address));
+        if register_handler.request_register(Register::RCX).is_ok() {
+            requested_registers.push(Register::RCX);
+        }
+    }
+
     for ((arg, temporary), dst_reg) in register_args
         .iter()
         .zip(register_temporaries)
-        .zip(target_registers)
+        .zip(target_registers.iter().copied())
     {
         instructions.extend(compile_arg(
             arg,
@@ -391,7 +428,8 @@ fn compile_function_call(
 
     instructions.push(Instruction::call(name));
     instructions.push(Instruction::add(Register::RSP, stack_size));
-    if let Some(dst) = dst
+    if hidden_return.is_none()
+        && let Some(dst) = dst
         && dst != Address::Register(Register::RAX)
     {
         instructions.push(Instruction::mov(dst, Register::RAX));
@@ -490,7 +528,6 @@ fn compile_struct_instantiation(
         .unwrap()
         .clone();
 
-    dbg!(struct_def.size());
     if let Address::Register(dst) = dst {
         assert!(
             matches!(struct_def.size(), 1 | 2 | 4 | 8),
@@ -699,6 +736,19 @@ pub fn mem_copy(
     src: Address,
     register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
+    if let Address::Register(dst) = dst {
+        let size = match element.size() {
+            1 => Size::Byte,
+            2 => Size::Word,
+            4 => Size::Dword,
+            8 => Size::Qword,
+            size => panic!(
+                "Only structs of size (1 | 2 | 4 | 8) can be put into a register, got {size}"
+            ),
+        };
+        return Ok(vec![Instruction::movzx(dst, src, size)]);
+    }
+
     register_handler.lease_with_scope(|_, reg| {
         let mut instructions = vec![];
         for field in &element.fields {
