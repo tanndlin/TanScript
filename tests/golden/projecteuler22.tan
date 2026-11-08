@@ -7,7 +7,7 @@ def mergeSort(arr: **char, start: u32, end: u32) {
     mergeSort(arr, start, mid);
     mergeSort(arr, mid + 1, end);
 
-    let temp: **char = malloc((end - start + 1) * 8);
+    let temp: **char = malloc((end - start + 1) * sizeof(*char));
 
     let i = start;
     let j = mid + 1;
@@ -57,7 +57,7 @@ let total = 0;
 let index = 0;
 
 let names = List {
-    arr: malloc(8 * 5163),
+    arr: malloc(5163 * sizeof(*char)),
     length: 5163,
 };
 

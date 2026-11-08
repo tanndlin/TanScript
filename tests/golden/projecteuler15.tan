@@ -1,8 +1,8 @@
 let N = 21;
 
-let ways: **u64 = malloc(8 * N);
+let ways: **u64 = malloc(N * sizeof(*u64));
 for(let i = 0; i < N; i++) {
-    ways[i] = malloc(8 * N);
+    ways[i] = malloc(N * sizeof(u64));
 
     for(let j = 0; j < N; j++) {
         ways[i][j] = 0;

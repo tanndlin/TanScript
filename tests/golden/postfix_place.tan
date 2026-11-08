@@ -5,7 +5,7 @@ def next(calls: *i64): i64 {
 }
 
 let calls: i64 = 0;
-let nums: *i64 = malloc(8 * 4);
+let nums: *i64 = malloc(4 * sizeof(i64));
 nums[0] = 10;
 nums[1] = 20;
 nums[2] = 30;
@@ -18,7 +18,7 @@ let old = nums[next(&calls)]--;
 printf("%d %d %d\n", old, nums[1], calls);
 
 calls = 0;
-let small: *i32 = malloc(4 * 2);
+let small: *i32 = malloc(2 * sizeof(i32));
 small[0] = 5;
 small[1] = 9;
 small[next(&calls)]++;
@@ -49,7 +49,7 @@ struct Counter {
     total: i64,
 }
 
-let counters: *Counter = malloc(16 * 2);
+let counters: *Counter = malloc(2 * sizeof(Counter));
 counters->hits = 1;
 counters->total = 2;
 calls = 0;

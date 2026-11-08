@@ -14,7 +14,7 @@ struct PrimeList {
 }
 
 let primes = PrimeList {
-    arr: malloc(4 * 150000),
+    arr: malloc(150000 * sizeof(u32)),
     length: 2,
 };
 primes.arr[0] = 2;

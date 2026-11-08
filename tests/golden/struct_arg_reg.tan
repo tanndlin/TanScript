@@ -72,7 +72,7 @@ printf("%lld\n", sum_pair(h.pair));
 let ptr = &p;
 printf("%lld\n", sum_pair(*ptr));
 
-let pairs: *Pair = malloc(16);
+let pairs: *Pair = malloc(2 * sizeof(Pair));
 pairs[0] = Pair { x: 7, y: 8 };
 pairs[1] = Pair { x: 70, y: 80 };
 printf("%lld\n", sum_pair(pairs[1]));

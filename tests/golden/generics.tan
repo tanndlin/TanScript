@@ -1,11 +1,27 @@
+enum TokenKind {
+    Number,
+    Ident,
+    Symbol,
+}
+
 struct Token {
-    kind: u8,
+    kind: TokenKind,
     data: u64,
 }
 
 struct Node<T> {
     value: T,
     next: *Node<T>,
+}
+
+def kind_name(kind: TokenKind): char {
+    let letter: char = '?';
+    match kind {
+        TokenKind::Number => letter = 'N';
+        TokenKind::Ident => letter = 'I';
+        TokenKind::Symbol => letter = 'S';
+    };
+    letter
 }
 
 def sum(head: *Node<i64>): i64 {
@@ -23,36 +39,36 @@ def push(head: *Node<Token>, value: Token) {
     while current->next != null {
         current = current->next;
     }
-    let node: *Node<Token> = calloc(1, 17);
+    let node: *Node<Token> = calloc(1, sizeof(Node<Token>));
     node->value = value;
     current->next = node;
 }
 
-let c: *Node<i64> = calloc(1, 16);
+let c: *Node<i64> = calloc(1, sizeof(Node<i64>));
 c->value = 3;
-let b: *Node<i64> = calloc(1, 16);
+let b: *Node<i64> = calloc(1, sizeof(Node<i64>));
 b->value = 2;
 b->next = c;
-let a: *Node<i64> = calloc(1, 16);
+let a: *Node<i64> = calloc(1, sizeof(Node<i64>));
 a->value = 1;
 a->next = b;
 printf("%d\n", sum(a));
 
-let byte: *Node<u8> = calloc(1, 9);
+let byte: *Node<u8> = calloc(1, sizeof(Node<u8>));
 byte->value = 200;
 printf("%d\n", byte->value);
 printf("%d\n", byte->next == null);
 
-let tokens: *Node<Token> = calloc(1, 17);
-tokens->value = Token { kind: 1, data: 100 };
-push(tokens, Token { kind: 2, data: 200 });
-push(tokens, Token { kind: 3, data: 300 });
+let tokens: *Node<Token> = calloc(1, sizeof(Node<Token>));
+tokens->value = Token { kind: TokenKind::Number, data: 100 };
+push(tokens, Token { kind: TokenKind::Ident, data: 200 });
+push(tokens, Token { kind: TokenKind::Symbol, data: 300 });
 let current = tokens;
 while current != null {
-    printf("%d %llu\n", current->value.kind, current->value.data);
+    printf("%c %llu\n", kind_name(current->value.kind), current->value.data);
     current = current->next;
 }
 
-let nested: *Node<*Node<i64>> = calloc(1, 16);
+let nested: *Node<*Node<i64>> = calloc(1, sizeof(Node<*Node<i64>>));
 nested->value = a;
 printf("%d\n", nested->value->next->value);

@@ -21,7 +21,7 @@ let p = &i;
 let deref = Outer { tag: 9, inner: *p, after: 10 };
 printf("%llu %llu %llu %llu\n", deref.tag, deref.inner.x, deref.inner.y, deref.after);
 
-let arr: *Inner = calloc(2, 16);
+let arr: *Inner = calloc(2, sizeof(Inner));
 arr[1] = Inner { x: 11, y: 12 };
 let indexed = Outer { tag: 13, inner: arr[1], after: 14 };
 printf("%llu %llu %llu %llu\n", indexed.tag, indexed.inner.x, indexed.inner.y, indexed.after);
