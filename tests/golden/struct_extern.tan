@@ -1,0 +1,77 @@
+struct Pair {
+    x: i32,
+    y: i32,
+}
+
+struct Quad {
+    a: u8,
+    b: u8,
+    c: u8,
+    d: u8,
+}
+
+struct Bytes {
+    a: u8,
+    b: u8,
+}
+
+struct One {
+    v: u8,
+}
+
+struct Point {
+    x: i64,
+    y: i32,
+    z: u8,
+}
+
+struct Three {
+    a: u8,
+    b: u8,
+    c: u8,
+}
+
+struct Holder {
+    tag: i64,
+    point: Point,
+}
+
+def make_pair(x: i32, y: i32): Pair {
+    return Pair { x: x, y: y };
+}
+
+let p = Pair { x: 1, y: 2 };
+printf("%lld\n", c_sum_pair(p));
+printf("%lld\n", c_sum_pair(Pair { x: -3, y: 10 }));
+printf("%lld\n", c_sum_pair(make_pair(5, 6)));
+
+let q = Quad { a: 1, b: 2, c: 3, d: 4 };
+printf("%lld\n", c_sum_quad(q));
+
+let b = Bytes { a: 5, b: 6 };
+printf("%lld\n", c_sum_bytes(b));
+
+let o = One { v: 42 };
+printf("%lld\n", c_get_one(o));
+
+let pt = Point { x: 1, y: 2, z: 3 };
+printf("%lld\n", c_bump_point(pt));
+printf("%lld %d %d\n", pt.x, pt.y, pt.z);
+printf("%lld\n", c_bump_point(Point { x: 4, y: 5, z: 6 }));
+
+let h = Holder { tag: 7, point: Point { x: 10, y: 20, z: 30 } };
+printf("%lld\n", c_bump_point(h.point));
+printf("%lld %d %d\n", h.point.x, h.point.y, h.point.z);
+
+let ptr = &pt;
+printf("%lld\n", c_bump_point(*ptr));
+printf("%lld %d %d\n", pt.x, pt.y, pt.z);
+
+let t = Three { a: 1, b: 2, c: 3 };
+printf("%lld\n", c_bump_three(t));
+printf("%d %d %d\n", t.a, t.b, t.c);
+
+printf("%lld\n", c_mixed(o, b, pt, q, p, t));
+printf("%lld %d\n", pt.x, t.a);
+printf("%lld\n", c_mixed(One { v: 1 }, Bytes { a: 2, b: 3 }, h.point, q, make_pair(4, 5), Three { a: 6, b: 7, c: 8 }));
+printf("%lld\n", c_bump_point(pt) + c_bump_point(pt));

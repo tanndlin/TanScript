@@ -316,7 +316,7 @@ fn move_into(
     }
 }
 
-pub fn returns_through_pointer(t: &Type) -> bool {
+pub fn passed_by_pointer(t: &Type) -> bool {
     matches!(t, Type::Struct(struct_def) if !matches!(struct_def.size(), 1 | 2 | 4 | 8))
 }
 
@@ -341,13 +341,11 @@ fn compile_function_call(
     let mut instructions = vec![];
 
     let hidden_return = match (&return_type, dst) {
-        (Some(t), Some(dst))
-            if returns_through_pointer(t) && !matches!(dst, Address::Register(_)) =>
-        {
+        (Some(t), Some(dst)) if passed_by_pointer(t) && !matches!(dst, Address::Register(_)) => {
             Some(dst)
         }
         // Make extra room for the returned struct to go into stack
-        (Some(t), _) if returns_through_pointer(t) => {
+        (Some(t), _) if passed_by_pointer(t) => {
             let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
             compile_scope.stack_depth += size;
             instructions.push(Instruction::sub(Register::RSP, size));
@@ -363,7 +361,7 @@ fn compile_function_call(
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
 
     let (temporary_instructions, temporaries) =
-        struct_temporaries(args, compile_scope, register_handler)?;
+        struct_temporaries(args, return_type.is_none(), compile_scope, register_handler)?;
     instructions.extend(temporary_instructions);
     let temporaries_size = compile_scope.stack_depth - depth;
     let (register_temporaries, stack_temporaries) = temporaries.split_at(register_args.len());
@@ -384,6 +382,10 @@ fn compile_function_call(
         .zip(register_temporaries)
         .zip(target_registers.iter().copied())
     {
+        //  Prevent register from being modified, including by calls inside the arg
+        if register_handler.request_register(dst_reg).is_ok() {
+            requested_registers.push(dst_reg);
+        }
         instructions.extend(compile_arg(
             arg,
             *temporary,
@@ -391,10 +393,6 @@ fn compile_function_call(
             compile_scope,
             register_handler,
         )?);
-        //  Prevent register from being modified
-        if register_handler.request_register(dst_reg).is_ok() {
-            requested_registers.push(dst_reg);
-        }
     }
 
     // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
@@ -455,12 +453,14 @@ fn compile_function_call(
     Ok(instructions)
 }
 
-/// Structs are passed as a pointer and the callee copies them into its own frame. Places already
-/// have an address to point at, but anything else (a struct literal) is built into stack space
-/// here first. This happens before the saved registers are pushed so `stack_depth` covers it when
-/// aligning the call, and the caller frees it once the call returns
+/// Structs of 1, 2, 4 or 8 bytes are passed by value, any other struct is passed as a pointer.
+/// TanScript callees copy those into their own frame, so places can point at the original, but an
+/// extern may modify it, so it gets a copy. Anything else (a struct literal) is built into stack
+/// space here first. This happens before the saved registers are pushed so `stack_depth` covers it
+/// when aligning the call, and the caller frees it once the call returns
 fn struct_temporaries(
     args: &[Expression],
+    is_extern: bool,
     compile_scope: &mut CompileScope,
     register_handler: &mut RegisterHandler,
 ) -> Result<(Vec<Instruction>, Vec<Option<Address>>), CodegenError> {
@@ -468,7 +468,7 @@ fn struct_temporaries(
     let mut temporaries = vec![];
     for arg in args {
         let arg_type = compile_scope.expression_type(arg).at(arg.span)?;
-        if !matches!(arg_type, Type::Struct(_)) || arg.is_place() {
+        if !passed_by_pointer(&arg_type) || (arg.is_place() && !is_extern) {
             temporaries.push(None);
             continue;
         }
@@ -499,10 +499,7 @@ fn compile_arg(
         });
     }
 
-    if !matches!(
-        compile_scope.expression_type(arg).at(arg.span)?,
-        Type::Struct(_)
-    ) {
+    if !passed_by_pointer(&compile_scope.expression_type(arg).at(arg.span)?) {
         return arg.compile(compile_scope, dst, register_handler);
     }
 

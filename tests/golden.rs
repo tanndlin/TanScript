@@ -72,7 +72,15 @@ fn assemble_and_run(asm: &Path) -> Result<String, String> {
     } else {
         "x86_64-w64-mingw32-gcc"
     };
-    run_tool(linker, &[&obj, Path::new("-o"), &exe])?;
+    let c_sources: Vec<PathBuf> = fs::read_dir(asm.parent().unwrap())
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|ext| ext == "c"))
+        .collect();
+    let mut link_args: Vec<&Path> = vec![&obj];
+    link_args.extend(c_sources.iter().map(PathBuf::as_path));
+    link_args.extend([Path::new("-o"), &exe]);
+    run_tool(linker, &link_args)?;
 
     let mut command = if cfg!(windows) {
         Command::new(&exe)

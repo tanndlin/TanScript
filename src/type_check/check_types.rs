@@ -156,16 +156,7 @@ pub fn check_function_call(
             Err(TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(span))
         }
         // Treat the function as an unknown extern
-        None => match given_args
-            .iter()
-            .zip(&given_types)
-            .find(|(_, t)| matches!(t, Type::Struct(_)))
-        {
-            Some((given, _)) => {
-                Err(TypeCheckErrorKind::StructAsArgument(function_name.to_string()).at(given.span))
-            }
-            None => Ok(Type::Unknown),
-        },
+        None => Ok(Type::Unknown),
     }
 }
 

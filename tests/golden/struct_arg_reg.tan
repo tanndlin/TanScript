@@ -1,0 +1,96 @@
+struct Pair {
+    x: i32,
+    y: i32,
+}
+
+struct Quad {
+    a: u8,
+    b: u8,
+    c: u8,
+    d: u8,
+}
+
+struct Bytes {
+    a: u8,
+    b: u8,
+}
+
+struct One {
+    v: u8,
+}
+
+struct Holder {
+    tag: i64,
+    pair: Pair,
+}
+
+def make_pair(x: i32, y: i32): Pair {
+    return Pair { x: x, y: y };
+}
+
+def sum_pair(p: Pair): i64 {
+    p.x + p.y
+}
+
+def bump_pair(p: Pair): i64 {
+    p.x = p.x + 100;
+    p.y = p.y + 200;
+    p.x + p.y
+}
+
+def sum_quad(q: Quad): i64 {
+    q.a + q.b + q.c + q.d
+}
+
+def sum_bytes(b: Bytes): i64 {
+    b.a + b.b
+}
+
+def get_one(o: One): i64 {
+    o.v
+}
+
+def mixed(o: One, b: Bytes, q: Quad, p: Pair, last: Pair, n: i64): i64 {
+    o.v + b.a + b.b + q.a + q.b + q.c + q.d + p.x + p.y + last.x + last.y + n
+}
+
+def pass_through(p: Pair): Pair {
+    return p;
+}
+
+let p = Pair { x: 1, y: 2 };
+printf("%lld\n", sum_pair(p));
+printf("%lld\n", sum_pair(Pair { x: -3, y: 10 }));
+printf("%lld\n", sum_pair(make_pair(5, 6)));
+
+printf("%lld\n", bump_pair(p));
+printf("%d %d\n", p.x, p.y);
+
+let h = Holder { tag: 9, pair: Pair { x: 30, y: 40 } };
+printf("%lld\n", sum_pair(h.pair));
+
+let ptr = &p;
+printf("%lld\n", sum_pair(*ptr));
+
+let pairs: *Pair = malloc(16);
+pairs[0] = Pair { x: 7, y: 8 };
+pairs[1] = Pair { x: 70, y: 80 };
+printf("%lld\n", sum_pair(pairs[1]));
+
+let q = Quad { a: 1, b: 2, c: 3, d: 4 };
+printf("%lld\n", sum_quad(q));
+printf("%lld\n", sum_quad(Quad { a: 10, b: 20, c: 30, d: 40 }));
+
+let b = Bytes { a: 5, b: 6 };
+printf("%lld\n", sum_bytes(b));
+
+let o = One { v: 42 };
+printf("%lld\n", get_one(o));
+printf("%lld\n", get_one(One { v: 7 }));
+
+printf("%lld\n", mixed(o, b, q, p, Pair { x: 1000, y: 2000 }, 10000));
+printf("%lld\n", mixed(One { v: 1 }, Bytes { a: 2, b: 3 }, q, make_pair(4, 5), h.pair, 6));
+
+let r = pass_through(p);
+printf("%d %d\n", r.x, r.y);
+printf("%lld\n", sum_pair(pass_through(make_pair(11, 22))));

@@ -9,7 +9,7 @@ use crate::{
         address::{Address, Register},
         compile::{
             NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, load_element, mem_copy,
-            returns_through_pointer, store_element, with_place_address,
+            passed_by_pointer, store_element, with_place_address,
         },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
@@ -248,7 +248,7 @@ impl FunctionDefinition {
         let mut arg_homes = vec![];
         let mut struct_copies = vec![];
 
-        let returns_odd_struct = returns_through_pointer(&self.return_type);
+        let returns_odd_struct = passed_by_pointer(&self.return_type);
 
         // Put the hidden arg first
         // Its a pointer to the address of the returned struct
@@ -269,12 +269,15 @@ impl FunctionDefinition {
                 arg_homes.push(Instruction::mov(new_address, *reg));
             }
 
-            let Type::Struct(struct_def) = &arg.atype else {
-                // Update its location in the scope
-                scope
-                    .add_variable(arg.name.clone(), new_address, arg.atype.clone())
-                    .at(arg.span)?;
-                continue;
+            let struct_def = match &arg.atype {
+                Type::Struct(struct_def) if passed_by_pointer(&arg.atype) => struct_def,
+                _ => {
+                    // Update its location in the scope
+                    scope
+                        .add_variable(arg.name.clone(), new_address, arg.atype.clone())
+                        .at(arg.span)?;
+                    continue;
+                }
             };
 
             struct_copies.push(
@@ -478,7 +481,7 @@ impl ReturnStatement {
             // Special case for returning structs that dont align to register,
             // need to move it into the address pointed to by rcx
 
-            if returns_through_pointer(&function.return_type) {
+            if passed_by_pointer(&function.return_type) {
                 let address_of_pointer = compile_scope.get_variable("return").at(self.span)?;
                 instructions.extend(register_handler.request_with_scope(
                     Register::RAX,

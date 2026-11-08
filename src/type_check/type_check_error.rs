@@ -46,7 +46,6 @@ pub enum TypeCheckErrorKind {
         missing: Vec<String>,
     },
     DuplicateIdentifiers(String),
-    StructAsArgument(String),
     UnknownType(String),
     RecursiveStruct(String),
     NotDerefable(Type),
@@ -115,10 +114,6 @@ impl fmt::Display for TypeCheckErrorKind {
                 missing.join(", ")
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
-            Self::StructAsArgument(function_name) => write!(
-                f,
-                "Structs cannot be passed to undeclared function ({function_name}); define it before this call"
-            ),
             Self::UnknownType(name) => write!(f, "Unknown type ({name})"),
             Self::RecursiveStruct(name) => write!(
                 f,

@@ -202,22 +202,13 @@ mod test {
     }
 
     #[test]
-    fn type_error_for_struct_as_function_arg() {
+    fn struct_as_extern_arg() {
         for code in [
             "struct P { a: i64, } let p = P { a: 1 }; printf(\"%d\", p);",
             "struct P { a: i64, } let p = P { a: 1 }; f(1, 2, 3, 4, p);",
         ] {
             let result = infer_last(code);
-            assert!(
-                matches!(
-                    result,
-                    Err(TypeCheckError {
-                        kind: TypeCheckErrorKind::StructAsArgument(_),
-                        ..
-                    })
-                ),
-                "expected StructAsArgument for {code}, got {result:?}"
-            );
+            assert!(result.is_ok(), "{code}: {result:?}");
         }
     }
 
