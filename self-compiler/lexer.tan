@@ -9,50 +9,50 @@ struct Lexer {
 
 
 def linked_list_push(node: *Node<LexerToken>, value: LexerToken) {
-    while (*node).next != null {
-        node = (*node).next;
+    while node->next != null {
+        node = node->next;
     }
 
     let new_node: *Node<LexerToken> = calloc(1, 17);
-    (*new_node).value = value;
-    (*node).next = new_node;
+    new_node->value = value;
+    node->next = new_node;
 }
 
 def linked_list_to_list(node: *Node<LexerToken>): *List<LexerToken> {
     let length: u32 = 0;
     let ptr = node;
     while ptr != null {
-        ptr = (*ptr).next;
+        ptr = ptr->next;
         length++;
     }
 
     let list: *List<LexerToken> = malloc(12);
-    (*list).arr = malloc(length * 9);
-    (*list).length = length;
+    list->arr = malloc(length * 9);
+    list->length = length;
     for (let i: u32 = 0; i < length; i++) {
-        (*list).arr[i] = (*node).value;
-        node = (*node).next;
+        list->arr[i] = node->value;
+        node = node->next;
     }
 
     list
 }
 
 def get_identifier(lexer: *Lexer): *char {
-    let start = (*lexer).index;
-    while isIdentChar((*lexer).chars[(*lexer).index]) {
-        (*lexer).index++;
+    let start = lexer->index;
+    while isIdentChar(lexer->chars[lexer->index]) {
+        lexer->index++;
     }
 
-    let ident: *char = calloc((*lexer).index - start + 1, 1);
-    for(let i = start; i < (*lexer).index; i++) {
-        ident[i - start] = (*lexer).chars[i];
+    let ident: *char = calloc(lexer->index - start + 1, 1);
+    for(let i = start; i < lexer->index; i++) {
+        ident[i - start] = lexer->chars[i];
     }
 
     ident
 }
 
 def peek(lexer: *Lexer, offset: u32): char {
-    (*lexer).chars[(*lexer).index + offset]
+    lexer->chars[lexer->index + offset]
 }
 
 def lex_error(message: *char) {
@@ -83,37 +83,37 @@ def get_escape(c: char): char {
 }
 
 def get_string(lexer: *Lexer): *char {
-    (*lexer).index++;
-    let end = (*lexer).index;
-    while (*lexer).chars[end] != '"' {
-        if (*lexer).chars[end] == '\0' {
+    lexer->index++;
+    let end = lexer->index;
+    while lexer->chars[end] != '"' {
+        if lexer->chars[end] == '\0' {
             lex_error("Missing closing quote");
         }
-        if (*lexer).chars[end] == '\\' && (*lexer).chars[end + 1] != '\0' {
+        if lexer->chars[end] == '\\' && lexer->chars[end + 1] != '\0' {
             end++;
         }
         end++;
     }
 
-    let string: *char = calloc(end - (*lexer).index + 1, 1);
+    let string: *char = calloc(end - lexer->index + 1, 1);
     let length: u32 = 0;
-    while (*lexer).index < end {
+    while lexer->index < end {
         let c = peek(lexer, 0);
         if c == '\\' {
-            (*lexer).index++;
+            lexer->index++;
             c = get_escape(peek(lexer, 0));
         }
         string[length] = c;
         length++;
-        (*lexer).index++;
+        lexer->index++;
     }
 
-    (*lexer).index++;
+    lexer->index++;
     string
 }
 
 def get_char(lexer: *Lexer): char {
-    (*lexer).index++;
+    lexer->index++;
     let c = peek(lexer, 0);
     if c == '\0' {
         lex_error("Missing closing char quote");
@@ -122,22 +122,22 @@ def get_char(lexer: *Lexer): char {
         lex_error("Empty char");
     }
     if c == '\\' {
-        (*lexer).index++;
+        lexer->index++;
         c = get_escape(peek(lexer, 0));
     }
 
-    (*lexer).index++;
+    lexer->index++;
     if peek(lexer, 0) != '\'' {
         lex_error("Missing closing char quote");
     }
 
-    (*lexer).index++;
+    lexer->index++;
     c
 }
 
 def push_token(lexer: *Lexer, head: *Node<LexerToken>, token_type: Token, length: u32) {
     linked_list_push(head, LexerToken { token_type: token_type, data: 0 });
-    (*lexer).index += length;
+    lexer->index += length;
 }
 
 def push_with_equals(lexer: *Lexer, head: *Node<LexerToken>, without: Token, with: Token) {
@@ -265,5 +265,5 @@ def tokenize(file_path: *char): *List<LexerToken> {
     }
 
     linked_list_push(head, LexerToken { token_type: Token::Eof, data: 0 });
-    linked_list_to_list((*head).next)
+    linked_list_to_list(head->next)
 }

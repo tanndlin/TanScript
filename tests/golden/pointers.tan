@@ -54,11 +54,11 @@ struct Person {
 }
 
 def printPerson(p: *Person) {
-    printf("%s's age: %d\n", (*p).name, (*p).age);
+    printf("%s's age: %d\n", p->name, p->age);
 }
 
 def birthday(p: *Person) {
-    (*p).age = (*p).age + 1;
+    p->age = p->age + 1;
 }
 
 let person = Person {

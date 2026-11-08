@@ -20,8 +20,8 @@ for (let i = 0; i < 3; i++) {
 }
 
 let node: *Node = calloc(1, 32);
-(*node).value = t;
-printf("%d %llu\n", (*node).value.kind, (*node).value.data);
+node->value = t;
+printf("%d %llu\n", node->value.kind, node->value.data);
 
-(*node).value = tokens[1];
-printf("%d %llu\n", (*node).value.kind, (*node).value.data);
+node->value = tokens[1];
+printf("%d %llu\n", node->value.kind, node->value.data);

@@ -50,10 +50,10 @@ struct Counter {
 }
 
 let counters: *Counter = malloc(16 * 2);
-(*counters).hits = 1;
-(*counters).total = 2;
+counters->hits = 1;
+counters->total = 2;
 calls = 0;
 let pick = counters;
-(*pick).hits += 4;
-(*pick).total *= 10;
-printf("%d %d\n", (*counters).hits, (*counters).total);
+pick->hits += 4;
+pick->total *= 10;
+printf("%d %d\n", counters->hits, counters->total);
