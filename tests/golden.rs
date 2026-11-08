@@ -108,7 +108,11 @@ fn check(tan: &Path, stdout: Option<String>, bless: bool) -> Result<(), String> 
     let path = tan.with_extension("out");
 
     if bless {
-        fs::write(&path, &actual).unwrap();
+        let unchanged = fs::read_to_string(&path)
+            .is_ok_and(|expected| normalize(&expected) == normalize(&actual));
+        if !unchanged {
+            fs::write(&path, normalize(&actual)).unwrap();
+        }
         return Ok(());
     }
 
