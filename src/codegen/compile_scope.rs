@@ -24,7 +24,7 @@ pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, Rc<StructDefinition>>,
-    enums: HashMap<String, EnumDefinition>,
+    enums: HashMap<String, Rc<EnumDefinition>>,
     functions: HashMap<String, Rc<FunctionDefinition>>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
@@ -134,7 +134,7 @@ impl<'a> CompileScope<'a> {
                 .map_or(Cow::Owned(Type::Unknown), |f| Cow::Borrowed(&f.return_type)),
             ExpressionKind::EnumVariant { enum_name, .. } => Cow::Owned(
                 self.lookup_enum(enum_name)
-                    .map_or(Type::Unknown, |def| Type::Enum(Box::new(def.clone()))),
+                    .map_or(Type::Unknown, |def| Type::Enum(Rc::clone(def))),
             ),
         })
     }
@@ -192,7 +192,7 @@ impl<'a> CompileScope<'a> {
         self.structs.insert(def.name.clone(), def);
     }
 
-    pub fn insert_enum(&mut self, def: EnumDefinition) {
+    pub fn insert_enum(&mut self, def: Rc<EnumDefinition>) {
         self.enums.insert(def.name.clone(), def);
     }
 
@@ -206,7 +206,7 @@ impl<'a> CompileScope<'a> {
             .or_else(|| self.parent.and_then(|p| p.lookup_function(name)))
     }
 
-    pub fn lookup_enum(&self, name: &str) -> Option<&EnumDefinition> {
+    pub fn lookup_enum(&self, name: &str) -> Option<&Rc<EnumDefinition>> {
         self.enums
             .get(name)
             .or_else(|| self.parent.and_then(|p| p.lookup_enum(name)))

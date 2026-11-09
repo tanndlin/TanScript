@@ -38,11 +38,11 @@ pub enum TypeCheckErrorKind {
         field_name: String,
     },
     NoSuchVariant {
-        enum_type: Box<EnumDefinition>,
+        enum_type: Rc<EnumDefinition>,
         variant_name: String,
     },
     NonExhaustiveMatch {
-        enum_type: Box<EnumDefinition>,
+        enum_type: Rc<EnumDefinition>,
         missing: Vec<String>,
     },
     DuplicateIdentifiers(String),

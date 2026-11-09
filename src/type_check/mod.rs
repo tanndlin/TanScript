@@ -32,7 +32,7 @@ pub enum Type {
     Boolean,
     Function(Box<FunctionType>), // Types of args
     Struct(Rc<StructDefinition>),
-    Enum(Box<EnumDefinition>),
+    Enum(Rc<EnumDefinition>),
     Pointer(Box<Type>),
     Null,
     Named {

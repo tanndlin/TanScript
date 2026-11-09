@@ -302,7 +302,7 @@ impl FunctionDefinition {
 }
 
 impl EnumDefinition {
-    pub fn check_types(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_types(self: &Rc<Self>, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         if type_scope.lookup(&self.name).is_some() {
             return Err(TypeCheckErrorKind::DuplicateIdentifiers(self.name.clone()).at(self.span));
         }
@@ -313,7 +313,7 @@ impl EnumDefinition {
             }
         }
 
-        type_scope.insert(self.name.clone(), Type::Enum(Box::new(self.clone())));
+        type_scope.insert(self.name.clone(), Type::Enum(Rc::clone(self)));
         Ok(())
     }
 }

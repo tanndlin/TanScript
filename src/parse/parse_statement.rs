@@ -68,7 +68,7 @@ fn parse_statement(tokens: &mut Parser) -> Result<Option<Statement>, ParseError>
         "if" => parse_if_statement(tokens)?.into(),
         "def" => Rc::new(parse_function_definition(tokens)?).into(),
         "struct" => Rc::new(parse_struct_definition(tokens)?).into(),
-        "enum" => parse_enum_definition(tokens)?.into(),
+        "enum" => Rc::new(parse_enum_definition(tokens)?).into(),
         "match" => parse_match_statement(tokens)?.into(),
         "return" => parse_return(tokens)?.into(),
         "break" => {

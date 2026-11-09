@@ -13,7 +13,7 @@ pub enum Statement {
     ForLoop(ForLoop),
     FunctionDefinition(Rc<FunctionDefinition>),
     StructDefinition(Rc<StructDefinition>),
-    EnumDefinition(EnumDefinition),
+    EnumDefinition(Rc<EnumDefinition>),
     MatchStatement(MatchStatement),
     IfStatement(IfStatement),
     Return(ReturnStatement),
