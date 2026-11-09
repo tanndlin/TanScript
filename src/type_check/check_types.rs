@@ -13,10 +13,10 @@ pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
     Ok(())
 }
 
-pub fn check_types_expression(
-    expression: &mut Expression,
+pub fn check_types_expression<'s>(
+    expression: &'s mut Expression,
     type_scope: &mut TypeScope,
-) -> Result<Type, TypeCheckError> {
+) -> Result<&'s Type, TypeCheckError> {
     let span = expression.span;
     let t = match &mut expression.kind {
         ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
@@ -30,16 +30,17 @@ pub fn check_types_expression(
             Ok(Type::Boolean)
         }
         ExpressionKind::Unary(UnaryOp::AddressOf, inner) => Ok(Type::Pointer(Box::new(
-            check_types_expression(inner, type_scope)?,
+            check_types_expression(inner, type_scope)?.clone(),
         ))),
         ExpressionKind::Unary(UnaryOp::Deref, inner) => {
+            let inner_span = inner.span;
             match check_types_expression(inner, type_scope)? {
-                Type::Pointer(pointee) => Ok(type_scope.expand(*pointee)),
-                other => Err(TypeCheckErrorKind::NotDerefable(other).at(inner.span)),
+                Type::Pointer(pointee) => Ok(type_scope.expand(pointee).into_owned()),
+                other => Err(TypeCheckErrorKind::NotDerefable(other.clone()).at(inner_span)),
             }
         }
         ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
-            check_types_expression(inner, type_scope)
+            check_types_expression(inner, type_scope).cloned()
         }
         ExpressionKind::FunctionCall(function_name, given_args) => {
             check_function_call(span, function_name, given_args, type_scope)
@@ -62,8 +63,8 @@ pub fn check_types_expression(
             variant_name,
         } => check_enum_variant(span, enum_name, variant_name, type_scope),
     }?;
-    *expression.etype = t.clone();
-    Ok(t)
+    *expression.etype = t;
+    Ok(&expression.etype)
 }
 
 pub fn check_enum_variant(
@@ -93,11 +94,10 @@ pub fn check_binary(
     rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    let lhs_type = check_types_expression(lhs, type_scope)?;
-    let rhs_type = check_types_expression(rhs, type_scope)?;
+    let lhs_type = check_types_expression(lhs, type_scope)?.clone();
+    let rhs_type = check_types_expression(rhs, type_scope)?.clone();
 
-    // Cant do a binary op on a struct
-    if let Some((struct_type, operand)) = [(&lhs_type, &*lhs), (&rhs_type, &*rhs)]
+    if let Some((struct_type, span)) = [(&lhs_type, lhs.span), (&rhs_type, rhs.span)]
         .into_iter()
         .find(|(t, _)| matches!(t, Type::Struct(_)))
     {
@@ -105,7 +105,7 @@ pub fn check_binary(
             expected: Box::new(Type::Int(IntType::I64)),
             got: Box::new(struct_type.clone()),
         }
-        .at(operand.span));
+        .at(span));
     }
 
     let unified = unify(&lhs_type, &rhs_type)
@@ -121,7 +121,7 @@ pub fn check_binary(
     Ok(if op.returns_boolean() {
         Type::Boolean
     } else {
-        unified
+        unified.clone()
     })
 }
 
@@ -133,7 +133,7 @@ pub fn check_function_call(
 ) -> Result<Type, TypeCheckError> {
     let given_types = given_args
         .iter_mut()
-        .map(|a| check_types_expression(a, type_scope))
+        .map(|a| check_types_expression(a, type_scope).cloned())
         .collect::<Result<Vec<_>, _>>()?;
 
     match type_scope.lookup(function_name) {
@@ -170,27 +170,30 @@ pub fn check_index(
     rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
+    let lhs_span = lhs.span;
     let lhs_type = check_types_expression(lhs, type_scope)?;
     let rhs_type = check_types_expression(rhs, type_scope)?;
 
     // LHS must be a pointer
     let element_type = match lhs_type {
-        Type::Pointer(t) => type_scope.expand(*t),
-        Type::Unknown => return Err(TypeCheckErrorKind::NotIndexable(lhs_type).at(lhs.span)),
-        _ => {
+        Type::Pointer(t) => type_scope.expand(t).into_owned(),
+        Type::Unknown => {
+            return Err(TypeCheckErrorKind::NotIndexable(Type::Unknown).at(lhs_span));
+        }
+        other => {
             return Err(TypeCheckErrorKind::TypeMismatch {
                 expected: Box::new(Type::Pointer(Box::new(Type::Unknown))),
-                got: Box::new(lhs_type),
+                got: Box::new(other.clone()),
             }
             .at(span));
         }
     };
 
     // RHS must come down to a number
-    if rhs_type != Type::Unknown && !rhs_type.is_number_type() {
+    if *rhs_type != Type::Unknown && !rhs_type.is_number_type() {
         return Err(TypeCheckErrorKind::TypeMismatch {
             expected: Box::new(Type::Int(IntType::I64)),
-            got: Box::new(rhs_type),
+            got: Box::new(rhs_type.clone()),
         }
         .at(span));
     }
@@ -210,7 +213,7 @@ pub fn check_cast(
         Ok(casted_type.clone())
     } else {
         Err(TypeCheckErrorKind::Uncastable {
-            lhs_type: Box::new(lhs_type),
+            lhs_type: Box::new(lhs_type.clone()),
             casted_type: Box::new(casted_type.clone()),
         }
         .at(span))
@@ -235,7 +238,7 @@ pub fn check_struct_instantiation(
                     .at(field_expr.span));
                 };
 
-                let got = check_types_expression(field_expr, type_scope)?;
+                let got = check_types_expression(field_expr, type_scope)?.clone();
                 expect_type(field_expr, &field.ftype, &got, type_scope)?;
             }
 
@@ -292,13 +295,13 @@ pub fn expect_type(
         (Type::Unknown, _) | (_, Type::Unknown) | (Type::Pointer(_), Type::Null) => Ok(()),
         (Type::Int(to), Type::Int(from)) if from.widens_to(*to) => Ok(()),
         (t, Type::Int(IntType::Coercible)) if t.is_number_type() => {
-            narrow_expression(expression, expected.clone(), type_scope);
+            narrow_expression(expression, expected, type_scope);
             Ok(())
         }
         (Type::Pointer(to), Type::Pointer(from))
             if to.is_number_type() && **from == Type::Int(IntType::Coercible) =>
         {
-            narrow_expression(expression, expected.clone(), type_scope);
+            narrow_expression(expression, expected, type_scope);
             Ok(())
         }
         _ => Err(TypeCheckErrorKind::TypeMismatch {
@@ -309,16 +312,16 @@ pub fn expect_type(
     }
 }
 
-pub fn narrow_expression(expression: &Expression, t: Type, type_scope: &mut TypeScope) {
+pub fn narrow_expression(expression: &Expression, t: &Type, type_scope: &mut TypeScope) {
     match &expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope.narrow(ident, t),
+        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope.narrow(ident, t.clone()),
         ExpressionKind::Binary(_, lhs, rhs) => {
-            narrow_expression(lhs, t.clone(), type_scope);
+            narrow_expression(lhs, t, type_scope);
             narrow_expression(rhs, t, type_scope);
         }
         ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
             if let Type::Pointer(pointee) = t {
-                narrow_expression(inner, *pointee, type_scope);
+                narrow_expression(inner, pointee, type_scope);
             }
         }
         ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {

@@ -184,16 +184,16 @@ impl Statement {
 
 impl Assignment {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let expected = check_types_expression(&mut self.lhs, type_scope)?;
+        let expected = check_types_expression(&mut self.lhs, type_scope)?.clone();
         let got = match self.op {
-            AssignOp::Assign => check_types_expression(&mut self.expression, type_scope)?,
+            AssignOp::Assign => check_types_expression(&mut self.expression, type_scope)?.clone(),
             AssignOp::Compound(op) => {
                 check_binary(op, &mut self.lhs, &mut self.expression, type_scope)?
             }
         };
 
         if expected == Type::Int(IntType::Coercible) && got.is_number_type() {
-            narrow_expression(&self.lhs, got, type_scope);
+            narrow_expression(&self.lhs, &got, type_scope);
             return Ok(());
         }
         expect_type(&self.expression, &expected, &got, type_scope)
@@ -206,7 +206,7 @@ impl Declaration {
             panic!("Declaration LHS can only be a identifier");
         };
 
-        let got = check_types_expression(&mut self.assign.expression, type_scope)?;
+        let got = check_types_expression(&mut self.assign.expression, type_scope)?.clone();
         let Some(expected) = self
             .dtype
             .as_ref()
@@ -362,9 +362,9 @@ impl IfStatement {
 
 impl MatchStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let expected = check_types_expression(&mut self.lhs, type_scope)?;
+        let expected = check_types_expression(&mut self.lhs, type_scope)?.clone();
         for case in &mut self.cases {
-            let got = check_types_expression(&mut case.rhs, type_scope)?;
+            let got = check_types_expression(&mut case.rhs, type_scope)?.clone();
             expect_type(&case.rhs, &expected, &got, type_scope)?;
             case.block.check_types(type_scope)?;
         }
@@ -419,7 +419,7 @@ impl MatchStatement {
 impl ReturnStatement {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         let got = match &mut self.expr {
-            Some(expr) => check_types_expression(expr, type_scope)?,
+            Some(expr) => check_types_expression(expr, type_scope)?.clone(),
             None => Type::Unit,
         };
         let Some(expected) = type_scope.expected_return_type().cloned() else {

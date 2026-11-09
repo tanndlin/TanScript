@@ -1,14 +1,14 @@
 use crate::{type_check::Type, types::IntType};
 
-pub fn unify(a: &Type, b: &Type) -> Option<Type> {
+pub fn unify<'a>(a: &'a Type, b: &'a Type) -> Option<&'a Type> {
     match (a, b) {
-        _ if a == b => Some(a.clone()),
-        (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b.clone()),
+        _ if a == b => Some(a),
+        (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b),
         (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean)
-        | (Type::Pointer(_), Type::Null) => Some(a.clone()),
-        (Type::Char, Type::Int(IntType::Coercible)) => Some(Type::Char),
-        (Type::Function(f), _) if f.return_type == *b => Some(b.clone()),
-        (Type::Unknown, _) => Some(b.clone()),
+        | (Type::Pointer(_), Type::Null) => Some(a),
+        (Type::Char, Type::Int(IntType::Coercible)) => Some(&Type::Char),
+        (Type::Function(f), _) if f.return_type == *b => Some(b),
+        (Type::Unknown, _) => Some(b),
         _ => None,
     }
 }
@@ -33,7 +33,7 @@ mod test {
         let StatementOrExpression::Expression(expression) = last else {
             panic!("expected an expression");
         };
-        check_types_expression(expression, &mut type_scope)
+        check_types_expression(expression, &mut type_scope).cloned()
     }
 
     #[test]

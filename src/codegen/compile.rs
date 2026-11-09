@@ -505,7 +505,7 @@ fn compile_arg(
         });
     }
 
-    if !passed_by_pointer(&compile_scope.expression_type(arg).at(arg.span)?) {
+    if !passed_by_pointer(compile_scope.expression_type(arg).at(arg.span)?.as_ref()) {
         return arg.compile(compile_scope, dst, register_handler);
     }
 
@@ -1274,7 +1274,7 @@ fn compile_divide(
     result: Register,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let unsigned = matches!(
-        compile_scope.unified_type(left, right).at(left.span)?,
+        compile_scope.unified_type(left, right).at(left.span)?.as_ref(),
         Type::Int(int) if !int.is_signed()
     );
 

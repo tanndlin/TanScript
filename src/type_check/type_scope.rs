@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 use crate::{
     ast::StructDefinition,
@@ -147,10 +150,10 @@ impl TypeScope {
         Ok(())
     }
 
-    pub fn expand(&self, t: Type) -> Type {
-        match &t {
-            Type::Named { .. } => self.resolve(&t).unwrap_or(t),
-            _ => t,
+    pub fn expand<'t>(&self, t: &'t Type) -> Cow<'t, Type> {
+        match t {
+            Type::Named { .. } => self.resolve(t).map_or(Cow::Borrowed(t), Cow::Owned),
+            _ => Cow::Borrowed(t),
         }
     }
 

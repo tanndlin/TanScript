@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
     ast::{
@@ -93,57 +93,65 @@ impl<'a> CompileScope<'a> {
         self.lookup(name).map(|(_, t)| t)
     }
 
-    pub fn expression_type(&self, expr: &Expression) -> Result<Type, CodegenErrorKind> {
+    pub fn expression_type<'s>(
+        &'s self,
+        expr: &'s Expression,
+    ) -> Result<Cow<'s, Type>, CodegenErrorKind> {
         Ok(match &expr.kind {
-            ExpressionKind::Atom(AtomType::Identifier(name)) => self.get_type(name)?.clone(),
-            ExpressionKind::Atom(atom) => Type::from(atom),
-            ExpressionKind::Binary(op, _, _) if op.returns_boolean() => Type::Boolean,
+            ExpressionKind::Atom(AtomType::Identifier(name)) => Cow::Borrowed(self.get_type(name)?),
+            ExpressionKind::Atom(atom) => Cow::Owned(Type::from(atom)),
+            ExpressionKind::Binary(op, _, _) if op.returns_boolean() => Cow::Owned(Type::Boolean),
             ExpressionKind::Binary(_, lhs, rhs) => self.unified_type(lhs, rhs)?,
-            ExpressionKind::Unary(UnaryOp::Not, _) => Type::Boolean,
+            ExpressionKind::Unary(UnaryOp::Not, _) => Cow::Owned(Type::Boolean),
             ExpressionKind::Unary(UnaryOp::Negate, inner) | ExpressionKind::Postfix(_, inner) => {
                 self.expression_type(inner)?
             }
-            ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
-                Type::Pointer(Box::new(self.expression_type(inner)?))
-            }
+            ExpressionKind::Unary(UnaryOp::AddressOf, inner) => Cow::Owned(Type::Pointer(
+                Box::new(self.expression_type(inner)?.into_owned()),
+            )),
             ExpressionKind::Unary(UnaryOp::Deref, _) | ExpressionKind::Index(_, _) => {
-                (*expr.etype).clone()
+                Cow::Borrowed(&*expr.etype)
             }
-            ExpressionKind::Cast(_, cast_type) => cast_type.clone(),
-            ExpressionKind::SizeOf(_) => Type::Int(IntType::Coercible),
+            ExpressionKind::Cast(_, cast_type) => Cow::Borrowed(cast_type),
+            ExpressionKind::SizeOf(_) => Cow::Owned(Type::Int(IntType::Coercible)),
             ExpressionKind::StructAccess { base, field_name } => {
-                match self.expression_type(base)? {
+                Cow::Owned(match self.expression_type(base)?.as_ref() {
                     Type::Struct(struct_def) => struct_def
                         .get_field_type(field_name)
                         .cloned()
                         .unwrap_or(Type::Unknown),
                     _ => Type::Unknown,
-                }
+                })
             }
             ExpressionKind::StructInstantiation {
                 struct_type_name, ..
-            } => self
-                .lookup_struct(struct_type_name)
-                .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
+            } => Cow::Owned(
+                self.lookup_struct(struct_type_name)
+                    .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
+            ),
             ExpressionKind::FunctionCall(name, _) => self
                 .lookup_function(name)
-                .map_or(Type::Unknown, |f| f.return_type.clone()),
-            ExpressionKind::EnumVariant { enum_name, .. } => self
-                .lookup_enum(enum_name)
-                .map_or(Type::Unknown, |def| Type::Enum(Box::new(def.clone()))),
+                .map_or(Cow::Owned(Type::Unknown), |f| Cow::Borrowed(&f.return_type)),
+            ExpressionKind::EnumVariant { enum_name, .. } => Cow::Owned(
+                self.lookup_enum(enum_name)
+                    .map_or(Type::Unknown, |def| Type::Enum(Box::new(def.clone()))),
+            ),
         })
     }
 
-    pub fn unified_type(
-        &self,
-        lhs: &Expression,
-        rhs: &Expression,
-    ) -> Result<Type, CodegenErrorKind> {
+    pub fn unified_type<'s>(
+        &'s self,
+        lhs: &'s Expression,
+        rhs: &'s Expression,
+    ) -> Result<Cow<'s, Type>, CodegenErrorKind> {
         let lhs = self.expression_type(lhs)?;
         let rhs = self.expression_type(rhs)?;
-        Ok(unify(&lhs, &rhs)
-            .or_else(|| unify(&rhs, &lhs))
-            .unwrap_or(Type::Unknown))
+        Ok(Cow::Owned(
+            unify(&lhs, &rhs)
+                .or_else(|| unify(&rhs, &lhs))
+                .cloned()
+                .unwrap_or(Type::Unknown),
+        ))
     }
 
     pub fn add_variable(
