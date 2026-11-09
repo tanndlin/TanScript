@@ -57,6 +57,7 @@ impl<'a> CompileScope<'a> {
     pub fn new_function(parent: &'a CompileScope<'a>, function_context: FunctionContext) -> Self {
         Self {
             function_context: Some(function_context),
+            stack_depth: 0,
             ..Self::new(Some(parent))
         }
     }

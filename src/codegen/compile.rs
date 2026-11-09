@@ -412,7 +412,7 @@ fn compile_function_call(
     // Register args are already in place, so evaluate these directly into their slots
     for (i, (arg, temporary)) in stack_args.iter().zip(stack_temporaries).enumerate() {
         let offset = 32 + i32::try_from(i).unwrap() * 8;
-        if arg.contains_call() {
+        if arg.calls_function() {
             instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
                 let mut arg =
                     compile_arg(arg, *temporary, tmp.into(), compile_scope, register_handler)?;
@@ -1507,7 +1507,7 @@ mod test {
             "struct P { a: i64, b: i64, } def f(p: P): i64 { p.a } let p = P { a: 1, b: 2 }; f(p);",
         );
         assert!(asm.contains("lea rcx, [rbp - 16]"), "{asm}");
-        assert!(asm.contains(", [rbp + 16]"), "{asm}");
+        assert!(asm.contains(", [rsp + 24]"), "{asm}");
         assert!(asm.contains("+ 8]"), "{asm}");
     }
 
@@ -1526,16 +1526,16 @@ mod test {
         let asm = compile(
             "def f(a: i32, b: i32, c: i32, d: i32, e: i32): i32 { a + e } f(1, 2, 3, 4, 5);",
         );
-        assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
-        assert!(asm.contains("mov [rbp + 40], r9"), "{asm}");
-        assert!(asm.contains("[rbp + 48]"), "{asm}");
+        assert!(asm.contains("mov [rsp + 8], rcx"), "{asm}");
+        assert!(asm.contains("mov [rsp + 32], r9"), "{asm}");
+        assert!(asm.contains("[rsp + 40]"), "{asm}");
     }
 
     #[test]
     fn compile_function_with_locals() {
         let asm = compile("def f(a: i32): i32 { let b = 1; a + b } f(1);");
-        assert!(asm.contains("mov [rbp + 16], rcx"), "{asm}");
-        assert!(asm.contains("mov QWORD [rbp - 48], 1"), "{asm}");
+        assert!(asm.contains("mov [rsp + 16], rcx"), "{asm}");
+        assert!(asm.contains("mov QWORD [rsp], 1"), "{asm}");
         assert_eq!(
             asm.lines().filter(|l| l.trim() == "ret").count(),
             1,
@@ -1777,7 +1777,7 @@ cond_skip_",
     #[test]
     fn compile_address_of_arg_uses_lea() {
         let asm = compile("def f(x: i64): *i64 { return &x; }");
-        assert!(leas(&asm).iter().any(|l| l.contains("[rbp + ")), "{asm}");
+        assert!(leas(&asm).iter().any(|l| l.contains("[rsp + ")), "{asm}");
     }
 
     #[test]

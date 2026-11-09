@@ -13,7 +13,7 @@ use crate::{
         },
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
-        instruction::{Condition, Instruction},
+        instruction::{Condition, Instruction, Operand},
         loop_context::LoopContext,
         register_handler::RegisterHandler,
     },
@@ -231,16 +231,18 @@ impl ForLoop {
 }
 
 impl FunctionDefinition {
+    pub fn is_leaf_function(&self) -> bool {
+        !self.body.calls_function()
+    }
+
     pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
+        let is_leaf_function = self.is_leaf_function();
         let epilogue_label = format!("{}_epilogue", self.name);
         let mut scope = CompileScope::new_function(compile_scope, FunctionContext::from(self));
-
-        let save_size = SLOT_SIZE * u32::try_from(NON_VOLATILE_REGISTERS.len()).unwrap();
-        scope.stack_depth = save_size;
 
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
@@ -307,36 +309,146 @@ impl FunctionDefinition {
 
         let save_slots = NON_VOLATILE_REGISTERS
             .into_iter()
+            .filter(|reg| touched.contains(reg))
             .zip((1..).map(|i| Address::Stack(i * i32::try_from(SLOT_SIZE).unwrap())))
-            .filter(|(reg, _)| touched.contains(reg))
+            .collect::<Vec<_>>();
+        let save_size = (SLOT_SIZE * u32::try_from(save_slots.len()).unwrap()).next_multiple_of(16);
+        let shift = |instruction: Instruction| {
+            instruction.map_addresses(|address| match address {
+                Address::Stack(n) if n > 0 => Address::Stack(n + i32::try_from(save_size).unwrap()),
+                address => address,
+            })
+        };
+        let struct_copies = struct_copies.into_iter().map(shift).collect::<Vec<_>>();
+        let mut body = body.into_iter().map(shift).collect::<Vec<_>>();
+        if matches!(body.last(), Some(Instruction::Jmp { label }) if *label == epilogue_label) {
+            body.pop();
+        }
+
+        let frame = save_slots
+            .iter()
+            .map(|(reg, slot)| Instruction::mov(*slot, *reg))
+            .chain(arg_homes)
+            .chain(struct_copies)
+            .chain(body)
+            .chain([Instruction::label(epilogue_label)])
+            .chain(
+                save_slots
+                    .iter()
+                    .map(|(reg, slot)| Instruction::mov(*reg, *slot)),
+            )
             .collect::<Vec<_>>();
 
-        let mut instructions = vec![
-            Instruction::label(&self.name),
-            Instruction::push(Register::RBP),
-            Instruction::mov(Register::RBP, Register::RSP),
-            Instruction::sub(Register::RSP, save_size),
-        ];
-        instructions.extend(
-            save_slots
-                .iter()
-                .map(|(reg, slot)| Instruction::mov(*slot, *reg)),
-        );
-        instructions.extend(arg_homes);
-        instructions.extend(struct_copies);
-        instructions.extend(body);
-        instructions.push(Instruction::label(epilogue_label));
-        instructions.extend(
-            save_slots
-                .iter()
-                .map(|(reg, slot)| Instruction::mov(*reg, *slot)),
-        );
-        instructions.push(Instruction::mov(Register::RSP, Register::RBP));
-        instructions.push(Instruction::pop(Register::RBP));
-        instructions.push(Instruction::Ret);
-
-        Ok(instructions)
+        Ok(self.wrap_frame(frame, is_leaf_function, save_size))
     }
+
+    fn wrap_frame(
+        &self,
+        frame: Vec<Instruction>,
+        is_leaf_function: bool,
+        save_size: u32,
+    ) -> Vec<Instruction> {
+        let (prologue, frame, epilogue) = if is_leaf_function {
+            let (frame, frame_size) = to_rsp_frame(frame);
+            let reserved = (frame_size > 0).then_some(frame_size);
+            (
+                reserved
+                    .map(|size| Instruction::sub(Register::RSP, size))
+                    .into_iter()
+                    .collect(),
+                frame,
+                reserved
+                    .map(|size| Instruction::add(Register::RSP, size))
+                    .into_iter()
+                    .collect(),
+            )
+        } else {
+            (
+                [
+                    Instruction::push(Register::RBP),
+                    Instruction::mov(Register::RBP, Register::RSP),
+                ]
+                .into_iter()
+                .chain((save_size > 0).then(|| Instruction::sub(Register::RSP, save_size)))
+                .collect::<Vec<_>>(),
+                frame,
+                vec![
+                    Instruction::mov(Register::RSP, Register::RBP),
+                    Instruction::pop(Register::RBP),
+                ],
+            )
+        };
+
+        std::iter::once(Instruction::label(&self.name))
+            .chain(prologue)
+            .chain(frame)
+            .chain(epilogue)
+            .chain([Instruction::Ret])
+            .collect()
+    }
+}
+
+// Retro actively look at compiled asm to check for rsp changed.
+// Map old addresses from rbp to rsp since rbp might not be setup if a leaf function
+// Strips the body's rsp adjustments so the frame is fixed
+// and tracks push/pop so offsets stay correct between them
+fn to_rsp_frame(instructions: Vec<Instruction>) -> (Vec<Instruction>, u32) {
+    let instructions = instructions
+        .into_iter()
+        .filter(|instruction| {
+            !matches!(
+                instruction,
+                Instruction::Sub {
+                    dst: Address::Register(Register::RSP),
+                    src: Operand::Immediate(_),
+                } | Instruction::Add {
+                    dst: Address::Register(Register::RSP),
+                    src: Operand::Immediate(_),
+                }
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let frame_size = instructions
+        .iter()
+        .flat_map(|instruction| {
+            let mut offsets = vec![];
+            instruction.clone().map_addresses(|address| {
+                if let Address::Stack(n) = address {
+                    offsets.push(n);
+                }
+                address
+            });
+            offsets
+        })
+        .max()
+        .unwrap_or(0)
+        .max(0);
+
+    let mut pushed = 0;
+    let instructions = instructions
+        .into_iter()
+        .map(|instruction| {
+            if matches!(instruction, Instruction::Pop { .. }) {
+                pushed -= 8;
+            }
+            let is_push = matches!(instruction, Instruction::Push { .. });
+            let instruction = instruction.map_addresses(|address| match address {
+                Address::Stack(n) => Address::Deref {
+                    base: Register::RSP,
+                    offset: u32::try_from(frame_size - n - if n < 0 { 8 } else { 0 } + pushed)
+                        .unwrap(),
+                },
+                address => address,
+            });
+            if is_push {
+                pushed += 8;
+            }
+            instruction
+        })
+        .collect();
+
+    (instructions, u32::try_from(frame_size).unwrap())
 }
 
 impl IfStatement {
