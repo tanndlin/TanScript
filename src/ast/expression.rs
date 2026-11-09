@@ -31,25 +31,6 @@ impl Expression {
                 | ExpressionKind::Unary(UnaryOp::Deref, _)
         )
     }
-
-    pub fn calls_function(&self) -> bool {
-        match &self.kind {
-            ExpressionKind::Atom(_)
-            | ExpressionKind::EnumVariant { .. }
-            | ExpressionKind::SizeOf(_) => false,
-            ExpressionKind::FunctionCall(_, _) => true,
-            ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
-                left.calls_function() || right.calls_function()
-            }
-            ExpressionKind::Unary(_, child)
-            | ExpressionKind::Postfix(_, child)
-            | ExpressionKind::Cast(child, _)
-            | ExpressionKind::StructAccess { base: child, .. } => child.calls_function(),
-            ExpressionKind::StructInstantiation { fields, .. } => {
-                fields.iter().any(|(_, field)| field.calls_function())
-            }
-        }
-    }
 }
 
 impl fmt::Display for Expression {

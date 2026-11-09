@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    Block, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, Statement,
-    StatementOrExpression, StructDefinition,
+    Block, Child, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, Statement,
+    StructDefinition, Walk,
 };
 
 #[derive(Default)]
@@ -15,107 +15,48 @@ pub struct SymbolTable {
 
 impl Block {
     pub fn discover(&self, symbols: &mut SymbolTable) {
-        self.children.iter().for_each(|c| c.discover(symbols));
+        self.visit(&mut |c| {
+            match c {
+                Child::Statement(Statement::FunctionDefinition(s)) => {
+                    symbols.functions.insert(s.name.clone(), s.clone());
+                }
+                Child::Statement(Statement::StructDefinition(s)) => {
+                    symbols.structs.insert(s.name.clone(), s.clone());
+                }
+                Child::Statement(Statement::EnumDefinition(s)) => {
+                    symbols.enums.insert(s.name.clone(), s.clone());
+                }
+                Child::Expression(Expression {
+                    kind: ExpressionKind::FunctionCall(name, _),
+                    ..
+                }) if !symbols.functions.contains_key(name) => {
+                    symbols.externs.insert(name.clone());
+                }
+                _ => {}
+            }
+            true
+        });
     }
 }
 
-impl StatementOrExpression {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        match self {
-            StatementOrExpression::Statement(statement) => {
-                statement.discover(symbols);
-            }
-            StatementOrExpression::Expression(expression) => {
-                expression.discover(symbols);
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use crate::{codegen::symbol_table::SymbolTable, lex::lex, parse::parse};
+
+    fn externs(src: &str) -> Vec<String> {
+        let program = parse(lex(src, 0).unwrap()).unwrap();
+        let mut symbols = SymbolTable::default();
+        program.block.discover(&mut symbols);
+        let mut externs: Vec<String> = symbols.externs.into_iter().collect();
+        externs.sort();
+        externs
     }
-}
 
-impl Statement {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        match self {
-            Statement::Assignment(s) => {
-                s.lhs.discover(symbols);
-                s.expression.discover(symbols);
-            }
-            Statement::Declaration(s) => s.assign.expression.discover(symbols),
-            Statement::ForLoop(s) => {
-                s.condition.discover(symbols);
-                s.block.discover(symbols);
-            }
-            Statement::FunctionDefinition(s) => {
-                symbols.functions.insert(s.name.clone(), s.clone());
-                s.body.discover(symbols);
-            }
-            Statement::MatchStatement(s) => {
-                s.lhs.discover(symbols);
-                for case in &s.cases {
-                    case.block.discover(symbols);
-                }
-                if let Some(default) = &s.default {
-                    default.discover(symbols);
-                }
-            }
-            Statement::IfStatement(s) => {
-                s.condition.discover(symbols);
-                s.block.discover(symbols);
-                if let Some(else_block) = &s.else_block {
-                    else_block.discover(symbols);
-                }
-            }
-            Statement::Return(s) => {
-                if let Some(expr) = &s.expr {
-                    expr.discover(symbols);
-                }
-            }
-            Statement::WhileLoop(s) => {
-                s.condition.discover(symbols);
-                s.block.discover(symbols);
-            }
-            Statement::StructDefinition(s) => {
-                symbols.structs.insert(s.name.clone(), s.clone());
-            }
-            Statement::EnumDefinition(s) => {
-                symbols.enums.insert(s.name.clone(), s.clone());
-            }
-            Statement::Continue(_) | Statement::Break(_) => {}
-        }
-    }
-}
-
-impl Expression {
-    pub fn discover(&self, symbols: &mut SymbolTable) {
-        match &self.kind {
-            ExpressionKind::FunctionCall(function_call, args) => {
-                if !symbols.functions.contains_key(function_call) {
-                    symbols.externs.insert(function_call.clone());
-                }
-
-                for arg in args {
-                    arg.discover(symbols);
-                }
-            }
-            ExpressionKind::Atom(_)
-            | ExpressionKind::SizeOf(_)
-            | ExpressionKind::Postfix(_, _)
-            | ExpressionKind::EnumVariant { .. } => {}
-            ExpressionKind::StructAccess { base, .. } => base.discover(symbols),
-            ExpressionKind::Binary(_, left, right) => {
-                left.discover(symbols);
-                right.discover(symbols);
-            }
-            ExpressionKind::Unary(_, child) => child.discover(symbols),
-            ExpressionKind::Index(lhs, index) => {
-                lhs.discover(symbols);
-                index.discover(symbols);
-            }
-            ExpressionKind::Cast(expression, _) => expression.discover(symbols),
-            ExpressionKind::StructInstantiation { fields, .. } => {
-                for (_, expr) in fields {
-                    expr.discover(symbols);
-                }
-            }
-        }
+    #[test]
+    fn discovers_externs_in_for_loop_header() {
+        assert_eq!(
+            externs("for (let i = start(); i < 10; i = step(i)) {}"),
+            vec!["start", "step"]
+        );
     }
 }

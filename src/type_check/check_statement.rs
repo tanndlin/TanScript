@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, Block, Declaration, EnumDefinition, Expression,
-        ExpressionKind, ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement,
-        Statement, StatementOrExpression, StructDefinition, WhileLoop,
+        AssignOp, Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind,
+        ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
+        StatementOrExpression, StructDefinition, WhileLoop,
     },
     error::At,
     type_check::{
@@ -78,79 +78,6 @@ impl Block {
             },
             StatementOrExpression::Expression(_) => false,
         })
-    }
-
-    pub fn calls_function(&self) -> bool {
-        self.children
-            .iter()
-            .any(StatementOrExpression::calls_function)
-    }
-}
-
-impl StatementOrExpression {
-    pub fn calls_function(&self) -> bool {
-        match self {
-            StatementOrExpression::Statement(statement) => statement.calls_function(),
-            StatementOrExpression::Expression(expression) => expression.calls_function(),
-        }
-    }
-}
-
-impl Statement {
-    pub fn calls_function(&self) -> bool {
-        match self {
-            Statement::Assignment(assignment) => assignment.calls_function(),
-            Statement::Declaration(declaration) => declaration.assign.calls_function(),
-            Statement::ForLoop(ForLoop {
-                init,
-                condition,
-                update,
-                block,
-            }) => {
-                init.calls_function()
-                    || condition.calls_function()
-                    || update.calls_function()
-                    || block.calls_function()
-            }
-            Statement::WhileLoop(WhileLoop { condition, block }) => {
-                condition.calls_function() || block.calls_function()
-            }
-            Statement::IfStatement(IfStatement {
-                condition,
-                block,
-                else_block,
-            }) => {
-                condition.calls_function()
-                    || block.calls_function()
-                    || else_block.as_ref().is_some_and(Block::calls_function)
-            }
-            Statement::MatchStatement(MatchStatement {
-                lhs,
-                cases,
-                default,
-                ..
-            }) => {
-                lhs.calls_function()
-                    || cases
-                        .iter()
-                        .any(|case| case.rhs.calls_function() || case.block.calls_function())
-                    || default.as_ref().is_some_and(Block::calls_function)
-            }
-            Statement::Return(ReturnStatement { expr, .. }) => {
-                expr.as_ref().is_some_and(Expression::calls_function)
-            }
-            Statement::FunctionDefinition(_)
-            | Statement::StructDefinition(_)
-            | Statement::EnumDefinition(_)
-            | Statement::Break(_)
-            | Statement::Continue(_) => false,
-        }
-    }
-}
-
-impl Assignment {
-    pub fn calls_function(&self) -> bool {
-        self.lhs.calls_function() || self.expression.calls_function()
     }
 }
 

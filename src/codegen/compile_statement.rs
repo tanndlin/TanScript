@@ -2,7 +2,7 @@ use crate::{
     ast::{
         Arg, AssignOp, Assignment, AtomType, BinaryOp, BreakStatement, ContinueStatement,
         Declaration, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
-        MatchStatement, ReturnStatement, Statement, WhileLoop,
+        MatchStatement, ReturnStatement, Statement, Walk, WhileLoop,
     },
     codegen::{
         CodegenError, CodegenErrorKind,

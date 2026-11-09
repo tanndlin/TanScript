@@ -2,7 +2,7 @@ use crate::{
     ast::{
         AtomType, BinaryOp, Block, Expression, ExpressionKind, PostfixOp, Program,
         StatementOrExpression::{self},
-        StructDefinition, UnaryOp,
+        StructDefinition, UnaryOp, Walk,
     },
     codegen::{
         CodegenError, CodegenErrorKind,
@@ -460,7 +460,7 @@ fn compile_function_call(
 }
 
 /// Structs of 1, 2, 4 or 8 bytes are passed by value, any other struct is passed as a pointer.
-/// TanScript callees copy those into their own frame, so places can point at the original, but an
+/// `TanScript` callees copy those into their own frame, so places can point at the original, but an
 /// extern may modify it, so it gets a copy. Anything else (a struct literal) is built into stack
 /// space here first. This happens before the saved registers are pushed so `stack_depth` covers it
 /// when aligning the call, and the caller frees it once the call returns
