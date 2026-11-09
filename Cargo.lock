@@ -693,6 +693,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tanscript-emulator"
+version = "0.1.0"
+dependencies = [
+ "tanscript",
+]
+
+[[package]]
 name = "tanscript-lsp"
 version = "0.1.0"
 dependencies = [
@@ -706,6 +713,7 @@ name = "tanscript-playground"
 version = "0.1.0"
 dependencies = [
  "tanscript",
+ "tanscript-emulator",
 ]
 
 [[package]]

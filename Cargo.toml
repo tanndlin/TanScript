@@ -11,7 +11,7 @@ clap = { version = "4.6.7", features = ["derive"] }
 derive_more = { version = "2.1.1", features = ["display", "from"] }
 
 [workspace]
-members = ["lsp", "playground"]
+members = ["lsp", "playground", "emulator"]
 exclude = ["fuzz"]
 
 # Small binary for the browser playground: `cargo build -p tanscript-playground --target wasm32-unknown-unknown --profile wasm`

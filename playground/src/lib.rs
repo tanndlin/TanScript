@@ -4,13 +4,20 @@
 //! calls [`compile`], then reads the result back with [`output_ptr`] and
 //! [`output_len`]. `compile` returns 1 on success (output is assembly) and 0 on
 //! a compile error (output is the rendered diagnostic).
+//!
+//! [`run`] takes assembly the same way and executes it in the emulator. It
+//! returns 1 if the program exited normally (output is its stdout, exit code
+//! from [`exit_code`]) and 0 on a runtime error (output is stdout so far
+//! followed by the error message).
 
-use std::{cell::RefCell, path::PathBuf};
+use std::{cell::RefCell, fmt::Write, path::PathBuf};
 
 use tanscript::{compile as compile_source, diagnostic::Style, source_map::SourceMap};
+use tanscript_emulator::{Options, run as emulate};
 
 thread_local! {
     static OUTPUT: RefCell<String> = const { RefCell::new(String::new()) };
+    static EXIT_CODE: RefCell<i32> = const { RefCell::new(0) };
 }
 
 /// Allocates `len` bytes for the host to write source text into.
@@ -59,4 +66,38 @@ pub extern "C" fn output_ptr() -> *const u8 {
 #[unsafe(no_mangle)]
 pub extern "C" fn output_len() -> usize {
     OUTPUT.with_borrow(String::len)
+}
+
+/// Runs the assembly in `ptr[..len]` in the emulator; see the module docs.
+///
+/// # Safety
+/// `ptr[..len]` must be initialized memory obtained from [`alloc`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn run(ptr: *const u8, len: usize) -> u32 {
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    let asm = String::from_utf8_lossy(bytes);
+
+    let result = emulate(&asm, Options::default());
+    let mut text = result.stdout_lossy();
+    let ok = match result.result {
+        Ok(code) => {
+            EXIT_CODE.with_borrow_mut(|c| *c = code);
+            1
+        }
+        Err(e) => {
+            if !text.is_empty() && !text.ends_with('\n') {
+                text.push('\n');
+            }
+            write!(text, "runtime error: {e}").unwrap();
+            0
+        }
+    };
+
+    OUTPUT.with_borrow_mut(|out| *out = text);
+    ok
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn exit_code() -> i32 {
+    EXIT_CODE.with_borrow(|c| *c)
 }

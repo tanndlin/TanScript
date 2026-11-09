@@ -1,0 +1,13 @@
+[package]
+name = "tanscript-emulator"
+version = "0.1.0"
+edition = "2024"
+description = "Interpreter for the x86-64 NASM assembly emitted by the TanScript compiler"
+
+[dependencies]
+
+[lints.clippy]
+pedantic = "warn"
+
+[dev-dependencies]
+tanscript = { path = ".." }

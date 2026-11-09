@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 tanscript = { path = ".." }
+tanscript-emulator = { path = "../emulator" }
 
 [lints.clippy]
 pedantic = "warn"
