@@ -25,7 +25,7 @@ pub struct CompileScope<'a> {
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, Rc<StructDefinition>>,
     enums: HashMap<String, EnumDefinition>,
-    functions: HashMap<String, FunctionDefinition>,
+    functions: HashMap<String, Rc<FunctionDefinition>>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
@@ -196,11 +196,11 @@ impl<'a> CompileScope<'a> {
         self.enums.insert(def.name.clone(), def);
     }
 
-    pub fn insert_function(&mut self, name: String, def: FunctionDefinition) {
+    pub fn insert_function(&mut self, name: String, def: Rc<FunctionDefinition>) {
         self.functions.insert(name, def);
     }
 
-    pub fn lookup_function(&self, name: &str) -> Option<&FunctionDefinition> {
+    pub fn lookup_function(&self, name: &str) -> Option<&Rc<FunctionDefinition>> {
         self.functions
             .get(name)
             .or_else(|| self.parent.and_then(|p| p.lookup_function(name)))

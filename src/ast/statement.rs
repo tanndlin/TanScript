@@ -11,7 +11,7 @@ pub enum Statement {
     Assignment(Assignment),
     Declaration(Declaration),
     ForLoop(ForLoop),
-    FunctionDefinition(FunctionDefinition),
+    FunctionDefinition(Rc<FunctionDefinition>),
     StructDefinition(Rc<StructDefinition>),
     EnumDefinition(EnumDefinition),
     MatchStatement(MatchStatement),
@@ -87,8 +87,8 @@ impl Statement {
             Statement::Return(ReturnStatement { expr, .. }) => {
                 expr.iter().map(Child::Expression).collect()
             }
-            Statement::FunctionDefinition(FunctionDefinition { body, .. }) => {
-                vec![Child::Block(body)]
+            Statement::FunctionDefinition(def) => {
+                vec![Child::Block(&def.body)]
             }
             Statement::StructDefinition(_)
             | Statement::EnumDefinition(_)

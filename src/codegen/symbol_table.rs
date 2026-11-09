@@ -10,7 +10,7 @@ use crate::ast::{
 
 #[derive(Default)]
 pub struct SymbolTable {
-    pub functions: HashMap<String, FunctionDefinition>,
+    pub functions: HashMap<String, Rc<FunctionDefinition>>,
     pub structs: HashMap<String, Rc<StructDefinition>>,
     pub externs: HashSet<String>,
     pub enums: HashMap<String, EnumDefinition>,

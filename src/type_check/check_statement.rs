@@ -21,7 +21,7 @@ impl Block {
             self.children.iter_mut().try_for_each(|child| match child {
                 StatementOrExpression::Statement(statement) => match statement.as_mut() {
                     Statement::StructDefinition(_) | Statement::EnumDefinition(_) => Ok(()),
-                    Statement::FunctionDefinition(s) => s.check_body(type_scope),
+                    Statement::FunctionDefinition(s) => Rc::make_mut(s).check_body(type_scope),
                     _ => child.check_types(type_scope),
                 },
                 StatementOrExpression::Expression(_) => child.check_types(type_scope),
@@ -54,7 +54,7 @@ impl Block {
             if let StatementOrExpression::Statement(statement) = child
                 && let Statement::FunctionDefinition(s) = statement.as_mut()
             {
-                s.declare(type_scope)?;
+                Rc::make_mut(s).declare(type_scope)?;
             }
         }
         Ok(())
@@ -160,7 +160,7 @@ impl Statement {
             Self::Assignment(s) => s.check_types(type_scope),
             Self::Declaration(s) => s.check_types(type_scope),
             Self::ForLoop(s) => s.check_types(type_scope),
-            Self::FunctionDefinition(s) => s.check_types(type_scope),
+            Self::FunctionDefinition(s) => Rc::make_mut(s).check_types(type_scope),
             Self::StructDefinition(s) => {
                 s.declare(type_scope)?;
                 check_struct(s, type_scope)
@@ -178,7 +178,7 @@ impl Statement {
         match self {
             Self::Declaration(s) => s.resolve_types(type_scope),
             Self::ForLoop(s) => s.resolve_types(type_scope),
-            Self::FunctionDefinition(s) => s.body.resolve_types(type_scope),
+            Self::FunctionDefinition(s) => Rc::make_mut(s).body.resolve_types(type_scope),
             Self::IfStatement(s) => s.resolve_types(type_scope),
             Self::MatchStatement(s) => s.resolve_types(type_scope),
             Self::WhileLoop(s) => s.block.resolve_types(type_scope),
