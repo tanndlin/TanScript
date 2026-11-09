@@ -12,7 +12,7 @@ pub use type_check_error::{TypeCheckError, TypeCheckErrorKind};
 pub use type_scope::TypeScope;
 
 use core::fmt;
-use std::str::FromStr;
+use std::{rc::Rc, str::FromStr};
 
 use crate::{
     ast::{AtomType, EnumDefinition, StructDefinition},
@@ -31,7 +31,7 @@ pub enum Type {
     Char,
     Boolean,
     Function(Box<FunctionType>), // Types of args
-    Struct(Box<StructDefinition>),
+    Struct(Rc<StructDefinition>),
     Enum(Box<EnumDefinition>),
     Pointer(Box<Type>),
     Null,

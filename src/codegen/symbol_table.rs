@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use crate::ast::{
     Block, Child, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, Statement,
@@ -8,7 +11,7 @@ use crate::ast::{
 #[derive(Default)]
 pub struct SymbolTable {
     pub functions: HashMap<String, FunctionDefinition>,
-    pub structs: HashMap<String, StructDefinition>,
+    pub structs: HashMap<String, Rc<StructDefinition>>,
     pub externs: HashSet<String>,
     pub enums: HashMap<String, EnumDefinition>,
 }

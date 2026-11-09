@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use crate::{
     ast::{
@@ -45,8 +45,9 @@ impl Block {
                 }
             }
         }
+
         for i in value_dependency_order(&structs) {
-            structs[i].check_types(type_scope)?;
+            check_struct(structs[i], type_scope)?;
         }
 
         for child in &mut self.children {
@@ -81,7 +82,16 @@ impl Block {
     }
 }
 
-fn value_dependency_order(structs: &[&mut StructDefinition]) -> Vec<usize> {
+fn check_struct(
+    def: &mut Rc<StructDefinition>,
+    type_scope: &mut TypeScope,
+) -> Result<(), TypeCheckError> {
+    Rc::make_mut(def).check_types(type_scope)?;
+    type_scope.insert(def.name.clone(), Type::Struct(Rc::clone(def)));
+    Ok(())
+}
+
+fn value_dependency_order(structs: &[&mut Rc<StructDefinition>]) -> Vec<usize> {
     let mut visited = vec![false; structs.len()];
     let mut order = vec![];
     for i in 0..structs.len() {
@@ -92,7 +102,7 @@ fn value_dependency_order(structs: &[&mut StructDefinition]) -> Vec<usize> {
 
 fn visit_value_dependencies(
     i: usize,
-    structs: &[&mut StructDefinition],
+    structs: &[&mut Rc<StructDefinition>],
     visited: &mut [bool],
     order: &mut Vec<usize>,
 ) {
@@ -153,7 +163,7 @@ impl Statement {
             Self::FunctionDefinition(s) => s.check_types(type_scope),
             Self::StructDefinition(s) => {
                 s.declare(type_scope)?;
-                s.check_types(type_scope)
+                check_struct(s, type_scope)
             }
             Self::IfStatement(s) => s.check_types(type_scope),
             Self::MatchStatement(s) => s.check_types(type_scope),
@@ -337,7 +347,6 @@ impl StructDefinition {
             type_scope.check_for_recursion(&field.ftype, field.span, &mut parent_structs)?;
         }
         type_scope.pop();
-        type_scope.insert(self.name.clone(), Type::Struct(Box::new(self.clone())));
         Ok(())
     }
 }

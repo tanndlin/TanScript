@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
@@ -23,7 +23,7 @@ pub const SLOT_SIZE: u32 = 8;
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
-    structs: HashMap<String, StructDefinition>,
+    structs: HashMap<String, Rc<StructDefinition>>,
     enums: HashMap<String, EnumDefinition>,
     functions: HashMap<String, FunctionDefinition>,
     loop_context: Option<LoopContext>,
@@ -127,7 +127,7 @@ impl<'a> CompileScope<'a> {
                 struct_type_name, ..
             } => Cow::Owned(
                 self.lookup_struct(struct_type_name)
-                    .map_or(Type::Unknown, |def| Type::Struct(Box::new(def.clone()))),
+                    .map_or(Type::Unknown, |def| Type::Struct(def.clone())),
             ),
             ExpressionKind::FunctionCall(name, _) => self
                 .lookup_function(name)
@@ -188,7 +188,7 @@ impl<'a> CompileScope<'a> {
         }
     }
 
-    pub fn insert_struct(&mut self, def: StructDefinition) {
+    pub fn insert_struct(&mut self, def: Rc<StructDefinition>) {
         self.structs.insert(def.name.clone(), def);
     }
 
@@ -212,7 +212,7 @@ impl<'a> CompileScope<'a> {
             .or_else(|| self.parent.and_then(|p| p.lookup_enum(name)))
     }
 
-    pub fn lookup_struct(&self, name: &str) -> Option<&StructDefinition> {
+    pub fn lookup_struct(&self, name: &str) -> Option<&Rc<StructDefinition>> {
         self.structs
             .get(name)
             .or_else(|| self.parent.and_then(|p| p.lookup_struct(name)))

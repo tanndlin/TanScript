@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::ast::{
     Assignment, BreakStatement, Child, ContinueStatement, Declaration, EnumDefinition, ForLoop,
     FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, StructDefinition, WhileLoop,
@@ -10,7 +12,7 @@ pub enum Statement {
     Declaration(Declaration),
     ForLoop(ForLoop),
     FunctionDefinition(FunctionDefinition),
-    StructDefinition(StructDefinition),
+    StructDefinition(Rc<StructDefinition>),
     EnumDefinition(EnumDefinition),
     MatchStatement(MatchStatement),
     IfStatement(IfStatement),

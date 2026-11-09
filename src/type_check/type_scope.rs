@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    rc::Rc,
 };
 
 use crate::{
@@ -141,7 +142,7 @@ impl TypeScope {
         };
 
         if !parent_structs.insert(def.name.clone()) {
-            return Err(TypeCheckErrorKind::RecursiveStruct(def.name).at(span));
+            return Err(TypeCheckErrorKind::RecursiveStruct(def.name.clone()).at(span));
         }
         for field in &def.fields {
             self.check_for_recursion(&field.ftype, span, parent_structs)?;
@@ -160,7 +161,7 @@ impl TypeScope {
     /// Copies `def` with its generics replaced by `concrete_generics` in every field.
     fn instantiate(
         &self,
-        def: &StructDefinition,
+        def: &Rc<StructDefinition>,
         concrete_generics: &[Type],
         span: Span,
     ) -> Result<Type, TypeCheckError> {
@@ -173,15 +174,19 @@ impl TypeScope {
             .at(span));
         }
 
+        if def.generics.is_empty() {
+            return Ok(Type::Struct(Rc::clone(def)));
+        }
+
         let concrete_generics = concrete_generics
             .iter()
             .map(|t| self.resolve(t))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut def = def.clone();
+        let mut def = StructDefinition::clone(def);
         for field in &mut def.fields {
             field.ftype = substitute(&field.ftype, &def.generics, &concrete_generics);
         }
-        Ok(Type::Struct(Box::new(def)))
+        Ok(Type::Struct(Rc::new(def)))
     }
 }
 

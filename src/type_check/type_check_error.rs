@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use crate::{
     ast::{EnumDefinition, StructDefinition},
@@ -30,11 +30,11 @@ pub enum TypeCheckErrorKind {
     NotAStruct(String),
     NotAnEnum(String),
     NoSuchField {
-        struct_type: Box<StructDefinition>,
+        struct_type: Rc<StructDefinition>,
         field_name: String,
     },
     MissingField {
-        struct_type: Box<StructDefinition>,
+        struct_type: Rc<StructDefinition>,
         field_name: String,
     },
     NoSuchVariant {
