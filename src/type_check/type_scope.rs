@@ -76,19 +76,23 @@ impl TypeScope {
         &self.bindings[id]
     }
 
-    pub fn resolve(&self, t: &Type) -> Result<Type, TypeCheckError> {
+    pub fn resolve<'t>(&self, t: &'t Type) -> Result<Cow<'t, Type>, TypeCheckError> {
         match t {
             Type::Named {
                 name,
                 concrete_generics,
                 span,
             } => match self.lookup(name) {
-                Some(Type::Struct(def)) => self.instantiate(def, concrete_generics, *span),
-                Some(Type::Named { .. }) => Ok(t.clone()),
+                Some(Type::Struct(def)) => Ok(Cow::Owned(self.instantiate(
+                    def,
+                    concrete_generics,
+                    *span,
+                )?)),
+                Some(Type::Named { .. }) => Ok(Cow::Borrowed(t)),
                 Some(named_type @ (Type::Enum(_) | Type::Generic(_)))
                     if concrete_generics.is_empty() =>
                 {
-                    Ok(named_type.clone())
+                    Ok(Cow::Owned(named_type.clone()))
                 }
                 Some(Type::Enum(_) | Type::Generic(_)) => {
                     Err(TypeCheckErrorKind::IncorrectNumberOfGenerics {
@@ -100,10 +104,21 @@ impl TypeScope {
                 }
                 _ => Err(TypeCheckErrorKind::UnknownType(name.clone()).at(*span)),
             },
-            Type::Pointer(inner) if self.mentions_placeholder(inner) => Ok(t.clone()),
-            Type::Pointer(inner) => Ok(Type::Pointer(Box::new(self.resolve(inner)?))),
-            _ => Ok(t.clone()),
+            Type::Pointer(inner) if self.mentions_placeholder(inner) => Ok(Cow::Borrowed(t)),
+            Type::Pointer(inner) => Ok(match self.resolve(inner)? {
+                Cow::Borrowed(_) => Cow::Borrowed(t),
+                Cow::Owned(inner) => Cow::Owned(Type::Pointer(Box::new(inner))),
+            }),
+            _ => Ok(Cow::Borrowed(t)),
         }
+    }
+
+    // Only sets the type when a new type was narrowed, in whic case it is owned
+    pub fn resolve_in_place(&self, t: &mut Type) -> Result<(), TypeCheckError> {
+        if let Cow::Owned(resolved) = self.resolve(t)? {
+            *t = resolved;
+        }
+        Ok(())
     }
 
     fn mentions_placeholder(&self, t: &Type) -> bool {
@@ -134,8 +149,8 @@ impl TypeScope {
             Type::Named { name, .. } if parent_structs.contains(name) => {
                 return Err(TypeCheckErrorKind::RecursiveStruct(name.clone()).at(span));
             }
-            Type::Named { .. } => match self.resolve(t) {
-                Ok(Type::Struct(def)) => def,
+            Type::Named { .. } => match self.resolve(t).as_deref() {
+                Ok(Type::Struct(def)) => Rc::clone(def),
                 _ => return Ok(()),
             },
             _ => return Ok(()),
@@ -153,7 +168,7 @@ impl TypeScope {
 
     pub fn expand<'t>(&self, t: &'t Type) -> Cow<'t, Type> {
         match t {
-            Type::Named { .. } => self.resolve(t).map_or(Cow::Borrowed(t), Cow::Owned),
+            Type::Named { .. } => self.resolve(t).unwrap_or(Cow::Borrowed(t)),
             _ => Cow::Borrowed(t),
         }
     }
@@ -180,7 +195,7 @@ impl TypeScope {
 
         let concrete_generics = concrete_generics
             .iter()
-            .map(|t| self.resolve(t))
+            .map(|t| self.resolve(t).map(Cow::into_owned))
             .collect::<Result<Vec<_>, _>>()?;
         let mut def = StructDefinition::clone(def);
         for field in &mut def.fields {

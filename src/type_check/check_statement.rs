@@ -1,4 +1,4 @@
-use std::{collections::HashSet, rc::Rc};
+use std::{borrow::Cow, collections::HashSet, rc::Rc};
 
 use crate::{
     ast::{
@@ -220,7 +220,7 @@ impl Declaration {
         let Some(expected) = self
             .dtype
             .as_ref()
-            .map(|t| type_scope.resolve(t))
+            .map(|t| type_scope.resolve(t).map(Cow::into_owned))
             .transpose()?
         else {
             self.binding = Some(type_scope.insert(ident.clone(), got));
@@ -265,9 +265,9 @@ impl FunctionDefinition {
 
     fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         for arg in &mut self.args {
-            arg.atype = type_scope.resolve(&arg.atype)?;
+            type_scope.resolve_in_place(&mut arg.atype)?;
         }
-        self.return_type = type_scope.resolve(&self.return_type)?;
+        type_scope.resolve_in_place(&mut self.return_type)?;
 
         type_scope.insert(
             self.name.clone(),
@@ -343,7 +343,7 @@ impl StructDefinition {
 
         let mut parent_structs = HashSet::from([self.name.clone()]);
         for field in &mut self.fields {
-            field.ftype = type_scope.resolve(&field.ftype)?;
+            type_scope.resolve_in_place(&mut field.ftype)?;
             type_scope.check_for_recursion(&field.ftype, field.span, &mut parent_structs)?;
         }
         type_scope.pop();

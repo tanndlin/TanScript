@@ -48,7 +48,7 @@ pub fn check_types_expression<'s>(
         ExpressionKind::Index(lhs, rhs) => check_index(span, lhs, rhs, type_scope),
         ExpressionKind::Cast(lhs, casted_type) => check_cast(span, lhs, casted_type, type_scope),
         ExpressionKind::SizeOf(sized_type) => {
-            *sized_type = type_scope.resolve(sized_type)?;
+            type_scope.resolve_in_place(sized_type)?;
             Ok(Type::Int(IntType::Coercible))
         }
         ExpressionKind::StructInstantiation {
@@ -208,7 +208,7 @@ pub fn check_cast(
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
-    *casted_type = type_scope.resolve(casted_type)?;
+    type_scope.resolve_in_place(casted_type)?;
     if lhs_type.castable(casted_type) {
         Ok(casted_type.clone())
     } else {
