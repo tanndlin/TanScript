@@ -299,68 +299,37 @@ impl Instruction {
         Self::Comment(text.into())
     }
 
-    pub fn map_addresses(self, mut f: impl FnMut(Address) -> Address) -> Self {
-        fn op(operand: Operand, f: &mut impl FnMut(Address) -> Address) -> Operand {
-            match operand {
-                Operand::Address(address) => Operand::Address(f(address)),
-                operand => operand,
+    pub fn map_addresses(mut self, mut f: impl FnMut(Address) -> Address) -> Self {
+        self.for_each_address_mut(|address| *address = f(*address));
+        self
+    }
+
+    pub fn for_each_address_mut(&mut self, mut f: impl FnMut(&mut Address)) {
+        fn op(operand: &mut Operand, f: &mut impl FnMut(&mut Address)) {
+            if let Operand::Address(address) = operand {
+                f(address);
             }
         }
         match self {
-            Self::Mov { dst, src } => Self::Mov {
-                dst: f(dst),
-                src: op(src, &mut f),
-            },
-            Self::Add { dst, src } => Self::Add {
-                dst: f(dst),
-                src: op(src, &mut f),
-            },
-            Self::Sub { dst, src } => Self::Sub {
-                dst: f(dst),
-                src: op(src, &mut f),
-            },
-            Self::Xor { dst, src } => Self::Xor {
-                dst: f(dst),
-                src: op(src, &mut f),
-            },
-            Self::Neg { dst } => Self::Neg { dst: f(dst) },
-            Self::Imul { dst, src } => Self::Imul {
-                dst,
-                src: op(src, &mut f),
-            },
-            Self::Store { dst, src, size } => Self::Store {
-                dst: f(dst),
-                src,
-                size,
-            },
-            Self::Test { lhs, rhs } => Self::Test {
-                lhs: f(lhs),
-                rhs: op(rhs, &mut f),
-            },
-            Self::Movsx { dst, src, size } => Self::Movsx {
-                dst,
-                src: f(src),
-                size,
-            },
-            Self::Movzx { dst, src, size } => Self::Movzx {
-                dst,
-                src: f(src),
-                size,
-            },
-            Self::Cmp { lhs, rhs } => Self::Cmp {
-                lhs: f(lhs),
-                rhs: op(rhs, &mut f),
-            },
-            Self::Set { cond, dst } => Self::Set { cond, dst: f(dst) },
-            Self::Push { src } => Self::Push {
-                src: op(src, &mut f),
-            },
-            Self::Pop { dst } => Self::Pop { dst: f(dst) },
-            Self::Lea { dst, src } => Self::Lea { dst, src: f(src) },
-            Self::Or { dst, src } => Self::Or {
-                dst,
-                src: op(src, &mut f),
-            },
+            Self::Mov { dst, src }
+            | Self::Add { dst, src }
+            | Self::Sub { dst, src }
+            | Self::Xor { dst, src } => {
+                f(dst);
+                op(src, &mut f);
+            }
+            Self::Test { lhs, rhs } | Self::Cmp { lhs, rhs } => {
+                f(lhs);
+                op(rhs, &mut f);
+            }
+            Self::Neg { dst }
+            | Self::Set { dst, .. }
+            | Self::Pop { dst }
+            | Self::Store { dst, .. } => {
+                f(dst);
+            }
+            Self::Movsx { src, .. } | Self::Movzx { src, .. } | Self::Lea { src, .. } => f(src),
+            Self::Imul { src, .. } | Self::Or { src, .. } | Self::Push { src } => op(src, &mut f),
             Self::Idiv { .. }
             | Self::Div { .. }
             | Self::Cqo
@@ -370,7 +339,7 @@ impl Instruction {
             | Self::Label { .. }
             | Self::Ret
             | Self::Comment(_)
-            | Self::Shl { .. } => self,
+            | Self::Shl { .. } => {}
         }
     }
 

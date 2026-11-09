@@ -94,10 +94,12 @@ pub fn check_binary(
     rhs: &mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
-    let lhs_type = check_types_expression(lhs, type_scope)?.clone();
-    let rhs_type = check_types_expression(rhs, type_scope)?.clone();
+    let lhs_span = lhs.span;
+    let rhs_span = rhs.span;
+    let lhs_type = check_types_expression(lhs, type_scope)?;
+    let rhs_type = check_types_expression(rhs, type_scope)?;
 
-    if let Some((struct_type, span)) = [(&lhs_type, lhs.span), (&rhs_type, rhs.span)]
+    if let Some((struct_type, span)) = [(lhs_type, lhs_span), (rhs_type, rhs_span)]
         .into_iter()
         .find(|(t, _)| matches!(t, Type::Struct(_)))
     {
@@ -108,14 +110,14 @@ pub fn check_binary(
         .at(span));
     }
 
-    let unified = unify(&lhs_type, &rhs_type)
-        .or_else(|| unify(&rhs_type, &lhs_type))
+    let unified = unify(lhs_type, rhs_type)
+        .or_else(|| unify(rhs_type, lhs_type))
         .ok_or_else(|| {
             TypeCheckErrorKind::TypeMismatch {
                 expected: Box::new(lhs_type.clone()),
                 got: Box::new(rhs_type.clone()),
             }
-            .at(rhs.span)
+            .at(rhs_span)
         })?;
 
     Ok(if op.returns_boolean() {

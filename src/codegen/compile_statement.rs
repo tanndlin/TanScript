@@ -393,7 +393,7 @@ impl FunctionDefinition {
 // Strips the body's rsp adjustments so the frame is fixed
 // and tracks push/pop so offsets stay correct between them
 fn to_rsp_frame(instructions: Vec<Instruction>) -> (Vec<Instruction>, u32) {
-    let instructions = instructions
+    let mut instructions = instructions
         .into_iter()
         .filter(|instruction| {
             !matches!(
@@ -409,21 +409,14 @@ fn to_rsp_frame(instructions: Vec<Instruction>) -> (Vec<Instruction>, u32) {
         })
         .collect::<Vec<_>>();
 
-    let frame_size = instructions
-        .iter()
-        .flat_map(|instruction| {
-            let mut offsets = vec![];
-            instruction.clone().map_addresses(|address| {
-                if let Address::Stack(n) = address {
-                    offsets.push(n);
-                }
-                address
-            });
-            offsets
-        })
-        .max()
-        .unwrap_or(0)
-        .max(0);
+    let mut frame_size = 0;
+    for instruction in &mut instructions {
+        instruction.for_each_address_mut(|address| {
+            if let Address::Stack(n) = *address {
+                frame_size = frame_size.max(n);
+            }
+        });
+    }
 
     let mut pushed = 0;
     let instructions = instructions
