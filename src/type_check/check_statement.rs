@@ -327,8 +327,8 @@ impl StructDefinition {
 
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         type_scope.push();
-        for generic in &self.generics {
-            type_scope.insert(generic.clone(), Type::Generic(generic.clone()));
+        for generic_name in &self.generics {
+            type_scope.insert(generic_name.clone(), Type::Generic(generic_name.clone()));
         }
 
         let mut parent_structs = HashSet::from([self.name.clone()]);
