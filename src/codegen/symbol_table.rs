@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     rc::Rc,
 };
 
@@ -10,9 +10,9 @@ use crate::ast::{
 
 #[derive(Default)]
 pub struct SymbolTable {
-    pub functions: HashMap<String, Rc<FunctionDefinition>>,
+    pub functions: BTreeMap<String, Rc<FunctionDefinition>>,
     pub structs: HashMap<String, Rc<StructDefinition>>,
-    pub externs: HashSet<String>,
+    pub externs: BTreeSet<String>,
     pub enums: HashMap<String, Rc<EnumDefinition>>,
 }
 
