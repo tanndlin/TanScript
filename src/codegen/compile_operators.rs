@@ -142,6 +142,11 @@ pub fn compile_logical_binary(
     let id = register_handler.get_unique_id();
     let false_label = format!("logic_false_{id}");
     let end_label = format!("logic_end_{id}");
+    let demoted_dst = match dst {
+        Address::Register(reg) if register_handler.mark_destination(reg) => Some(reg),
+        _ => None,
+    };
+
     let mut instructions = compile_jump(
         condition,
         &false_label,
@@ -149,6 +154,10 @@ pub fn compile_logical_binary(
         compile_scope,
         register_handler,
     )?;
+
+    if let Some(reg) = demoted_dst {
+        register_handler.mark_hot(reg);
+    }
     instructions.push(Instruction::mov(dst, NumberType::I64(1)));
     instructions.push(Instruction::jmp(end_label.clone()));
     instructions.push(Instruction::label(false_label));
