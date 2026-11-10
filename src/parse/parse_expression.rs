@@ -21,11 +21,9 @@ pub fn parse_expression_or_assignment(
     );
 
     Ok(if is_assign {
-        StatementOrExpression::Statement(Box::new(Statement::Assignment(
-            parse_assignment_with_lhs(tokens, expression)?,
-        )))
+        Statement::Assignment(parse_assignment_with_lhs(tokens, expression)?).into()
     } else {
-        StatementOrExpression::Expression(expression)
+        expression.into()
     })
 }
 

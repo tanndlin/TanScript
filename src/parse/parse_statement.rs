@@ -39,7 +39,7 @@ pub fn parse_unterminated_statement_or_expression(
     tokens: &mut Parser,
 ) -> Result<StatementOrExpression, ParseError> {
     Ok(match parse_statement(tokens)? {
-        Some(statement) => StatementOrExpression::Statement(Box::new(statement)),
+        Some(statement) => statement.into(),
         None => parse_expression_or_assignment(tokens)?,
     })
 }
@@ -133,9 +133,7 @@ fn parse_if_statement(tokens: &mut Parser) -> Result<IfStatement, ParseError> {
 fn parse_else_block(tokens: &mut Parser) -> Result<Block, ParseError> {
     match tokens.peek().map(|tok| &tok.token_type) {
         Some(Token::Atom(LexerAtomType::Identifier(s))) if s == "if" => Ok(Block {
-            children: vec![StatementOrExpression::Statement(Box::new(
-                Statement::IfStatement(tokens.nested("if", parse_if_statement)?),
-            ))],
+            children: vec![Statement::IfStatement(tokens.nested("if", parse_if_statement)?).into()],
         }),
         _ => parse_block(tokens),
     }
@@ -324,7 +322,7 @@ fn parse_function_body(tokens: &mut Parser) -> Result<Block, ParseError> {
         let item = parse_statement(tokens)?;
 
         if let Some(statement) = item {
-            children.push(StatementOrExpression::Statement(Box::new(statement)));
+            children.push(statement.into());
 
             // Statements still require their normal semicolon rules.
             match children.last().unwrap() {
@@ -337,27 +335,28 @@ fn parse_function_body(tokens: &mut Parser) -> Result<Block, ParseError> {
         } else {
             match parse_expression_or_assignment(tokens)? {
                 // Assignments are statements, never an implicit return.
-                StatementOrExpression::Statement(assign) => {
-                    children.push(StatementOrExpression::Statement(assign));
+                stmt @ StatementOrExpression::Statement(_) => {
+                    children.push(stmt);
                     tokens.expect(";")?;
                 }
 
                 StatementOrExpression::Expression(expression) => match tokens.peek() {
                     // Final expression: implicit return.
                     Some(tok) if tok.token_type == Token::Op(OperatorType::CloseCurly) => {
-                        children.push(StatementOrExpression::Statement(Box::new(
+                        children.push(
                             Statement::Return(ReturnStatement {
                                 span: expression.span,
                                 expr: Some(expression),
-                            }),
-                        )));
+                            })
+                            .into(),
+                        );
                         break;
                     }
 
                     // Non-final expression must have a semicolon.
                     _ => {
                         tokens.expect(";")?;
-                        children.push(StatementOrExpression::Expression(expression));
+                        children.push(expression.into());
                     }
                 },
             }
