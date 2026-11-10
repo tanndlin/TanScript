@@ -63,6 +63,35 @@ pub enum ExpressionKind {
     },
 }
 
+impl ExpressionKind {
+    pub fn binary(op: BinaryOp, lhs: Expression, rhs: Expression) -> Self {
+        Self::Binary(op, Box::new(lhs), Box::new(rhs))
+    }
+
+    pub fn unary(op: UnaryOp, operand: Expression) -> Self {
+        Self::Unary(op, Box::new(operand))
+    }
+
+    pub fn postfix(op: PostfixOp, operand: Expression) -> Self {
+        Self::Postfix(op, Box::new(operand))
+    }
+
+    pub fn index(base: Expression, index: Expression) -> Self {
+        Self::Index(Box::new(base), Box::new(index))
+    }
+
+    pub fn cast(expr: Expression, target: Type) -> Self {
+        Self::Cast(Box::new(expr), target)
+    }
+
+    pub fn struct_access(base: Expression, field_name: String) -> Self {
+        Self::StructAccess {
+            base: Box::new(base),
+            field_name,
+        }
+    }
+}
+
 impl fmt::Display for ExpressionKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

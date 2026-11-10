@@ -146,7 +146,7 @@ impl Assignment {
 
     fn apply(&self, op: BinaryOp, current: Expression) -> Expression {
         Expression::new(
-            ExpressionKind::Binary(op, Box::new(current), Box::new(self.expression.clone())),
+            ExpressionKind::binary(op, current, self.expression.clone()),
             self.lhs.span,
         )
     }

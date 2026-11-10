@@ -99,7 +99,7 @@ fn parse_expression_at_depth(
             if op == UnaryOp::AddressOf && !rhs.is_place() {
                 return Err(ParseErrorKind::NotAddressable(rhs.to_string()).at(rhs.span));
             }
-            Expression::new(ExpressionKind::Unary(op, Box::new(rhs)), token.span)
+            Expression::new(ExpressionKind::unary(op, rhs), token.span)
         }
     };
 
@@ -119,12 +119,12 @@ fn parse_expression_at_depth(
             tokens.next_nested()?;
             let span = lhs.span;
             if is_arrow {
-                lhs = Expression::new(ExpressionKind::Unary(UnaryOp::Deref, Box::new(lhs)), span);
+                lhs = Expression::new(ExpressionKind::unary(UnaryOp::Deref, lhs), span);
             }
             let kind = if is_index {
                 let index = parse_expression(tokens, 0)?;
                 tokens.expect("]")?;
-                ExpressionKind::Index(Box::new(lhs), Box::new(index))
+                ExpressionKind::index(lhs, index)
             } else {
                 if !lhs.is_place() {
                     return Err(ParseErrorKind::NotAddressable(lhs.to_string()).at(span));
@@ -133,10 +133,7 @@ fn parse_expression_at_depth(
                 let Token::Atom(LexerAtomType::Identifier(field_name)) = &token.token_type else {
                     return Err(expected("field name", token));
                 };
-                ExpressionKind::StructAccess {
-                    base: Box::new(lhs),
-                    field_name: field_name.clone(),
-                }
+                ExpressionKind::struct_access(lhs, field_name.clone())
             };
             lhs = Expression::new(kind, span);
             continue;
@@ -151,7 +148,7 @@ fn parse_expression_at_depth(
             tokens.next_nested()?;
             let cast_type = parse_type(tokens)?;
             let span = lhs.span;
-            lhs = Expression::new(ExpressionKind::Cast(Box::new(lhs), cast_type), span);
+            lhs = Expression::new(ExpressionKind::cast(lhs, cast_type), span);
             continue;
         }
 
@@ -165,7 +162,7 @@ fn parse_expression_at_depth(
             }
 
             let span = lhs.span;
-            lhs = Expression::new(ExpressionKind::Postfix(op, Box::new(lhs)), span);
+            lhs = Expression::new(ExpressionKind::postfix(op, lhs), span);
             continue;
         }
 
@@ -177,10 +174,7 @@ fn parse_expression_at_depth(
             tokens.next_nested()?;
             let rhs = parse_expression_with(tokens, r_bp, allow_struct)?;
             let span = lhs.span;
-            lhs = Expression::new(
-                ExpressionKind::Binary(op, Box::new(lhs), Box::new(rhs)),
-                span,
-            );
+            lhs = Expression::new(ExpressionKind::binary(op, lhs, rhs), span);
             continue;
         }
 
