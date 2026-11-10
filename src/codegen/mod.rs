@@ -1,6 +1,9 @@
 mod address;
 mod codegen_error;
 mod compile;
+mod compile_call;
+mod compile_memory;
+mod compile_operators;
 mod compile_scope;
 mod compile_statement;
 mod function_context;

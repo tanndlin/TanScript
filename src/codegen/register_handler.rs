@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::codegen::{
     CodegenErrorKind,
     address::{Address, Register},
-    compile::NON_VOLATILE_REGISTERS,
+    compile_call::NON_VOLATILE_REGISTERS,
     instruction::Instruction,
 };
 

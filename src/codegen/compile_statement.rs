@@ -7,10 +7,10 @@ use crate::{
     codegen::{
         CodegenError, CodegenErrorKind,
         address::{Address, Register},
-        compile::{
-            NON_VOLATILE_REGISTERS, as_operand, compile_jump_unless, load_element, mem_copy,
-            passed_by_pointer, store_element, with_place_address,
-        },
+        compile::as_operand,
+        compile_call::{NON_VOLATILE_REGISTERS, passed_by_pointer},
+        compile_memory::{load_element, mem_copy, store_element, with_place_address},
+        compile_operators::compile_jump_unless,
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
         instruction::{Condition, Instruction, Operand},
