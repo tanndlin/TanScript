@@ -14,6 +14,9 @@ derive_more = { version = "2.1.1", features = ["display", "from"] }
 members = ["lsp", "playground", "emulator"]
 exclude = ["fuzz"]
 
+[profile.dev.package.tanscript-emulator]
+opt-level = 3
+
 # Small binary for the browser playground: `cargo build -p tanscript-playground --target wasm32-unknown-unknown --profile wasm`
 [profile.wasm]
 inherits = "release"

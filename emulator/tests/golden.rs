@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    thread,
 };
 
 use tanscript::{compile, source_map::SourceMap};
@@ -33,6 +34,57 @@ fn data_files(tan: &Path) -> HashMap<String, Vec<u8>> {
     files.into_iter().collect()
 }
 
+enum Outcome {
+    Passed,
+    Skipped(String),
+    Failed(String),
+}
+
+fn run_script(tan: &Path) -> Outcome {
+    let name = tan.file_name().unwrap().to_string_lossy().into_owned();
+    let Ok(expected) = fs::read_to_string(tan.with_extension("out")) else {
+        return Outcome::Passed;
+    };
+    if !read_dir_files(&tan.with_extension(""), |p| {
+        p.extension().is_some_and(|e| e == "c")
+    })
+    .is_empty()
+    {
+        return Outcome::Skipped(name);
+    }
+
+    let mut sources = SourceMap::default();
+    let file = sources.add(tan.to_path_buf(), fs::read_to_string(tan).unwrap());
+    let Ok(asm) = compile(file, &mut sources, None) else {
+        return Outcome::Failed(format!("[{name}] compile failed"));
+    };
+
+    let result = run(
+        &asm,
+        Options {
+            files: data_files(tan),
+            ..Options::default()
+        },
+    );
+    let actual = result.stdout_lossy().replace('\r', "");
+    let expected = expected.replace('\r', "");
+    match result.result {
+        Err(e) => Outcome::Failed(format!(
+            "[{name}] {e}
+--- stdout so far ---
+{actual}"
+        )),
+        Ok(_) if actual != expected => Outcome::Failed(format!(
+            "[{name}] mismatch
+--- expected ---
+{expected}
+--- actual ---
+{actual}"
+        )),
+        Ok(_) => Outcome::Passed,
+    }
+}
+
 #[test]
 fn golden_scripts_match_native_output() {
     let mut scripts: Vec<PathBuf> = fs::read_dir(GOLDEN_DIR)
@@ -45,53 +97,36 @@ fn golden_scripts_match_native_output() {
         scripts.retain(|p| p.to_string_lossy().contains(&filter));
     }
 
+    let outcomes: Vec<Outcome> = thread::scope(|s| {
+        let handles: Vec<_> = scripts
+            .iter()
+            .map(|tan| s.spawn(move || run_script(tan)))
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
     let mut failures = Vec::new();
     let mut skipped = Vec::new();
-    for tan in &scripts {
-        let name = tan.file_name().unwrap().to_string_lossy().into_owned();
-        let Ok(expected) = fs::read_to_string(tan.with_extension("out")) else {
-            continue;
-        };
-        if !read_dir_files(&tan.with_extension(""), |p| {
-            p.extension().is_some_and(|e| e == "c")
-        })
-        .is_empty()
-        {
-            skipped.push(name);
-            continue;
-        }
-
-        let mut sources = SourceMap::default();
-        let file = sources.add(tan.clone(), fs::read_to_string(tan).unwrap());
-        let Ok(asm) = compile(file, &mut sources, None) else {
-            failures.push(format!("[{name}] compile failed"));
-            continue;
-        };
-
-        let result = run(
-            &asm,
-            Options {
-                files: data_files(tan),
-                ..Options::default()
-            },
-        );
-        let actual = result.stdout_lossy().replace('\r', "");
-        let expected = expected.replace('\r', "");
-        match result.result {
-            Err(e) => failures.push(format!("[{name}] {e}\n--- stdout so far ---\n{actual}")),
-            Ok(_) if actual != expected => failures.push(format!(
-                "[{name}] mismatch\n--- expected ---\n{expected}\n--- actual ---\n{actual}"
-            )),
-            Ok(_) => {}
+    for outcome in outcomes {
+        match outcome {
+            Outcome::Passed => {}
+            Outcome::Skipped(name) => skipped.push(name),
+            Outcome::Failed(failure) => failures.push(failure),
         }
     }
 
     eprintln!("skipped (custom C externs): {skipped:?}");
     assert!(
         failures.is_empty(),
-        "{} of {} golden script(s) failed:\n\n{}",
+        "{} of {} golden script(s) failed:
+
+{}",
         failures.len(),
         scripts.len(),
-        failures.join("\n\n")
+        failures.join(
+            "
+
+"
+        )
     );
 }
