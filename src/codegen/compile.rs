@@ -346,6 +346,11 @@ fn compile_function_call(
     let depth = compile_scope.stack_depth;
     let mut instructions = vec![];
 
+    let demoted_dst = match dst {
+        Some(Address::Register(reg)) if register_handler.mark_destination(reg) => Some(reg),
+        _ => None,
+    };
+
     let hidden_return = match (&return_type, dst) {
         (Some(t), Some(dst)) if passed_by_pointer(t) && !matches!(dst, Address::Register(_)) => {
             Some(dst)
@@ -426,6 +431,9 @@ fn compile_function_call(
     // Give back the registers
     for reg in requested_registers {
         register_handler.release_register(reg);
+    }
+    if let Some(reg) = demoted_dst {
+        register_handler.mark_hot(reg);
     }
 
     instructions.extend(
@@ -1494,6 +1502,14 @@ mod test {
         let asm = compile("def f(n: i32): i32 { 35 + f(n) } f(1);");
         assert!(asm.contains("push rax"), "{asm}");
         assert!(asm.contains("pop rax"), "{asm}");
+    }
+
+    #[test]
+    fn compile_nested_call_skips_saving_unwritten_dst() {
+        let asm = compile(
+            "def add2(a: i32, b: i32): i32 { a + b } def add3(a: i32, b: i32, c: i32): i32 { return add2(c, add2(a, b)); } add3(1, 2, 3);",
+        );
+        assert!(!asm.contains("push rax"), "{asm}");
     }
 
     #[test]

@@ -7,19 +7,18 @@ use crate::codegen::{
     instruction::Instruction,
 };
 
-#[derive(Clone, Copy, Debug)]
-struct RegisterState {
-    used: bool,
-    last_used: u64,
+#[derive(Clone, Copy, Debug, Default)]
+enum Liveness {
+    #[default]
+    Cold,
+    Hot,
+    Destination,
 }
 
-impl RegisterState {
-    fn new() -> Self {
-        RegisterState {
-            used: false,
-            last_used: 0,
-        }
-    }
+#[derive(Clone, Copy, Debug, Default)]
+struct RegisterState {
+    liveness: Liveness,
+    last_used: u64,
 }
 
 pub struct RegisterHandler {
@@ -50,7 +49,7 @@ impl RegisterHandler {
                 Register::R15,
             ]
             .into_iter()
-            .map(|r| (r, RegisterState::new()))
+            .map(|r| (r, RegisterState::default()))
             .collect(),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
             touched: vec![],
@@ -63,13 +62,15 @@ impl RegisterHandler {
         let candidate = self
             .registers
             .iter()
-            .filter(|(r, st)| !st.used && !self.reserved_registers.contains(r))
+            .filter(|(r, st)| {
+                !matches!(st.liveness, Liveness::Hot) && !self.reserved_registers.contains(r)
+            })
             .min_by_key(|(r, st)| (NON_VOLATILE_REGISTERS.contains(r), st.last_used))
             .map(|(r, _)| *r);
 
         let reg = candidate.ok_or(CodegenErrorKind::OutOfRegisters)?;
         let state = self.registers.get_mut(&reg).unwrap();
-        state.used = true;
+        state.liveness = Liveness::Hot;
         self.usage_counter = self.usage_counter.wrapping_add(1);
         state.last_used = self.usage_counter;
         self.touch(reg);
@@ -84,7 +85,7 @@ impl RegisterHandler {
 
     pub fn release_register(&mut self, register: Register) {
         if let Some(state) = self.registers.get_mut(&register) {
-            state.used = false;
+            state.liveness = Liveness::Cold;
             // mark as recently used so LRU prefers other registers next
             self.usage_counter = self.usage_counter.wrapping_add(1);
             state.last_used = self.usage_counter;
@@ -155,9 +156,11 @@ impl RegisterHandler {
     pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
         match self.registers.get_mut(&register) {
             None => Err(format!("Register {register} not leasable")),
-            Some(state) if state.used => Err(format!("Register {register} not available")),
+            Some(state) if matches!(state.liveness, Liveness::Hot) => {
+                Err(format!("Register {register} not available"))
+            }
             Some(state) => {
-                state.used = true;
+                state.liveness = Liveness::Hot;
                 self.usage_counter = self.usage_counter.wrapping_add(1);
                 state.last_used = self.usage_counter;
                 self.touch(register);
@@ -166,10 +169,28 @@ impl RegisterHandler {
         }
     }
 
+    pub fn mark_destination(&mut self, register: Register) -> bool {
+        match self.registers.get_mut(&register) {
+            Some(state) if matches!(state.liveness, Liveness::Hot) => {
+                state.liveness = Liveness::Destination;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn mark_hot(&mut self, register: Register) {
+        if let Some(state) = self.registers.get_mut(&register) {
+            state.liveness = Liveness::Hot;
+            self.usage_counter = self.usage_counter.wrapping_add(1);
+            state.last_used = self.usage_counter;
+        }
+    }
+
     pub fn is_used(&self, register: Register) -> bool {
         self.registers
             .get(&register)
-            .is_some_and(|state| state.used)
+            .is_some_and(|state| matches!(state.liveness, Liveness::Hot))
     }
 
     pub fn get_unique_id(&mut self) -> u32 {
