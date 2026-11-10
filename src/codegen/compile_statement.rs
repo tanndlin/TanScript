@@ -256,7 +256,7 @@ impl FunctionDefinition {
         // Its a pointer to the address of the returned struct
         let hidden_return = returns_odd_struct.then(|| Arg {
             name: "return".to_string(),
-            atype: Type::Pointer(Box::new(self.return_type.clone())),
+            atype: self.return_type.clone().pointer_to(),
             span: self.span,
         });
 

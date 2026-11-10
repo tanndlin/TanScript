@@ -214,7 +214,7 @@ pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseEr
     let tok = tokens.next_or_eof("type")?;
     if let Token::Op(OperatorType::Multiply) = tok.token_type {
         let (inner, span) = parse_type_with_span(tokens)?;
-        return Ok((Type::Pointer(Box::new(inner)), span));
+        return Ok((inner.pointer_to(), span));
     }
 
     let span = tok.span;

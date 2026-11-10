@@ -46,6 +46,10 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn pointer_to(self) -> Type {
+        Type::Pointer(Box::new(self))
+    }
+
     pub fn is_number_type(&self) -> bool {
         matches!(self, Self::Int(_))
     }
@@ -93,7 +97,7 @@ impl FromStr for Type {
         }
 
         if let Some(inner) = s.strip_prefix('*') {
-            Ok(Type::Pointer(Box::new(Type::from_str(inner)?)))
+            Ok(Type::from_str(inner)?.pointer_to())
         } else {
             Err(format!("Unknown type: {s}"))
         }
@@ -176,7 +180,7 @@ impl From<&AtomType> for Type {
         match atom_type {
             AtomType::Number(n) => Type::Int(n.kind()),
             AtomType::Identifier(_) => unreachable!(),
-            AtomType::String(_) => Type::Pointer(Box::new(Type::Char)),
+            AtomType::String(_) => Type::Char.pointer_to(),
             AtomType::Boolean(_) => Type::Boolean,
             AtomType::Null => Type::Null,
             AtomType::Char(_) => Type::Char,

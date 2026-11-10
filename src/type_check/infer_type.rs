@@ -302,7 +302,7 @@ mod test {
         };
         let concrete = Type::Int(IntType::I64);
         assert_eq!(def.fields[0].ftype, concrete);
-        assert_eq!(def.fields[1].ftype, pointer_to(concrete));
+        assert_eq!(def.fields[1].ftype, concrete.pointer_to());
     }
 
     #[test]
@@ -369,7 +369,7 @@ mod test {
         );
         assert_eq!(
             infer_with_node("let n: *N<*char> = calloc(1, 16); (*n).value;").unwrap(),
-            pointer_to(Type::Char)
+            Type::Char.pointer_to()
         );
     }
 
@@ -458,23 +458,19 @@ mod test {
         }
     }
 
-    fn pointer_to(t: Type) -> Type {
-        Type::Pointer(Box::new(t))
-    }
-
     #[test]
     fn infers_address_of_type() {
         assert_eq!(
             infer_last("let x: i64 = 1; &x;").unwrap(),
-            pointer_to(Type::Int(IntType::I64))
+            Type::Int(IntType::I64).pointer_to()
         );
         assert_eq!(
             infer_last("let c: char = 'a'; &c;").unwrap(),
-            pointer_to(Type::Char)
+            Type::Char.pointer_to()
         );
         assert_eq!(
             infer_last("let x: u8 = 1; let p = &x; &p;").unwrap(),
-            pointer_to(pointer_to(Type::Int(IntType::U8)))
+            Type::Int(IntType::U8).pointer_to().pointer_to()
         );
     }
 
@@ -482,7 +478,7 @@ mod test {
     fn infers_address_of_index_type() {
         assert_eq!(
             infer_last("let s: *char = malloc(4); &s[1];").unwrap(),
-            pointer_to(Type::Char)
+            Type::Char.pointer_to()
         );
     }
 
@@ -500,7 +496,7 @@ mod test {
     fn infers_address_of_field_type() {
         assert_eq!(
             infer_last("struct P { a: u8, } let s = P { a: 1 }; &s.a;").unwrap(),
-            pointer_to(Type::Int(IntType::U8))
+            Type::Int(IntType::U8).pointer_to()
         );
     }
 

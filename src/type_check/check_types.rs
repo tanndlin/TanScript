@@ -29,9 +29,11 @@ pub fn check_types_expression<'s>(
             check_types_expression(inner, type_scope)?;
             Ok(Type::Boolean)
         }
-        ExpressionKind::Unary(UnaryOp::AddressOf, inner) => Ok(Type::Pointer(Box::new(
-            check_types_expression(inner, type_scope)?.clone(),
-        ))),
+        ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
+            Ok(check_types_expression(inner, type_scope)?
+                .clone()
+                .pointer_to())
+        }
         ExpressionKind::Unary(UnaryOp::Deref, inner) => {
             let inner_span = inner.span;
             match check_types_expression(inner, type_scope)? {
@@ -177,11 +179,9 @@ pub fn check_index(
             return Err(TypeCheckErrorKind::NotIndexable(Type::Unknown).at(lhs_span));
         }
         other => {
-            return Err(TypeCheckErrorKind::mismatch(
-                Type::Pointer(Box::new(Type::Unknown)),
-                other.clone(),
-            )
-            .at(span));
+            return Err(
+                TypeCheckErrorKind::mismatch(Type::Unknown.pointer_to(), other.clone()).at(span),
+            );
         }
     };
 

@@ -107,7 +107,7 @@ impl TypeScope {
             Type::Pointer(inner) if self.mentions_placeholder(inner) => Ok(Cow::Borrowed(t)),
             Type::Pointer(inner) => Ok(match self.resolve(inner)? {
                 Cow::Borrowed(_) => Cow::Borrowed(t),
-                Cow::Owned(inner) => Cow::Owned(Type::Pointer(Box::new(inner))),
+                Cow::Owned(inner) => Cow::Owned(inner.pointer_to()),
             }),
             _ => Ok(Cow::Borrowed(t)),
         }
@@ -225,9 +225,7 @@ fn substitute(t: &Type, generics: &[String], concrete_generics: &[Type]) -> Type
                 .map(|arg| substitute(arg, generics, concrete_generics))
                 .collect(),
         },
-        Type::Pointer(inner) => {
-            Type::Pointer(Box::new(substitute(inner, generics, concrete_generics)))
-        }
+        Type::Pointer(inner) => substitute(inner, generics, concrete_generics).pointer_to(),
         _ => t.clone(),
     }
 }

@@ -106,9 +106,9 @@ impl<'a> CompileScope<'a> {
             ExpressionKind::Unary(UnaryOp::Negate, inner) | ExpressionKind::Postfix(_, inner) => {
                 self.expression_type(inner)?
             }
-            ExpressionKind::Unary(UnaryOp::AddressOf, inner) => Cow::Owned(Type::Pointer(
-                Box::new(self.expression_type(inner)?.into_owned()),
-            )),
+            ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
+                Cow::Owned(self.expression_type(inner)?.into_owned().pointer_to())
+            }
             ExpressionKind::Unary(UnaryOp::Deref, _) | ExpressionKind::Index(_, _) => {
                 Cow::Borrowed(&*expr.etype)
             }
