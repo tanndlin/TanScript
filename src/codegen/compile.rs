@@ -407,26 +407,12 @@ fn compile_function_call(
         - pushed_size;
     instructions.push(Instruction::sub(Register::RSP, stack_size));
 
-    // Register args are already in place, so evaluate these directly into their slots
-    for (i, (arg, temporary)) in stack_args.iter().zip(stack_temporaries).enumerate() {
-        let offset = 32 + i32::try_from(i).unwrap() * 8;
-        if arg.calls_function() {
-            instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
-                let mut arg =
-                    compile_arg(arg, *temporary, tmp.into(), compile_scope, register_handler)?;
-                arg.push(Instruction::mov(Address::StackArg(offset), tmp));
-                Ok(arg)
-            })?);
-        } else {
-            instructions.extend(compile_arg(
-                arg,
-                *temporary,
-                Address::StackArg(offset),
-                compile_scope,
-                register_handler,
-            )?);
-        }
-    }
+    instructions.extend(compile_stack_args(
+        stack_args,
+        stack_temporaries,
+        compile_scope,
+        register_handler,
+    )?);
 
     instructions.push(Instruction::call(name));
     instructions.push(Instruction::add(Register::RSP, stack_size));
@@ -454,6 +440,35 @@ fn compile_function_call(
         compile_scope.stack_depth -= temporaries_size;
     }
 
+    Ok(instructions)
+}
+
+fn compile_stack_args(
+    stack_args: &[Expression],
+    stack_temporaries: &[Option<Address>],
+    compile_scope: &mut CompileScope,
+    register_handler: &mut RegisterHandler,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = vec![];
+    for (i, (arg, temporary)) in stack_args.iter().zip(stack_temporaries).enumerate() {
+        let offset = 32 + i32::try_from(i).unwrap() * 8;
+        if arg.calls_function() {
+            instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
+                let mut arg =
+                    compile_arg(arg, *temporary, tmp.into(), compile_scope, register_handler)?;
+                arg.push(Instruction::mov(Address::StackArg(offset), tmp));
+                Ok(arg)
+            })?);
+        } else {
+            instructions.extend(compile_arg(
+                arg,
+                *temporary,
+                Address::StackArg(offset),
+                compile_scope,
+                register_handler,
+            )?);
+        }
+    }
     Ok(instructions)
 }
 
