@@ -355,9 +355,7 @@ fn compile_function_call(
             let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
             compile_scope.stack_depth += size;
             instructions.push(Instruction::sub(Register::RSP, size));
-            Some(Address::Stack(
-                i32::try_from(compile_scope.stack_depth).unwrap(),
-            ))
+            Some(Address::Stack(compile_scope.stack_depth.cast_signed()))
         }
         _ => None,
     };
