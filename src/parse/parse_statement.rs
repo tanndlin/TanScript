@@ -164,7 +164,6 @@ fn parse_block_at_depth(tokens: &mut Parser) -> Result<Block, ParseError> {
 }
 
 fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
-    let span = tokens.peek_or_eof("let")?.span;
     tokens.expect("let")?;
 
     let tok = tokens.next_or_eof("identifier")?;
@@ -192,7 +191,6 @@ fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
         },
         dtype,
         binding: None,
-        _span: span,
     })
 }
 
