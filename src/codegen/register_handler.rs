@@ -187,7 +187,7 @@ impl RegisterHandler {
         }
     }
 
-    pub fn is_used(&self, register: Register) -> bool {
+    pub fn is_hot(&self, register: Register) -> bool {
         self.registers
             .get(&register)
             .is_some_and(|state| matches!(state.liveness, Liveness::Hot))

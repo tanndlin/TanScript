@@ -51,7 +51,7 @@ pub fn compile_function_call(
     // the caller wants it overwritten
     let saved_registers = VOLATILE_REGISTERS
         .into_iter()
-        .filter(|reg| register_handler.is_used(*reg) && dst != Some(Address::Register(*reg)))
+        .filter(|reg| register_handler.is_hot(*reg) && dst != Some(Address::Register(*reg)))
         .collect::<Vec<_>>();
     let depth = compile_scope.stack_depth;
     let mut instructions = vec![];
