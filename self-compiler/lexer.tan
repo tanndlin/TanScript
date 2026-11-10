@@ -130,6 +130,8 @@ def lex_operator(lexer: *Lexer, head: *Node<LexerToken>): bool {
     } else if c == '-' {
         if next == '-' {
             push_token(lexer, head, Token::Decrement, 2);
+        } else if next == '>' {
+            push_token(lexer, head, Token::Arrow, 2);
         } else {
             push_with_equals(lexer, head, Token::Subtract, Token::SubAssign);
         }
@@ -144,7 +146,11 @@ def lex_operator(lexer: *Lexer, head: *Node<LexerToken>): bool {
     } else if c == '>' {
         push_with_equals(lexer, head, Token::GreaterThan, Token::GreaterOrEqual);
     } else if c == '=' {
-        push_with_equals(lexer, head, Token::Assign, Token::Equal);
+        if next == '>' {
+            push_token(lexer, head, Token::FatArrow, 2);
+        } else {
+            push_with_equals(lexer, head, Token::Assign, Token::Equal);
+        }
     } else if c == '!' {
         push_with_equals(lexer, head, Token::Not, Token::NotEqual);
     } else if c == '|' && next == '|' {

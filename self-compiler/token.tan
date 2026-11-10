@@ -35,9 +35,11 @@ enum Token {
     Increment,
     Decrement,
     Dot,
+    Arrow,
     PathSep,
     Reference,
     Cast,
+    FatArrow,
     Eof,
 }
 
