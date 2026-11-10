@@ -20,6 +20,10 @@ impl Block {
     pub fn discover(&self, symbols: &mut SymbolTable) {
         self.visit(&mut |c| {
             match c {
+                Child::Statement(Statement::FunctionDefinition(s)) if !s.generics.is_empty() => {
+                    // Skip generic templates; their instances are discovered instead.
+                    return false;
+                }
                 Child::Statement(Statement::FunctionDefinition(s)) => {
                     symbols.functions.insert(s.name.clone(), s.clone());
                 }
@@ -32,13 +36,16 @@ impl Block {
                 Child::Expression(Expression {
                     kind: ExpressionKind::FunctionCall(name, _),
                     ..
-                }) if !symbols.functions.contains_key(name) => {
+                }) => {
                     symbols.externs.insert(name.clone());
                 }
                 _ => {}
             }
             true
         });
+        symbols
+            .externs
+            .retain(|name| !symbols.functions.contains_key(name));
     }
 }
 

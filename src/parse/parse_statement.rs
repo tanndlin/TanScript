@@ -260,6 +260,7 @@ fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, 
         return Err(expected("function name", tok));
     };
 
+    let generics = parse_generics(tokens, "< or (")?;
     tokens.expect("(")?;
 
     let mut args = vec![];
@@ -299,6 +300,7 @@ fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, 
 
     Ok(FunctionDefinition {
         name,
+        generics,
         args,
         body,
         return_type,
@@ -378,18 +380,9 @@ fn parse_return(tokens: &mut Parser) -> Result<ReturnStatement, ParseError> {
     Ok(ReturnStatement { expr, span })
 }
 
-fn parse_struct_definition(tokens: &mut Parser) -> Result<StructDefinition, ParseError> {
-    tokens.expect("struct")?;
-    let tok = tokens.next_or_eof("identifier")?;
-    let span = tok.span;
-    let Token::Atom(LexerAtomType::Identifier(struct_name)) = tok.token_type else {
-        return Err(expected("identifier", tok));
-    };
-
+fn parse_generics(tokens: &mut Parser, expected_next: &str) -> Result<Vec<String>, ParseError> {
     let mut generics = vec![];
-
-    // Check for generic type
-    if let Token::Op(OperatorType::LessThan) = tokens.peek_or_eof("< or {")?.token_type {
+    if let Token::Op(OperatorType::LessThan) = tokens.peek_or_eof(expected_next)?.token_type {
         //TODO: Parse multiple generics
         tokens.expect("<")?;
         let tok = tokens.next_or_eof("generic name")?;
@@ -399,7 +392,18 @@ fn parse_struct_definition(tokens: &mut Parser) -> Result<StructDefinition, Pars
         generics.push(generic);
         tokens.expect(">")?;
     }
+    Ok(generics)
+}
 
+fn parse_struct_definition(tokens: &mut Parser) -> Result<StructDefinition, ParseError> {
+    tokens.expect("struct")?;
+    let tok = tokens.next_or_eof("identifier")?;
+    let span = tok.span;
+    let Token::Atom(LexerAtomType::Identifier(struct_name)) = tok.token_type else {
+        return Err(expected("identifier", tok));
+    };
+
+    let generics = parse_generics(tokens, "< or {")?;
     tokens.expect("{")?;
     let mut fields = vec![];
     loop {
@@ -426,6 +430,7 @@ fn parse_struct_definition(tokens: &mut Parser) -> Result<StructDefinition, Pars
     Ok(StructDefinition {
         name: struct_name,
         generics,
+        concrete_generics: vec![],
         fields,
         span,
     })

@@ -819,6 +819,39 @@ fn expect_generic_name_in_struct_definition() {
     }
 }
 
+fn function_generics(code: &str) -> Vec<String> {
+    let program = parse(lex(code, 0).unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement, got {program}");
+    };
+    let Statement::FunctionDefinition(def) = statement.as_ref() else {
+        panic!("expected a function definition, got {statement}");
+    };
+    def.generics.clone()
+}
+
+#[test]
+fn parse_generic_function_definition() {
+    assert_eq!(
+        function_generics("def id<T>(x: T): T { return x; }"),
+        vec!["T".to_string()]
+    );
+}
+
+#[test]
+fn non_generic_function_has_no_generics() {
+    assert_eq!(
+        function_generics("def f(x: u32): u32 { return x; }"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn expect_close_angle_in_generic_function_definition() {
+    let err = parse(lex("def f<T(x: T) { }", 0).unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ">"));
+}
+
 #[test]
 fn expect_close_angle_in_generic_struct_definition() {
     let err = parse(lex("struct N<T { }", 0).unwrap()).unwrap_err();

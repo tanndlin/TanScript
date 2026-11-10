@@ -6,6 +6,7 @@ use crate::{type_check::Type, types::Span};
 pub struct StructDefinition {
     pub name: String,
     pub generics: Vec<String>,
+    pub concrete_generics: Vec<Type>,
     pub fields: Vec<StructField>,
     pub span: Span,
 }

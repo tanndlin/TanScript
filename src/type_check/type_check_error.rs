@@ -47,6 +47,7 @@ pub enum TypeCheckErrorKind {
     },
     DuplicateIdentifiers(String),
     UnknownType(String),
+    CannotInferGeneric(String),
     RecursiveStruct(String),
     NotDerefable(Type),
     NotIndexable(Type),
@@ -124,6 +125,7 @@ impl fmt::Display for TypeCheckErrorKind {
             ),
             Self::DuplicateIdentifiers(ident) => write!(f, "Identifier ({ident}) already exists"),
             Self::UnknownType(name) => write!(f, "Unknown type ({name})"),
+            Self::CannotInferGeneric(name) => write!(f, "Cannot infer generic type {name}"),
             Self::RecursiveStruct(name) => write!(
                 f,
                 "Recursive struct ({name}) has infinite size; use (*{name}) instead"

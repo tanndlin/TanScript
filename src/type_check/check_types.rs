@@ -1,7 +1,11 @@
+use std::rc::Rc;
+
 use crate::{
-    ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, UnaryOp},
+    ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, Statement, UnaryOp},
     error::At,
-    type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify},
+    type_check::{
+        FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify,
+    },
     types::{IntType, Span},
 };
 
@@ -9,7 +13,13 @@ pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
     let mut type_scope = TypeScope::default();
 
     program.block.check_types(&mut type_scope)?;
+    program.block.children.extend(
+        type_scope
+            .function_instances()
+            .map(|def| Statement::FunctionDefinition(Rc::clone(def)).into()),
+    );
     program.block.resolve_types(&type_scope);
+
     Ok(())
 }
 
@@ -125,7 +135,7 @@ pub fn check_binary(
 
 pub fn check_function_call(
     span: Span,
-    function_name: &str,
+    function_name: &mut String,
     given_args: &mut [Expression],
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
@@ -134,31 +144,96 @@ pub fn check_function_call(
         .map(|a| check_types_expression(a, type_scope).cloned())
         .collect::<Result<Vec<_>, _>>()?;
 
-    match type_scope.lookup(function_name) {
-        Some(Type::Function(function_type)) => {
-            if given_args.len() != function_type.args.len() {
-                return Err(TypeCheckErrorKind::IncorrectNumberOfArgs {
-                    expected: function_type.args.len(),
-                    given: given_args.len(),
-                }
-                .at(span));
-            }
+    let Some(id) = type_scope.find(function_name) else {
+        return Ok(Type::Unknown);
+    };
+    let Type::Function(function_type) = type_scope.binding(id) else {
+        return Err(TypeCheckErrorKind::NotCallableIdentifer(function_name.clone()).at(span));
+    };
+    if given_args.len() != function_type.args.len() {
+        return Err(TypeCheckErrorKind::IncorrectNumberOfArgs {
+            expected: function_type.args.len(),
+            given: given_args.len(),
+        }
+        .at(span));
+    }
 
-            let function_type = function_type.clone();
-            given_args
-                .iter()
-                .zip(given_types)
-                .zip(&function_type.args)
-                .try_for_each(|((given, got), expected)| {
-                    expect_type(given, expected, &got, type_scope)
-                })?;
-            Ok(function_type.return_type)
+    let function_type = if let Some(template) = type_scope.generic_template(id) {
+        let concrete = infer_generics(&template.generics, &function_type.args, &given_types)
+            .map_err(|e| e.at(span))?;
+        let (instance_name, instance_type) = type_scope.instantiate_function(id, &concrete)?;
+        *function_name = instance_name;
+        instance_type
+    } else {
+        FunctionType::clone(function_type)
+    };
+
+    given_args
+        .iter()
+        .zip(given_types)
+        .zip(&function_type.args)
+        .try_for_each(|((given, got), expected)| expect_type(given, expected, &got, type_scope))?;
+    Ok(function_type.return_type)
+}
+
+fn infer_generics(
+    generics: &[String],
+    args: &[Type],
+    given_types: &[Type],
+) -> Result<Vec<Type>, TypeCheckErrorKind> {
+    let mut bound = vec![None; generics.len()];
+    for (expected, got) in args.iter().zip(given_types) {
+        bind_generics(expected, got, generics, &mut bound);
+    }
+    bound
+        .into_iter()
+        .zip(generics)
+        .map(|(t, name)| match t {
+            Some(Type::Int(IntType::Coercible)) => Ok(Type::Int(IntType::I64)),
+            Some(t) => Ok(t),
+            None => Err(TypeCheckErrorKind::CannotInferGeneric(name.clone())),
+        })
+        .collect()
+}
+
+/// Infers concrete types for `generics` by matching a parameter type (`expected`) against the
+/// argument's type (`got`), through pointers and struct type arguments. A generic only bound to
+/// a coercible literal is overwritten by a later, more specific binding.
+fn bind_generics(expected: &Type, got: &Type, generics: &[String], bound: &mut [Option<Type>]) {
+    match (expected, got) {
+        (Type::Named { name, .. }, _) if let Some(i) = generics.iter().position(|g| g == name) => {
+            if bound[i].is_none() || bound[i] == Some(Type::Int(IntType::Coercible)) {
+                bound[i] = Some(got.clone());
+            }
         }
-        Some(_) => {
-            Err(TypeCheckErrorKind::NotCallableIdentifer(function_name.to_string()).at(span))
+        (Type::Pointer(e), Type::Pointer(g)) => bind_generics(e, g, generics, bound),
+        (
+            Type::Named {
+                name,
+                concrete_generics,
+                ..
+            },
+            _,
+        ) if let Some((got_name, got_generics)) = name_with_generics(got)
+            && name == got_name =>
+        {
+            for (e, g) in concrete_generics.iter().zip(got_generics) {
+                bind_generics(e, g, generics, bound);
+            }
         }
-        // Treat the function as an unknown extern
-        None => Ok(Type::Unknown),
+        _ => {}
+    }
+}
+
+fn name_with_generics(t: &Type) -> Option<(&str, &[Type])> {
+    match t {
+        Type::Named {
+            name,
+            concrete_generics,
+            ..
+        } => Some((name, concrete_generics)),
+        Type::Struct(def) => Some((&def.name, &def.concrete_generics)),
+        _ => None,
     }
 }
 

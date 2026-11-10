@@ -5,6 +5,7 @@ use crate::{ast::Block, type_check::Type, types::Span};
 #[derive(Debug, Clone)]
 pub struct FunctionDefinition {
     pub name: String,
+    pub generics: Vec<String>,
     pub args: Vec<Arg>,
     pub body: Block,
     pub return_type: Type,

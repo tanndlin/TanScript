@@ -14,3 +14,5 @@
 - `0 < x < 10` syntax sugar for range checks
 - Globals or top-level `const` visible inside functions
 - Mangle function labels (prefix or suffix) so functions named like NASM mnemonics can't break assembly
+- recursive generic struct should require generic type on same type field
+- Generic instance names are built from the function name and concrete types only, so two different shadowing generics called with the same types (e.g. two `g<T>` templates both called with `u8`) share one cached `g__u8` instance and clash at codegen

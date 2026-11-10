@@ -16,10 +16,13 @@ pub fn unify<'a>(a: &'a Type, b: &'a Type) -> Option<&'a Type> {
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::StatementOrExpression,
+        ast::{Statement, StatementOrExpression},
         lex::lex,
         parse::parse,
-        type_check::{Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types_expression},
+        type_check::{
+            Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_types,
+            check_types_expression,
+        },
         types::IntType,
     };
 
@@ -671,6 +674,171 @@ mod test {
                 })
             ),
             "expected TypeMismatch, got {result:?}"
+        );
+    }
+
+    fn defined_functions(code: &str) -> Vec<String> {
+        let mut program = parse(lex(code, 0).unwrap()).unwrap();
+        check_types(&mut program).unwrap();
+        program
+            .block
+            .children
+            .iter()
+            .filter_map(|child| match child {
+                StatementOrExpression::Statement(statement) => match statement.as_ref() {
+                    Statement::FunctionDefinition(def) => Some(def.name.clone()),
+                    _ => None,
+                },
+                StatementOrExpression::Expression(_) => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn generic_function_returns_argument_type() {
+        assert_eq!(
+            infer_last("def id<T>(x: T): T { return x; } let a: u8 = 1; id(a);").unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn generic_function_infers_type_argument_from_struct() {
+        assert_eq!(
+            infer_with_node(
+                "def first<T>(n: *N<T>): T { return (*n).value; } let n: *N<u32> = calloc(1, 12); first(n);"
+            )
+            .unwrap(),
+            Type::Int(IntType::U32)
+        );
+    }
+
+    #[test]
+    fn generic_function_prefers_concrete_type_over_literal() {
+        assert_eq!(
+            infer_last("def pick<T>(a: T, b: T): T { return a; } let b: u8 = 2; pick(1, b);")
+                .unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn generic_function_defaults_literal_to_i64() {
+        assert_eq!(
+            infer_last("def id<T>(x: T): T { return x; } id(5);").unwrap(),
+            Type::Int(IntType::I64)
+        );
+    }
+
+    #[test]
+    fn generic_function_resolves_type_parameter_in_body() {
+        assert_eq!(
+            infer_with_node(
+                "def make<T>(v: T): *N<T> { let n: *N<T> = calloc(1, sizeof(N<T>)); (*n).value = v; return n; } let b: u8 = 1; (*make(b)).value;"
+            )
+            .unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn type_mismatch_between_generic_arguments() {
+        let result = infer_last(
+            "def pair<T>(a: T, b: T) { } let a: u8 = 1; let b: bool = true; pair(a, b);",
+        );
+        assert!(is_mismatch(&result), "{result:?}");
+    }
+
+    #[test]
+    fn type_error_in_generic_body_reported_on_instantiation() {
+        let result = infer_last("def f<T>(x: T): bool { return x; } let a: u8 = 1; f(a);");
+        assert!(is_mismatch(&result), "{result:?}");
+    }
+
+    #[test]
+    fn generic_function_body_is_not_checked_without_a_call() {
+        assert!(infer_last("def f<T>(x: T): bool { return x; } 1;").is_ok());
+    }
+
+    #[test]
+    fn generic_function_creates_one_instance_per_type() {
+        assert_eq!(
+            defined_functions(
+                "def id<T>(x: T): T { return x; } let a: u8 = 1; let b: u32 = 2; id(a); id(b); id(a);"
+            ),
+            vec!["id", "id__u32", "id__u8"]
+        );
+    }
+
+    #[test]
+    fn generic_function_instance_name_is_a_valid_label() {
+        assert_eq!(
+            defined_functions(&format!(
+                "{NODE}def first<T>(n: *N<T>): T {{ return (*n).value; }} let n: *N<*N<u8>> = calloc(1, 16); first(n);"
+            )),
+            vec!["first", "first___N_u8_"]
+        );
+    }
+
+    #[test]
+    fn recursive_generic_function() {
+        assert_eq!(
+            infer_with_node(
+                "def len<T>(n: *N<T>): i64 { if n == null { return 0; } return 1 + len((*n).next); } let n: *N<u8> = calloc(1, 9); len(n);"
+            )
+            .unwrap(),
+            Type::Int(IntType::I64)
+        );
+    }
+
+    #[test]
+    fn generic_function_called_in_nested_block_then_outside() {
+        assert_eq!(
+            infer_last("def id<T>(x: T): T { return x; } let a: u8 = 1; if true { id(a); } id(a);")
+                .unwrap(),
+            Type::Int(IntType::U8)
+        );
+    }
+
+    #[test]
+    fn type_error_for_uninferable_generic() {
+        let result = infer_last("def f<T>(x: u8): u8 { return x; } f(1);");
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::CannotInferGeneric(ref name),
+                    ..
+                }) if name == "T"
+            ),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn generic_function_body_cannot_see_caller_locals() {
+        let result =
+            infer_last("def f<T>(x: T): T { return y; } if true { let y: u8 = 1; f(y); } 1;");
+        assert!(
+            matches!(
+                result,
+                Err(TypeCheckError {
+                    kind: TypeCheckErrorKind::IdentifierNotFound(ref name),
+                    ..
+                }) if name == "y"
+            ),
+            "{result:?}"
+        );
+    }
+
+    #[test]
+    fn generic_function_shadowed_in_inner_block_does_not_leak() {
+        assert_eq!(
+            infer_last(
+                "def g<T>(x: T): T { return x; } if true { def g<T>(x: T): bool { return true; } } let a: u8 = 1; g(a);"
+            )
+            .unwrap(),
+            Type::Int(IntType::U8)
         );
     }
 }

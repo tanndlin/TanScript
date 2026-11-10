@@ -1,5 +1,3 @@
-use token::{LexerToken};
-
 struct List<T> {
     arr: *T,
     length: u32
@@ -7,5 +5,34 @@ struct List<T> {
 
 struct Node<T> {
     value: T,
-    next: *Node,
+    next: *Node<T>,
+}
+
+def linked_list_push<T>(node: *Node<T>, value: T) {
+    while node->next != null {
+        node = node->next;
+    }
+
+    let new_node: *Node<T> = calloc(1, sizeof(Node<T>));
+    new_node->value = value;
+    node->next = new_node;
+}
+
+def linked_list_to_list<T>(node: *Node<T>): *List<T> {
+    let length: u32 = 0;
+    let ptr = node;
+    while ptr != null {
+        ptr = ptr->next;
+        length++;
+    }
+
+    let list: *List<T> = malloc(sizeof(List<T>));
+    list->arr = malloc(length * sizeof(T));
+    list->length = length;
+    for (let i: u32 = 0; i < length; i++) {
+        list->arr[i] = node->value;
+        node = node->next;
+    }
+
+    list
 }

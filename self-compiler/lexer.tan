@@ -1,40 +1,10 @@
-use list::{List, Node};
+use list::{List, Node, linked_list_push, linked_list_to_list};
 use char_utils::{isIdentStart, isIdentChar};
 use token::{Token, LexerToken};
 
 struct Lexer {
     chars: *char,
     index: u32,
-}
-
-
-def linked_list_push(node: *Node<LexerToken>, value: LexerToken) {
-    while node->next != null {
-        node = node->next;
-    }
-
-    let new_node: *Node<LexerToken> = calloc(1, sizeof(Node<LexerToken>));
-    new_node->value = value;
-    node->next = new_node;
-}
-
-def linked_list_to_list(node: *Node<LexerToken>): *List<LexerToken> {
-    let length: u32 = 0;
-    let ptr = node;
-    while ptr != null {
-        ptr = ptr->next;
-        length++;
-    }
-
-    let list: *List<LexerToken> = malloc(sizeof(List<LexerToken>));
-    list->arr = malloc(length * sizeof(LexerToken));
-    list->length = length;
-    for (let i: u32 = 0; i < length; i++) {
-        list->arr[i] = node->value;
-        node = node->next;
-    }
-
-    list
 }
 
 def get_identifier(lexer: *Lexer): *char {

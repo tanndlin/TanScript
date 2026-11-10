@@ -150,29 +150,30 @@ impl fmt::Display for Type {
             Type::Pointer(t) => write!(f, "*{t}"),
             Type::Null => write!(f, "null"),
             Type::Boolean => write!(f, "bool"),
-            Type::Struct(def) => write!(f, "{}", def.name),
+            Type::Struct(def) => write_generic_name(f, &def.name, &def.concrete_generics),
             Type::Enum(def) => write!(f, "{}", def.name),
             Type::Named {
                 name,
                 concrete_generics,
                 ..
-            } if concrete_generics.is_empty() => write!(f, "{name}"),
-            Type::Named {
-                name,
-                concrete_generics,
-                ..
-            } => write!(
-                f,
-                "{name}<{}>",
-                concrete_generics
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            } => write_generic_name(f, name, concrete_generics),
             Type::Generic(name) => write!(f, "{name}"),
         }
     }
+}
+
+fn write_generic_name(f: &mut fmt::Formatter<'_>, name: &str, args: &[Type]) -> fmt::Result {
+    if args.is_empty() {
+        return write!(f, "{name}");
+    }
+    write!(
+        f,
+        "{name}<{}>",
+        args.iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
 }
 
 impl From<&AtomType> for Type {

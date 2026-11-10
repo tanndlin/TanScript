@@ -54,7 +54,7 @@ impl Block {
             if let StatementOrExpression::Statement(statement) = child
                 && let Statement::FunctionDefinition(s) = statement.as_mut()
             {
-                Rc::make_mut(s).declare(type_scope)?;
+                declare_function(s, type_scope)?;
             }
         }
         Ok(())
@@ -160,7 +160,10 @@ impl Statement {
             Self::Assignment(s) => s.check_types(type_scope),
             Self::Declaration(s) => s.check_types(type_scope),
             Self::ForLoop(s) => s.check_types(type_scope),
-            Self::FunctionDefinition(s) => Rc::make_mut(s).check_types(type_scope),
+            Self::FunctionDefinition(s) => {
+                declare_function(s, type_scope)?;
+                Rc::make_mut(s).check_body(type_scope)
+            }
             Self::StructDefinition(s) => {
                 s.declare(type_scope)?;
                 check_struct(s, type_scope)
@@ -257,29 +260,40 @@ impl ForLoop {
     }
 }
 
+fn declare_function(
+    def: &mut Rc<FunctionDefinition>,
+    type_scope: &mut TypeScope,
+) -> Result<(), TypeCheckError> {
+    if !def.generics.is_empty() {
+        type_scope.declare_generic_function(Rc::clone(def));
+        return Ok(());
+    }
+
+    let def = Rc::make_mut(def);
+    for arg in &mut def.args {
+        type_scope.resolve_in_place(&mut arg.atype)?;
+    }
+    type_scope.resolve_in_place(&mut def.return_type)?;
+    type_scope.insert(
+        def.name.clone(),
+        Type::Function(Box::new(def.function_type())),
+    );
+    Ok(())
+}
+
 impl FunctionDefinition {
-    pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        self.declare(type_scope)?;
-        self.check_body(type_scope)
-    }
-
-    fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        for arg in &mut self.args {
-            type_scope.resolve_in_place(&mut arg.atype)?;
+    pub fn function_type(&self) -> FunctionType {
+        FunctionType {
+            args: self.args.iter().map(|a| a.atype.clone()).collect(),
+            return_type: self.return_type.clone(),
         }
-        type_scope.resolve_in_place(&mut self.return_type)?;
-
-        type_scope.insert(
-            self.name.clone(),
-            Type::Function(Box::new(FunctionType {
-                args: self.args.iter().map(|a| a.atype.clone()).collect(),
-                return_type: self.return_type.clone(),
-            })),
-        );
-        Ok(())
     }
 
-    fn check_body(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+    pub fn check_body(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        if !self.generics.is_empty() {
+            return Ok(());
+        }
+
         type_scope.push();
         type_scope.push_function(self.return_type.clone());
         for arg in &self.args {

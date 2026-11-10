@@ -1,13 +1,13 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     rc::Rc,
 };
 
 use crate::{
-    ast::StructDefinition,
+    ast::{FunctionDefinition, StructDefinition},
     error::At,
-    type_check::{Type, TypeCheckError, TypeCheckErrorKind},
+    type_check::{FunctionType, Type, TypeCheckError, TypeCheckErrorKind},
     types::{IntType, Span},
 };
 
@@ -15,7 +15,16 @@ use crate::{
 pub struct TypeScope {
     scopes: Vec<HashMap<String, usize>>,
     bindings: Vec<Type>,
-    functions: Vec<Type>,
+    return_types: Vec<Type>,
+    generic_functions: HashMap<usize, GenericFunction>,
+    function_instances: BTreeMap<String, Rc<FunctionDefinition>>,
+    generic_bindings: Vec<HashMap<String, Type>>,
+}
+
+#[derive(Debug)]
+struct GenericFunction {
+    template: Rc<FunctionDefinition>,
+    scope_depth: usize,
 }
 
 impl Default for TypeScope {
@@ -23,22 +32,25 @@ impl Default for TypeScope {
         Self {
             scopes: vec![HashMap::new()],
             bindings: vec![],
-            functions: vec![],
+            return_types: vec![],
+            generic_functions: HashMap::new(),
+            function_instances: BTreeMap::new(),
+            generic_bindings: vec![],
         }
     }
 }
 
 impl TypeScope {
     pub fn push_function(&mut self, return_type: Type) {
-        self.functions.push(return_type);
+        self.return_types.push(return_type);
     }
 
     pub fn pop_function(&mut self) {
-        self.functions.pop();
+        self.return_types.pop();
     }
 
     pub fn expected_return_type(&self) -> Option<&Type> {
-        self.functions.last()
+        self.return_types.last()
     }
 
     pub fn push(&mut self) {
@@ -56,7 +68,7 @@ impl TypeScope {
         id
     }
 
-    fn find(&self, name: &str) -> Option<usize> {
+    pub fn find(&self, name: &str) -> Option<usize> {
         self.scopes.iter().rev().find_map(|s| s.get(name)).copied()
     }
 
@@ -78,6 +90,15 @@ impl TypeScope {
 
     pub fn resolve<'t>(&self, t: &'t Type) -> Result<Cow<'t, Type>, TypeCheckError> {
         match t {
+            Type::Named {
+                name,
+                concrete_generics,
+                ..
+            } if concrete_generics.is_empty()
+                && let Some(concrete) = self.generic_bindings.last().and_then(|b| b.get(name)) =>
+            {
+                Ok(Cow::Owned(concrete.clone()))
+            }
             Type::Named {
                 name,
                 concrete_generics,
@@ -201,8 +222,97 @@ impl TypeScope {
         for field in &mut def.fields {
             field.ftype = substitute(&field.ftype, &def.generics, &concrete_generics);
         }
+        def.concrete_generics = concrete_generics;
         Ok(Type::Struct(Rc::new(def)))
     }
+
+    pub fn declare_generic_function(&mut self, template: Rc<FunctionDefinition>) {
+        let id = self.insert(
+            template.name.clone(),
+            Type::Function(Box::new(template.function_type())),
+        );
+        self.generic_functions.insert(
+            id,
+            GenericFunction {
+                template,
+                scope_depth: self.scopes.len(),
+            },
+        );
+    }
+
+    pub fn generic_template(&self, id: usize) -> Option<&FunctionDefinition> {
+        self.generic_functions.get(&id).map(|g| g.template.as_ref())
+    }
+
+    pub fn function_instances(&self) -> impl Iterator<Item = &Rc<FunctionDefinition>> {
+        self.function_instances.values()
+    }
+
+    pub fn instantiate_function(
+        &mut self,
+        id: usize,
+        concrete_generics: &[Type],
+    ) -> Result<(String, FunctionType), TypeCheckError> {
+        let GenericFunction {
+            template,
+            scope_depth,
+        } = &self.generic_functions[&id];
+        let instance_name = mangle_instance_name(&template.name, concrete_generics);
+        if let Some(instance) = self.function_instances.get(&instance_name) {
+            return Ok((instance_name, instance.function_type()));
+        }
+
+        let template = Rc::clone(template);
+        let caller_scopes = self.scopes.split_off(*scope_depth);
+
+        self.generic_bindings.push(
+            template
+                .generics
+                .iter()
+                .cloned()
+                .zip(concrete_generics.iter().cloned())
+                .collect(),
+        );
+        let result = self.check_instance(&template, instance_name);
+        self.generic_bindings.pop();
+        self.scopes.extend(caller_scopes);
+        result
+    }
+
+    fn check_instance(
+        &mut self,
+        template: &FunctionDefinition,
+        instance_name: String,
+    ) -> Result<(String, FunctionType), TypeCheckError> {
+        let mut def = template.clone();
+        def.name.clone_from(&instance_name);
+        def.generics = vec![];
+        for arg in &mut def.args {
+            self.resolve_in_place(&mut arg.atype)?;
+        }
+        self.resolve_in_place(&mut def.return_type)?;
+
+        // Cache the unchecked instance first so recursive calls in the body find it, then
+        // replace it with the checked body.
+        self.function_instances
+            .insert(instance_name.clone(), Rc::new(def.clone()));
+        def.check_body(self)?;
+        let function_type = def.function_type();
+        self.function_instances
+            .insert(instance_name.clone(), Rc::new(def));
+        Ok((instance_name, function_type))
+    }
+}
+
+fn mangle_instance_name(name: &str, concrete_generics: &[Type]) -> String {
+    format!(
+        "{name}__{}",
+        concrete_generics
+            .iter()
+            .map(|t| t.to_string().replace(['*', '<', '>', ',', ' '], "_"))
+            .collect::<Vec<_>>()
+            .join("_")
+    )
 }
 
 /// Replaces each generic in `t` with its concrete type, through pointers and type arguments.

@@ -1,0 +1,82 @@
+struct Token {
+    kind: u8,
+    data: u64,
+}
+
+struct Node<T> {
+    value: T,
+    next: *Node<T>,
+}
+
+def id<T>(x: T): T {
+    return x;
+}
+
+def size_of<T>(x: T): u64 {
+    return sizeof(T);
+}
+
+def push<T>(head: *Node<T>, value: T) {
+    let current = head;
+    while current->next != null {
+        current = current->next;
+    }
+    let node: *Node<T> = calloc(1, sizeof(Node<T>));
+    node->value = value;
+    current->next = node;
+}
+
+def length<T>(node: *Node<T>): i64 {
+    if node == null {
+        return 0;
+    }
+    return 1 + length(node->next);
+}
+
+def sum(head: *Node<i64>): i64 {
+    let total: i64 = 0;
+    let current = head;
+    while current != null {
+        total += current->value;
+        current = current->next;
+    }
+    return total;
+}
+
+let small: u8 = 200;
+let wide: u64 = 5000000000;
+printf("%d %llu %d\n", id(small), id(wide), id(7));
+printf("%llu %llu %llu\n", size_of(small), size_of(wide), size_of(Token { kind: 1, data: 2 }));
+
+let numbers: *Node<i64> = calloc(1, sizeof(Node<i64>));
+numbers->value = 1;
+push(numbers, 2);
+push(numbers, 3);
+printf("%lld %lld\n", sum(numbers), length(numbers));
+
+let bytes: *Node<u8> = calloc(1, sizeof(Node<u8>));
+bytes->value = 10;
+if true {
+    push(bytes, small);
+}
+push(bytes, small);
+let b = bytes;
+while b != null {
+    printf("%d ", b->value);
+    b = b->next;
+}
+printf("%lld\n", length(bytes));
+
+let tokens: *Node<Token> = calloc(1, sizeof(Node<Token>));
+tokens->value = Token { kind: 1, data: 100 };
+push(tokens, Token { kind: 2, data: 200 });
+let t = tokens;
+while t != null {
+    printf("%d %llu\n", t->value.kind, t->value.data);
+    t = t->next;
+}
+
+let lists: *Node<*Node<i64>> = calloc(1, sizeof(Node<*Node<i64>>));
+lists->value = numbers;
+push(lists, numbers->next);
+printf("%lld %lld\n", length(lists), sum(lists->next->value));
