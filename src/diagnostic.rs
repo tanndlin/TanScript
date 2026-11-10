@@ -133,12 +133,10 @@ mod test {
 
     #[test]
     fn handles_span_past_end_of_source() {
-        let error: CompilerError = TypeCheckErrorKind::TypeMismatch {
-            expected: Box::new(Type::Int(IntType::I32)),
-            got: Box::new(Type::Boolean),
-        }
-        .at(Span::new(0, 5, 0))
-        .into();
+        let error: CompilerError =
+            TypeCheckErrorKind::mismatch(Type::Int(IntType::I32), Type::Boolean)
+                .at(Span::new(0, 5, 0))
+                .into();
         let _ = Style::new(false).render(&error, &sources("a;"));
     }
 }

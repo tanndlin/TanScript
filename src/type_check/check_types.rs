@@ -103,21 +103,15 @@ pub fn check_binary(
         .into_iter()
         .find(|(t, _)| matches!(t, Type::Struct(_)))
     {
-        return Err(TypeCheckErrorKind::TypeMismatch {
-            expected: Box::new(Type::Int(IntType::I64)),
-            got: Box::new(struct_type.clone()),
-        }
-        .at(span));
+        return Err(
+            TypeCheckErrorKind::mismatch(Type::Int(IntType::I64), struct_type.clone()).at(span),
+        );
     }
 
     let unified = unify(lhs_type, rhs_type)
         .or_else(|| unify(rhs_type, lhs_type))
         .ok_or_else(|| {
-            TypeCheckErrorKind::TypeMismatch {
-                expected: Box::new(lhs_type.clone()),
-                got: Box::new(rhs_type.clone()),
-            }
-            .at(rhs_span)
+            TypeCheckErrorKind::mismatch(lhs_type.clone(), rhs_type.clone()).at(rhs_span)
         })?;
 
     Ok(if op.returns_boolean() {
@@ -183,21 +177,19 @@ pub fn check_index(
             return Err(TypeCheckErrorKind::NotIndexable(Type::Unknown).at(lhs_span));
         }
         other => {
-            return Err(TypeCheckErrorKind::TypeMismatch {
-                expected: Box::new(Type::Pointer(Box::new(Type::Unknown))),
-                got: Box::new(other.clone()),
-            }
+            return Err(TypeCheckErrorKind::mismatch(
+                Type::Pointer(Box::new(Type::Unknown)),
+                other.clone(),
+            )
             .at(span));
         }
     };
 
     // RHS must come down to a number
     if *rhs_type != Type::Unknown && !rhs_type.is_number_type() {
-        return Err(TypeCheckErrorKind::TypeMismatch {
-            expected: Box::new(Type::Int(IntType::I64)),
-            got: Box::new(rhs_type.clone()),
-        }
-        .at(span));
+        return Err(
+            TypeCheckErrorKind::mismatch(Type::Int(IntType::I64), rhs_type.clone()).at(span),
+        );
     }
 
     Ok(element_type)
@@ -306,11 +298,7 @@ pub fn expect_type(
             narrow_expression(expression, expected, type_scope);
             Ok(())
         }
-        _ => Err(TypeCheckErrorKind::TypeMismatch {
-            expected: Box::new(expected.clone()),
-            got: Box::new(got.clone()),
-        }
-        .at(expression.span)),
+        _ => Err(TypeCheckErrorKind::mismatch(expected.clone(), got.clone()).at(expression.span)),
     }
 }
 

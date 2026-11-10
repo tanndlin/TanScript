@@ -52,6 +52,15 @@ pub enum TypeCheckErrorKind {
     NotIndexable(Type),
 }
 
+impl TypeCheckErrorKind {
+    pub fn mismatch(expected: Type, got: Type) -> Self {
+        Self::TypeMismatch {
+            expected: Box::new(expected),
+            got: Box::new(got),
+        }
+    }
+}
+
 impl At for TypeCheckErrorKind {}
 
 pub type TypeCheckError = Spanned<TypeCheckErrorKind>;

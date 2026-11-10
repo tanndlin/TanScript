@@ -291,11 +291,9 @@ impl FunctionDefinition {
         result?;
 
         if self.return_type != Type::Unit && !self.body.always_returns() {
-            return Err(TypeCheckErrorKind::TypeMismatch {
-                expected: Box::new(self.return_type.clone()),
-                got: Box::new(Type::Unit),
-            }
-            .at(self.span));
+            return Err(
+                TypeCheckErrorKind::mismatch(self.return_type.clone(), Type::Unit).at(self.span),
+            );
         }
         Ok(())
     }
@@ -437,11 +435,7 @@ impl ReturnStatement {
         match &self.expr {
             Some(expr) => expect_type(expr, &expected, &got, type_scope),
             None if expected == Type::Unit => Ok(()),
-            None => Err(TypeCheckErrorKind::TypeMismatch {
-                expected: Box::new(expected),
-                got: Box::new(got),
-            }
-            .at(self.span)),
+            None => Err(TypeCheckErrorKind::mismatch(expected, got).at(self.span)),
         }
     }
 }
