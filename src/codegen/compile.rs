@@ -19,7 +19,7 @@ use crate::{
 
 impl Program {
     pub fn compile(&self) -> Result<String, CodegenError> {
-        let mut global_scope = CompileScope::new(None);
+        let mut global_scope = CompileScope::default();
         let mut register_handler = RegisterHandler::new();
 
         let mut symbol_table = SymbolTable::default();
@@ -113,7 +113,7 @@ impl Block {
         compile_scope: &mut CompileScope,
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
-        let mut new_scope = CompileScope::new(Some(compile_scope));
+        let mut new_scope = CompileScope::new_block(compile_scope);
 
         let mut instructions = self
             .children

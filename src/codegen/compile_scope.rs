@@ -19,7 +19,7 @@ use crate::{
 pub const SLOT_SIZE: u32 = 8;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CompileScope<'a> {
     pub parent: Option<&'a CompileScope<'a>>,
     variables: HashMap<String, (Address, Type)>,
@@ -34,23 +34,12 @@ pub struct CompileScope<'a> {
 }
 
 impl<'a> CompileScope<'a> {
-    pub fn new(parent: Option<&'a CompileScope<'a>>) -> Self {
-        Self {
-            parent,
-            variables: HashMap::new(),
-            structs: HashMap::new(),
-            enums: HashMap::new(),
-            functions: HashMap::new(),
-            loop_context: None,
-            function_context: None,
-            stack_depth: parent.map_or(0, |p| p.stack_depth),
-        }
-    }
-
     pub fn new_loop(parent: &'a CompileScope<'a>, loop_context: LoopContext) -> Self {
         Self {
             loop_context: Some(loop_context),
-            ..Self::new(Some(parent))
+            parent: Some(parent),
+            stack_depth: parent.stack_depth,
+            ..Default::default()
         }
     }
 
@@ -58,7 +47,16 @@ impl<'a> CompileScope<'a> {
         Self {
             function_context: Some(function_context),
             stack_depth: 0,
-            ..Self::new(Some(parent))
+            parent: Some(parent),
+            ..Default::default()
+        }
+    }
+
+    pub fn new_block(parent: &'a CompileScope<'a>) -> Self {
+        Self {
+            parent: Some(parent),
+            stack_depth: parent.stack_depth,
+            ..Default::default()
         }
     }
 

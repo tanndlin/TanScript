@@ -123,7 +123,7 @@ impl Assignment {
             register_handler,
             &mut |compile_scope, register_handler, address, t| {
                 register_handler.lease_with_scope(|register_handler, value| {
-                    let mut scope = CompileScope::new(Some(compile_scope));
+                    let mut scope = CompileScope::new_block(compile_scope);
                     scope
                         .add_variable(CURRENT.to_string(), value.into(), t.clone())
                         .at(self.lhs.span)?;
@@ -466,7 +466,7 @@ impl IfStatement {
 
         instructions.push(Instruction::comment("then"));
         instructions.extend(self.block.compile(
-            &mut CompileScope::new(Some(compile_scope)),
+            &mut CompileScope::new_block(compile_scope),
             register_handler,
         )?);
 
@@ -474,7 +474,7 @@ impl IfStatement {
             instructions.push(Instruction::jmp(end_label.clone()));
             instructions.push(Instruction::label(else_label));
             instructions.extend(else_block.compile(
-                &mut CompileScope::new(Some(compile_scope)),
+                &mut CompileScope::new_block(compile_scope),
                 register_handler,
             )?);
         }
@@ -514,7 +514,7 @@ impl MatchStatement {
         if let Some(default) = &self.default {
             instructions.push(Instruction::comment("Case: _".to_string()));
             instructions.extend(default.compile(
-                &mut CompileScope::new(Some(compile_scope)),
+                &mut CompileScope::new_block(compile_scope),
                 register_handler,
             )?);
         }
@@ -526,7 +526,7 @@ impl MatchStatement {
             instructions.push(Instruction::label(label.clone()));
             instructions.push(Instruction::comment(format!("Case: {}", case.rhs)));
             instructions.extend(case.block.compile(
-                &mut CompileScope::new(Some(compile_scope)),
+                &mut CompileScope::new_block(compile_scope),
                 register_handler,
             )?);
             if i + 1 < self.cases.len() {
@@ -711,7 +711,7 @@ mod test {
         let mut register_handler = RegisterHandler::new();
         while register_handler.lease_register().is_ok() {}
 
-        let result = m.compile(&mut CompileScope::new(None), &mut register_handler);
+        let result = m.compile(&mut CompileScope::default(), &mut register_handler);
         assert!(
             matches!(
                 result,
