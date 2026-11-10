@@ -39,6 +39,16 @@ pub struct Arg {
     pub span: Span,
 }
 
+impl Arg {
+    pub fn new(name: impl Into<String>, atype: Type, span: Span) -> Self {
+        Self {
+            name: name.into(),
+            atype,
+            span,
+        }
+    }
+}
+
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.atype)

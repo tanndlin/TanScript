@@ -254,11 +254,8 @@ impl FunctionDefinition {
 
         // Put the hidden arg first
         // Its a pointer to the address of the returned struct
-        let hidden_return = returns_odd_struct.then(|| Arg {
-            name: "return".to_string(),
-            atype: self.return_type.clone().pointer_to(),
-            span: self.span,
-        });
+        let hidden_return = returns_odd_struct
+            .then(|| Arg::new("return", self.return_type.clone().pointer_to(), self.span));
 
         for (i, arg) in hidden_return.iter().chain(&self.args).enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
