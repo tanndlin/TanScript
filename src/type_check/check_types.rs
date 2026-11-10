@@ -27,6 +27,14 @@ pub fn check_types_expression<'s>(
     expression: &'s mut Expression,
     type_scope: &mut TypeScope,
 ) -> Result<&'s Type, TypeCheckError> {
+    check_types_expression_expecting(expression, None, type_scope)
+}
+
+pub fn check_types_expression_expecting<'s>(
+    expression: &'s mut Expression,
+    expected: Option<&Type>,
+    type_scope: &mut TypeScope,
+) -> Result<&'s Type, TypeCheckError> {
     let span = expression.span;
     let t = match &mut expression.kind {
         ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
@@ -55,7 +63,7 @@ pub fn check_types_expression<'s>(
             check_types_expression(inner, type_scope).cloned()
         }
         ExpressionKind::FunctionCall(function_name, given_args) => {
-            check_function_call(span, function_name, given_args, type_scope)
+            check_function_call(span, function_name, given_args, expected, type_scope)
         }
         ExpressionKind::Index(lhs, rhs) => check_index(span, lhs, rhs, type_scope),
         ExpressionKind::Cast(lhs, casted_type) => check_cast(span, lhs, casted_type, type_scope),
@@ -137,6 +145,7 @@ pub fn check_function_call(
     span: Span,
     function_name: &mut String,
     given_args: &mut [Expression],
+    expected_return: Option<&Type>,
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     let given_types = given_args
@@ -159,8 +168,13 @@ pub fn check_function_call(
     }
 
     let function_type = if let Some(template) = type_scope.generic_template(id) {
-        let concrete = infer_generics(&template.generics, &function_type.args, &given_types)
-            .map_err(|e| e.at(span))?;
+        let concrete = infer_generics(
+            &template.generics,
+            &function_type.args,
+            &given_types,
+            expected_return.map(|e| (&function_type.return_type, e)),
+        )
+        .map_err(|e| e.at(span))?;
         let (instance_name, instance_type) = type_scope.instantiate_function(id, &concrete)?;
         *function_name = instance_name;
         instance_type
@@ -180,9 +194,10 @@ fn infer_generics(
     generics: &[String],
     args: &[Type],
     given_types: &[Type],
+    return_types: Option<(&Type, &Type)>,
 ) -> Result<Vec<Type>, TypeCheckErrorKind> {
     let mut bound = vec![None; generics.len()];
-    for (expected, got) in args.iter().zip(given_types) {
+    for (expected, got) in args.iter().zip(given_types).chain(return_types) {
         bind_generics(expected, got, generics, &mut bound);
     }
     bound

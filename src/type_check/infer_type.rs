@@ -801,6 +801,16 @@ mod test {
     }
 
     #[test]
+    fn generic_inferred_from_declared_return_type() {
+        assert_eq!(
+            defined_functions(&format!(
+                "{NODE}def make<T>(): *N<T> {{ return calloc(1, 16); }} let n: *N<u8> = make();"
+            )),
+            vec!["make", "make__u8"]
+        );
+    }
+
+    #[test]
     fn type_error_for_uninferable_generic() {
         let result = infer_last("def f<T>(x: u8): u8 { return x; } f(1);");
         assert!(

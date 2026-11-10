@@ -9,7 +9,7 @@ use crate::{
     error::At,
     type_check::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_binary,
-        check_types_expression, expect_type, narrow_expression,
+        check_types_expression, check_types_expression_expecting, expect_type, narrow_expression,
     },
     types::IntType,
 };
@@ -219,13 +219,18 @@ impl Declaration {
             panic!("Declaration LHS can only be a identifier");
         };
 
-        let got = check_types_expression(&mut self.assign.expression, type_scope)?.clone();
-        let Some(expected) = self
+        let expected = self
             .dtype
             .as_ref()
             .map(|t| type_scope.resolve(t).map(Cow::into_owned))
-            .transpose()?
-        else {
+            .transpose()?;
+        let got = check_types_expression_expecting(
+            &mut self.assign.expression,
+            expected.as_ref(),
+            type_scope,
+        )?
+        .clone();
+        let Some(expected) = expected else {
             self.binding = Some(type_scope.insert(ident.clone(), got));
             return Ok(());
         };
