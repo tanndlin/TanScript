@@ -52,7 +52,7 @@ def get_escape(c: char): char {
     c
 }
 
-def get_string(lexer: *Lexer): *char {
+def get_string(lexer: *Lexer, out_length: *u32): *char {
     lexer->index++;
     let end = lexer->index;
     while lexer->chars[end] != '"' {
@@ -79,6 +79,7 @@ def get_string(lexer: *Lexer): *char {
     }
 
     lexer->index++;
+    *out_length = length;
     string
 }
 
@@ -106,7 +107,7 @@ def get_char(lexer: *Lexer): char {
 }
 
 def push_token(lexer: *Lexer, head: *Node<LexerToken>, token_type: Token, length: u32) {
-    linked_list_push(head, LexerToken { token_type: token_type, data: 0 });
+    linked_list_push(head, LexerToken { token_type: token_type, data: 0, length: 0 });
     lexer->index += length;
 }
 
@@ -217,21 +218,22 @@ def tokenize(file_path: *char): *List<LexerToken> {
                 lexer.index++;
             }
 
-            linked_list_push(head, LexerToken { token_type: Token::Number, data: value });
+            linked_list_push(head, LexerToken { token_type: Token::Number, data: value, length: 0 });
         } else if isIdentStart(c) {
             let ident = get_identifier(&lexer);
             if ident[0] == 'a' && ident[1] == 's' && ident[2] == '\0' {
                 free(ident);
-                linked_list_push(head, LexerToken { token_type: Token::Cast, data: 0 });
+                linked_list_push(head, LexerToken { token_type: Token::Cast, data: 0, length: 0 });
             } else {
-                linked_list_push(head, LexerToken { token_type: Token::Identifier, data: ident as u64 });
+                linked_list_push(head, LexerToken { token_type: Token::Identifier, data: ident as u64, length: 0 });
             }
         } else if c == '"' {
-            let string = get_string(&lexer);
-            linked_list_push(head, LexerToken { token_type: Token::String, data: string as u64 });
+            let length: u32 = 0;
+            let string = get_string(&lexer, &length);
+            linked_list_push(head, LexerToken { token_type: Token::String, data: string as u64, length: length });
         } else if c == '\'' {
             let ch = get_char(&lexer);
-            linked_list_push(head, LexerToken { token_type: Token::Char, data: ch as u64 });
+            linked_list_push(head, LexerToken { token_type: Token::Char, data: ch as u64, length: 0 });
         } else if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
             lexer.index++;
         } else if !lex_operator(&lexer, head) {
@@ -240,6 +242,6 @@ def tokenize(file_path: *char): *List<LexerToken> {
         }
     }
 
-    linked_list_push(head, LexerToken { token_type: Token::Eof, data: 0 });
+    linked_list_push(head, LexerToken { token_type: Token::Eof, data: 0, length: 0 });
     linked_list_to_list(head->next)
 }

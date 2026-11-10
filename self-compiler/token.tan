@@ -45,7 +45,8 @@ enum Token {
 
 struct LexerToken {
     token_type: Token,
-    data: u64
+    data: u64,
+    length: u32,
 }
 
 def printToken(lexer_token: LexerToken) {
