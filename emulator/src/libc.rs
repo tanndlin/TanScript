@@ -49,6 +49,10 @@ impl Machine {
                 self.mem.slice_mut(ptr, size)?.fill(0);
                 self.ret(ptr);
             }
+            "realloc" => {
+                let ptr = self.realloc(self.arg(0)?, self.arg(1)?)?;
+                self.ret(ptr);
+            }
             "free" => {
                 let ptr = self.arg(0)?;
                 self.free(ptr)?;
@@ -66,6 +70,22 @@ impl Machine {
                     std::cmp::Ordering::Greater => 1,
                 };
                 self.ret(value.cast_unsigned());
+            }
+            "time" => {
+                let out = self.arg(0)?;
+                if out != 0 {
+                    self.mem.write(out, 8, self.time)?;
+                }
+                self.ret(self.time);
+            }
+            "srand" => self.rand_state = self.arg(0)? as u32,
+            "rand" => {
+                // MSVC's LCG, matching the Windows CRT the compiler targets.
+                self.rand_state = self
+                    .rand_state
+                    .wrapping_mul(214_013)
+                    .wrapping_add(2_531_011);
+                self.ret(u64::from((self.rand_state >> 16) & 0x7fff));
             }
             _ => {
                 if !self.call_io(name)? {
@@ -88,6 +108,25 @@ impl Machine {
         self.heap.next = end;
         self.heap.sizes.insert(ptr, size);
         Ok(ptr)
+    }
+
+    pub fn realloc(&mut self, ptr: u64, size: u64) -> Result<u64, String> {
+        if ptr == 0 {
+            return self.malloc(size);
+        }
+        let old = *self
+            .heap
+            .sizes
+            .get(&ptr)
+            .ok_or_else(|| format!("realloc of invalid pointer {ptr:#x}"))?;
+        if size <= old {
+            return Ok(ptr);
+        }
+        let new = self.malloc(size)?;
+        let bytes = self.mem.slice(ptr, old)?.to_vec();
+        self.mem.slice_mut(new, old)?.copy_from_slice(&bytes);
+        self.free(ptr)?;
+        Ok(new)
     }
 
     pub fn free(&mut self, ptr: u64) -> Result<(), String> {

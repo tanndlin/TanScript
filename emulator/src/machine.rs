@@ -111,6 +111,8 @@ pub struct Machine {
     pub open_files: HashMap<u64, File>,
     pub next_handle: u64,
     pub exit_code: Option<i32>,
+    pub time: u64,
+    pub rand_state: u32,
 }
 
 pub enum Flow {
@@ -162,6 +164,8 @@ impl Machine {
             open_files: HashMap::new(),
             next_handle: 0x7000_0000,
             exit_code: None,
+            time: 0,
+            rand_state: 1,
         };
         machine.regs[RSP] = STACK_TOP;
         machine.push(HALT)?;

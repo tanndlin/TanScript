@@ -23,6 +23,8 @@ pub struct Options {
     pub max_steps: u64,
     pub memory_limit: usize,
     pub files: HashMap<String, Vec<u8>>,
+    /// Seconds since the Unix epoch, as reported by `time`.
+    pub time: u64,
 }
 
 impl Default for Options {
@@ -32,6 +34,7 @@ impl Default for Options {
             max_steps: 1_000_000_000,
             memory_limit: 256 * 1024 * 1024,
             files: HashMap::new(),
+            time: 0,
         }
     }
 }
@@ -81,6 +84,7 @@ pub fn run(source: &str, options: Options) -> Run {
         Err(e) => return failed(None, e),
     };
     machine.files = options.files;
+    machine.time = options.time;
 
     let Some(&entry) = program.symbols.get(&options.entry) else {
         return failed(None, format!("entry point `{}` not found", options.entry));
