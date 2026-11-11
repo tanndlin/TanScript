@@ -5,7 +5,8 @@
 //! [`output_len`]. `compile` returns 1 on success (output is assembly) and 0 on
 //! a compile error (output is the rendered diagnostic).
 //!
-//! [`run`] takes assembly the same way and executes it in the emulator. It
+//! [`run`] takes assembly the same way and executes it in the emulator, with
+//! `time` (Unix seconds) as the clock the program sees through `time()`. It
 //! returns 1 if the program exited normally (output is its stdout, exit code
 //! from [`exit_code`]) and 0 on a runtime error (output is stdout so far
 //! followed by the error message).
@@ -73,11 +74,15 @@ pub extern "C" fn output_len() -> usize {
 /// # Safety
 /// `ptr[..len]` must be initialized memory obtained from [`alloc`].
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn run(ptr: *const u8, len: usize) -> u32 {
+pub unsafe extern "C" fn run(ptr: *const u8, len: usize, time: u32) -> u32 {
     let bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
     let asm = String::from_utf8_lossy(bytes);
 
-    let result = emulate(&asm, Options::default());
+    let options = Options {
+        time: u64::from(time),
+        ..Options::default()
+    };
+    let result = emulate(&asm, options);
     let mut text = result.stdout_lossy();
     let ok = match result.result {
         Ok(code) => {
