@@ -33,8 +33,18 @@ impl Program {
         let mut symbol_table = SymbolTable::default();
         self.block.discover(&mut symbol_table);
         symbol_table.externs.insert("exit".to_string());
-        for def in symbol_table.functions.values() {
-            global_scope.insert_function(def.name.clone(), def.clone());
+        let signatures = symbol_table
+            .functions
+            .values()
+            .map(|def| &def.signature)
+            .chain(
+                symbol_table
+                    .extern_declarations
+                    .values()
+                    .map(|def| &def.signature),
+            );
+        for signature in signatures {
+            global_scope.insert_return_type(signature.name.clone(), signature.return_type.clone());
         }
         for def in symbol_table.structs.values() {
             global_scope.insert_struct(def.clone());
@@ -436,6 +446,13 @@ pub mod test {
     fn compile_discarded_call_keeps_result_in_rax() {
         let asm = compile("def five(): i32 { 5 } five();");
         assert!(!asm.contains(", rax"), "{asm}");
+    }
+
+    #[test]
+    fn compile_declared_extern_call() {
+        let asm = compile("extern def puts(s: *char): i32; let n = puts(\"hi\");");
+        assert!(asm.contains("extern puts"), "{asm}");
+        assert!(asm.contains("call puts"), "{asm}");
     }
 
     #[test]

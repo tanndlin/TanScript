@@ -1,0 +1,60 @@
+use std::fmt;
+
+use crate::{type_check::Type, types::Span};
+
+#[derive(Debug, Clone)]
+pub struct Signature {
+    pub name: String,
+    pub generics: Vec<String>,
+    pub args: Vec<Arg>,
+    pub return_type: Type,
+    pub span: Span,
+}
+
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let return_type = match &self.return_type {
+            Type::Unit => String::new(),
+            t => format!(": {t}"),
+        };
+        let generics = if self.generics.is_empty() {
+            String::new()
+        } else {
+            format!("<{}>", self.generics.join(", "))
+        };
+        write!(
+            f,
+            "{}{generics}({}){}",
+            self.name,
+            self.args
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", "),
+            return_type,
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Arg {
+    pub name: String,
+    pub atype: Type,
+    pub span: Span,
+}
+
+impl Arg {
+    pub fn new(name: impl Into<String>, atype: Type, span: Span) -> Self {
+        Self {
+            name: name.into(),
+            atype,
+            span,
+        }
+    }
+}
+
+impl fmt::Display for Arg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.name, self.atype)
+    }
+}

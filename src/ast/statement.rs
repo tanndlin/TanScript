@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    Assignment, BreakStatement, Child, ContinueStatement, Declaration, EnumDefinition, ForLoop,
-    FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, StructDefinition, WhileLoop,
+    Assignment, BreakStatement, Child, ContinueStatement, Declaration, EnumDefinition,
+    ExternDeclaration, ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement,
+    StructDefinition, WhileLoop,
 };
 use derive_more::{Display, From};
 
@@ -12,6 +13,7 @@ pub enum Statement {
     Declaration(Declaration),
     ForLoop(ForLoop),
     FunctionDefinition(Rc<FunctionDefinition>),
+    ExternDeclaration(Rc<ExternDeclaration>),
     StructDefinition(Rc<StructDefinition>),
     EnumDefinition(Rc<EnumDefinition>),
     MatchStatement(MatchStatement),
@@ -91,6 +93,7 @@ impl Statement {
                 vec![Child::Block(&def.body)]
             }
             Statement::StructDefinition(_)
+            | Statement::ExternDeclaration(_)
             | Statement::EnumDefinition(_)
             | Statement::Break(_)
             | Statement::Continue(_) => vec![],

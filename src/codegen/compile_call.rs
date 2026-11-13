@@ -43,9 +43,7 @@ pub fn compile_function_call(
     args: &[Expression],
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let return_type = compile_scope
-        .lookup_function(name)
-        .map(|function| function.return_type.clone());
+    let return_type = compile_scope.lookup_return_type(name).cloned();
 
     // The callee may clobber any volatile register, so save the ones in use. dst is left out, as
     // the caller wants it overwritten

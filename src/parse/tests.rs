@@ -827,7 +827,7 @@ fn function_generics(code: &str) -> Vec<String> {
     let Statement::FunctionDefinition(def) = statement.as_ref() else {
         panic!("expected a function definition, got {statement}");
     };
-    def.generics.clone()
+    def.signature.generics.clone()
 }
 
 #[test]

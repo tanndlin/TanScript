@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    ast::{FunctionDefinition, StructDefinition},
+    ast::{ExternDeclaration, FunctionDefinition, StructDefinition},
     error::At,
     type_check::{FunctionType, Type, TypeCheckError, TypeCheckErrorKind},
     types::{IntType, Span},
@@ -17,6 +17,7 @@ pub struct TypeScope {
     bindings: Vec<Type>,
     return_types: Vec<Type>,
     generic_functions: HashMap<usize, GenericFunction>,
+    generic_externs: HashMap<usize, Rc<ExternDeclaration>>,
     function_instances: BTreeMap<String, Rc<FunctionDefinition>>,
     generic_bindings: Vec<HashMap<String, Type>>,
 }
@@ -34,6 +35,7 @@ impl Default for TypeScope {
             bindings: vec![],
             return_types: vec![],
             generic_functions: HashMap::new(),
+            generic_externs: HashMap::new(),
             function_instances: BTreeMap::new(),
             generic_bindings: vec![],
         }
@@ -228,8 +230,8 @@ impl TypeScope {
 
     pub fn declare_generic_function(&mut self, template: Rc<FunctionDefinition>) {
         let id = self.insert(
-            template.name.clone(),
-            Type::Function(Box::new(template.function_type())),
+            template.signature.name.clone(),
+            Type::Function(Box::new(template.signature.function_type())),
         );
         self.generic_functions.insert(
             id,
@@ -238,6 +240,35 @@ impl TypeScope {
                 scope_depth: self.scopes.len(),
             },
         );
+    }
+
+    pub fn declare_generic_extern(&mut self, def: Rc<ExternDeclaration>) {
+        let id = self.insert(
+            def.signature.name.clone(),
+            Type::Function(Box::new(def.signature.function_type())),
+        );
+        self.generic_externs.insert(id, def);
+    }
+
+    pub fn generic_extern(&self, id: usize) -> Option<&ExternDeclaration> {
+        self.generic_externs.get(&id).map(AsRef::as_ref)
+    }
+
+    pub fn instantiate_extern(
+        &self,
+        def: &ExternDeclaration,
+        concrete_generics: &[Type],
+    ) -> Result<FunctionType, TypeCheckError> {
+        let mut function_type = def.signature.function_type();
+        for t in function_type
+            .args
+            .iter_mut()
+            .chain([&mut function_type.return_type])
+        {
+            *t = substitute(t, &def.signature.generics, concrete_generics);
+            self.resolve_in_place(t)?;
+        }
+        Ok(function_type)
     }
 
     pub fn generic_template(&self, id: usize) -> Option<&FunctionDefinition> {
@@ -257,9 +288,9 @@ impl TypeScope {
             template,
             scope_depth,
         } = &self.generic_functions[&id];
-        let instance_name = mangle_instance_name(&template.name, concrete_generics);
+        let instance_name = mangle_instance_name(&template.signature.name, concrete_generics);
         if let Some(instance) = self.function_instances.get(&instance_name) {
-            return Ok((instance_name, instance.function_type()));
+            return Ok((instance_name, instance.signature.function_type()));
         }
 
         let template = Rc::clone(template);
@@ -267,6 +298,7 @@ impl TypeScope {
 
         self.generic_bindings.push(
             template
+                .signature
                 .generics
                 .iter()
                 .cloned()
@@ -285,19 +317,19 @@ impl TypeScope {
         instance_name: String,
     ) -> Result<(String, FunctionType), TypeCheckError> {
         let mut def = template.clone();
-        def.name.clone_from(&instance_name);
-        def.generics = vec![];
-        for arg in &mut def.args {
+        def.signature.name.clone_from(&instance_name);
+        def.signature.generics = vec![];
+        for arg in &mut def.signature.args {
             self.resolve_in_place(&mut arg.atype)?;
         }
-        self.resolve_in_place(&mut def.return_type)?;
+        self.resolve_in_place(&mut def.signature.return_type)?;
 
         // Cache the unchecked instance first so recursive calls in the body find it, then
         // replace it with the checked body.
         self.function_instances
             .insert(instance_name.clone(), Rc::new(def.clone()));
         def.check_body(self)?;
-        let function_type = def.function_type();
+        let function_type = def.signature.function_type();
         self.function_instances
             .insert(instance_name.clone(), Rc::new(def));
         Ok((instance_name, function_type))

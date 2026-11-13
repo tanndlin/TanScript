@@ -32,7 +32,7 @@ impl Statement {
             Statement::Assignment(s) => s.compile(compile_scope, register_handler),
             Statement::Declaration(s) => s.compile(compile_scope, register_handler),
             Statement::ForLoop(s) => s.compile(compile_scope, register_handler),
-            Statement::FunctionDefinition(_) => Ok(vec![]),
+            Statement::ExternDeclaration(_) | Statement::FunctionDefinition(_) => Ok(vec![]),
             Statement::StructDefinition(def) => {
                 compile_scope.insert_struct(def.clone());
                 Ok(vec![])
@@ -241,7 +241,7 @@ impl FunctionDefinition {
         register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let is_leaf_function = self.is_leaf_function();
-        let epilogue_label = format!("{}_epilogue", self.name);
+        let epilogue_label = format!("{}_epilogue", self.signature.name);
         let mut scope = CompileScope::new_function(compile_scope, FunctionContext::from(self));
 
         let arg_registers: [Register; 4] =
@@ -250,14 +250,19 @@ impl FunctionDefinition {
         let mut arg_homes = vec![];
         let mut struct_copies = vec![];
 
-        let returns_odd_struct = passed_by_pointer(&self.return_type);
+        let returns_odd_struct = passed_by_pointer(&self.signature.return_type);
 
         // Put the hidden arg first
         // Its a pointer to the address of the returned struct
-        let hidden_return = returns_odd_struct
-            .then(|| Arg::new("return", self.return_type.clone().pointer_to(), self.span));
+        let hidden_return = returns_odd_struct.then(|| {
+            Arg::new(
+                "return",
+                self.signature.return_type.clone().pointer_to(),
+                self.signature.span,
+            )
+        });
 
-        for (i, arg) in hidden_return.iter().chain(&self.args).enumerate() {
+        for (i, arg) in hidden_return.iter().chain(&self.signature.args).enumerate() {
             // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
             // and any further args were placed directly after it by the caller
             let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
@@ -376,7 +381,7 @@ impl FunctionDefinition {
             )
         };
 
-        std::iter::once(Instruction::label(&self.name))
+        std::iter::once(Instruction::label(&self.signature.name))
             .chain(prologue)
             .chain(frame)
             .chain(epilogue)

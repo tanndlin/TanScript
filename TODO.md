@@ -1,5 +1,9 @@
 - Memory-destination ops (add/sub/cmp/... on a stack slot) need their operand size from the destination type, not the immediate, or narrower locals get clobbered
 - Typed extern declarations (e.g. `extern def strcmp(a: *char, b: *char): i32;`) so calls sign/zero-extend narrow return values; untyped externs read all of rax, but Win64 leaves the upper 32 bits of an int return undefined (works on MSVC CRT, breaks under Wine)
+- Make calls to undeclared externs a type error instead of typing them as `Unknown`, with a prelude declaring `printf`, `malloc`, `exit`, etc. (replaces the hardcoded `exit` in `Program::compile`)
+- Variadic externs via trailing `...` (e.g. `extern def printf(fmt: *char, ...): i32;`): arg count check becomes `given >= fixed`, extra args still type checked and structs rejected, `f32` promoted to `f64`, `al` set to the vector register count on SysV
+- Struct args to declared externs aren't copied: `compile_function_call` passes `is_extern = return_type.is_none()` to `struct_temporaries`, which is now false for typed externs, so `take(big)` passes a pointer to `big` itself and the callee can clobber it (Win64 lets the callee modify its copy)
+- Generic externs returning a struct get no hidden return pointer: codegen reads the return type from the declaration (still `T`), not the instantiated type, so `extern def make<T>(): T; let big: Big = make();` stores `rax` into a 24 byte struct
 - Stack arrays
 - Floating point
 - optimiation passes

@@ -169,7 +169,7 @@ pub fn check_function_call(
 
     let function_type = if let Some(template) = type_scope.generic_template(id) {
         let concrete = infer_generics(
-            &template.generics,
+            &template.signature.generics,
             &function_type.args,
             &given_types,
             expected_return.map(|e| (&function_type.return_type, e)),
@@ -178,6 +178,15 @@ pub fn check_function_call(
         let (instance_name, instance_type) = type_scope.instantiate_function(id, &concrete)?;
         *function_name = instance_name;
         instance_type
+    } else if let Some(def) = type_scope.generic_extern(id) {
+        let concrete = infer_generics(
+            &def.signature.generics,
+            &function_type.args,
+            &given_types,
+            expected_return.map(|e| (&function_type.return_type, e)),
+        )
+        .map_err(|e| e.at(span))?;
+        type_scope.instantiate_extern(def, &concrete)?
     } else {
         FunctionType::clone(function_type)
     };
@@ -739,6 +748,61 @@ mod test {
     #[test]
     fn supports_calling_zero_arg_function_with_no_args() -> Result<(), TypeCheckError> {
         check("def f () {} f();")
+    }
+
+    #[test]
+    fn supports_calling_declared_extern() -> Result<(), TypeCheckError> {
+        check("extern def puts(s: *char): i32; let n: i32 = puts(\"hi\");")
+    }
+
+    #[test]
+    fn infers_generic_extern_from_expected_type() {
+        let program = checked("extern def malloc<T>(n: u64): *T; let p: *i32 = malloc(4);");
+        let StatementOrExpression::Statement(statement) = &program.block.children[1] else {
+            panic!("expected declaration");
+        };
+        let Statement::Declaration(declaration) = statement.as_ref() else {
+            panic!("expected declaration");
+        };
+        assert_eq!(
+            *declaration.assign.expression.etype,
+            Type::Int(IntType::I32).pointer_to()
+        );
+    }
+
+    #[test]
+    fn generic_extern_keeps_its_name() {
+        let program = checked("extern def malloc<T>(n: u64): *T; let p: *i32 = malloc(4);");
+        assert!(program.to_string().contains("malloc(4)"), "{program}");
+    }
+
+    #[test]
+    fn type_error_for_uninferable_generic_extern() {
+        expect_err!(
+            "extern def malloc<T>(n: u64): *T; malloc(4);",
+            TypeCheckErrorKind::CannotInferGeneric(_)
+        );
+    }
+
+    #[test]
+    fn type_error_for_bad_argument_to_extern_declared_later() {
+        expect_mismatch!("let p: *char = puts(\"hi\"); extern def puts(s: *char): i32;");
+    }
+
+    #[test]
+    fn type_error_for_wrong_number_of_extern_args() {
+        expect_err!(
+            "extern def puts(s: *char): i32; puts();",
+            TypeCheckErrorKind::IncorrectNumberOfArgs {
+                expected: 1,
+                given: 0
+            }
+        );
+    }
+
+    #[test]
+    fn type_error_for_misused_extern_return_type() {
+        expect_mismatch!("extern def puts(s: *char): i32; let p: *char = puts(\"hi\");");
     }
 
     #[test]

@@ -3,9 +3,10 @@ use std::{rc::Rc, str::FromStr};
 use crate::{
     ast::{
         Arg, AssignOp, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement,
-        Declaration, EnumDefinition, Expression, ExpressionKind, ForLoop, FunctionDefinition,
-        IfStatement, Import, ImportName, MatchStatement, OperatorType, ReturnStatement, Statement,
-        StatementOrExpression, StructDefinition, StructField, WhileLoop,
+        Declaration, EnumDefinition, Expression, ExpressionKind, ExternDeclaration, ForLoop,
+        FunctionDefinition, IfStatement, Import, ImportName, MatchStatement, OperatorType,
+        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition,
+        StructField, WhileLoop,
     },
     lex::LexerAtomType,
     parse::{
@@ -67,6 +68,7 @@ fn parse_statement(tokens: &mut Parser) -> Result<Option<Statement>, ParseError>
         "for" => parse_for_loop(tokens)?.into(),
         "if" => parse_if_statement(tokens)?.into(),
         "def" => Rc::new(parse_function_definition(tokens)?).into(),
+        "extern" => Rc::new(parse_extern_declaration(tokens)?).into(),
         "struct" => Rc::new(parse_struct_definition(tokens)?).into(),
         "enum" => Rc::new(parse_enum_definition(tokens)?).into(),
         "match" => parse_match_statement(tokens)?.into(),
@@ -252,7 +254,22 @@ pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseEr
 
 fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, ParseError> {
     let span = tokens.expect("def")?.span;
+    let signature = parse_signature(tokens, span)?;
+    let body = parse_function_body(tokens)?;
 
+    Ok(FunctionDefinition { signature, body })
+}
+
+fn parse_extern_declaration(tokens: &mut Parser) -> Result<ExternDeclaration, ParseError> {
+    let span = tokens.expect("extern")?.span;
+    tokens.expect("def")?;
+
+    Ok(ExternDeclaration {
+        signature: parse_signature(tokens, span)?,
+    })
+}
+
+fn parse_signature(tokens: &mut Parser, span: Span) -> Result<Signature, ParseError> {
     let tok = tokens.next_or_eof("function name")?;
     let Token::Atom(LexerAtomType::Identifier(name)) = tok.token_type else {
         return Err(expected("function name", tok));
@@ -294,13 +311,11 @@ fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, 
         } else {
             Type::Unit
         };
-    let body = parse_function_body(tokens)?;
 
-    Ok(FunctionDefinition {
+    Ok(Signature {
         name,
         generics,
         args,
-        body,
         return_type,
         span,
     })

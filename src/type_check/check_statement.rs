@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::HashSet, rc::Rc};
 use crate::{
     ast::{
         AssignOp, Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind,
-        ForLoop, FunctionDefinition, IfStatement, MatchStatement, ReturnStatement, Statement,
-        StatementOrExpression, StructDefinition, WhileLoop,
+        ExternDeclaration, ForLoop, FunctionDefinition, IfStatement, MatchStatement,
+        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition, WhileLoop,
     },
     error::At,
     type_check::{
@@ -20,7 +20,9 @@ impl Block {
         let result = self.declare(type_scope).and_then(|()| {
             self.children.iter_mut().try_for_each(|child| match child {
                 StatementOrExpression::Statement(statement) => match statement.as_mut() {
-                    Statement::StructDefinition(_) | Statement::EnumDefinition(_) => Ok(()),
+                    Statement::StructDefinition(_)
+                    | Statement::EnumDefinition(_)
+                    | Statement::ExternDeclaration(_) => Ok(()),
                     Statement::FunctionDefinition(s) => Rc::make_mut(s).check_body(type_scope),
                     _ => child.check_types(type_scope),
                 },
@@ -51,10 +53,12 @@ impl Block {
         }
 
         for child in &mut self.children {
-            if let StatementOrExpression::Statement(statement) = child
-                && let Statement::FunctionDefinition(s) = statement.as_mut()
-            {
-                declare_function(s, type_scope)?;
+            if let StatementOrExpression::Statement(statement) = child {
+                match statement.as_mut() {
+                    Statement::FunctionDefinition(s) => declare_function(s, type_scope)?,
+                    Statement::ExternDeclaration(s) => declare_extern_function(s, type_scope)?,
+                    _ => {}
+                }
             }
         }
         Ok(())
@@ -164,6 +168,7 @@ impl Statement {
                 declare_function(s, type_scope)?;
                 Rc::make_mut(s).check_body(type_scope)
             }
+            Self::ExternDeclaration(s) => declare_extern_function(s, type_scope),
             Self::StructDefinition(s) => {
                 s.declare(type_scope)?;
                 check_struct(s, type_scope)
@@ -190,6 +195,7 @@ impl Statement {
             | Self::Break(_)
             | Self::Continue(_)
             | Self::StructDefinition(_)
+            | Self::ExternDeclaration(_)
             | Self::EnumDefinition(_) => {}
         }
     }
@@ -269,24 +275,27 @@ fn declare_function(
     def: &mut Rc<FunctionDefinition>,
     type_scope: &mut TypeScope,
 ) -> Result<(), TypeCheckError> {
-    if !def.generics.is_empty() {
+    if !def.signature.generics.is_empty() {
         type_scope.declare_generic_function(Rc::clone(def));
         return Ok(());
     }
 
-    let def = Rc::make_mut(def);
-    for arg in &mut def.args {
-        type_scope.resolve_in_place(&mut arg.atype)?;
-    }
-    type_scope.resolve_in_place(&mut def.return_type)?;
-    type_scope.insert(
-        def.name.clone(),
-        Type::Function(Box::new(def.function_type())),
-    );
-    Ok(())
+    Rc::make_mut(def).signature.declare(type_scope)
 }
 
-impl FunctionDefinition {
+fn declare_extern_function(
+    def: &mut Rc<ExternDeclaration>,
+    type_scope: &mut TypeScope,
+) -> Result<(), TypeCheckError> {
+    if !def.signature.generics.is_empty() {
+        type_scope.declare_generic_extern(Rc::clone(def));
+        return Ok(());
+    }
+
+    Rc::make_mut(def).signature.declare(type_scope)
+}
+
+impl Signature {
     pub fn function_type(&self) -> FunctionType {
         FunctionType {
             args: self.args.iter().map(|a| a.atype.clone()).collect(),
@@ -294,14 +303,28 @@ impl FunctionDefinition {
         }
     }
 
+    fn declare(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        for arg in &mut self.args {
+            type_scope.resolve_in_place(&mut arg.atype)?;
+        }
+        type_scope.resolve_in_place(&mut self.return_type)?;
+        type_scope.insert(
+            self.name.clone(),
+            Type::Function(Box::new(self.function_type())),
+        );
+        Ok(())
+    }
+}
+
+impl FunctionDefinition {
     pub fn check_body(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        if !self.generics.is_empty() {
+        if !self.signature.generics.is_empty() {
             return Ok(());
         }
 
         type_scope.push();
-        type_scope.push_function(self.return_type.clone());
-        for arg in &self.args {
+        type_scope.push_function(self.signature.return_type.clone());
+        for arg in &self.signature.args {
             type_scope.insert(arg.name.clone(), arg.atype.clone());
         }
         let result = self.body.check_types(type_scope);
@@ -309,9 +332,11 @@ impl FunctionDefinition {
         type_scope.pop();
         result?;
 
-        if self.return_type != Type::Unit && !self.body.always_returns() {
+        let signature = &self.signature;
+        if signature.return_type != Type::Unit && !self.body.always_returns() {
             return Err(
-                TypeCheckErrorKind::mismatch(self.return_type.clone(), Type::Unit).at(self.span),
+                TypeCheckErrorKind::mismatch(signature.return_type.clone(), Type::Unit)
+                    .at(signature.span),
             );
         }
         Ok(())

@@ -1,10 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, rc::Rc};
 
 use crate::{
-    ast::{
-        AtomType, EnumDefinition, Expression, ExpressionKind, FunctionDefinition, StructDefinition,
-        UnaryOp,
-    },
+    ast::{AtomType, EnumDefinition, Expression, ExpressionKind, StructDefinition, UnaryOp},
     codegen::{
         CodegenErrorKind,
         address::{Address, Register},
@@ -25,7 +22,7 @@ pub struct CompileScope<'a> {
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, Rc<StructDefinition>>,
     enums: HashMap<String, Rc<EnumDefinition>>,
-    functions: HashMap<String, Rc<FunctionDefinition>>,
+    function_return_types: HashMap<String, Type>,
     loop_context: Option<LoopContext>,
     function_context: Option<FunctionContext>,
     /// Bytes `rsp` sits below `rbp`. Each local reserves its own 8 byte slot as it is declared, so
@@ -128,8 +125,8 @@ impl<'a> CompileScope<'a> {
                     .map_or(Type::Unknown, |def| Type::Struct(def.clone())),
             ),
             ExpressionKind::FunctionCall(name, _) => self
-                .lookup_function(name)
-                .map_or(Cow::Owned(Type::Unknown), |f| Cow::Borrowed(&f.return_type)),
+                .lookup_return_type(name)
+                .map_or(Cow::Owned(Type::Unknown), Cow::Borrowed),
             ExpressionKind::EnumVariant { enum_name, .. } => Cow::Owned(
                 self.lookup_enum(enum_name)
                     .map_or(Type::Unknown, |def| Type::Enum(Rc::clone(def))),
@@ -194,14 +191,14 @@ impl<'a> CompileScope<'a> {
         self.enums.insert(def.name.clone(), def);
     }
 
-    pub fn insert_function(&mut self, name: String, def: Rc<FunctionDefinition>) {
-        self.functions.insert(name, def);
+    pub fn insert_return_type(&mut self, name: String, return_type: Type) {
+        self.function_return_types.insert(name, return_type);
     }
 
-    pub fn lookup_function(&self, name: &str) -> Option<&Rc<FunctionDefinition>> {
-        self.functions
+    pub fn lookup_return_type(&self, name: &str) -> Option<&Type> {
+        self.function_return_types
             .get(name)
-            .or_else(|| self.parent.and_then(|p| p.lookup_function(name)))
+            .or_else(|| self.parent.and_then(|p| p.lookup_return_type(name)))
     }
 
     pub fn lookup_enum(&self, name: &str) -> Option<&Rc<EnumDefinition>> {

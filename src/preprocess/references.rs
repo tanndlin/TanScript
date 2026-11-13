@@ -1,6 +1,7 @@
 use crate::{
     ast::{
-        Arg, AtomType, Child, ExpressionKind, Statement, StatementOrExpression, StructField, Walk,
+        Arg, AtomType, Child, ExpressionKind, Signature, Statement, StatementOrExpression,
+        StructField, Walk,
     },
     type_check::Type,
 };
@@ -31,6 +32,13 @@ impl References for Arg {
     }
 }
 
+impl References for Signature {
+    fn references(&self, names: &mut Vec<String>) {
+        self.args.references(names);
+        self.return_type.references(names);
+    }
+}
+
 impl References for StructField {
     fn references(&self, names: &mut Vec<String>) {
         self.ftype.references(names);
@@ -45,8 +53,10 @@ impl StatementOrExpression {
                     s.dtype.references(names);
                 }
                 Child::Statement(Statement::FunctionDefinition(s)) => {
-                    s.args.references(names);
-                    s.return_type.references(names);
+                    s.signature.references(names);
+                }
+                Child::Statement(Statement::ExternDeclaration(s)) => {
+                    s.signature.references(names);
                 }
                 Child::Statement(Statement::StructDefinition(s)) => {
                     s.fields.references(names);

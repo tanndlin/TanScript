@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::{
-    ast::{Import, Program, Statement, StatementOrExpression},
+    ast::{Import, Program, Signature, Statement, StatementOrExpression},
     error::{At, CompilerError},
     lex::lex,
     parse::parse,
@@ -60,15 +60,19 @@ impl Resolver {
         let mut items = imported?;
 
         let imported_count = items.len();
+        let mut redeclared = HashSet::new();
         for child in &program.block.children {
             let Some((name, span)) = definition(child) else {
                 continue;
             };
 
-            if items[..imported_count].iter().any(|i| i.name == *name) {
-                return Err(PreprocessErrorKind::DuplicateDefinition(name.clone())
-                    .at(span)
-                    .into());
+            if let Some(index) = items[..imported_count].iter().position(|i| i.name == *name) {
+                if !is_redeclaration(&items[index].statement, child) {
+                    return Err(PreprocessErrorKind::DuplicateDefinition(name.clone())
+                        .at(span)
+                        .into());
+                }
+                redeclared.insert(index);
             }
 
             items.push(Item {
@@ -80,7 +84,11 @@ impl Resolver {
 
         program.block.children.splice(
             0..0,
-            items[..imported_count].iter().map(|i| i.statement.clone()),
+            items[..imported_count]
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| !redeclared.contains(index))
+                .map(|(_, i)| i.statement.clone()),
         );
         Ok(items)
     }
@@ -95,10 +103,11 @@ impl Resolver {
         for import in imports {
             let module = self.load(&import, dir, sources)?;
             for item in select(&module, &import)? {
-                if items
-                    .iter()
-                    .any(|i| i.origin == item.origin && i.name == item.name)
-                {
+                if items.iter().any(|i| {
+                    i.name == item.name
+                        && (i.origin == item.origin
+                            || is_redeclaration(&i.statement, &item.statement))
+                }) {
                     continue;
                 }
 
@@ -158,10 +167,28 @@ fn definition(child: &StatementOrExpression) -> Option<(&String, Span)> {
     };
 
     match statement.as_ref() {
-        Statement::FunctionDefinition(d) => Some((&d.name, d.span)),
+        Statement::FunctionDefinition(d) => Some((&d.signature.name, d.signature.span)),
+        Statement::ExternDeclaration(d) => Some((&d.signature.name, d.signature.span)),
         Statement::StructDefinition(d) => Some((&d.name, d.span)),
         Statement::EnumDefinition(d) => Some((&d.name, d.span)),
         _ => None,
+    }
+}
+
+fn extern_signature(child: &StatementOrExpression) -> Option<&Signature> {
+    match child {
+        StatementOrExpression::Statement(statement) => match statement.as_ref() {
+            Statement::ExternDeclaration(d) => Some(&d.signature),
+            _ => None,
+        },
+        StatementOrExpression::Expression(_) => None,
+    }
+}
+
+fn is_redeclaration(a: &StatementOrExpression, b: &StatementOrExpression) -> bool {
+    match (extern_signature(a), extern_signature(b)) {
+        (Some(a), Some(b)) => a.generics == b.generics && a.function_type() == b.function_type(),
+        _ => false,
     }
 }
 

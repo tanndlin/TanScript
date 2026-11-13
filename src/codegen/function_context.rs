@@ -9,8 +9,8 @@ pub struct FunctionContext {
 impl From<&FunctionDefinition> for FunctionContext {
     fn from(def: &FunctionDefinition) -> Self {
         Self {
-            epilogue_label: format!("{}_epilogue", def.name),
-            return_type: def.return_type.clone(),
+            epilogue_label: format!("{}_epilogue", def.signature.name),
+            return_type: def.signature.return_type.clone(),
         }
     }
 }

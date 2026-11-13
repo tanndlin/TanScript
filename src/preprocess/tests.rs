@@ -49,7 +49,8 @@ fn definitions(program: &Program) -> Vec<String> {
         .iter()
         .filter_map(|child| match child {
             StatementOrExpression::Statement(s) => match s.as_ref() {
-                Statement::FunctionDefinition(d) => Some(d.name.clone()),
+                Statement::FunctionDefinition(d) => Some(d.signature.name.clone()),
+                Statement::ExternDeclaration(d) => Some(d.signature.name.clone()),
                 Statement::StructDefinition(d) => Some(d.name.clone()),
                 Statement::EnumDefinition(d) => Some(d.name.clone()),
                 _ => None,
@@ -104,6 +105,99 @@ fn imports_transitive_dependencies_in_module_order() {
         ],
     );
     assert_eq!(definitions(&result.unwrap()), ["square", "cube"]);
+}
+
+#[test]
+fn imports_externs_called_by_imported_functions() {
+    let lib = "
+extern def take(n: i32): u8;
+extern def unused(): u8;
+def f(): u8 { take(1) }
+";
+    let (result, _) = resolve(
+        "externs",
+        &[
+            (
+                "main.tan",
+                "use lib::f;
+f();",
+            ),
+            ("lib.tan", lib),
+        ],
+    );
+    assert_eq!(definitions(&result.unwrap()), ["take", "f"]);
+}
+
+#[test]
+fn imports_types_referenced_by_extern_signatures() {
+    let lib = "
+struct Big { a: u64, b: u64, c: u64 }
+extern def take(b: Big): u64;
+def f(): u64 { take(Big { a: 1, b: 2, c: 3 }) }
+";
+    let (result, _) = resolve(
+        "extern-types",
+        &[
+            (
+                "main.tan",
+                "use lib::f;
+f();",
+            ),
+            ("lib.tan", lib),
+        ],
+    );
+    assert_eq!(definitions(&result.unwrap()), ["Big", "take", "f"]);
+}
+
+#[test]
+fn merges_matching_extern_declarations_from_modules() {
+    let (result, _) = resolve(
+        "extern-merge",
+        &[
+            (
+                "main.tan",
+                "use a::f;
+use b::g;
+extern def take(m: i32): u8;
+f();",
+            ),
+            (
+                "a.tan",
+                "extern def take(n: i32): u8;
+def f(): u8 { take(1) }",
+            ),
+            (
+                "b.tan",
+                "extern def take(n: i32): u8;
+def g(): u8 { take(2) }",
+            ),
+        ],
+    );
+    assert_eq!(definitions(&result.unwrap()), ["f", "g", "take"]);
+}
+
+#[test]
+fn error_for_conflicting_extern_declarations() {
+    let (result, _) = resolve(
+        "extern-conflict",
+        &[
+            (
+                "main.tan",
+                "use a::f;
+extern def take(n: i32): i32;
+f();",
+            ),
+            (
+                "a.tan",
+                "extern def take(n: i32): u8;
+def f(): u8 { take(1) }",
+            ),
+        ],
+    );
+    assert!(matches!(
+        error_kind(result),
+        PreprocessErrorKind::DuplicateDefinition(name) if name == "take"
+    ));
 }
 
 #[test]

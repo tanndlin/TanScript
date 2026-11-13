@@ -686,7 +686,7 @@ mod test {
             .iter()
             .filter_map(|child| match child {
                 StatementOrExpression::Statement(statement) => match statement.as_ref() {
-                    Statement::FunctionDefinition(def) => Some(def.name.clone()),
+                    Statement::FunctionDefinition(def) => Some(def.signature.name.clone()),
                     _ => None,
                 },
                 StatementOrExpression::Expression(_) => None,
