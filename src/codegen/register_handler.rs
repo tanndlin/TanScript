@@ -30,9 +30,9 @@ pub struct RegisterHandler {
     usage_counter: u64,
 }
 
-impl RegisterHandler {
-    pub fn new() -> RegisterHandler {
-        RegisterHandler {
+impl Default for RegisterHandler {
+    fn default() -> Self {
+        Self {
             data: vec![],
             registers: [
                 Register::RAX,
@@ -57,7 +57,9 @@ impl RegisterHandler {
             usage_counter: 0,
         }
     }
+}
 
+impl RegisterHandler {
     pub fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
         let candidate = self
             .registers
@@ -212,7 +214,7 @@ mod tests {
 
     #[test]
     fn prevent_double_lease() {
-        let mut rh = RegisterHandler::new();
+        let mut rh = RegisterHandler::default();
         let reg = rh.request_register(Register::RAX);
         assert!(reg.is_ok());
 
@@ -222,7 +224,7 @@ mod tests {
 
     #[test]
     fn allow_release_then_lease() {
-        let mut rh = RegisterHandler::new();
+        let mut rh = RegisterHandler::default();
 
         let rax = rh.request_register(Register::RAX);
         assert!(rax.is_ok());
@@ -238,9 +240,9 @@ mod tests {
 
     #[test]
     fn lease_with_scope_releases_on_error() {
-        let mut rh = RegisterHandler::new();
+        let mut rh = RegisterHandler::default();
         let before = exhaust(&mut rh).len();
-        let mut rh = RegisterHandler::new();
+        let mut rh = RegisterHandler::default();
 
         let _ = rh.lease_with_scope(|_, _| Err("fail".to_string()));
         assert_eq!(exhaust(&mut rh).len(), before);
@@ -248,7 +250,7 @@ mod tests {
 
     #[test]
     fn lease_with_scope_fallback_blocks_nested_request() {
-        let mut rh = RegisterHandler::new();
+        let mut rh = RegisterHandler::default();
         exhaust(&mut rh);
 
         let asm = rh

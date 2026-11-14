@@ -28,7 +28,7 @@ use crate::{
 impl Program {
     pub fn compile(&self) -> Result<String, CodegenError> {
         let mut global_scope = CompileScope::default();
-        let mut register_handler = RegisterHandler::new();
+        let mut register_handler = RegisterHandler::default();
 
         let mut symbol_table = SymbolTable::default();
         self.block.discover(&mut symbol_table);

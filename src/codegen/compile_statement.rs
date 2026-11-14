@@ -713,7 +713,7 @@ mod test {
             panic!("expected a match statement");
         };
 
-        let mut register_handler = RegisterHandler::new();
+        let mut register_handler = RegisterHandler::default();
         while register_handler.lease_register().is_ok() {}
 
         let result = m.compile(&mut CompileScope::default(), &mut register_handler);
