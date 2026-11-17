@@ -23,7 +23,7 @@ impl Block {
                     Statement::StructDefinition(_)
                     | Statement::EnumDefinition(_)
                     | Statement::ExternDeclaration(_) => Ok(()),
-                    Statement::FunctionDefinition(s) => Rc::make_mut(s).check_body(type_scope),
+                    Statement::FunctionDefinition(s) => check_function_body(s, type_scope),
                     _ => child.check_types(type_scope),
                 },
                 StatementOrExpression::Expression(_) => child.check_types(type_scope),
@@ -166,7 +166,7 @@ impl Statement {
             Self::ForLoop(s) => s.check_types(type_scope),
             Self::FunctionDefinition(s) => {
                 declare_function(s, type_scope)?;
-                Rc::make_mut(s).check_body(type_scope)
+                check_function_body(s, type_scope)
             }
             Self::ExternDeclaration(s) => declare_extern_function(s, type_scope),
             Self::StructDefinition(s) => {
@@ -186,7 +186,9 @@ impl Statement {
         match self {
             Self::Declaration(s) => s.resolve_types(type_scope),
             Self::ForLoop(s) => s.resolve_types(type_scope),
-            Self::FunctionDefinition(s) => Rc::make_mut(s).body.resolve_types(type_scope),
+            Self::FunctionDefinition(s) if s.signature.generics.is_empty() => {
+                Rc::make_mut(s).body.resolve_types(type_scope);
+            }
             Self::IfStatement(s) => s.resolve_types(type_scope),
             Self::MatchStatement(s) => s.resolve_types(type_scope),
             Self::WhileLoop(s) => s.block.resolve_types(type_scope),
@@ -194,6 +196,7 @@ impl Statement {
             | Self::Return(_)
             | Self::Break(_)
             | Self::Continue(_)
+            | Self::FunctionDefinition(_)
             | Self::StructDefinition(_)
             | Self::ExternDeclaration(_)
             | Self::EnumDefinition(_) => {}
@@ -283,6 +286,17 @@ fn declare_function(
     Rc::make_mut(def).signature.declare(type_scope)
 }
 
+fn check_function_body(
+    def: &mut Rc<FunctionDefinition>,
+    type_scope: &mut TypeScope,
+) -> Result<(), TypeCheckError> {
+    if !def.signature.generics.is_empty() {
+        return Ok(());
+    }
+
+    Rc::make_mut(def).check_body(type_scope)
+}
+
 fn declare_extern_function(
     def: &mut Rc<ExternDeclaration>,
     type_scope: &mut TypeScope,
@@ -318,10 +332,6 @@ impl Signature {
 
 impl FunctionDefinition {
     pub fn check_body(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        if !self.signature.generics.is_empty() {
-            return Ok(());
-        }
-
         type_scope.push();
         type_scope.push_function(self.signature.return_type.clone());
         for arg in &self.signature.args {

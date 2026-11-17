@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, Statement, UnaryOp},
     error::At,
@@ -15,8 +13,8 @@ pub fn check_types(program: &mut Program) -> Result<(), TypeCheckError> {
     program.block.check_types(&mut type_scope)?;
     program.block.children.extend(
         type_scope
-            .function_instances()
-            .map(|def| Statement::FunctionDefinition(Rc::clone(def)).into()),
+            .take_function_instances()
+            .map(|def| Statement::FunctionDefinition(def).into()),
     );
     program.block.resolve_types(&type_scope);
 

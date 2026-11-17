@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap, HashSet},
+    mem,
     rc::Rc,
 };
 
@@ -275,8 +276,8 @@ impl TypeScope {
         self.generic_functions.get(&id).map(|g| g.template.as_ref())
     }
 
-    pub fn function_instances(&self) -> impl Iterator<Item = &Rc<FunctionDefinition>> {
-        self.function_instances.values()
+    pub fn take_function_instances(&mut self) -> impl Iterator<Item = Rc<FunctionDefinition>> {
+        mem::take(&mut self.function_instances).into_values()
     }
 
     pub fn instantiate_function(
