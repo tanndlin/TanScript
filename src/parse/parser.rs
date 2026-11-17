@@ -38,14 +38,13 @@ pub fn parse(tokens: Tokens) -> Result<Program, ParseError> {
     Ok(Program { imports, block })
 }
 
-pub fn expected(expected: &str, got: LexerToken) -> ParseError {
+pub fn expected(expected: &'static str, got: LexerToken) -> ParseError {
     expected_at(expected, got.token_type, got.span)
 }
 
-// TODO: Can this be an impl Into<String>
-pub fn expected_at(expected: &str, got: impl Into<Token>, span: Span) -> ParseError {
+pub fn expected_at(expected: &'static str, got: impl Into<Token>, span: Span) -> ParseError {
     ParseErrorKind::Expected {
-        expected: expected.to_string(),
+        expected,
         got: got.into(),
     }
     .at(span)
@@ -106,8 +105,8 @@ impl Parser {
         .at(self.eof)
     }
 
-    pub fn expect(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
-        let token = self.next_or_eof(expected)?;
+    pub fn expect(&mut self, expected_str: &'static str) -> Result<LexerToken, ParseError> {
+        let token = self.next_or_eof(expected_str)?;
 
         // Extract what we "got" as a string
         let got = match &token.token_type {
@@ -122,14 +121,10 @@ impl Parser {
             Token::Op(cur) => cur.to_string(),
         };
 
-        if got == expected {
+        if got == expected_str {
             Ok(token)
         } else {
-            Err(ParseErrorKind::Expected {
-                expected: expected.to_string(),
-                got: token.token_type,
-            }
-            .at(token.span))
+            Err(expected(expected_str, token))
         }
     }
 }

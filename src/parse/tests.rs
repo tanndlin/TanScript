@@ -121,17 +121,15 @@ fn parse_compound_assign_in_if_else() {
 #[test]
 fn reject_compound_assign_in_declaration() {
     let err = parse(lex("let a += 1;", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "="));
     let err = parse(lex("let a -= 1;", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "="));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "="));
 }
 
 #[test]
 fn expect_compound_assign_semicolon() {
     let program = parse(lex("a += 1 b -= 2;", 0).unwrap()).unwrap_err();
-    assert!(
-        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
-    );
+    assert!(matches!(program.kind, ParseErrorKind::Expected { expected, .. } if expected == ";"));
 }
 
 #[test]
@@ -143,9 +141,7 @@ fn parse_declaration() {
 #[test]
 fn expect_statement_semicolon() {
     let program = parse(lex("let a = 1 let b = 2;", 0).unwrap()).unwrap_err();
-    assert!(
-        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
-    );
+    assert!(matches!(program.kind, ParseErrorKind::Expected { expected, .. } if expected == ";"));
 }
 
 #[test]
@@ -252,9 +248,7 @@ fn parse_increment_in_while_loop() {
 #[test]
 fn expect_increment_statement_semicolon() {
     let program = parse(lex("a++ b--;", 0).unwrap()).unwrap_err();
-    assert!(
-        matches!(program.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";")
-    );
+    assert!(matches!(program.kind, ParseErrorKind::Expected { expected, .. } if expected == ";"));
 }
 
 #[test]
@@ -269,7 +263,7 @@ fn reject_stray_comma() {
     )
     .unwrap_err();
     assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+        matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "expression")
     );
 }
 
@@ -277,7 +271,7 @@ fn reject_stray_comma() {
 fn reject_colon_as_expression() {
     let err = parse(lex("let a = :;", 0).unwrap()).unwrap_err();
     assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+        matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "expression")
     );
 }
 
@@ -285,7 +279,7 @@ fn reject_colon_as_expression() {
 fn reject_stray_semicolon() {
     let err = parse(lex("let a = 1;;", 0).unwrap()).unwrap_err();
     assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "expression")
+        matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "expression")
     );
 }
 
@@ -702,7 +696,7 @@ a = 1
 #[test]
 fn expect_char_statement_semicolon() {
     let err = parse(lex("'a' 'b';", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ";"));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ";"));
 }
 
 #[test]
@@ -765,14 +759,14 @@ fn parse_struct_in_parenthesized_condition() {
 #[test]
 fn expect_colon_in_struct_instantiation() {
     let err = parse(lex("let p = P { x 1 };", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ":"));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ":"));
 }
 
 #[test]
 fn expect_field_name_in_struct_access() {
     let err = parse(lex("p.1;", 0).unwrap()).unwrap_err();
     assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "field name")
+        matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "field name")
     );
 }
 
@@ -813,7 +807,7 @@ fn expect_generic_name_in_struct_definition() {
     for code in ["struct N<*T> { }", "struct N<1> { }", "struct N<> { }"] {
         let err = parse(lex(code, 0).unwrap()).unwrap_err();
         assert!(
-            matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "generic name"),
+            matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "generic name"),
             "expected generic name error for {code}, got {err:?}"
         );
     }
@@ -849,13 +843,13 @@ fn non_generic_function_has_no_generics() {
 #[test]
 fn expect_close_angle_in_generic_function_definition() {
     let err = parse(lex("def f<T(x: T) { }", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ">"));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ">"));
 }
 
 #[test]
 fn expect_close_angle_in_generic_struct_definition() {
     let err = parse(lex("struct N<T { }", 0).unwrap()).unwrap_err();
-    assert!(matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ">"));
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ">"));
 }
 
 fn declared_type(code: &str) -> Type {
@@ -922,16 +916,14 @@ fn parse_generic_field_with_type_arguments() {
 #[test]
 fn expect_close_angle_in_type_arguments() {
     let err = parse(lex("let n: *Node<i64 = x;", 0).unwrap()).unwrap_err();
-    assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == ", or >")
-    );
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ", or >"));
 }
 
 #[test]
 fn expect_type_in_type_arguments() {
     let err = parse(lex("let n: *Node<> = x;", 0).unwrap()).unwrap_err();
     assert!(
-        matches!(err.kind, ParseErrorKind::Expected { ref expected, .. } if expected == "type"),
+        matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == "type"),
         "{err:?}"
     );
 }

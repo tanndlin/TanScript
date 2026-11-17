@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum ParseErrorKind {
-    Expected { expected: String, got: Token },
+    Expected { expected: &'static str, got: Token },
     UnexpectedEof { expected: String },
     InvalidAssignTarget(String),
     NotAddressable(String),
