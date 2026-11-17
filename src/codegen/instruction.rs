@@ -67,7 +67,7 @@ pub enum Size {
     Qword,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Condition {
     Equal,
     NotEqual,
@@ -371,7 +371,7 @@ impl fmt::Display for Size {
 }
 
 impl Condition {
-    pub fn suffix(&self) -> &'static str {
+    pub fn suffix(self) -> &'static str {
         match self {
             Condition::Equal => "e",
             Condition::NotEqual => "ne",
@@ -382,7 +382,7 @@ impl Condition {
         }
     }
 
-    pub fn negated(&self) -> Self {
+    pub fn negated(self) -> Self {
         match self {
             Condition::Equal => Condition::NotEqual,
             Condition::NotEqual => Condition::Equal,
@@ -393,7 +393,7 @@ impl Condition {
         }
     }
 
-    pub fn swapped(&self) -> Self {
+    pub fn swapped(self) -> Self {
         match self {
             Condition::Equal => Condition::Equal,
             Condition::NotEqual => Condition::NotEqual,

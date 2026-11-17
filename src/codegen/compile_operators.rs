@@ -243,7 +243,7 @@ fn compile_jump(
         let mut cond = cond;
         let mut instructions = register_handler.lease_with_scope(|register_handler, dst| {
             let (instructions, compared) = compile_compare(
-                cond.clone(),
+                cond,
                 compile_scope,
                 left,
                 right,
