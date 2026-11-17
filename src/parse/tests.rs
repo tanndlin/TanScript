@@ -133,6 +133,14 @@ fn expect_compound_assign_semicolon() {
 }
 
 #[test]
+fn string_literal_does_not_satisfy_expect() {
+    let err = parse(lex("let a = 1\";\"", 0).unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { expected, .. } if expected == ";"));
+    let err = parse(lex("def f\"(\") {}", 0).unwrap()).unwrap_err();
+    assert!(matches!(err.kind, ParseErrorKind::Expected { .. }));
+}
+
+#[test]
 fn parse_declaration() {
     integration_test!("let a = 1;", "let a = 1");
     integration_test!("let a = 1 + 2;", "let a = (+ 1 2)");

@@ -108,17 +108,15 @@ impl Parser {
     pub fn expect(&mut self, expected_str: &'static str) -> Result<LexerToken, ParseError> {
         let token = self.next_or_eof(expected_str)?;
 
-        // Extract what we "got" as a string
         let got = match &token.token_type {
-            Token::Atom(cur) => match cur {
-                LexerAtomType::Number(n) => n.to_string(),
-                LexerAtomType::Char(c) => format!("'{c}'"),
-                LexerAtomType::Identifier(s) | LexerAtomType::String(s) => s.clone(),
-                LexerAtomType::Semicolon => ";".to_string(),
-                LexerAtomType::Colon => ":".to_string(),
-                LexerAtomType::Comma => ",".to_string(),
-            },
-            Token::Op(cur) => cur.to_string(),
+            Token::Atom(LexerAtomType::Identifier(s)) => s.as_str(),
+            Token::Atom(LexerAtomType::Semicolon) => ";",
+            Token::Atom(LexerAtomType::Colon) => ":",
+            Token::Atom(LexerAtomType::Comma) => ",",
+            Token::Atom(
+                LexerAtomType::Number(_) | LexerAtomType::Char(_) | LexerAtomType::String(_),
+            ) => return Err(expected(expected_str, token)),
+            Token::Op(op) => op.symbol(),
         };
 
         if got == expected_str {
