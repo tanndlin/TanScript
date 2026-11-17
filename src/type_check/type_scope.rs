@@ -19,7 +19,7 @@ pub struct TypeScope {
     return_types: Vec<Type>,
     generic_functions: HashMap<usize, GenericFunction>,
     generic_externs: HashMap<usize, Rc<ExternDeclaration>>,
-    function_instances: BTreeMap<String, Rc<FunctionDefinition>>,
+    function_instances: BTreeMap<String, FunctionInstance>,
     generic_bindings: Vec<HashMap<String, Type>>,
 }
 
@@ -27,6 +27,22 @@ pub struct TypeScope {
 struct GenericFunction {
     template: Rc<FunctionDefinition>,
     scope_depth: usize,
+}
+
+#[derive(Debug)]
+enum FunctionInstance {
+    Pending(FunctionType),
+    Checked(Rc<FunctionDefinition>),
+}
+
+impl FunctionInstance {
+    fn function_type(&self) -> FunctionType {
+        match self {
+            Self::Pending(function_type) => function_type.clone(),
+            // TODO: This rebuilds the signature on every lookup
+            Self::Checked(def) => def.signature.function_type(),
+        }
+    }
 }
 
 impl Default for TypeScope {
@@ -277,7 +293,12 @@ impl TypeScope {
     }
 
     pub fn take_function_instances(&mut self) -> impl Iterator<Item = Rc<FunctionDefinition>> {
-        mem::take(&mut self.function_instances).into_values()
+        mem::take(&mut self.function_instances)
+            .into_values()
+            .filter_map(|instance| match instance {
+                FunctionInstance::Checked(def) => Some(def),
+                FunctionInstance::Pending(_) => unreachable!(),
+            })
     }
 
     pub fn instantiate_function(
@@ -291,7 +312,7 @@ impl TypeScope {
         } = &self.generic_functions[&id];
         let instance_name = mangle_instance_name(&template.signature.name, concrete_generics);
         if let Some(instance) = self.function_instances.get(&instance_name) {
-            return Ok((instance_name, instance.signature.function_type()));
+            return Ok((instance_name, instance.function_type()));
         }
 
         let template = Rc::clone(template);
@@ -325,14 +346,17 @@ impl TypeScope {
         }
         self.resolve_in_place(&mut def.signature.return_type)?;
 
-        // Cache the unchecked instance first so recursive calls in the body find it, then
-        // replace it with the checked body.
-        self.function_instances
-            .insert(instance_name.clone(), Rc::new(def.clone()));
-        def.check_body(self)?;
+        // Cache the instance's type first so recursive calls in the body find it.
         let function_type = def.signature.function_type();
-        self.function_instances
-            .insert(instance_name.clone(), Rc::new(def));
+        self.function_instances.insert(
+            instance_name.clone(),
+            FunctionInstance::Pending(function_type.clone()),
+        );
+        def.check_body(self)?;
+        self.function_instances.insert(
+            instance_name.clone(),
+            FunctionInstance::Checked(Rc::new(def)),
+        );
         Ok((instance_name, function_type))
     }
 }
