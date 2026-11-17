@@ -6,4 +6,4 @@ mod parser;
 mod tests;
 
 pub use parse_error::{ParseError, ParseErrorKind};
-pub use parser::{MAX_DEPTH, Parser, expected, parse};
+pub use parser::{MAX_DEPTH, Parser, expected, expected_at, parse};

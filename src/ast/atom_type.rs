@@ -13,14 +13,19 @@ pub enum AtomType {
     String(String),
 }
 
-impl AtomType {
-    pub fn from_lexer_atom(atom: &LexerAtomType) -> Option<AtomType> {
-        Some(match atom {
-            LexerAtomType::Number(n) => AtomType::Number(*n),
-            LexerAtomType::Identifier(s) => AtomType::Identifier(s.clone()),
-            LexerAtomType::String(s) => AtomType::String(s.clone()),
-            LexerAtomType::Char(c) => AtomType::Char(*c),
-            LexerAtomType::Semicolon | LexerAtomType::Comma | LexerAtomType::Colon => return None,
+impl TryFrom<LexerAtomType> for AtomType {
+    // Returns the value itself when Err so that the ownership is not gone to the void
+    type Error = LexerAtomType;
+
+    fn try_from(atom: LexerAtomType) -> Result<Self, Self::Error> {
+        Ok(match atom {
+            LexerAtomType::Number(n) => AtomType::Number(n),
+            LexerAtomType::Identifier(s) => AtomType::Identifier(s),
+            LexerAtomType::String(s) => AtomType::String(s),
+            LexerAtomType::Char(c) => AtomType::Char(c),
+            other @ (LexerAtomType::Semicolon | LexerAtomType::Comma | LexerAtomType::Colon) => {
+                return Err(other);
+            }
         })
     }
 }

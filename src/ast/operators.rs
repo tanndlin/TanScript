@@ -106,17 +106,21 @@ impl BinaryOp {
     }
 }
 
-impl UnaryOp {
-    pub fn from_token(op: &OperatorType) -> Option<UnaryOp> {
-        Some(match op {
+impl TryFrom<OperatorType> for UnaryOp {
+    type Error = OperatorType;
+
+    fn try_from(op: OperatorType) -> Result<Self, Self::Error> {
+        Ok(match op {
             OperatorType::Subtract => UnaryOp::Negate,
             OperatorType::Not => UnaryOp::Not,
             OperatorType::Reference => UnaryOp::AddressOf,
             OperatorType::Multiply => UnaryOp::Deref,
-            _ => return None,
+            other => return Err(other),
         })
     }
+}
 
+impl UnaryOp {
     pub const BINDING_POWER: u8 = 11;
 
     fn symbol(self) -> &'static str {

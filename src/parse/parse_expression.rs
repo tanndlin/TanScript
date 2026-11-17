@@ -5,7 +5,9 @@ use crate::{
     },
     error::At,
     lex::LexerAtomType,
-    parse::{ParseError, ParseErrorKind, Parser, expected, parse_statement::parse_type},
+    parse::{
+        ParseError, ParseErrorKind, Parser, expected, expected_at, parse_statement::parse_type,
+    },
     types::{Span, Token},
 };
 
@@ -75,14 +77,13 @@ fn parse_expression_at_depth(
 ) -> Result<Expression, ParseError> {
     let token = tokens.next_or_eof("expression")?;
 
-    let mut lhs = match &token.token_type {
+    let mut lhs = match token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => {
-            parse_identifier_or_function_call_or_struct(tokens, s, token.span, allow_struct)?
+            parse_identifier_or_function_call_or_struct(tokens, &s, token.span, allow_struct)?
         }
         Token::Atom(it) => {
-            let Some(atom) = AtomType::from_lexer_atom(it) else {
-                return Err(expected("expression", token));
-            };
+            let atom =
+                AtomType::try_from(it).map_err(|it| expected_at("expression", it, token.span))?;
             Expression::new(ExpressionKind::Atom(atom), token.span)
         }
         Token::Op(OperatorType::OpenParen) => {
@@ -92,9 +93,8 @@ fn parse_expression_at_depth(
             lhs
         }
         Token::Op(op) => {
-            let Some(op) = UnaryOp::from_token(op) else {
-                return Err(expected("expression", token));
-            };
+            let op =
+                UnaryOp::try_from(op).map_err(|op| expected_at("expression", op, token.span))?;
             let rhs = parse_expression_with(tokens, UnaryOp::BINDING_POWER, allow_struct)?;
             if op == UnaryOp::AddressOf && !rhs.is_place() {
                 return Err(ParseErrorKind::NotAddressable(rhs.to_string()).at(rhs.span));
@@ -186,7 +186,7 @@ fn parse_expression_at_depth(
 
 fn parse_identifier_or_function_call_or_struct(
     tokens: &mut Parser,
-    s: &str,
+    s: &str, // TODO: this can be `String`
     span: Span,
     allow_struct: bool,
 ) -> Result<Expression, ParseError> {

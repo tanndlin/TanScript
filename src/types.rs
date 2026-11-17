@@ -2,7 +2,7 @@ use std::fmt::{self, Display};
 
 use crate::{ast::OperatorType, lex::LexerAtomType};
 
-#[derive(Clone, Debug, PartialEq, Eq, derive_more::Display)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::Display, derive_more::From)]
 pub enum Token {
     Atom(LexerAtomType),
     Op(OperatorType),

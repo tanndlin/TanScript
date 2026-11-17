@@ -39,11 +39,16 @@ pub fn parse(tokens: Tokens) -> Result<Program, ParseError> {
 }
 
 pub fn expected(expected: &str, got: LexerToken) -> ParseError {
+    expected_at(expected, got.token_type, got.span)
+}
+
+// TODO: Can this be an impl Into<String>
+pub fn expected_at(expected: &str, got: impl Into<Token>, span: Span) -> ParseError {
     ParseErrorKind::Expected {
         expected: expected.to_string(),
-        got: got.token_type,
+        got: got.into(),
     }
-    .at(got.span)
+    .at(span)
 }
 
 impl Parser {
