@@ -10,7 +10,7 @@ use crate::{
         compile::as_operand,
         compile_call::{NON_VOLATILE_REGISTERS, passed_by_pointer},
         compile_memory::{load_element, mem_copy, store_element, with_place_address},
-        compile_operators::compile_jump_unless,
+        compile_operators::{compile_binary, compile_jump_unless},
         compile_scope::{CompileScope, SLOT_SIZE},
         function_context::FunctionContext,
         instruction::{Condition, Instruction, Operand},
@@ -66,7 +66,10 @@ impl Assignment {
                         self.expression
                             .compile(compile_scope, address, register_handler)
                     }
-                    AssignOp::Compound(op) => self.apply(op, self.lhs.clone()).compile(
+                    AssignOp::Compound(op) => compile_binary(
+                        op,
+                        &self.lhs,
+                        &self.expression,
                         compile_scope,
                         address,
                         register_handler,
@@ -133,21 +136,20 @@ impl Assignment {
                         self.lhs.span,
                     );
                     current.etype.clone_from(&self.lhs.etype);
-                    let expression = self.apply(op, current);
 
                     let mut instructions = vec![load_element(&t, value, address)];
-                    instructions.extend(expression.compile(&mut scope, value, register_handler)?);
+                    instructions.extend(compile_binary(
+                        op,
+                        &current,
+                        &self.expression,
+                        &mut scope,
+                        value.into(),
+                        register_handler,
+                    )?);
                     instructions.push(store_element(&t, address, value));
                     Ok(instructions)
                 })
             },
-        )
-    }
-
-    fn apply(&self, op: BinaryOp, current: Expression) -> Expression {
-        Expression::new(
-            ExpressionKind::binary(op, current, self.expression.clone()),
-            self.lhs.span,
         )
     }
 }
