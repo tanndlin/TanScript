@@ -79,7 +79,7 @@ fn parse_expression_at_depth(
 
     let mut lhs = match token.token_type {
         Token::Atom(LexerAtomType::Identifier(s)) => {
-            parse_identifier_or_function_call_or_struct(tokens, &s, token.span, allow_struct)?
+            parse_identifier_or_function_call_or_struct(tokens, s, token.span, allow_struct)?
         }
         Token::Atom(it) => {
             let atom =
@@ -186,11 +186,11 @@ fn parse_expression_at_depth(
 
 fn parse_identifier_or_function_call_or_struct(
     tokens: &mut Parser,
-    s: &str, // TODO: this can be `String`
+    s: String,
     span: Span,
     allow_struct: bool,
 ) -> Result<Expression, ParseError> {
-    if matches!(s, "true" | "false") {
+    if matches!(s.as_str(), "true" | "false") {
         return Ok(Expression::new(
             ExpressionKind::Atom(AtomType::Boolean(s == "true")),
             span,
@@ -208,17 +208,12 @@ fn parse_identifier_or_function_call_or_struct(
             tokens.expect(")")?;
             Expression::new(ExpressionKind::SizeOf(sized_type), span)
         }
-        Some(Token::Op(OperatorType::OpenParen)) => {
-            parse_function_call(tokens, s.to_string(), span)?
-        }
+        Some(Token::Op(OperatorType::OpenParen)) => parse_function_call(tokens, s, span)?,
         Some(Token::Op(OperatorType::OpenCurly)) if allow_struct => {
-            parse_struct_instantiation(tokens, s.to_string(), span)?
+            parse_struct_instantiation(tokens, s, span)?
         }
-        Some(Token::Op(OperatorType::PathSep)) => parse_enum_variant(tokens, s.to_string(), span)?,
-        _ => Expression::new(
-            ExpressionKind::Atom(AtomType::Identifier(s.to_string())),
-            span,
-        ),
+        Some(Token::Op(OperatorType::PathSep)) => parse_enum_variant(tokens, s, span)?,
+        _ => Expression::new(ExpressionKind::Atom(AtomType::Identifier(s)), span),
     })
 }
 
