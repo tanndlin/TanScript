@@ -203,9 +203,9 @@ impl Expression {
                 register_handler,
                 &mut |_, register_handler, address, t| match t {
                     Type::Struct(struct_def) => {
-                        mem_copy(&struct_def, dst, address, register_handler)
+                        mem_copy(struct_def, dst, address, register_handler)
                     }
-                    _ => move_into(dst, register_handler, |reg| load_element(&t, reg, address)),
+                    _ => move_into(dst, register_handler, |reg| load_element(t, reg, address)),
                 },
             ),
             ExpressionKind::Unary(op, child) => {

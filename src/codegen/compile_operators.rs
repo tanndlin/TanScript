@@ -403,16 +403,16 @@ fn compile_postfix_in_place(
                 PostfixOp::Increment => Instruction::add(target, 1),
                 PostfixOp::Decrement => Instruction::sub(target, 1),
             };
-            if dst.is_none() && narrow_size(&t).is_none() {
+            if dst.is_none() && narrow_size(t).is_none() {
                 return Ok(vec![update(address)]);
             }
             register_handler.lease_with_scope(|_, value| {
-                let mut instructions = vec![load_element(&t, value, address)];
+                let mut instructions = vec![load_element(t, value, address)];
                 if let Some(dst) = dst {
                     instructions.push(Instruction::mov(dst, value));
                 }
                 instructions.push(update(value.into()));
-                instructions.push(store_element(&t, address, value));
+                instructions.push(store_element(t, address, value));
                 Ok(instructions)
             })
         },

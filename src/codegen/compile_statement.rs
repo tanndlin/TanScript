@@ -94,7 +94,7 @@ impl Assignment {
                         let mut instructions =
                             self.expression
                                 .compile(compile_scope, value_dst, register_handler)?;
-                        instructions.push(store_element(&t, address, value_dst));
+                        instructions.push(store_element(t, address, value_dst));
                         Ok(instructions)
                     })
                 },
@@ -137,7 +137,7 @@ impl Assignment {
                     );
                     current.etype.clone_from(&self.lhs.etype);
 
-                    let mut instructions = vec![load_element(&t, value, address)];
+                    let mut instructions = vec![load_element(t, value, address)];
                     instructions.extend(compile_binary(
                         op,
                         &current,
@@ -146,7 +146,7 @@ impl Assignment {
                         value.into(),
                         register_handler,
                     )?);
-                    instructions.push(store_element(&t, address, value));
+                    instructions.push(store_element(t, address, value));
                     Ok(instructions)
                 })
             },

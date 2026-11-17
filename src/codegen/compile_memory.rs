@@ -102,7 +102,7 @@ type WithAddress<'f> = dyn FnMut(
         &mut CompileScope,
         &mut RegisterHandler,
         Address,
-        Type,
+        &Type,
     ) -> Result<Vec<Instruction>, CodegenError>
     + 'f;
 
@@ -115,10 +115,10 @@ pub fn with_place_address(
     match &place.kind {
         ExpressionKind::Atom(AtomType::Identifier(name)) => {
             let (address, t) = compile_scope.lookup(name).at(place.span)?.clone();
-            f(compile_scope, register_handler, address, t)
+            f(compile_scope, register_handler, address, &t)
         }
         ExpressionKind::Index(lhs, index) => {
-            let element = (*place.etype).clone();
+            let element = &*place.etype;
             register_handler.lease_with_scope(|register_handler, offset| {
                 let mut instructions = index.compile(compile_scope, offset, register_handler)?;
                 let size = u32::try_from(element.size()).unwrap();
@@ -144,7 +144,7 @@ pub fn with_place_address(
             })
         }
         ExpressionKind::Unary(UnaryOp::Deref, pointer) => {
-            let element = (*place.etype).clone();
+            let element = &*place.etype;
             register_handler.lease_with_scope(|register_handler, base| {
                 let mut instructions = pointer.compile(compile_scope, base, register_handler)?;
                 let address = Address::Deref { base, offset: 0 };
@@ -160,7 +160,7 @@ pub fn with_place_address(
                 let Type::Struct(struct_def) = struct_type else {
                     panic!("({base}) is not a struct")
                 };
-                let field_type = struct_def.get_field_type(field_name).unwrap().clone();
+                let field_type = struct_def.get_field_type(field_name).unwrap();
                 let field_offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
                 f(
                     compile_scope,
