@@ -6,7 +6,12 @@ pub fn unify<'a>(a: &'a Type, b: &'a Type) -> Option<&'a Type> {
         (Type::Int(from), Type::Int(to)) if from.widens_to(*to) => Some(b),
         (Type::Int(_), Type::Int(IntType::Coercible) | Type::Boolean)
         | (Type::Pointer(_), Type::Null) => Some(a),
-        (Type::Char, Type::Int(IntType::Coercible)) => Some(&Type::Char),
+        (Type::Int(t), Type::Int(IntType::CoercibleNegative))
+            if t.is_signed() && *t != IntType::Coercible =>
+        {
+            Some(a)
+        }
+        (Type::Char, Type::Int(t)) if t.is_coercible() => Some(&Type::Char),
         (Type::Function(f), _) if f.return_type == *b => Some(b),
         (Type::Unknown, _) => Some(b),
         _ => None,

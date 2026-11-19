@@ -4,6 +4,7 @@ use crate::{
     ast::{EnumDefinition, StructDefinition},
     error::{At, Spanned},
     type_check::Type,
+    types::IntType,
 };
 
 #[derive(Debug)]
@@ -51,13 +52,25 @@ pub enum TypeCheckErrorKind {
     RecursiveStruct(String),
     NotDerefable(Type),
     NotIndexable(Type),
+    SignedIntoUnsigned(Type),
 }
 
 impl TypeCheckErrorKind {
     pub fn mismatch(expected: Type, got: Type) -> Self {
-        Self::TypeMismatch {
+        Self::signed_into_unsigned(&expected, &got).unwrap_or_else(|| Self::TypeMismatch {
             expected: Box::new(expected),
             got: Box::new(got),
+        })
+    }
+
+    pub fn signed_into_unsigned(to: &Type, from: &Type) -> Option<Self> {
+        match (to, from) {
+            (Type::Int(to_int), Type::Int(IntType::CoercibleNegative))
+                if !to_int.is_signed() && !to_int.is_coercible() =>
+            {
+                Some(Self::SignedIntoUnsigned(to.clone()))
+            }
+            _ => None,
         }
     }
 }
@@ -132,6 +145,9 @@ impl fmt::Display for TypeCheckErrorKind {
             ),
             Self::NotDerefable(t) => write!(f, "Type: ({t}) cannot be dereferenced"),
             Self::NotIndexable(t) => write!(f, "Type: ({t}) cannot be indexed"),
+            Self::SignedIntoUnsigned(t) => {
+                write!(f, "Cannot coerce signed int into unsigned int ({t})")
+            }
         }
     }
 }

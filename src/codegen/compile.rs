@@ -221,7 +221,7 @@ impl Expression {
                 compile_cast(inner, cast_type, compile_scope, dst, register_handler)
             }
             ExpressionKind::SizeOf(sized_type) => compile_number(
-                NumberType::Coercible(i64::try_from(sized_type.size()).unwrap()),
+                NumberType::Coercible(u64::try_from(sized_type.size()).unwrap()),
                 dst,
                 register_handler,
             ),
@@ -388,8 +388,8 @@ fn fits_imm32(n: NumberType) -> bool {
     match n {
         NumberType::U8(_) | NumberType::I32(_) => true,
         NumberType::U32(n) => i32::try_from(n).is_ok(),
-        NumberType::U64(n) => i32::try_from(n).is_ok(),
-        NumberType::I64(n) | NumberType::Coercible(n) => i32::try_from(n).is_ok(),
+        NumberType::U64(n) | NumberType::Coercible(n) => i32::try_from(n).is_ok(),
+        NumberType::I64(n) => i32::try_from(n).is_ok(),
     }
 }
 

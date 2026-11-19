@@ -9,7 +9,7 @@ use crate::{
     ast::{ExternDeclaration, FunctionDefinition, StructDefinition},
     error::At,
     type_check::{FunctionType, Type, TypeCheckError, TypeCheckErrorKind},
-    types::{IntType, Span},
+    types::Span,
 };
 
 #[derive(Debug)]
@@ -93,7 +93,8 @@ impl TypeScope {
 
     pub fn narrow(&mut self, name: &str, t: Type) {
         if let Some(id) = self.find(name)
-            && self.bindings[id] == Type::Int(IntType::Coercible)
+            && let Type::Int(bound) = self.bindings[id]
+            && bound.is_coercible()
         {
             self.bindings[id] = t;
         }

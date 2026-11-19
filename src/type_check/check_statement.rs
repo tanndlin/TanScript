@@ -11,7 +11,6 @@ use crate::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_binary,
         check_types_expression, check_types_expression_expecting, expect_type, narrow_expression,
     },
-    types::IntType,
 };
 
 impl Block {
@@ -214,7 +213,9 @@ impl Assignment {
             }
         };
 
-        if expected == Type::Int(IntType::Coercible) && got.is_number_type() {
+        if let (Type::Int(e), Type::Int(g)) = (&expected, &got)
+            && e.coerces_to(*g)
+        {
             narrow_expression(&self.lhs, &got, type_scope);
             return Ok(());
         }

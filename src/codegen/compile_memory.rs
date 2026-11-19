@@ -203,10 +203,9 @@ fn zero_extend(element: &Type, value: &Expression, reg: Register) -> Option<Inst
 
 fn is_non_negative_literal(expr: &Expression) -> bool {
     match &expr.kind {
-        ExpressionKind::Atom(AtomType::Number(n)) => !matches!(
-            n,
-            NumberType::I32(..=-1) | NumberType::I64(..=-1) | NumberType::Coercible(..=-1)
-        ),
+        ExpressionKind::Atom(AtomType::Number(n)) => {
+            !matches!(n, NumberType::I32(..=-1) | NumberType::I64(..=-1))
+        }
         ExpressionKind::Atom(AtomType::Char(_) | AtomType::Boolean(_)) => true,
         _ => false,
     }

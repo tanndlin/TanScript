@@ -98,9 +98,13 @@ impl<'a> CompileScope<'a> {
             ExpressionKind::Binary(op, _, _) if op.returns_boolean() => Cow::Owned(Type::Boolean),
             ExpressionKind::Binary(_, lhs, rhs) => self.unified_type(lhs, rhs)?,
             ExpressionKind::Unary(UnaryOp::Not, _) => Cow::Owned(Type::Boolean),
-            ExpressionKind::Unary(UnaryOp::Negate, inner) | ExpressionKind::Postfix(_, inner) => {
-                self.expression_type(inner)?
+            ExpressionKind::Unary(UnaryOp::Negate, inner) => {
+                match self.expression_type(inner)?.into_owned() {
+                    Type::Int(t) => Cow::Owned(Type::Int(t.negated())),
+                    t => Cow::Owned(t),
+                }
             }
+            ExpressionKind::Postfix(_, inner) => self.expression_type(inner)?,
             ExpressionKind::Unary(UnaryOp::AddressOf, inner) => {
                 Cow::Owned(self.expression_type(inner)?.into_owned().pointer_to())
             }

@@ -57,9 +57,13 @@ pub fn check_types_expression_expecting<'s>(
                 other => Err(TypeCheckErrorKind::NotDerefable(other.clone()).at(inner_span)),
             }
         }
-        ExpressionKind::Unary(_, inner) | ExpressionKind::Postfix(_, inner) => {
-            check_types_expression(inner, type_scope).cloned()
+        ExpressionKind::Unary(UnaryOp::Negate, inner) => {
+            Ok(match check_types_expression(inner, type_scope)? {
+                Type::Int(t) => Type::Int(t.negated()),
+                t => t.clone(),
+            })
         }
+        ExpressionKind::Postfix(_, inner) => check_types_expression(inner, type_scope).cloned(),
         ExpressionKind::FunctionCall(function_name, given_args) => {
             check_function_call(span, function_name, given_args, expected, type_scope)
         }
@@ -211,7 +215,7 @@ fn infer_generics(
         .into_iter()
         .zip(generics)
         .map(|(t, name)| match t {
-            Some(Type::Int(IntType::Coercible)) => Ok(Type::Int(IntType::I64)),
+            Some(Type::Int(t)) if t.is_coercible() => Ok(Type::Int(IntType::I64)),
             Some(t) => Ok(t),
             None => Err(TypeCheckErrorKind::CannotInferGeneric(name.clone())),
         })
@@ -224,7 +228,7 @@ fn infer_generics(
 fn bind_generics(expected: &Type, got: &Type, generics: &[String], bound: &mut [Option<Type>]) {
     match (expected, got) {
         (Type::Named { name, .. }, _) if let Some(i) = generics.iter().position(|g| g == name) => {
-            if bound[i].is_none() || bound[i] == Some(Type::Int(IntType::Coercible)) {
+            if bound[i].is_none() || matches!(bound[i], Some(Type::Int(t)) if t.is_coercible()) {
                 bound[i] = Some(got.clone());
             }
         }
@@ -300,6 +304,9 @@ pub fn check_cast(
 ) -> Result<Type, TypeCheckError> {
     let lhs_type = check_types_expression(lhs, type_scope)?;
     type_scope.resolve_in_place(casted_type)?;
+    if let Some(err) = TypeCheckErrorKind::signed_into_unsigned(casted_type, lhs_type) {
+        return Err(err.at(span));
+    }
     if lhs_type.castable(casted_type) {
         Ok(casted_type.clone())
     } else {
@@ -385,12 +392,13 @@ pub fn expect_type(
         _ if expected == got => Ok(()),
         (Type::Unknown, _) | (_, Type::Unknown) | (Type::Pointer(_), Type::Null) => Ok(()),
         (Type::Int(to), Type::Int(from)) if from.widens_to(*to) => Ok(()),
-        (t, Type::Int(IntType::Coercible)) if t.is_number_type() => {
+        (Type::Int(to), Type::Int(from)) if from.coerces_to(*to) => {
             narrow_expression(expression, expected, type_scope);
             Ok(())
         }
         (Type::Pointer(to), Type::Pointer(from))
-            if to.is_number_type() && **from == Type::Int(IntType::Coercible) =>
+            if let (Type::Int(to), Type::Int(from)) = (&**to, &**from)
+                && from.coerces_to(*to) =>
         {
             narrow_expression(expression, expected, type_scope);
             Ok(())
@@ -459,9 +467,48 @@ mod test {
         };
     }
 
+    macro_rules! expect_signed_into_unsigned {
+        ($source:expr) => {
+            expect_err!($source, TypeCheckErrorKind::SignedIntoUnsigned(_))
+        };
+    }
+
     #[test]
     fn supports_coercing_literal_assignments() -> Result<(), TypeCheckError> {
         check("let a: u32 = 1;")
+    }
+
+    #[test]
+    fn type_error_for_negative_literal_as_unsigned_arg() {
+        expect_signed_into_unsigned!("def add(a: u32, b: u64): u32 {a} add(1, -2);");
+        expect_signed_into_unsigned!("def add(a: u32, b: u64): u32 {a} add(-1, 2);");
+    }
+
+    #[test]
+    fn type_error_for_negative_coerced_variable_as_unsigned_arg() {
+        expect_signed_into_unsigned!("def f(a: u32): u32 {a} let a = -1; f(a);");
+        expect_signed_into_unsigned!("def f(a: u32): u32 {a} let a = 1; a = -1; f(a);");
+    }
+
+    #[test]
+    fn type_error_for_negative_literal_assigned_to_unsigned() {
+        expect_signed_into_unsigned!("let a: u32 = -1;");
+    }
+
+    #[test]
+    fn type_error_for_casting_negative_literal_to_unsigned() {
+        expect_signed_into_unsigned!("let a = -2 as u32;");
+        expect_signed_into_unsigned!("let a = -2 as u8;");
+    }
+
+    #[test]
+    fn supports_casting_negative_literal_to_signed() -> Result<(), TypeCheckError> {
+        check("let a = -2 as i32; let b = -2 as i64;")
+    }
+
+    #[test]
+    fn supports_negative_literal_as_signed_arg() -> Result<(), TypeCheckError> {
+        check("def f(a: i32, b: i64): i32 {a} let c = -3; f(-1, c); let d: i32 = -1;")
     }
 
     #[test]

@@ -16,6 +16,7 @@ pub enum IntType {
     U32,
     U64,
     Coercible,
+    CoercibleNegative,
 }
 
 impl IntType {
@@ -34,16 +35,38 @@ impl IntType {
         match self {
             Self::U8 => 1,
             Self::I32 | Self::U32 => 4,
-            Self::I64 | Self::U64 | Self::Coercible => 8,
+            Self::I64 | Self::U64 | Self::Coercible | Self::CoercibleNegative => 8,
         }
     }
 
     pub fn is_signed(self) -> bool {
-        matches!(self, Self::I32 | Self::I64 | Self::Coercible)
+        matches!(
+            self,
+            Self::I32 | Self::I64 | Self::Coercible | Self::CoercibleNegative
+        )
     }
 
     pub fn widens_to(self, to: Self) -> bool {
-        to != Self::Coercible && self.size() < to.size() && (!self.is_signed() || to.is_signed())
+        !to.is_coercible() && self.size() < to.size() && (!self.is_signed() || to.is_signed())
+    }
+
+    pub fn is_coercible(self) -> bool {
+        matches!(self, Self::Coercible | Self::CoercibleNegative)
+    }
+
+    pub fn coerces_to(self, to: Self) -> bool {
+        match self {
+            Self::Coercible => true,
+            Self::CoercibleNegative => to.is_signed() && to != Self::Coercible,
+            _ => false,
+        }
+    }
+
+    pub fn negated(self) -> Self {
+        match self {
+            Self::Coercible => Self::CoercibleNegative,
+            t => t,
+        }
     }
 }
 
@@ -56,6 +79,7 @@ impl Display for IntType {
             Self::U32 => write!(f, "u32"),
             Self::U64 => write!(f, "u64"),
             Self::Coercible => write!(f, "CoercibleNumber"),
+            Self::CoercibleNegative => write!(f, "CoercibleNegativeNumber"),
         }
     }
 }
@@ -67,7 +91,7 @@ pub enum NumberType {
     I64(i64),
     U32(u32),
     U64(u64),
-    Coercible(i64),
+    Coercible(u64),
 }
 
 impl NumberType {

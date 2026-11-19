@@ -61,7 +61,7 @@ impl<'a> Lexer<'a> {
     fn number(&mut self) -> Result<NumberType, LexError> {
         let digits = self.chars.eat_while(|c| c.is_ascii_digit());
         let n = digits
-            .parse::<i64>()
+            .parse::<u64>()
             .map_err(|_| LexErrorKind::NumberTooLarge(digits.to_string()).at(self.start))?;
 
         // TODO: Parse as coercible for now, but may want to delegate out actual number type later
@@ -161,7 +161,7 @@ mod test {
         Token::Atom(LexerAtomType::Identifier(s.to_string()))
     }
 
-    fn num(n: i64) -> Token {
+    fn num(n: u64) -> Token {
         Token::Atom(LexerAtomType::Number(NumberType::Coercible(n)))
     }
 
