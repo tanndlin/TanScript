@@ -5,7 +5,7 @@ use std::{
     sync::Mutex,
 };
 
-use tanscript::{compile, diagnostic::underline_len, error::CompilerError, source_map::SourceMap};
+use tanscript::{compile, diagnostic::underline_end, error::CompilerError, source_map::SourceMap};
 use tower_lsp::{
     Client, LanguageServer, LspService, Server,
     jsonrpc::Result,
@@ -147,12 +147,13 @@ fn to_diagnostic(
     let line = source
         .text
         .lines()
-        .nth(error.span.line as usize)
+        .nth(error.span.start.line as usize)
         .unwrap_or("");
-    let len = u32::try_from(underline_len(line, error.span.col as usize)).unwrap_or(1);
+    let start = error.span.start;
+    let end = u32::try_from(underline_end(line, error.span)).unwrap_or(start.col + 1);
     let range = Range::new(
-        Position::new(error.span.line, error.span.col),
-        Position::new(error.span.line, error.span.col + len),
+        Position::new(start.line, start.col),
+        Position::new(start.line, end),
     );
 
     Some((

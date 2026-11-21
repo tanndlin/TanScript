@@ -4,7 +4,7 @@ use crate::{
     parse::{MAX_DEPTH, Parser},
     parse::{ParseErrorKind, parse, parse_expression::parse_expression},
     type_check::Type,
-    types::Span,
+    types::{Position, Span},
 };
 
 macro_rules! test_parse_expression {
@@ -544,18 +544,48 @@ fn expression_spans() {
         .unwrap(),
     );
     let expr = parse_expression(&mut tokens, 0).unwrap();
-    assert_eq!((expr.span.line, expr.span.col), (0, 0));
+    let pos = |line, col| Position::new(line, col);
+    assert_eq!((expr.span.start, expr.span.end), (pos(0, 0), pos(1, 17)));
 
     let ExpressionKind::Binary(_, _, rhs) = &expr.kind else {
         panic!("expected binary, got {expr}");
     };
-    assert_eq!((rhs.span.line, rhs.span.col), (1, 2));
+    assert_eq!((rhs.span.start, rhs.span.end), (pos(1, 2), pos(1, 17)));
 
     let ExpressionKind::FunctionCall(_, args) = &rhs.kind else {
         panic!("expected function call, got {rhs}");
     };
-    let spans: Vec<_> = args.iter().map(|a| (a.span.line, a.span.col)).collect();
-    assert_eq!(spans, vec![(1, 6), (1, 10)]);
+    let spans: Vec<_> = args.iter().map(|a| (a.span.start, a.span.end)).collect();
+    assert_eq!(
+        spans,
+        vec![(pos(1, 6), pos(1, 8)), (pos(1, 10), pos(1, 16))]
+    );
+}
+
+#[test]
+fn token_spans_end_after_the_token() {
+    let tokens = lex("foo ..= 12", 0).unwrap().tokens;
+    let spans: Vec<_> = tokens
+        .iter()
+        .map(|t| (t.span.start.col, t.span.end.col))
+        .collect();
+    assert_eq!(spans, vec![(0, 3), (4, 7), (8, 10)]);
+}
+
+#[test]
+fn range_span_covers_every_range_token() {
+    let program = parse(lex("for i in -1..=n * 20 { }", 0).unwrap()).unwrap();
+    let StatementOrExpression::Statement(statement) = &program.block.children[0] else {
+        panic!("expected a statement");
+    };
+    let Statement::ForLoop(for_loop) = statement.as_ref() else {
+        panic!("expected a for loop");
+    };
+    let span = for_loop.condition.span;
+    assert_eq!(
+        (span.start, span.end),
+        (Position::new(0, 9), Position::new(0, 20))
+    );
 }
 
 #[test]

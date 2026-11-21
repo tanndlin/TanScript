@@ -87,9 +87,8 @@ fn parse_expression_at_depth(
             Expression::new(ExpressionKind::Atom(atom), token.span)
         }
         Token::Op(OperatorType::OpenParen) => {
-            let mut lhs = parse_expression(tokens, 0)?;
+            let lhs = parse_expression(tokens, 0)?;
             tokens.expect(")")?;
-            lhs.span = token.span;
             lhs
         }
         Token::Op(op) => {
@@ -102,6 +101,7 @@ fn parse_expression_at_depth(
             Expression::new(ExpressionKind::unary(op, rhs), token.span)
         }
     };
+    lhs.span = token.span.to(tokens.last_span());
 
     while let Some(op_token) = tokens.peek() {
         let Token::Op(op) = &op_token.token_type else {
@@ -135,7 +135,7 @@ fn parse_expression_at_depth(
                 };
                 ExpressionKind::struct_access(lhs, field_name.clone())
             };
-            lhs = Expression::new(kind, span);
+            lhs = Expression::new(kind, span.to(tokens.last_span()));
             continue;
         }
 
@@ -147,7 +147,7 @@ fn parse_expression_at_depth(
 
             tokens.next_nested()?;
             let cast_type = parse_type(tokens)?;
-            let span = lhs.span;
+            let span = lhs.span.to(tokens.last_span());
             lhs = Expression::new(ExpressionKind::cast(lhs, cast_type), span);
             continue;
         }
@@ -161,7 +161,7 @@ fn parse_expression_at_depth(
                 return Err(ParseErrorKind::InvalidAssignTarget(lhs.to_string()).at(lhs.span));
             }
 
-            let span = lhs.span;
+            let span = lhs.span.to(tokens.last_span());
             lhs = Expression::new(ExpressionKind::postfix(op, lhs), span);
             continue;
         }
@@ -173,7 +173,7 @@ fn parse_expression_at_depth(
             }
             tokens.next_nested()?;
             let rhs = parse_expression_with(tokens, r_bp, allow_struct)?;
-            let span = lhs.span;
+            let span = lhs.span.to(tokens.last_span());
             lhs = Expression::new(ExpressionKind::binary(op, lhs, rhs), span);
             continue;
         }

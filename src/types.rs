@@ -108,20 +108,49 @@ impl NumberType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub struct Span {
-    pub file: u32,
+pub struct Position {
     pub line: u32,
     pub col: u32,
 }
 
+impl Position {
+    pub fn new(line: u32, col: u32) -> Self {
+        Self { line, col }
+    }
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.col + 1)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Span {
+    pub file: u32,
+    pub start: Position,
+    pub end: Position,
+}
+
 impl Span {
-    pub fn new(file: u32, line: u32, col: u32) -> Self {
-        Self { file, line, col }
+    pub fn new(file: u32, start: Position) -> Self {
+        Self {
+            file,
+            start,
+            end: start,
+        }
+    }
+
+    pub fn to(self, other: Span) -> Self {
+        Self {
+            end: other.end,
+            ..self
+        }
     }
 }
 
 impl fmt::Display for Span {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.line + 1, self.col + 1)
+        write!(f, "{}", self.start)
     }
 }

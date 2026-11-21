@@ -1,19 +1,17 @@
 use std::str::Chars;
 
-use crate::types::Span;
+use crate::types::{Position, Span};
 
 pub struct Cursor<'a> {
     chars: Chars<'a>,
-    line: u32,
-    col: u32,
+    position: Position,
 }
 
 impl<'a> Cursor<'a> {
     pub fn new(input: &'a str) -> Self {
         Cursor {
             chars: input.chars(),
-            line: 0,
-            col: 0,
+            position: Position::default(),
         }
     }
 
@@ -48,7 +46,7 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn span(&self, file: u32) -> Span {
-        Span::new(file, self.line, self.col)
+        Span::new(file, self.position)
     }
 }
 
@@ -58,10 +56,10 @@ impl Iterator for Cursor<'_> {
     fn next(&mut self) -> Option<char> {
         let c = self.chars.next()?;
         if c == '\n' {
-            self.line += 1;
-            self.col = 0;
+            self.position.line += 1;
+            self.position.col = 0;
         } else {
-            self.col += 1;
+            self.position.col += 1;
         }
         Some(c)
     }

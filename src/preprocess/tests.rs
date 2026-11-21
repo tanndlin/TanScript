@@ -429,5 +429,5 @@ fn errors_in_modules_point_at_module_file() {
         sources.get(error.span.file).path.file_name(),
         Path::new("bad.tan").file_name()
     );
-    assert_eq!(error.span.line, 1);
+    assert_eq!(error.span.start.line, 1);
 }

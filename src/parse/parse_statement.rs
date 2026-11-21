@@ -155,8 +155,6 @@ fn parse_for_loop(tokens: &mut Parser) -> Result<ForLoop, ParseError> {
 }
 
 fn parse_range(tokens: &mut Parser) -> Result<Range, ParseError> {
-    // TODO: Make spans cover more than just the starting token so the range spans all of its tokens
-    let span = tokens.peek_or_eof("range, ie: 0..10")?.span;
     let start = parse_condition(tokens)?;
     let tok = tokens.next_or_eof(".. or ..=")?;
     let inclusive = match tok.token_type {
@@ -165,6 +163,7 @@ fn parse_range(tokens: &mut Parser) -> Result<Range, ParseError> {
         _ => return Err(expected(".. or ..=", tok)),
     };
     let end = parse_condition(tokens)?;
+    let span = start.span.to(end.span);
     Ok(Range::new(start, end, inclusive, span))
 }
 

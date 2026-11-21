@@ -15,6 +15,7 @@ use crate::{
 pub struct Parser {
     tokens: VecDeque<LexerToken>,
     eof: Span,
+    last: Span,
     depth: u32,
 }
 
@@ -55,8 +56,13 @@ impl Parser {
         Parser {
             tokens,
             eof,
+            last: eof,
             depth: 0,
         }
+    }
+
+    pub fn last_span(&self) -> Span {
+        self.last
     }
 
     pub fn descend(&mut self, span: Span) -> Result<(), ParseError> {
@@ -131,6 +137,8 @@ impl Iterator for Parser {
     type Item = LexerToken;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.tokens.pop_front()
+        let token = self.tokens.pop_front()?;
+        self.last = token.span;
+        Some(token)
     }
 }

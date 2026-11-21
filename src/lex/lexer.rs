@@ -2,7 +2,7 @@ use crate::{
     ast::{OPERATORS, OperatorType},
     error::At,
     lex::{LexError, LexErrorKind, LexerAtomType, LexerToken, Tokens, cursor::Cursor},
-    types::{NumberType, Span, Token},
+    types::{NumberType, Position, Span, Token},
 };
 
 pub fn lex(input: &str, file: u32) -> Result<Tokens, LexError> {
@@ -25,7 +25,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             chars: Cursor::new(input),
             file,
-            start: Span::new(file, 0, 0),
+            start: Span::new(file, Position::default()),
         }
     }
 
@@ -60,9 +60,9 @@ impl<'a> Lexer<'a> {
 
     fn number(&mut self) -> Result<NumberType, LexError> {
         let digits = self.chars.eat_while(|c| c.is_ascii_digit());
-        let n = digits
-            .parse::<u64>()
-            .map_err(|_| LexErrorKind::NumberTooLarge(digits.to_string()).at(self.start))?;
+        let n = digits.parse::<u64>().map_err(|_| {
+            LexErrorKind::NumberTooLarge(digits.to_string()).at(self.start.to(self.span()))
+        })?;
 
         // TODO: Parse as coercible for now, but may want to delegate out actual number type later
         // if we want to support 0u32 type syntax
@@ -132,7 +132,7 @@ impl Iterator for Lexer<'_> {
         self.start = self.span();
         Some(
             self.token(cur)
-                .map(|token| LexerToken::new(token, self.start)),
+                .map(|token| LexerToken::new(token, self.start.to(self.span()))),
         )
     }
 }
@@ -226,7 +226,7 @@ mod test {
         let cols: Vec<u32> = tokenize(r#""a\"b" + x"#)
             .unwrap()
             .into_iter()
-            .map(|token| token.span.col)
+            .map(|token| token.span.start.col)
             .collect();
         assert_eq!(cols, vec![0, 7, 9]);
     }
@@ -461,7 +461,7 @@ mod test {
         let lines: Vec<u32> = tokenize("a;\n\nb;\r\nc")
             .unwrap()
             .into_iter()
-            .map(|token| token.span.line)
+            .map(|token| token.span.start.line)
             .collect();
         assert_eq!(lines, vec![0, 0, 2, 2, 3]);
     }
@@ -471,7 +471,7 @@ mod test {
         let spans: Vec<(u32, u32)> = tokenize("\"a\nb\n\" x;")
             .unwrap()
             .into_iter()
-            .map(|token| (token.span.line, token.span.col))
+            .map(|token| (token.span.start.line, token.span.start.col))
             .collect();
         assert_eq!(spans, vec![(0, 0), (2, 2), (2, 3)]);
     }
@@ -481,7 +481,7 @@ mod test {
         let spans: Vec<(u32, u32)> = tokenize("let x = 10;\n  foo(\"hi\");")
             .unwrap()
             .into_iter()
-            .map(|token| (token.span.line, token.span.col))
+            .map(|token| (token.span.start.line, token.span.start.col))
             .collect();
         assert_eq!(
             spans,
@@ -551,7 +551,7 @@ mod test {
         let cols: Vec<u32> = tokenize(r"'a' + '\n'")
             .unwrap()
             .into_iter()
-            .map(|token| token.span.col)
+            .map(|token| token.span.start.col)
             .collect();
         assert_eq!(cols, vec![0, 4, 6]);
     }

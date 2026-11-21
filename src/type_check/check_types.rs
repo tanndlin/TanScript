@@ -1038,7 +1038,10 @@ mod test {
         let source = "struct N<T> { v: T, } struct B { c: *N<Missing>, }";
         let error = check(source).unwrap_err();
         assert!(matches!(&error.kind, TypeCheckErrorKind::UnknownType(name) if name == "Missing"));
-        assert_eq!(error.span.col as usize, source.find("Missing").unwrap());
+        assert_eq!(
+            error.span.start.col as usize,
+            source.find("Missing").unwrap()
+        );
     }
 
     #[test]
