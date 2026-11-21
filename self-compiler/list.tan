@@ -29,7 +29,7 @@ def linked_list_to_list<T>(node: *Node<T>): *List<T> {
     let list: *List<T> = malloc(sizeof(List<T>));
     list->arr = malloc(length * sizeof(T));
     list->length = length;
-    for (let i: u32 = 0; i < length; i++) {
+    for i in 0..length {
         list->arr[i] = node->value;
         node = node->next;
     }

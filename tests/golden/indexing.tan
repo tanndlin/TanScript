@@ -1,7 +1,7 @@
 let nums: *u64 = malloc(10 * sizeof(u64));
 
 
-for (let i = 0; i < 10; i++) {
+for i in 0..10 {
     let n = i + 1;
     if i == 0 {
         nums[i] = 1;

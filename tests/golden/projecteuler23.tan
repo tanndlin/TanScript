@@ -2,14 +2,14 @@ use projecteuler21::{sumOfDivisors};
 
 let abundants: *bool = malloc(28123 + 1);
 abundants[0] = false;
-for(let i = 1; i <= 28123; i++) {
+for i in 1..=28123 {
     abundants[i] = sumOfDivisors(i) > i;
 }
 
 let sum = 0;
-for(let i = 1; i <= 28123; i++) {
+for i in 1..=28123 {
     let found = false;
-    for(let a = 1; a <= i / 2; a++) {
+    for a in 1..=i / 2 {
         if abundants[a] && abundants[i - a] {
             found = true;
             break;

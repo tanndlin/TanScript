@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     ast::{AtomType, BinaryOp, PostfixOp, UnaryOp},
     type_check::Type,
-    types::Span,
+    types::{NumberType, Span},
 };
 
 #[derive(Debug, Clone)]
@@ -136,5 +136,14 @@ impl fmt::Display for ExpressionKind {
                 variant_name,
             } => write!(f, "{enum_name}::{variant_name}"),
         }
+    }
+}
+
+impl From<(u64, Span)> for Expression {
+    fn from((n, span): (u64, Span)) -> Self {
+        Expression::new(
+            ExpressionKind::Atom(AtomType::Number(NumberType::Coercible(n))),
+            span,
+        )
     }
 }

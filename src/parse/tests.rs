@@ -315,8 +315,18 @@ fn parse_while_loop() {
 #[test]
 fn parse_for_loop() {
     integration_test!(
-        "for (let i = 0; i < 10; i++) { a = a + i; }",
-        "for (let i = 0;(< i 10);(++ i)) {
+        "for i in 0..10 { a = a + i; }",
+        "for (let i = 0;(< i 10);i = (+ i 1)) {
+a = (+ a i)
+}"
+    );
+}
+
+#[test]
+fn parse_inclusive_range_for_loop() {
+    integration_test!(
+        "for i in -1..=10 { a = a + i; }",
+        "for (let i = (- 1);(<= i 10);i = (+ i 1)) {
 a = (+ a i)
 }"
     );

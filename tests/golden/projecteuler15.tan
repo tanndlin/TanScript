@@ -1,17 +1,17 @@
 let N = 21;
 
 let ways: **u64 = malloc(N * sizeof(*u64));
-for(let i = 0; i < N; i++) {
+for i in 0..N {
     ways[i] = malloc(N * sizeof(u64));
 
-    for(let j = 0; j < N; j++) {
+    for j in 0..N {
         ways[i][j] = 0;
     }
 }
 
 ways[0][0] = 1;
-for(let i = 0; i < N; i++) {
-    for(let j = 0; j < N; j++) {
+for i in 0..N {
+    for j in 0..N {
         if i > 0 {
             ways[i][j] += ways[i-1][j];
         }

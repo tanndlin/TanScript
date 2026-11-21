@@ -637,22 +637,53 @@ mod test {
 
     #[test]
     fn shadowed_declaration_keeps_its_own_type() {
-        let program =
-            checked("let i: bool = true; for (let i = 0; i < 10; i++) { let j: i32 = i; }");
+        assert_eq!(
+            for_loop_variable_type("let i: bool = true; for i in 0..10 { let j: i32 = i; }"),
+            Some(Type::Int(IntType::I32))
+        );
+    }
 
-        let StatementOrExpression::Statement(statement) = &program.block.children[1] else {
-            panic!("expected a statement");
-        };
-        let Statement::ForLoop(for_loop) = statement.as_ref() else {
-            panic!("expected a for loop");
-        };
+    #[test]
+    fn range_variable_narrows_to_end_bound_type() {
+        assert_eq!(
+            for_loop_variable_type("let h: i64 = 3; for i in 0..h { }"),
+            Some(Type::Int(IntType::I64))
+        );
+        assert_eq!(
+            for_loop_variable_type("for i in 0..10 as i32 { }"),
+            Some(Type::Int(IntType::I32))
+        );
+    }
+
+    #[test]
+    fn range_variable_keeps_explicit_start_type() {
+        assert_eq!(
+            for_loop_variable_type("for i in 0 as u8..10 as i64 { }"),
+            Some(Type::Int(IntType::U8))
+        );
+    }
+
+    fn for_loop_variable_type(source: &str) -> Option<Type> {
+        let program = checked(source);
+        let for_loop = program
+            .block
+            .children
+            .iter()
+            .find_map(|child| match child {
+                StatementOrExpression::Statement(statement) => match statement.as_ref() {
+                    Statement::ForLoop(for_loop) => Some(for_loop),
+                    _ => None,
+                },
+                StatementOrExpression::Expression(_) => None,
+            })
+            .expect("expected a for loop");
         let StatementOrExpression::Statement(init) = &for_loop.init else {
             panic!("expected a statement");
         };
         let Statement::Declaration(declaration) = init.as_ref() else {
             panic!("expected a declaration");
         };
-        assert_eq!(declaration.dtype, Some(Type::Int(IntType::I32)));
+        declaration.dtype.clone()
     }
 
     #[test]
@@ -782,6 +813,23 @@ mod test {
         expect_err!(
             "def f () { } let a: u32 = f();",
             TypeCheckErrorKind::TypeMismatch { ref got, .. } if **got == Type::Unit
+        );
+    }
+
+    #[test]
+    fn supports_expression_range_bounds() -> Result<(), TypeCheckError> {
+        check("let k: u32 = 3; for i in -k..=k * 2 { }")
+    }
+
+    #[test]
+    fn type_error_for_non_number_range_bounds() {
+        expect_err!(
+            "for i in true..10 { }",
+            TypeCheckErrorKind::TypeMismatch { ref got, .. } if **got == Type::Boolean
+        );
+        expect_err!(
+            "for i in 0..'a' { }",
+            TypeCheckErrorKind::TypeMismatch { ref got, .. } if **got == Type::Char
         );
     }
 

@@ -10,7 +10,9 @@ use crate::{
     type_check::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, check_binary,
         check_types_expression, check_types_expression_expecting, expect_type, narrow_expression,
+        unify,
     },
+    types::IntType,
 };
 
 impl Block {
@@ -262,11 +264,36 @@ impl ForLoop {
         type_scope.push();
         let result = self.init.check_types(type_scope).and_then(|()| {
             check_types_expression(&mut self.condition, type_scope)?;
+            self.check_bounds(type_scope)?;
             self.update.check_types(type_scope)?;
             self.block.check_types(type_scope)
         });
         type_scope.pop();
         result
+    }
+
+    fn check_bounds(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let ExpressionKind::Binary(_, variable, end) = &self.condition.kind else {
+            return Ok(());
+        };
+
+        for (bound, span) in [(variable, self.condition.span), (end, end.span)] {
+            if *bound.etype != Type::Unknown && !bound.etype.is_number_type() {
+                return Err(TypeCheckErrorKind::mismatch(
+                    Type::Int(IntType::I64),
+                    (*bound.etype).clone(),
+                )
+                .at(span));
+            }
+        }
+
+        if let Some(t) =
+            unify(&variable.etype, &end.etype).or_else(|| unify(&end.etype, &variable.etype))
+        {
+            narrow_expression(variable, t, type_scope);
+        }
+
+        Ok(())
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {

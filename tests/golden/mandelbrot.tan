@@ -23,8 +23,8 @@ let width: i64 = 100;
 let height: i64 = 40;
 let maxIter: i64 = 60;
 
-for (let row: i64 = 0; row < height; row++) {
-    for (let col: i64 = 0; col < width; col++) {
+for row in 0..height {
+    for col in 0..width {
         let cr = col * 12288 / width - 8192;
         let ci = row * 9830 / height - 4915;
         let n = escapeTime(cr, ci, maxIter);

@@ -16,7 +16,7 @@ def color_name(c: Color): char {
 
 printf("%c %c %c\n", color_name(Color::Red), color_name(Color::Green), color_name(Color::Blue));
 
-for (let i = 0; i < 5; i++) {
+for i in 0..5 {
     match i {
         0 => printf("zero\n");
         1 => printf("one\n");

@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn discovers_externs_in_for_loop_header() {
         assert_eq!(
-            externs("for (let i = start(); i < 10; i = step(i)) {}"),
+            externs("for i in start()..step(10) {}"),
             vec!["start", "step"]
         );
     }

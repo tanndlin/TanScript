@@ -6,8 +6,10 @@ A statically typed, C-like language that compiles to x86-64 NASM assembly for Wi
 def numDivisors(n: u32): u32 {
     let total = 0;
 
-    for (let i = 1; i * i <= n; i++) {
+    let i = 1;
+    while i * i <= n {
         if n % i != 0 {
+            i++;
             continue;
         }
 
@@ -16,6 +18,7 @@ def numDivisors(n: u32): u32 {
         } else {
             total += 2;
         }
+        i++;
     }
 
     total
@@ -54,8 +57,8 @@ let width: i64 = 100;
 let height: i64 = 40;
 let maxIter: i64 = 60;
 
-for (let row: i64 = 0; row < height; row++) {
-    for (let col: i64 = 0; col < width; col++) {
+for row in 0..height {
+    for col in 0..width {
         let cr = col * 12288 / width - 8192;
         let ci = row * 9830 / height - 4915;
         let n = escapeTime(cr, ci, maxIter);

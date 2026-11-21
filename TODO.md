@@ -20,3 +20,4 @@
 - Mangle function labels (prefix or suffix) so functions named like NASM mnemonics can't break assembly
 - recursive generic struct should require generic type on same type field
 - Generic instance names are built from the function name and concrete types only, so two different shadowing generics called with the same types (e.g. two `g<T>` templates both called with `u8`) share one cached `g__u8` instance and clash at codegen
+- Evaluate a `for` range's end bound once instead of every iteration: it's desugared into the loop condition, so `for i in 0..f()` calls `f` on every pass

@@ -1,9 +1,9 @@
 use math::{isPandigital, numDigits, pow};
 
 let max = 0;
-for(let b = 1; b < 10000; b++) {
+for b in 1..10000 {
     let sum: u64 = 0;
-    for(let n = 1; n <= 9; n++) {
+    for n in 1..=9 {
         let product = b * n;
         let length = numDigits(product);
 

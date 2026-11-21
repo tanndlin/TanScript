@@ -57,6 +57,8 @@ operators! {
     Reference => "&",
     Cast => "as",
     FatArrow => "=>",
+    Range => "..",
+    RangeInclusive => "..=",
 }
 
 impl fmt::Display for OperatorType {

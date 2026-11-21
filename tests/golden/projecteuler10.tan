@@ -1,8 +1,10 @@
 def isPrime(n: u32, primes: *u32, numPrimes: u32): bool {
-    for(let i = 0; i < numPrimes && primes[i] * primes[i] <= n; i++) {
+    let i = 0;
+    while i < numPrimes && primes[i] * primes[i] <= n {
         if n % primes[i] == 0 {
             return false;
         }
+        i++;
     }
 
     true
@@ -20,16 +22,18 @@ let primes = PrimeList {
 primes.arr[0] = 2;
 primes.arr[1] = 3;
 
-for(let n = 5; n < 2000000; n += 2) {
+let n = 5;
+while n < 2000000 {
     if isPrime(n, primes.arr, primes.length) {
         primes.arr[primes.length] = n;
         primes.length++;
     }
+    n += 2;
 }
 
 
 let sum: u64 = 0;
-for(let i = 0; i < primes.length; i++) {
+for i in 0..primes.length {
     sum += primes.arr[i];
 }
 

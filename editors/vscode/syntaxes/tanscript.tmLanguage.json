@@ -58,7 +58,7 @@
     },
     "keywords": {
       "patterns": [
-        { "name": "keyword.control.tan", "match": "\\b(if|else|while|for|match|return|break|continue)\\b" },
+        { "name": "keyword.control.tan", "match": "\\b(if|else|while|for|in|match|return|break|continue)\\b" },
         { "name": "keyword.control.import.tan", "match": "\\buse\\b" },
         { "name": "keyword.control.extern.tan", "match": "\\bextern\\b" },
         { "name": "storage.type.tan", "match": "\\b(let|def|struct|enum)\\b" },
@@ -104,7 +104,7 @@
     },
     "operators": {
       "name": "keyword.operator.tan",
-      "match": "\\+\\+|--|[-+*/%]=?|==|!=|<=|>=|&&|\\|\\||[<>=!&]"
+      "match": "\\.\\.=?|\\+\\+|--|[-+*/%]=?|==|!=|<=|>=|&&|\\|\\||[<>=!&]"
     }
   }
 }

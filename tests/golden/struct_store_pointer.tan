@@ -15,7 +15,7 @@ tokens[1] = Token { kind: 2, data: 200 };
 tokens[2].kind = 3;
 tokens[2].data = 300;
 
-for (let i = 0; i < 3; i++) {
+for i in 0..3 {
     printf("%d %llu\n", tokens[i].kind, tokens[i].data);
 }
 

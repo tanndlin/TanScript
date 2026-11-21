@@ -2,8 +2,8 @@ use math::{isPalindrome};
 
 let max = 0;
 
-for(let a = 100; a <= 999; a++) {
-    for(let b = a; b <= 999; b++) {
+for a in 100..=999 {
+    for b in a..=999 {
         let p = a * b;
         if isPalindrome(p) && p > max {
             max = p;

@@ -14,7 +14,7 @@ def get_identifier(lexer: *Lexer): *char {
     }
 
     let ident: *char = calloc(lexer->index - start + 1, 1);
-    for(let i = start; i < lexer->index; i++) {
+    for i in start..lexer->index {
         ident[i - start] = lexer->chars[i];
     }
 
