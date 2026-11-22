@@ -6,7 +6,7 @@ use crate::{
     error::At,
     lex::LexerAtomType,
     parse::{
-        ParseError, ParseErrorKind, Parser, expected, expected_at, parse_statement::parse_type,
+        expected, expected_at, parse_statement::parse_type, ParseError, ParseErrorKind, Parser,
     },
     types::{Span, Token},
 };
