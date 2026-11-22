@@ -2,11 +2,11 @@ use std::{rc::Rc, str::FromStr};
 
 use crate::{
     ast::{
-        Arg, AssignOp, Assignment, AtomType, BinaryOp, Block, BreakStatement, Case,
-        ContinueStatement, Declaration, EnumDefinition, Expression, ExpressionKind,
-        ExternDeclaration, ForLoop, FunctionDefinition, IfStatement, Import, ImportName,
-        MatchStatement, OperatorType, Range, ReturnStatement, Signature, Statement,
-        StatementOrExpression, StructDefinition, StructField, WhileLoop,
+        Arg, AssignOp, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement,
+        Declaration, EnumDefinition, Expression, ExpressionKind, ExternDeclaration, ForLoop,
+        FunctionDefinition, IfStatement, Import, ImportName, MatchStatement, OperatorType, Range,
+        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition,
+        StructField, WhileLoop,
     },
     lex::LexerAtomType,
     parse::{
@@ -100,56 +100,13 @@ fn parse_for_loop(tokens: &mut Parser) -> Result<ForLoop, ParseError> {
     };
     tokens.expect("in")?;
     let range = parse_range(tokens)?;
-
-    // Auto-assign new variable, allowing for shadowing
-    let looping_var_expr = Expression::new(
-        ExpressionKind::Atom(AtomType::Identifier(ident)),
-        ident_tok.span,
-    );
-
-    let init = Statement::Declaration(Declaration {
-        assign: Assignment {
-            lhs: looping_var_expr.clone(),
-            op: AssignOp::Assign,
-            expression: range.start,
-        },
-        dtype: None,
-        binding: None,
-    })
-    .into();
-
-    let condition = Expression::new(
-        ExpressionKind::Binary(
-            if range.inclusive {
-                BinaryOp::LessOrEqual
-            } else {
-                BinaryOp::LessThan
-            },
-            Box::new(looping_var_expr.clone()),
-            Box::new(range.end),
-        ),
-        range.span,
-    );
-
-    let update = Statement::from(Assignment {
-        lhs: looping_var_expr.clone(),
-        op: AssignOp::Assign,
-        expression: Expression::new(
-            ExpressionKind::Binary(
-                BinaryOp::Add,
-                Box::new(looping_var_expr),
-                Box::new((1, range.span).into()),
-            ),
-            range.span,
-        ),
-    })
-    .into();
-
     let block = parse_block(tokens)?;
     Ok(ForLoop {
-        init,
-        condition,
-        update,
+        ident,
+        span: ident_tok.span,
+        dtype: None,
+        binding: None,
+        range,
         block,
     })
 }

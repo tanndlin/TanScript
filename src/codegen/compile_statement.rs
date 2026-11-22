@@ -181,6 +181,9 @@ impl Declaration {
 }
 
 impl ForLoop {
+    const COUNTER: &str = "$counter";
+    const END: &str = "$end";
+
     pub fn compile(
         &self,
         compile_scope: &mut CompileScope,
@@ -198,10 +201,14 @@ impl ForLoop {
                 continue_label: continue_label.clone(),
             },
         );
-        let init = self.init.compile(&mut new_scope, register_handler)?;
+        let init = self.compile_bounds(&mut new_scope, register_handler)?;
 
         let condition = compile_jump_unless(
-            &self.condition,
+            &self.compare(if self.range.inclusive {
+                BinaryOp::LessOrEqual
+            } else {
+                BinaryOp::LessThan
+            }),
             &end_label,
             &mut new_scope,
             register_handler,
@@ -209,11 +216,11 @@ impl ForLoop {
 
         let block = self.block.compile(&mut new_scope, register_handler)?;
         let init_size = new_scope.stack_depth - compile_scope.stack_depth;
-        let update = self.update.compile(&mut new_scope, register_handler)?;
+        let update = self.compile_update(&end_label, &mut new_scope, register_handler)?;
 
         let mut instructions = vec![Instruction::comment(format!(
-            "for ({}; {}; {})",
-            self.init, self.condition, self.update
+            "for {} in {}",
+            self.ident, self.range
         ))];
         instructions.extend(init);
         instructions.push(Instruction::label(&start_label));
@@ -229,6 +236,92 @@ impl ForLoop {
             instructions.push(Instruction::add(Register::RSP, init_size));
         }
         Ok(instructions)
+    }
+
+    // 1. Allocates the looping variable
+    // 2. Compile range.start directly into it
+    // 3. Reserve the $end bound slot
+    // 4. Compile range.end there
+    // 5. Alias looping var ident to address of $counter
+    fn compile_bounds(
+        &self,
+        loop_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
+        let end_span = self.range.end.span;
+        let end_type = loop_scope
+            .expression_type(&self.range.end)
+            .at(end_span)?
+            .into_owned();
+
+        let mut instructions = vec![
+            loop_scope
+                .allocate_variable(Self::COUNTER.to_string(), dtype.clone())
+                .at(self.span)?,
+        ];
+        let counter = loop_scope.get_variable(Self::COUNTER).at(self.span)?;
+        instructions.extend(
+            self.range
+                .start
+                .compile(loop_scope, counter, register_handler)?,
+        );
+
+        instructions.push(
+            loop_scope
+                .allocate_variable(Self::END.to_string(), end_type)
+                .at(end_span)?,
+        );
+        let end = loop_scope.get_variable(Self::END).at(end_span)?;
+        instructions.extend(self.range.end.compile(loop_scope, end, register_handler)?);
+
+        loop_scope
+            .add_variable(self.ident.clone(), counter, dtype)
+            .at(self.span)?;
+        Ok(instructions)
+    }
+
+    fn compile_update(
+        &self,
+        end_label: &str,
+        loop_scope: &mut CompileScope,
+        register_handler: &mut RegisterHandler,
+    ) -> Result<Vec<Instruction>, CodegenError> {
+        let mut instructions = vec![];
+        if self.range.inclusive {
+            instructions.extend(compile_jump_unless(
+                &self.compare(BinaryOp::NotEqual),
+                end_label,
+                loop_scope,
+                register_handler,
+            )?);
+        }
+
+        let increment = Assignment {
+            lhs: Self::hidden_variable(Self::COUNTER, self.span),
+            op: AssignOp::Compound(BinaryOp::Add),
+            expression: (1, self.range.span).into(),
+        };
+        instructions.extend(increment.compile_uncommented(loop_scope, register_handler)?);
+        Ok(instructions)
+    }
+
+    fn compare(&self, op: BinaryOp) -> Expression {
+        Expression::new(
+            ExpressionKind::Binary(
+                op,
+                Box::new(Self::hidden_variable(Self::COUNTER, self.span)),
+                Box::new(Self::hidden_variable(Self::END, self.range.end.span)),
+            ),
+            self.range.span,
+        )
+    }
+
+    fn hidden_variable(name: &str, span: Span) -> Expression {
+        Expression::new(
+            ExpressionKind::Atom(AtomType::Identifier(name.to_string())),
+            span,
+        )
     }
 }
 

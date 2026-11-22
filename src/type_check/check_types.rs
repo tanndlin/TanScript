@@ -677,13 +677,7 @@ mod test {
                 StatementOrExpression::Expression(_) => None,
             })
             .expect("expected a for loop");
-        let StatementOrExpression::Statement(init) = &for_loop.init else {
-            panic!("expected a statement");
-        };
-        let Statement::Declaration(declaration) = init.as_ref() else {
-            panic!("expected a declaration");
-        };
-        declaration.dtype.clone()
+        for_loop.dtype.clone()
     }
 
     #[test]

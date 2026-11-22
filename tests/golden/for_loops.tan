@@ -1,0 +1,59 @@
+def bound(calls: *i64, n: i64): i64 {
+    *calls += 1;
+    return n;
+}
+
+let calls: i64 = 0;
+let total: i64 = 0;
+for i in 0..bound(&calls, 5) {
+    total += i;
+}
+printf("%d %d\n", total, calls);
+
+let count: i64 = 0;
+for b in 250 as u8..=255 as u8 {
+    count++;
+}
+printf("%d\n", count);
+
+let maxed: i64 = 0;
+for b in 0 as u8..=255 as u8 {
+    if b < 255 {
+        continue;
+    }
+    maxed++;
+}
+printf("%d\n", maxed);
+
+let i: i64 = 3;
+for i in 0..i {
+    printf("%d ", i);
+}
+printf("%d\n", i);
+
+for i in 5..=3 {
+    printf("never\n");
+}
+for i in 0..=0 {
+    printf("once\n");
+}
+
+let odds: i64 = 0;
+for i in 0..10 {
+    if i % 2 == 0 {
+        continue;
+    }
+    if i > 7 {
+        break;
+    }
+    odds += i;
+}
+printf("%d\n", odds);
+
+let grid: i64 = 0;
+for r in 0..3 {
+    for c in r..=3 {
+        grid += c;
+    }
+}
+printf("%d\n", grid);

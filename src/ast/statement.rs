@@ -49,15 +49,9 @@ impl Statement {
                 },
                 ..
             }) => vec![Child::Expression(lhs), Child::Expression(expression)],
-            Statement::ForLoop(ForLoop {
-                init,
-                condition,
-                update,
-                block,
-            }) => vec![
-                init.into(),
-                Child::Expression(condition),
-                update.into(),
+            Statement::ForLoop(ForLoop { range, block, .. }) => vec![
+                Child::Expression(&range.start),
+                Child::Expression(&range.end),
                 Child::Block(block),
             ],
             Statement::WhileLoop(WhileLoop { condition, block }) => {

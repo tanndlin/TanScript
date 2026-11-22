@@ -316,7 +316,7 @@ fn parse_while_loop() {
 fn parse_for_loop() {
     integration_test!(
         "for i in 0..10 { a = a + i; }",
-        "for (let i = 0;(< i 10);i = (+ i 1)) {
+        "for i in 0..10 {
 a = (+ a i)
 }"
     );
@@ -326,7 +326,7 @@ a = (+ a i)
 fn parse_inclusive_range_for_loop() {
     integration_test!(
         "for i in -1..=10 { a = a + i; }",
-        "for (let i = (- 1);(<= i 10);i = (+ i 1)) {
+        "for i in (- 1)..=10 {
 a = (+ a i)
 }"
     );
@@ -581,7 +581,7 @@ fn range_span_covers_every_range_token() {
     let Statement::ForLoop(for_loop) = statement.as_ref() else {
         panic!("expected a for loop");
     };
-    let span = for_loop.condition.span;
+    let span = for_loop.range.span;
     assert_eq!(
         (span.start, span.end),
         (Position::new(0, 9), Position::new(0, 20))

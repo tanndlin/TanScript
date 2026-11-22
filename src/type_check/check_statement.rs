@@ -261,43 +261,36 @@ impl Declaration {
 
 impl ForLoop {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
+        let start = check_types_expression(&mut self.range.start, type_scope)?.clone();
+        let end = check_types_expression(&mut self.range.end, type_scope)?.clone();
+
+        for (bound, span) in [(&start, self.range.start.span), (&end, self.range.end.span)] {
+            if *bound != Type::Unknown && !bound.is_number_type() {
+                return Err(
+                    TypeCheckErrorKind::mismatch(Type::Int(IntType::I64), bound.clone()).at(span),
+                );
+            }
+        }
+
+        let unified = unify(&start, &end)
+            .or_else(|| unify(&end, &start))
+            .cloned()
+            .ok_or_else(|| {
+                TypeCheckErrorKind::mismatch(start.clone(), end.clone()).at(self.range.end.span)
+            })?;
+
         type_scope.push();
-        let result = self.init.check_types(type_scope).and_then(|()| {
-            check_types_expression(&mut self.condition, type_scope)?;
-            self.check_bounds(type_scope)?;
-            self.update.check_types(type_scope)?;
-            self.block.check_types(type_scope)
-        });
+        self.binding = Some(type_scope.insert(self.ident.clone(), start));
+        type_scope.narrow(&self.ident, unified);
+        let result = self.block.check_types(type_scope);
         type_scope.pop();
         result
     }
 
-    fn check_bounds(&self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let ExpressionKind::Binary(_, variable, end) = &self.condition.kind else {
-            return Ok(());
-        };
-
-        for (bound, span) in [(variable, self.condition.span), (end, end.span)] {
-            if *bound.etype != Type::Unknown && !bound.etype.is_number_type() {
-                return Err(TypeCheckErrorKind::mismatch(
-                    Type::Int(IntType::I64),
-                    (*bound.etype).clone(),
-                )
-                .at(span));
-            }
-        }
-
-        if let Some(t) =
-            unify(&variable.etype, &end.etype).or_else(|| unify(&end.etype, &variable.etype))
-        {
-            narrow_expression(variable, t, type_scope);
-        }
-
-        Ok(())
-    }
-
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
-        self.init.resolve_types(type_scope);
+        if let Some(id) = self.binding {
+            self.dtype = Some(type_scope.binding(id).clone());
+        }
         self.block.resolve_types(type_scope);
     }
 }
