@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::codegen::{
-    CodegenErrorKind,
+    Codegen, CodegenErrorKind,
     address::{Address, Register},
     compile_call::NON_VOLATILE_REGISTERS,
     instruction::Instruction,
@@ -94,56 +94,6 @@ impl RegisterHandler {
         }
     }
 
-    pub fn lease_with_scope<E>(
-        &mut self,
-        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
-    ) -> Result<Vec<Instruction>, E> {
-        if let Ok(reg) = self.lease_register() {
-            let ret = function(self, reg);
-            self.release_register(reg);
-            return ret;
-        }
-
-        // Everything is leased, so borrow the first reserved register and save its value around
-        // the use. Holding it means nested code can't `request_register` it out from under us
-        let reg = self.reserved_registers[0];
-        let was_free = self.request_register(reg).is_ok();
-        let ret = function(self, reg)?;
-        if was_free {
-            self.release_register(reg);
-        }
-
-        let mut out = vec![Instruction::push(reg)];
-        out.extend(ret);
-        out.push(Instruction::pop(reg));
-        Ok(out)
-    }
-
-    /// Like `lease_with_scope`, but for a specific register. If it's already in use, its value is
-    /// saved around `function`, unless `dst` is that register: the caller wants it overwritten
-    pub fn request_with_scope<E>(
-        &mut self,
-        reg: Register,
-        dst: Address,
-        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
-    ) -> Result<Vec<Instruction>, E> {
-        if self.request_register(reg).is_ok() {
-            let ret = function(self, reg);
-            self.release_register(reg);
-            return ret;
-        }
-
-        let ret = function(self, reg)?;
-        if dst == Address::Register(reg) {
-            Ok(ret)
-        } else {
-            let mut out = vec![Instruction::push(reg)];
-            out.extend(ret);
-            out.push(Instruction::pop(reg));
-            Ok(out)
-        }
-    }
-
     pub fn add_data(&mut self, s: &str) -> String {
         let index = if let Some(index) = self.data.iter().position(|d| d == s) {
             index
@@ -202,6 +152,58 @@ impl RegisterHandler {
     }
 }
 
+impl Codegen {
+    pub fn lease_with_scope<E>(
+        &mut self,
+        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
+    ) -> Result<Vec<Instruction>, E> {
+        if let Ok(reg) = self.registers.lease_register() {
+            let ret = function(self, reg);
+            self.registers.release_register(reg);
+            return ret;
+        }
+
+        // Everything is leased, so borrow the first reserved register and save its value around
+        // the use. Holding it means nested code can't `request_register` it out from under us
+        let reg = self.registers.reserved_registers[0];
+        let was_free = self.registers.request_register(reg).is_ok();
+        let ret = function(self, reg)?;
+        if was_free {
+            self.registers.release_register(reg);
+        }
+
+        let mut out = vec![Instruction::push(reg)];
+        out.extend(ret);
+        out.push(Instruction::pop(reg));
+        Ok(out)
+    }
+
+    /// Like `lease_with_scope`, but for a specific register. If it's already in use, its value is
+    /// saved around `function`, unless `dst` is that register: the caller wants it overwritten
+    pub fn request_with_scope<E>(
+        &mut self,
+        reg: Register,
+        dst: Address,
+        function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
+    ) -> Result<Vec<Instruction>, E> {
+        if self.registers.request_register(reg).is_ok() {
+            let ret = function(self, reg);
+            self.registers.release_register(reg);
+            return ret;
+        }
+
+        let ret = function(self, reg)?;
+        if dst == Address::Register(reg) {
+            Ok(ret)
+        } else {
+            let mut out = vec![Instruction::push(reg)];
+            out.extend(ret);
+            out.push(Instruction::pop(reg));
+            Ok(out)
+        }
+    }
+}
+
 pub fn data_name(index: usize) -> String {
     format!("data_{index}")
 }
@@ -209,7 +211,7 @@ pub fn data_name(index: usize) -> String {
 #[cfg(test)]
 mod tests {
     use crate::codegen::{
-        address::Register, instruction::Instruction, register_handler::RegisterHandler,
+        Codegen, address::Register, instruction::Instruction, register_handler::RegisterHandler,
     };
 
     #[test]
@@ -242,21 +244,21 @@ mod tests {
     fn lease_with_scope_releases_on_error() {
         let mut rh = RegisterHandler::default();
         let before = exhaust(&mut rh).len();
-        let mut rh = RegisterHandler::default();
+        let mut codegen = Codegen::default();
 
-        let _ = rh.lease_with_scope(|_, _| Err("fail".to_string()));
-        assert_eq!(exhaust(&mut rh).len(), before);
+        let _ = codegen.lease_with_scope(|_, _| Err("fail".to_string()));
+        assert_eq!(exhaust(&mut codegen.registers).len(), before);
     }
 
     #[test]
     fn lease_with_scope_fallback_blocks_nested_request() {
-        let mut rh = RegisterHandler::default();
-        exhaust(&mut rh);
+        let mut codegen = Codegen::default();
+        exhaust(&mut codegen.registers);
 
-        let asm = rh
-            .lease_with_scope(|rh, reg| {
+        let asm = codegen
+            .lease_with_scope(|codegen, reg| {
                 assert_eq!(reg, Register::RAX);
-                assert!(rh.request_register(Register::RAX).is_err());
+                assert!(codegen.registers.request_register(Register::RAX).is_err());
                 Ok::<_, String>(vec![Instruction::mov(reg, 1)])
             })
             .unwrap();
@@ -268,6 +270,6 @@ mod tests {
                 Instruction::pop(Register::RAX),
             ]
         );
-        assert!(rh.request_register(Register::RAX).is_ok());
+        assert!(codegen.registers.request_register(Register::RAX).is_ok());
     }
 }

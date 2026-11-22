@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap, rc::Rc};
 use crate::{
     ast::{AtomType, EnumDefinition, Expression, ExpressionKind, StructDefinition, UnaryOp},
     codegen::{
-        CodegenErrorKind,
+        Codegen, CodegenErrorKind,
         address::{Address, Register},
         function_context::FunctionContext,
         instruction::Instruction,
@@ -17,8 +17,7 @@ pub const SLOT_SIZE: u32 = 8;
 
 #[allow(dead_code)]
 #[derive(Debug, Default)]
-pub struct CompileScope<'a> {
-    pub parent: Option<&'a CompileScope<'a>>,
+pub struct CompileScope {
     variables: HashMap<String, (Address, Type)>,
     structs: HashMap<String, Rc<StructDefinition>>,
     enums: HashMap<String, Rc<EnumDefinition>>,
@@ -30,54 +29,131 @@ pub struct CompileScope<'a> {
     pub stack_depth: u32,
 }
 
-impl<'a> CompileScope<'a> {
-    pub fn new_loop(parent: &'a CompileScope<'a>, loop_context: LoopContext) -> Self {
-        Self {
-            loop_context: Some(loop_context),
-            parent: Some(parent),
-            stack_depth: parent.stack_depth,
-            ..Default::default()
-        }
-    }
-
-    pub fn new_function(parent: &'a CompileScope<'a>, function_context: FunctionContext) -> Self {
-        Self {
-            function_context: Some(function_context),
-            stack_depth: 0,
-            parent: Some(parent),
-            ..Default::default()
-        }
-    }
-
-    pub fn new_block(parent: &'a CompileScope<'a>) -> Self {
-        Self {
-            parent: Some(parent),
-            stack_depth: parent.stack_depth,
-            ..Default::default()
-        }
-    }
-
+impl CompileScope {
     pub fn loop_context(&self) -> Option<&LoopContext> {
         self.loop_context.as_ref()
     }
 
+    pub fn add_variable(
+        &mut self,
+        name: String,
+        address: Address,
+        t: Type,
+    ) -> Result<(), CodegenErrorKind> {
+        if self.variables.contains_key(&name) {
+            return Err(CodegenErrorKind::AlreadyDeclared(name));
+        }
+
+        self.variables.insert(name, (address, t));
+        Ok(())
+    }
+
+    pub fn allocate_variable(
+        &mut self,
+        name: String,
+        t: Type,
+    ) -> Result<Instruction, CodegenErrorKind> {
+        let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
+        let address = Address::Stack(i32::try_from(self.stack_depth + size).unwrap());
+        self.add_variable(name, address, t)?;
+        self.stack_depth += size;
+        Ok(Instruction::sub(Register::RSP, size))
+    }
+
+    pub fn insert_struct(&mut self, def: Rc<StructDefinition>) {
+        self.structs.insert(def.name.clone(), def);
+    }
+
+    pub fn insert_enum(&mut self, def: Rc<EnumDefinition>) {
+        self.enums.insert(def.name.clone(), def);
+    }
+
+    pub fn insert_return_type(&mut self, name: String, return_type: Type) {
+        self.function_return_types.insert(name, return_type);
+    }
+}
+
+impl Codegen {
+    pub fn scope(&self) -> &CompileScope {
+        self.scopes
+            .last()
+            .expect("the global scope is never popped")
+    }
+
+    pub fn scope_mut(&mut self) -> &mut CompileScope {
+        self.scopes
+            .last_mut()
+            .expect("the global scope is never popped")
+    }
+
+    pub fn stack_depth(&self) -> u32 {
+        self.scope().stack_depth
+    }
+
+    pub fn with_block<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        let stack_depth = self.stack_depth();
+        self.with_scope(
+            CompileScope {
+                stack_depth,
+                ..Default::default()
+            },
+            f,
+        )
+    }
+
+    pub fn with_loop<T>(&mut self, loop_context: LoopContext, f: impl FnOnce(&mut Self) -> T) -> T {
+        let stack_depth = self.stack_depth();
+        self.with_scope(
+            CompileScope {
+                loop_context: Some(loop_context),
+                stack_depth,
+                ..Default::default()
+            },
+            f,
+        )
+    }
+
+    pub fn with_function<T>(
+        &mut self,
+        function_context: FunctionContext,
+        f: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        self.with_scope(
+            CompileScope {
+                function_context: Some(function_context),
+                ..Default::default()
+            },
+            f,
+        )
+    }
+
+    fn with_scope<T>(&mut self, scope: CompileScope, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.scopes.push(scope);
+        let result = f(self);
+        self.scopes.pop();
+        result
+    }
+
     pub fn function_context(&self) -> Option<&FunctionContext> {
-        self.function_context
-            .as_ref()
-            .or_else(|| self.parent?.function_context())
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.function_context.as_ref())
+    }
+
+    pub fn loop_scope(&self) -> Option<&CompileScope> {
+        self.scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.loop_context.is_some())
     }
 
     pub fn lookup(&self, name: &str) -> Result<&(Address, Type), CodegenErrorKind> {
-        if let Some(variable) = self.variables.get(name) {
-            return Ok(variable);
-        }
-
-        let parent = self
-            .parent
-            .as_ref()
-            .ok_or_else(|| CodegenErrorKind::UndeclaredVariable(name.to_string()))?;
-
-        parent.lookup(name)
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.variables.get(name))
+            .ok_or_else(|| CodegenErrorKind::UndeclaredVariable(name.to_string()))
     }
 
     pub fn get_variable(&self, name: &str) -> Result<Address, CodegenErrorKind> {
@@ -153,67 +229,24 @@ impl<'a> CompileScope<'a> {
         ))
     }
 
-    pub fn add_variable(
-        &mut self,
-        name: String,
-        address: Address,
-        t: Type,
-    ) -> Result<(), CodegenErrorKind> {
-        if self.variables.contains_key(&name) {
-            return Err(CodegenErrorKind::AlreadyDeclared(name));
-        }
-
-        self.variables.insert(name, (address, t));
-        Ok(())
-    }
-
-    pub fn allocate_variable(
-        &mut self,
-        name: String,
-        t: Type,
-    ) -> Result<Instruction, CodegenErrorKind> {
-        let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
-        let address = Address::Stack(i32::try_from(self.stack_depth + size).unwrap());
-        self.add_variable(name, address, t)?;
-        self.stack_depth += size;
-        Ok(Instruction::sub(Register::RSP, size))
-    }
-
-    pub fn loop_scope(&self) -> Option<&CompileScope<'a>> {
-        if self.loop_context.is_some() {
-            Some(self)
-        } else {
-            self.parent?.loop_scope()
-        }
-    }
-
-    pub fn insert_struct(&mut self, def: Rc<StructDefinition>) {
-        self.structs.insert(def.name.clone(), def);
-    }
-
-    pub fn insert_enum(&mut self, def: Rc<EnumDefinition>) {
-        self.enums.insert(def.name.clone(), def);
-    }
-
-    pub fn insert_return_type(&mut self, name: String, return_type: Type) {
-        self.function_return_types.insert(name, return_type);
-    }
-
     pub fn lookup_return_type(&self, name: &str) -> Option<&Type> {
-        self.function_return_types
-            .get(name)
-            .or_else(|| self.parent.and_then(|p| p.lookup_return_type(name)))
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.function_return_types.get(name))
     }
 
     pub fn lookup_enum(&self, name: &str) -> Option<&Rc<EnumDefinition>> {
-        self.enums
-            .get(name)
-            .or_else(|| self.parent.and_then(|p| p.lookup_enum(name)))
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.enums.get(name))
     }
 
     pub fn lookup_struct(&self, name: &str) -> Option<&Rc<StructDefinition>> {
-        self.structs
-            .get(name)
-            .or_else(|| self.parent.and_then(|p| p.lookup_struct(name)))
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.structs.get(name))
     }
 }

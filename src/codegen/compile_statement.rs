@@ -5,17 +5,16 @@ use crate::{
         MatchStatement, ReturnStatement, Statement, Walk, WhileLoop,
     },
     codegen::{
-        CodegenError, CodegenErrorKind,
+        Codegen, CodegenError, CodegenErrorKind,
         address::{Address, Register},
         compile::as_operand,
         compile_call::{NON_VOLATILE_REGISTERS, passed_by_pointer},
         compile_memory::{load_element, mem_copy, store_element, with_place_address},
         compile_operators::{compile_binary, compile_jump_unless},
-        compile_scope::{CompileScope, SLOT_SIZE},
+        compile_scope::SLOT_SIZE,
         function_context::FunctionContext,
         instruction::{Condition, Instruction, Operand},
         loop_context::LoopContext,
-        register_handler::RegisterHandler,
     },
     error::{At, ResultAt},
     type_check::Type,
@@ -23,30 +22,26 @@ use crate::{
 };
 
 impl Statement {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         match self {
-            Statement::Assignment(s) => s.compile(compile_scope, register_handler),
-            Statement::Declaration(s) => s.compile(compile_scope, register_handler),
-            Statement::ForLoop(s) => s.compile(compile_scope, register_handler),
+            Statement::Assignment(s) => s.compile(codegen),
+            Statement::Declaration(s) => s.compile(codegen),
+            Statement::ForLoop(s) => s.compile(codegen),
             Statement::ExternDeclaration(_) | Statement::FunctionDefinition(_) => Ok(vec![]),
             Statement::StructDefinition(def) => {
-                compile_scope.insert_struct(def.clone());
+                codegen.scope_mut().insert_struct(def.clone());
                 Ok(vec![])
             }
             Statement::EnumDefinition(def) => {
-                compile_scope.insert_enum(def.clone());
+                codegen.scope_mut().insert_enum(def.clone());
                 Ok(vec![])
             }
-            Statement::MatchStatement(s) => s.compile(compile_scope, register_handler),
-            Statement::IfStatement(s) => s.compile(compile_scope, register_handler),
-            Statement::Return(s) => s.compile(compile_scope, register_handler),
-            Statement::WhileLoop(s) => s.compile(compile_scope, register_handler),
-            Statement::Break(s) => s.compile(compile_scope),
-            Statement::Continue(s) => s.compile(compile_scope),
+            Statement::MatchStatement(s) => s.compile(codegen),
+            Statement::IfStatement(s) => s.compile(codegen),
+            Statement::Return(s) => s.compile(codegen),
+            Statement::WhileLoop(s) => s.compile(codegen),
+            Statement::Break(s) => s.compile(codegen),
+            Statement::Continue(s) => s.compile(codegen),
         }
     }
 }
@@ -55,60 +50,36 @@ impl Assignment {
     /// Compiles without the leading debug comment, for callers that print their own
     pub fn compile_uncommented(
         &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
+        codegen: &mut Codegen,
     ) -> Result<Vec<Instruction>, CodegenError> {
         match &self.lhs.kind {
             ExpressionKind::Atom(AtomType::Identifier(ident)) => {
-                let address = compile_scope.get_variable(ident).at(self.lhs.span)?;
+                let address = codegen.get_variable(ident).at(self.lhs.span)?;
                 match self.op {
-                    AssignOp::Assign => {
-                        self.expression
-                            .compile(compile_scope, address, register_handler)
+                    AssignOp::Assign => self.expression.compile(codegen, address),
+                    AssignOp::Compound(op) => {
+                        compile_binary(op, &self.lhs, &self.expression, codegen, address)
                     }
-                    AssignOp::Compound(op) => compile_binary(
-                        op,
-                        &self.lhs,
-                        &self.expression,
-                        compile_scope,
-                        address,
-                        register_handler,
-                    ),
                 }
             }
-            _ if let AssignOp::Compound(op) = self.op => {
-                self.compile_compound(op, compile_scope, register_handler)
-            }
-            _ => with_place_address(
-                &self.lhs,
-                compile_scope,
-                register_handler,
-                &mut |compile_scope, register_handler, address, t| {
-                    if let Type::Struct(_) = t {
-                        return self
-                            .expression
-                            .compile(compile_scope, address, register_handler);
-                    }
+            _ if let AssignOp::Compound(op) = self.op => self.compile_compound(op, codegen),
+            _ => with_place_address(&self.lhs, codegen, &mut |codegen, address, t| {
+                if let Type::Struct(_) = t {
+                    return self.expression.compile(codegen, address);
+                }
 
-                    register_handler.lease_with_scope(|register_handler, value_dst| {
-                        let mut instructions =
-                            self.expression
-                                .compile(compile_scope, value_dst, register_handler)?;
-                        instructions.push(store_element(t, address, value_dst));
-                        Ok(instructions)
-                    })
-                },
-            ),
+                codegen.lease_with_scope(|codegen, value_dst| {
+                    let mut instructions = self.expression.compile(codegen, value_dst)?;
+                    instructions.push(store_element(t, address, value_dst));
+                    Ok(instructions)
+                })
+            }),
         }
     }
 
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let mut instructions = vec![Instruction::comment(self.to_string())];
-        instructions.extend(self.compile_uncommented(compile_scope, register_handler)?);
+        instructions.extend(self.compile_uncommented(codegen)?);
         Ok(instructions)
     }
 
@@ -116,18 +87,14 @@ impl Assignment {
     fn compile_compound(
         &self,
         op: BinaryOp,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
+        codegen: &mut Codegen,
     ) -> Result<Vec<Instruction>, CodegenError> {
         const CURRENT: &str = "$compound";
-        with_place_address(
-            &self.lhs,
-            compile_scope,
-            register_handler,
-            &mut |compile_scope, register_handler, address, t| {
-                register_handler.lease_with_scope(|register_handler, value| {
-                    let mut scope = CompileScope::new_block(compile_scope);
-                    scope
+        with_place_address(&self.lhs, codegen, &mut |codegen, address, t| {
+            codegen.lease_with_scope(|codegen, value| {
+                codegen.with_block(|codegen| {
+                    codegen
+                        .scope_mut()
                         .add_variable(CURRENT.to_string(), value.into(), t.clone())
                         .at(self.lhs.span)?;
 
@@ -142,24 +109,19 @@ impl Assignment {
                         op,
                         &current,
                         &self.expression,
-                        &mut scope,
+                        codegen,
                         value.into(),
-                        register_handler,
                     )?);
                     instructions.push(store_element(t, address, value));
                     Ok(instructions)
                 })
-            },
-        )
+            })
+        })
     }
 }
 
 impl Declaration {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
             return Err(
                 CodegenErrorKind::InvalidAssignTarget(self.assign.lhs.to_string())
@@ -168,14 +130,12 @@ impl Declaration {
         };
 
         let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
-        let alloc = compile_scope
+        let alloc = codegen
+            .scope_mut()
             .allocate_variable(ident.clone(), dtype)
             .at(self.assign.lhs.span)?;
         let mut instructions = vec![Instruction::comment(self.to_string()), alloc];
-        instructions.extend(
-            self.assign
-                .compile_uncommented(compile_scope, register_handler)?,
-        );
+        instructions.extend(self.assign.compile_uncommented(codegen)?);
         Ok(instructions)
     }
 }
@@ -184,58 +144,53 @@ impl ForLoop {
     const COUNTER: &str = "$counter";
     const END: &str = "$end";
 
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
-        let unique_id = register_handler.get_unique_id();
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        let unique_id = codegen.registers.get_unique_id();
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
         let continue_label = format!("for_continue_{unique_id}");
 
-        let mut new_scope = CompileScope::new_loop(
-            compile_scope,
-            LoopContext {
-                break_label: end_label.clone(),
-                continue_label: continue_label.clone(),
-            },
-        );
-        let init = self.compile_bounds(&mut new_scope, register_handler)?;
+        let outer_depth = codegen.stack_depth();
+        let loop_context = LoopContext {
+            break_label: end_label.clone(),
+            continue_label: continue_label.clone(),
+        };
+        codegen.with_loop(loop_context, |codegen| {
+            let init = self.compile_bounds(codegen)?;
 
-        let condition = compile_jump_unless(
-            &self.compare(if self.range.inclusive {
-                BinaryOp::LessOrEqual
-            } else {
-                BinaryOp::LessThan
-            }),
-            &end_label,
-            &mut new_scope,
-            register_handler,
-        )?;
+            let condition = compile_jump_unless(
+                &self.compare(if self.range.inclusive {
+                    BinaryOp::LessOrEqual
+                } else {
+                    BinaryOp::LessThan
+                }),
+                &end_label,
+                codegen,
+            )?;
 
-        let block = self.block.compile(&mut new_scope, register_handler)?;
-        let init_size = new_scope.stack_depth - compile_scope.stack_depth;
-        let update = self.compile_update(&end_label, &mut new_scope, register_handler)?;
+            let block = self.block.compile(codegen)?;
+            let init_size = codegen.stack_depth() - outer_depth;
+            let update = self.compile_update(&end_label, codegen)?;
 
-        let mut instructions = vec![Instruction::comment(format!(
-            "for {} in {}",
-            self.ident, self.range
-        ))];
-        instructions.extend(init);
-        instructions.push(Instruction::label(&start_label));
-        instructions.extend(condition);
-        instructions.push(Instruction::comment("body"));
-        instructions.extend(block);
-        instructions.push(Instruction::label(continue_label));
-        instructions.push(Instruction::comment("update"));
-        instructions.extend(update);
-        instructions.push(Instruction::jmp(start_label));
-        instructions.push(Instruction::label(end_label));
-        if init_size > 0 {
-            instructions.push(Instruction::add(Register::RSP, init_size));
-        }
-        Ok(instructions)
+            let mut instructions = vec![Instruction::comment(format!(
+                "for {} in {}",
+                self.ident, self.range
+            ))];
+            instructions.extend(init);
+            instructions.push(Instruction::label(&start_label));
+            instructions.extend(condition);
+            instructions.push(Instruction::comment("body"));
+            instructions.extend(block);
+            instructions.push(Instruction::label(continue_label));
+            instructions.push(Instruction::comment("update"));
+            instructions.extend(update);
+            instructions.push(Instruction::jmp(start_label));
+            instructions.push(Instruction::label(end_label));
+            if init_size > 0 {
+                instructions.push(Instruction::add(Register::RSP, init_size));
+            }
+            Ok(instructions)
+        })
     }
 
     // 1. Allocates the looping variable
@@ -243,39 +198,34 @@ impl ForLoop {
     // 3. Reserve the $end bound slot
     // 4. Compile range.end there
     // 5. Alias looping var ident to address of $counter
-    fn compile_bounds(
-        &self,
-        loop_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    fn compile_bounds(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
         let end_span = self.range.end.span;
-        let end_type = loop_scope
+        let end_type = codegen
             .expression_type(&self.range.end)
             .at(end_span)?
             .into_owned();
 
         let mut instructions = vec![
-            loop_scope
+            codegen
+                .scope_mut()
                 .allocate_variable(Self::COUNTER.to_string(), dtype.clone())
                 .at(self.span)?,
         ];
-        let counter = loop_scope.get_variable(Self::COUNTER).at(self.span)?;
-        instructions.extend(
-            self.range
-                .start
-                .compile(loop_scope, counter, register_handler)?,
-        );
+        let counter = codegen.get_variable(Self::COUNTER).at(self.span)?;
+        instructions.extend(self.range.start.compile(codegen, counter)?);
 
         instructions.push(
-            loop_scope
+            codegen
+                .scope_mut()
                 .allocate_variable(Self::END.to_string(), end_type)
                 .at(end_span)?,
         );
-        let end = loop_scope.get_variable(Self::END).at(end_span)?;
-        instructions.extend(self.range.end.compile(loop_scope, end, register_handler)?);
+        let end = codegen.get_variable(Self::END).at(end_span)?;
+        instructions.extend(self.range.end.compile(codegen, end)?);
 
-        loop_scope
+        codegen
+            .scope_mut()
             .add_variable(self.ident.clone(), counter, dtype)
             .at(self.span)?;
         Ok(instructions)
@@ -284,16 +234,14 @@ impl ForLoop {
     fn compile_update(
         &self,
         end_label: &str,
-        loop_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
+        codegen: &mut Codegen,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let mut instructions = vec![];
         if self.range.inclusive {
             instructions.extend(compile_jump_unless(
                 &self.compare(BinaryOp::NotEqual),
                 end_label,
-                loop_scope,
-                register_handler,
+                codegen,
             )?);
         }
 
@@ -302,7 +250,7 @@ impl ForLoop {
             op: AssignOp::Compound(BinaryOp::Add),
             expression: (1, self.range.span).into(),
         };
-        instructions.extend(increment.compile_uncommented(loop_scope, register_handler)?);
+        instructions.extend(increment.compile_uncommented(codegen)?);
         Ok(instructions)
     }
 
@@ -330,20 +278,13 @@ impl FunctionDefinition {
         !self.body.calls_function()
     }
 
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let is_leaf_function = self.is_leaf_function();
         let epilogue_label = format!("{}_epilogue", self.signature.name);
-        let mut scope = CompileScope::new_function(compile_scope, FunctionContext::from(self));
 
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
-        let outer_touched = std::mem::take(&mut register_handler.touched);
-        let mut arg_homes = vec![];
-        let mut struct_copies = vec![];
+        let outer_touched = std::mem::take(&mut codegen.registers.touched);
 
         let returns_odd_struct = passed_by_pointer(&self.signature.return_type);
 
@@ -357,52 +298,60 @@ impl FunctionDefinition {
             )
         });
 
-        for (i, arg) in hidden_return.iter().chain(&self.signature.args).enumerate() {
-            // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
-            // and any further args were placed directly after it by the caller
-            let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
-            let new_address = Address::Stack(-offset);
+        let compiled = codegen.with_function(FunctionContext::from(self), |codegen| {
+            let mut arg_homes = vec![];
+            let mut struct_copies = vec![];
 
-            // Move register args to their home in the shadow space
-            if let Some(reg) = arg_registers.get(i) {
-                arg_homes.push(Instruction::mov(new_address, *reg));
+            for (i, arg) in hidden_return.iter().chain(&self.signature.args).enumerate() {
+                // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
+                // and any further args were placed directly after it by the caller
+                let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
+                let new_address = Address::Stack(-offset);
+
+                // Move register args to their home in the shadow space
+                if let Some(reg) = arg_registers.get(i) {
+                    arg_homes.push(Instruction::mov(new_address, *reg));
+                }
+
+                let struct_def = match &arg.atype {
+                    Type::Struct(struct_def) if passed_by_pointer(&arg.atype) => struct_def,
+                    _ => {
+                        // Update its location in the scope
+                        codegen
+                            .scope_mut()
+                            .add_variable(arg.name.clone(), new_address, arg.atype.clone())
+                            .at(arg.span)?;
+                        continue;
+                    }
+                };
+
+                struct_copies.push(
+                    codegen
+                        .scope_mut()
+                        .allocate_variable(arg.name.clone(), arg.atype.clone())
+                        .at(arg.span)?,
+                );
+                let local = codegen.get_variable(&arg.name).at(arg.span)?;
+                struct_copies.extend(codegen.lease_with_scope(|codegen, ptr| {
+                    let mut copy = vec![Instruction::mov(ptr, new_address)];
+                    copy.extend(mem_copy(
+                        struct_def,
+                        local,
+                        Address::Deref {
+                            base: ptr,
+                            offset: 0,
+                        },
+                        codegen,
+                    )?);
+                    Ok::<_, CodegenError>(copy)
+                })?);
             }
 
-            let struct_def = match &arg.atype {
-                Type::Struct(struct_def) if passed_by_pointer(&arg.atype) => struct_def,
-                _ => {
-                    // Update its location in the scope
-                    scope
-                        .add_variable(arg.name.clone(), new_address, arg.atype.clone())
-                        .at(arg.span)?;
-                    continue;
-                }
-            };
-
-            struct_copies.push(
-                scope
-                    .allocate_variable(arg.name.clone(), arg.atype.clone())
-                    .at(arg.span)?,
-            );
-            let local = scope.get_variable(&arg.name).at(arg.span)?;
-            struct_copies.extend(register_handler.lease_with_scope(|register_handler, ptr| {
-                let mut copy = vec![Instruction::mov(ptr, new_address)];
-                copy.extend(mem_copy(
-                    struct_def,
-                    local,
-                    Address::Deref {
-                        base: ptr,
-                        offset: 0,
-                    },
-                    register_handler,
-                )?);
-                Ok::<_, CodegenError>(copy)
-            })?);
-        }
-
-        let body = self.body.compile(&mut scope, register_handler);
-        let touched = std::mem::replace(&mut register_handler.touched, outer_touched);
-        let body = body?; // ? after the replace to preserve incase we implement multiple errors
+            let body = self.body.compile(codegen)?;
+            Ok::<_, CodegenError>((arg_homes, struct_copies, body))
+        });
+        let touched = std::mem::replace(&mut codegen.registers.touched, outer_touched);
+        let (arg_homes, struct_copies, body) = compiled?; // ? after the replace to preserve incase we implement multiple errors
 
         let save_slots = NON_VOLATILE_REGISTERS
             .into_iter()
@@ -542,12 +491,8 @@ fn to_rsp_frame(instructions: Vec<Instruction>) -> (Vec<Instruction>, u32) {
 }
 
 impl IfStatement {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
-        let id = register_handler.get_unique_id();
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        let id = codegen.registers.get_unique_id();
         let else_label = format!("else{id}");
         let end_label = format!("endif{id}");
 
@@ -557,26 +502,15 @@ impl IfStatement {
         };
 
         let mut instructions = vec![Instruction::comment(format!("if {}", self.condition))];
-        instructions.extend(compile_jump_unless(
-            &self.condition,
-            false_target,
-            compile_scope,
-            register_handler,
-        )?);
+        instructions.extend(compile_jump_unless(&self.condition, false_target, codegen)?);
 
         instructions.push(Instruction::comment("then"));
-        instructions.extend(self.block.compile(
-            &mut CompileScope::new_block(compile_scope),
-            register_handler,
-        )?);
+        instructions.extend(self.block.compile(codegen)?);
 
         if let Some(else_block) = &self.else_block {
             instructions.push(Instruction::jmp(end_label.clone()));
             instructions.push(Instruction::label(else_label));
-            instructions.extend(else_block.compile(
-                &mut CompileScope::new_block(compile_scope),
-                register_handler,
-            )?);
+            instructions.extend(else_block.compile(codegen)?);
         }
 
         instructions.push(Instruction::label(end_label));
@@ -585,38 +519,31 @@ impl IfStatement {
 }
 
 impl MatchStatement {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
-        let end_label = format!("endmatch{}", register_handler.get_unique_id());
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        let end_label = format!("endmatch{}", codegen.registers.get_unique_id());
         let case_labels: Vec<String> = self
             .cases
             .iter()
-            .map(|_| format!("match_case{}", register_handler.get_unique_id()))
+            .map(|_| format!("match_case{}", codegen.registers.get_unique_id()))
             .collect();
 
         // TODO: This is a valid program getting rejected
         // Use lease register because it returns OutOfRegisters
         // RegisterHander::lease_with_scope would attemp push r {instructions} pop r
         // but {instructions} would jump past the pop
-        let lhs_reg = register_handler
+        let lhs_reg = codegen
+            .registers
             .lease_register()
             .map_err(|e| e.at(self.span))?;
-        let chain =
-            self.compile_compare_chain(compile_scope, register_handler, lhs_reg, &case_labels);
-        register_handler.release_register(lhs_reg);
+        let chain = self.compile_compare_chain(codegen, lhs_reg, &case_labels);
+        codegen.registers.release_register(lhs_reg);
 
         let mut instructions = vec![Instruction::comment(format!("match {}", self.lhs))];
         instructions.extend(chain?);
 
         if let Some(default) = &self.default {
             instructions.push(Instruction::comment("Case: _".to_string()));
-            instructions.extend(default.compile(
-                &mut CompileScope::new_block(compile_scope),
-                register_handler,
-            )?);
+            instructions.extend(default.compile(codegen)?);
         }
         if !self.cases.is_empty() {
             instructions.push(Instruction::jmp(end_label.clone()));
@@ -625,10 +552,7 @@ impl MatchStatement {
         for (i, (case, label)) in self.cases.iter().zip(&case_labels).enumerate() {
             instructions.push(Instruction::label(label.clone()));
             instructions.push(Instruction::comment(format!("Case: {}", case.rhs)));
-            instructions.extend(case.block.compile(
-                &mut CompileScope::new_block(compile_scope),
-                register_handler,
-            )?);
+            instructions.extend(case.block.compile(codegen)?);
             if i + 1 < self.cases.len() {
                 instructions.push(Instruction::jmp(end_label.clone()));
             }
@@ -641,24 +565,20 @@ impl MatchStatement {
     // For match statement
     fn compile_compare_chain(
         &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
+        codegen: &mut Codegen,
         lhs_reg: Register,
         case_labels: &[String],
     ) -> Result<Vec<Instruction>, CodegenError> {
-        let mut instructions = self.lhs.compile(compile_scope, lhs_reg, register_handler)?;
+        let mut instructions = self.lhs.compile(codegen, lhs_reg)?;
 
         for (case, label) in self.cases.iter().zip(case_labels) {
-            match as_operand(&case.rhs, compile_scope) {
+            match as_operand(&case.rhs, codegen) {
                 Some(rhs) => instructions.push(Instruction::cmp(lhs_reg, rhs)),
-                None => instructions.extend(register_handler.lease_with_scope(
-                    |register_handler, rhs_reg| {
-                        let mut instructions =
-                            case.rhs.compile(compile_scope, rhs_reg, register_handler)?;
-                        instructions.push(Instruction::cmp(lhs_reg, rhs_reg));
-                        Ok(instructions)
-                    },
-                )?),
+                None => instructions.extend(codegen.lease_with_scope(|codegen, rhs_reg| {
+                    let mut instructions = case.rhs.compile(codegen, rhs_reg)?;
+                    instructions.push(Instruction::cmp(lhs_reg, rhs_reg));
+                    Ok(instructions)
+                })?),
             }
             instructions.push(Instruction::jcc(Condition::Equal, label.clone()));
         }
@@ -668,44 +588,40 @@ impl MatchStatement {
 }
 
 impl ReturnStatement {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let mut instructions = vec![Instruction::comment(self.to_string())];
-        let function = &compile_scope
+        let function = codegen
             .function_context()
             .ok_or_else(|| CodegenErrorKind::OutsideFunction.at(self.span))?;
         let epilogue_label = function.epilogue_label.clone();
+        let returns_by_pointer = passed_by_pointer(&function.return_type);
 
         if let Some(expr) = &self.expr {
             // Special case for returning structs that dont align to register,
             // need to move it into the address pointed to by rcx
 
-            if passed_by_pointer(&function.return_type) {
-                let address_of_pointer = compile_scope.get_variable("return").at(self.span)?;
-                instructions.extend(register_handler.request_with_scope(
+            if returns_by_pointer {
+                let address_of_pointer = codegen.get_variable("return").at(self.span)?;
+                instructions.extend(codegen.request_with_scope(
                     Register::RAX,
                     Register::RAX.into(),
-                    |register_handler, rax| {
+                    |codegen, rax| {
                         let mut instructions = vec![Instruction::mov(rax, address_of_pointer)];
                         instructions.extend(expr.compile(
-                            compile_scope,
+                            codegen,
                             Address::Deref {
                                 base: rax,
                                 offset: 0,
                             },
-                            register_handler,
                         )?);
                         Ok(instructions)
                     },
                 )?);
             } else {
-                instructions.extend(register_handler.request_with_scope(
+                instructions.extend(codegen.request_with_scope(
                     Register::RAX,
                     Register::RAX.into(),
-                    |register_handler, rax| expr.compile(compile_scope, rax, register_handler),
+                    |codegen, rax| expr.compile(codegen, rax),
                 )?);
             }
         }
@@ -716,26 +632,18 @@ impl ReturnStatement {
 }
 
 impl WhileLoop {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
-        let unique_id = register_handler.get_unique_id();
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        let unique_id = codegen.registers.get_unique_id();
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
 
-        let condition =
-            compile_jump_unless(&self.condition, &end_label, compile_scope, register_handler)?;
+        let condition = compile_jump_unless(&self.condition, &end_label, codegen)?;
 
-        let mut loop_scope = CompileScope::new_loop(
-            compile_scope,
-            LoopContext {
-                break_label: end_label.clone(),
-                continue_label: start_label.clone(),
-            },
-        );
-        let block = self.block.compile(&mut loop_scope, register_handler)?;
+        let loop_context = LoopContext {
+            break_label: end_label.clone(),
+            continue_label: start_label.clone(),
+        };
+        let block = codegen.with_loop(loop_context, |codegen| self.block.compile(codegen))?;
 
         let mut instructions = vec![
             Instruction::comment(format!("while {}", self.condition)),
@@ -751,12 +659,12 @@ impl WhileLoop {
 }
 
 fn jump_out_of_loop(
-    compile_scope: &CompileScope,
+    codegen: &Codegen,
     keyword: &'static str,
     span: Span,
     label: impl Fn(&LoopContext) -> &str,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let loop_scope = compile_scope
+    let loop_scope = codegen
         .loop_scope()
         .ok_or_else(|| CodegenErrorKind::OutsideLoop(keyword).at(span))?;
     let loop_context = loop_scope
@@ -764,7 +672,7 @@ fn jump_out_of_loop(
         .expect("loop scope has a loop context");
 
     let mut instructions = vec![Instruction::comment(keyword)];
-    let unwind = compile_scope.stack_depth - loop_scope.stack_depth;
+    let unwind = codegen.stack_depth() - loop_scope.stack_depth;
     if unwind > 0 {
         instructions.push(Instruction::add(Register::RSP, unwind));
     }
@@ -773,14 +681,14 @@ fn jump_out_of_loop(
 }
 
 impl BreakStatement {
-    pub fn compile(&self, compile_scope: &CompileScope) -> Result<Vec<Instruction>, CodegenError> {
-        jump_out_of_loop(compile_scope, "break", self.span, |l| &l.break_label)
+    pub fn compile(&self, codegen: &Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        jump_out_of_loop(codegen, "break", self.span, |l| &l.break_label)
     }
 }
 
 impl ContinueStatement {
-    pub fn compile(&self, compile_scope: &CompileScope) -> Result<Vec<Instruction>, CodegenError> {
-        jump_out_of_loop(compile_scope, "continue", self.span, |l| &l.continue_label)
+    pub fn compile(&self, codegen: &Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        jump_out_of_loop(codegen, "continue", self.span, |l| &l.continue_label)
     }
 }
 
@@ -788,10 +696,7 @@ impl ContinueStatement {
 mod test {
     use crate::{
         ast::{Statement, StatementOrExpression},
-        codegen::{
-            CodegenError, CodegenErrorKind, compile_scope::CompileScope,
-            register_handler::RegisterHandler,
-        },
+        codegen::{Codegen, CodegenError, CodegenErrorKind},
         lex::lex,
         parse::parse,
         type_check::check_types,
@@ -808,10 +713,10 @@ mod test {
             panic!("expected a match statement");
         };
 
-        let mut register_handler = RegisterHandler::default();
-        while register_handler.lease_register().is_ok() {}
+        let mut codegen = Codegen::default();
+        while codegen.registers.lease_register().is_ok() {}
 
-        let result = m.compile(&mut CompileScope::default(), &mut register_handler);
+        let result = m.compile(&mut codegen);
         assert!(
             matches!(
                 result,

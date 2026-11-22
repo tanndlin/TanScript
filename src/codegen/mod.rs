@@ -13,3 +13,19 @@ mod register_handler;
 mod symbol_table;
 
 pub use codegen_error::{CodegenError, CodegenErrorKind};
+
+use crate::codegen::{compile_scope::CompileScope, register_handler::RegisterHandler};
+
+pub struct Codegen {
+    scopes: Vec<CompileScope>,
+    pub registers: RegisterHandler,
+}
+
+impl Default for Codegen {
+    fn default() -> Self {
+        Self {
+            scopes: vec![CompileScope::default()],
+            registers: RegisterHandler::default(),
+        }
+    }
+}

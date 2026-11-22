@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     ast::{
         AtomType, BinaryOp, Block, Expression, ExpressionKind, Program,
@@ -5,7 +7,7 @@ use crate::{
         UnaryOp,
     },
     codegen::{
-        CodegenError,
+        Codegen, CodegenError,
         address::{Address, Register},
         compile_call::compile_function_call,
         compile_memory::{
@@ -15,9 +17,8 @@ use crate::{
             compile_binary, compile_cast, compile_logical_binary, compile_postfix,
             compile_postfix_update, compile_unary,
         },
-        compile_scope::CompileScope,
         instruction::{Instruction, Operand},
-        register_handler::{RegisterHandler, data_name},
+        register_handler::data_name,
         symbol_table::SymbolTable,
     },
     error::ResultAt,
@@ -27,8 +28,7 @@ use crate::{
 
 impl Program {
     pub fn compile(&self) -> Result<String, CodegenError> {
-        let mut global_scope = CompileScope::default();
-        let mut register_handler = RegisterHandler::default();
+        let mut codegen = Codegen::default();
 
         let mut symbol_table = SymbolTable::default();
         self.block.discover(&mut symbol_table);
@@ -44,26 +44,24 @@ impl Program {
                     .map(|def| &def.signature),
             );
         for signature in signatures {
-            global_scope.insert_return_type(signature.name.clone(), signature.return_type.clone());
+            codegen
+                .scope_mut()
+                .insert_return_type(signature.name.clone(), signature.return_type.clone());
         }
         for def in symbol_table.structs.values() {
-            global_scope.insert_struct(def.clone());
+            codegen.scope_mut().insert_struct(def.clone());
         }
         for def in symbol_table.enums.values() {
-            global_scope.insert_enum(def.clone());
+            codegen.scope_mut().insert_enum(def.clone());
         }
 
-        let instructions = render(
-            &self
-                .block
-                .compile(&mut global_scope, &mut register_handler)?,
-        );
+        let instructions = render(&self.block.compile(&mut codegen)?);
 
         let functions = symbol_table
             .functions
             .values()
             .map(|def| {
-                def.compile(&mut global_scope, &mut register_handler)
+                def.compile(&mut codegen)
                     .map(|instructions| render(&instructions))
             })
             .collect::<Result<Vec<_>, _>>()?
@@ -82,7 +80,8 @@ impl Program {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let data = register_handler
+        let data = codegen
+            .registers
             .data
             .iter()
             .enumerate()
@@ -126,43 +125,34 @@ pub fn render(instructions: &[Instruction]) -> String {
 }
 
 impl Block {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
-        let mut new_scope = CompileScope::new_block(compile_scope);
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
+        let outer_depth = codegen.stack_depth();
+        codegen.with_block(|codegen| {
+            let mut instructions = self
+                .children
+                .iter()
+                .map(|child| child.compile(codegen))
+                .collect::<Result<Vec<_>, CodegenError>>()?
+                .concat();
 
-        let mut instructions = self
-            .children
-            .iter()
-            .map(|child| child.compile(&mut new_scope, register_handler))
-            .collect::<Result<Vec<_>, CodegenError>>()?
-            .concat();
+            let alloc_size = codegen.stack_depth() - outer_depth;
+            // A trailing return, break or continue jumps away, so a dealloc after it is unreachable
+            if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Jmp { .. })) {
+                instructions.push(Instruction::add(Register::RSP, alloc_size));
+            }
 
-        let alloc_size = new_scope.stack_depth - compile_scope.stack_depth;
-        // A trailing return, break or continue jumps away, so a dealloc after it is unreachable
-        if alloc_size > 0 && !matches!(instructions.last(), Some(Instruction::Jmp { .. })) {
-            instructions.push(Instruction::add(Register::RSP, alloc_size));
-        }
-
-        Ok(instructions)
+            Ok(instructions)
+        })
     }
 }
 
 impl StatementOrExpression {
-    pub fn compile(
-        &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
-    ) -> Result<Vec<Instruction>, CodegenError> {
+    pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         match &self {
-            StatementOrExpression::Statement(statement) => {
-                statement.compile(compile_scope, register_handler)
-            }
+            StatementOrExpression::Statement(statement) => statement.compile(codegen),
             StatementOrExpression::Expression(expression) => Ok([
                 vec![Instruction::comment(expression.to_string())],
-                expression.compile_discarded(compile_scope, register_handler)?,
+                expression.compile_discarded(codegen)?,
             ]
             .concat()),
         }
@@ -172,105 +162,75 @@ impl StatementOrExpression {
 impl Expression {
     pub fn compile(
         &self,
-        compile_scope: &mut CompileScope,
+        codegen: &mut Codegen,
         dst: impl Into<Address>,
-        register_handler: &mut RegisterHandler,
     ) -> Result<Vec<Instruction>, CodegenError> {
         let dst = dst.into();
 
         match &self.kind {
             ExpressionKind::Atom(a) => match a {
-                AtomType::Number(n) => compile_number(*n, dst, register_handler),
+                AtomType::Number(n) => compile_number(*n, dst, codegen),
                 AtomType::Char(c) => Ok(vec![compile_char(*c, dst)]),
-                AtomType::Identifier(name) => {
-                    compile_variable(compile_scope, register_handler, name, self.span, dst)
-                }
-                AtomType::String(s) => compile_string(s, dst, register_handler),
+                AtomType::Identifier(name) => compile_variable(codegen, name, self.span, dst),
+                AtomType::String(s) => compile_string(s, dst, codegen),
                 AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
                 AtomType::Null => Ok(vec![Instruction::mov(dst, NumberType::I64(0))]),
             },
             ExpressionKind::Binary(BinaryOp::And | BinaryOp::Or, ..) => {
-                compile_logical_binary(self, compile_scope, dst, register_handler)
+                compile_logical_binary(self, codegen, dst)
             }
             ExpressionKind::Binary(op, left, right) => {
-                compile_binary(*op, left, right, compile_scope, dst, register_handler)
+                compile_binary(*op, left, right, codegen, dst)
             }
             ExpressionKind::Index(..)
             | ExpressionKind::StructAccess { .. }
-            | ExpressionKind::Unary(UnaryOp::Deref, _) => with_place_address(
-                self,
-                compile_scope,
-                register_handler,
-                &mut |_, register_handler, address, t| match t {
-                    Type::Struct(struct_def) => {
-                        mem_copy(struct_def, dst, address, register_handler)
-                    }
-                    _ => move_into(dst, register_handler, |reg| load_element(t, reg, address)),
-                },
-            ),
-            ExpressionKind::Unary(op, child) => {
-                compile_unary(*op, child, compile_scope, dst, register_handler)
+            | ExpressionKind::Unary(UnaryOp::Deref, _) => {
+                with_place_address(self, codegen, &mut |codegen, address, t| match t {
+                    Type::Struct(struct_def) => mem_copy(struct_def, dst, address, codegen),
+                    _ => move_into(dst, codegen, |reg| load_element(t, reg, address)),
+                })
             }
-            ExpressionKind::Postfix(op, lhs) => {
-                compile_postfix(*op, lhs, compile_scope, dst, register_handler)
-            }
+            ExpressionKind::Unary(op, child) => compile_unary(*op, child, codegen, dst),
+            ExpressionKind::Postfix(op, lhs) => compile_postfix(*op, lhs, codegen, dst),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(compile_scope, register_handler, name, args, Some(dst))
+                compile_function_call(codegen, name, args, Some(dst))
             }
-            ExpressionKind::Cast(inner, cast_type) => {
-                compile_cast(inner, cast_type, compile_scope, dst, register_handler)
-            }
+            ExpressionKind::Cast(inner, cast_type) => compile_cast(inner, cast_type, codegen, dst),
             ExpressionKind::SizeOf(sized_type) => compile_number(
                 NumberType::Coercible(u64::try_from(sized_type.size()).unwrap()),
                 dst,
-                register_handler,
+                codegen,
             ),
             ExpressionKind::StructInstantiation {
                 struct_type_name,
                 fields,
-            } => compile_struct_instantiation(
-                struct_type_name,
-                fields,
-                compile_scope,
-                dst,
-                register_handler,
-            ),
+            } => compile_struct_instantiation(struct_type_name, fields, codegen, dst),
             ExpressionKind::EnumVariant {
                 enum_name,
                 variant_name,
-            } => compile_enum(
-                enum_name,
-                variant_name,
-                compile_scope,
-                dst,
-                register_handler,
-            ),
+            } => compile_enum(enum_name, variant_name, codegen, dst),
         }
     }
 
     // For when the output is not directly read. mostly used as a side affect like a postfix
     pub fn compile_discarded(
         &self,
-        compile_scope: &mut CompileScope,
-        register_handler: &mut RegisterHandler,
+        codegen: &mut Codegen,
     ) -> Result<Vec<Instruction>, CodegenError> {
         match &self.kind {
-            ExpressionKind::Postfix(op, lhs) => {
-                compile_postfix_update(*op, lhs, compile_scope, register_handler)
-            }
+            ExpressionKind::Postfix(op, lhs) => compile_postfix_update(*op, lhs, codegen),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(compile_scope, register_handler, name, args, None)
+                compile_function_call(codegen, name, args, None)
             }
             ExpressionKind::Unary(_, child) | ExpressionKind::Cast(child, _) => {
-                child.compile_discarded(compile_scope, register_handler)
+                child.compile_discarded(codegen)
             }
-            ExpressionKind::Binary(BinaryOp::Divide | BinaryOp::Modulo, ..) => register_handler
-                .lease_with_scope(|register_handler, dst| {
-                    self.compile(compile_scope, dst, register_handler)
-                }),
+            ExpressionKind::Binary(BinaryOp::Divide | BinaryOp::Modulo, ..) => {
+                codegen.lease_with_scope(|codegen, dst| self.compile(codegen, dst))
+            }
             ExpressionKind::Binary(_, left, right) | ExpressionKind::Index(left, right) => {
-                let mut instructions = left.compile_discarded(compile_scope, register_handler)?;
-                instructions.extend(right.compile_discarded(compile_scope, register_handler)?);
+                let mut instructions = left.compile_discarded(codegen)?;
+                instructions.extend(right.compile_discarded(codegen)?);
                 Ok(instructions)
             }
             ExpressionKind::Atom(_)
@@ -285,38 +245,33 @@ impl Expression {
 fn compile_enum(
     enum_name: &str,
     variant_name: &str,
-    compile_scope: &mut CompileScope,
+    codegen: &mut Codegen,
     dst: Address,
-    register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let enum_def = compile_scope.lookup_enum(enum_name).unwrap();
+    let enum_def = codegen.lookup_enum(enum_name).unwrap();
     let index = enum_def.variant_index(variant_name).unwrap();
-    compile_number(
-        NumberType::U8(u8::try_from(index).unwrap()),
-        dst,
-        register_handler,
-    )
+    compile_number(NumberType::U8(u8::try_from(index).unwrap()), dst, codegen)
 }
 
 fn compile_string(
     s: &str,
     dst: Address,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let handle = register_handler.add_data(s);
-    move_into(dst, register_handler, |reg| {
+    let handle = codegen.registers.add_data(s);
+    move_into(dst, codegen, |reg| {
         Instruction::mov(reg, Operand::Label(handle))
     })
 }
 
 pub fn move_into(
     dst: Address,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
     instruction: impl FnOnce(Register) -> Instruction,
 ) -> Result<Vec<Instruction>, CodegenError> {
     match dst {
         Address::Register(reg) => Ok(vec![instruction(reg)]),
-        _ => register_handler
+        _ => codegen
             .lease_with_scope(|_, reg| Ok(vec![instruction(reg), Instruction::mov(dst, reg)])),
     }
 }
@@ -324,12 +279,12 @@ pub fn move_into(
 fn compile_number(
     n: NumberType,
     dst: Address,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
     if fits_imm32(n) {
         Ok(vec![Instruction::mov(dst, n)])
     } else {
-        move_into(dst, register_handler, |reg| Instruction::mov(reg, n))
+        move_into(dst, codegen, |reg| Instruction::mov(reg, n))
     }
 }
 
@@ -338,24 +293,24 @@ fn compile_char(c: char, dst: Address) -> Instruction {
 }
 
 fn compile_variable(
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
     name: &str,
     span: Span,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let address = compile_scope.get_variable(name).at(span)?;
+    let address = codegen.get_variable(name).at(span)?;
     if dst == address {
         return Ok(vec![]);
     }
 
-    if let Type::Struct(struct_def) = compile_scope.get_type(name).at(span)? {
-        return mem_copy(struct_def, dst, address, register_handler);
+    if let Type::Struct(struct_def) = codegen.get_type(name).at(span)? {
+        let struct_def = Rc::clone(struct_def);
+        return mem_copy(&struct_def, dst, address, codegen);
     }
 
     match address {
         Address::Register(_) => Ok(vec![Instruction::mov(dst, address)]),
-        _ => move_into(dst, register_handler, |reg| Instruction::mov(reg, address)),
+        _ => move_into(dst, codegen, |reg| Instruction::mov(reg, address)),
     }
 }
 
@@ -364,18 +319,20 @@ fn compile_boolean(b: bool, dst: Address) -> Instruction {
     Instruction::mov(dst, n)
 }
 
-pub fn as_operand(expr: &Expression, scope: &CompileScope) -> Option<Operand> {
+pub fn as_operand(expr: &Expression, codegen: &Codegen) -> Option<Operand> {
     match &expr.kind {
         ExpressionKind::Atom(AtomType::Number(n)) if fits_imm32(*n) => Some(Operand::Immediate(*n)),
         ExpressionKind::Atom(AtomType::Char(c)) => Some(Operand::from(*c)),
         ExpressionKind::Atom(AtomType::Identifier(name)) => {
-            scope.get_variable(name).ok().map(Operand::from)
+            codegen.get_variable(name).ok().map(Operand::from)
         }
         ExpressionKind::EnumVariant {
             enum_name,
             variant_name,
         } => {
-            let index = scope.lookup_enum(enum_name)?.variant_index(variant_name)?;
+            let index = codegen
+                .lookup_enum(enum_name)?
+                .variant_index(variant_name)?;
             Some(Operand::Immediate(NumberType::U8(
                 u8::try_from(index).ok()?,
             )))

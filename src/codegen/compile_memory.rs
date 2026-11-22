@@ -1,11 +1,9 @@
 use crate::{
     ast::{AtomType, Expression, ExpressionKind, StructDefinition, UnaryOp},
     codegen::{
-        CodegenError,
+        Codegen, CodegenError,
         address::{Address, Register, Scale},
-        compile_scope::CompileScope,
         instruction::{Instruction, Size},
-        register_handler::RegisterHandler,
     },
     error::ResultAt,
     type_check::Type,
@@ -15,14 +13,10 @@ use crate::{
 pub fn compile_struct_instantiation(
     struct_type_name: &str,
     fields: &[(String, Expression)],
-    compile_scope: &mut CompileScope,
+    codegen: &mut Codegen,
     dst: Address,
-    register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let struct_def = compile_scope
-        .lookup_struct(struct_type_name)
-        .unwrap()
-        .clone();
+    let struct_def = codegen.lookup_struct(struct_type_name).unwrap().clone();
 
     if let Address::Register(dst) = dst {
         assert!(
@@ -30,13 +24,7 @@ pub fn compile_struct_instantiation(
             "Only structs of size (1 | 2 | 4 | 8) can be put into a register",
         );
 
-        return compile_struct_instantiation_to_reg(
-            &struct_def,
-            fields,
-            compile_scope,
-            dst,
-            register_handler,
-        );
+        return compile_struct_instantiation_to_reg(&struct_def, fields, codegen, dst);
     }
 
     let mut instructions = vec![];
@@ -47,12 +35,12 @@ pub fn compile_struct_instantiation(
 
         // Allows for struct as-value in struct literal assignment
         if let Type::Struct(_) = field_type {
-            instructions.extend(expr.compile(compile_scope, address, register_handler)?);
+            instructions.extend(expr.compile(codegen, address)?);
             continue;
         }
 
-        instructions.extend(register_handler.lease_with_scope(|register_handler, reg| {
-            let mut field = expr.compile(compile_scope, reg, register_handler)?;
+        instructions.extend(codegen.lease_with_scope(|codegen, reg| {
+            let mut field = expr.compile(codegen, reg)?;
             field.push(store_element(&field_type, address, reg));
             Ok(field)
         })?);
@@ -64,9 +52,8 @@ pub fn compile_struct_instantiation(
 fn compile_struct_instantiation_to_reg(
     struct_def: &StructDefinition,
     fields: &[(String, Expression)],
-    compile_scope: &mut CompileScope,
+    codegen: &mut Codegen,
     dst: Register,
-    register_handler: &mut RegisterHandler,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let mut instructions = vec![];
     for (i, (field_name, expr)) in fields.iter().enumerate() {
@@ -74,7 +61,7 @@ fn compile_struct_instantiation_to_reg(
         let offset = u16::try_from(struct_def.get_byte_offset(field_name)).unwrap();
 
         if i == 0 {
-            instructions.extend(expr.compile(compile_scope, dst, register_handler)?);
+            instructions.extend(expr.compile(codegen, dst)?);
             instructions.extend(zero_extend(&field_type, expr, dst));
             if offset != 0 {
                 instructions.push(Instruction::shl(dst, offset * 8));
@@ -82,94 +69,75 @@ fn compile_struct_instantiation_to_reg(
             continue;
         }
 
-        instructions.extend(
-            register_handler.lease_with_scope(|register_handler, field_reg| {
-                let mut field = expr.compile(compile_scope, field_reg, register_handler)?;
-                field.extend(zero_extend(&field_type, expr, field_reg));
-                if offset != 0 {
-                    field.push(Instruction::shl(field_reg, offset * 8));
-                }
-                field.push(Instruction::or(dst, field_reg));
-                Ok(field)
-            })?,
-        );
+        instructions.extend(codegen.lease_with_scope(|codegen, field_reg| {
+            let mut field = expr.compile(codegen, field_reg)?;
+            field.extend(zero_extend(&field_type, expr, field_reg));
+            if offset != 0 {
+                field.push(Instruction::shl(field_reg, offset * 8));
+            }
+            field.push(Instruction::or(dst, field_reg));
+            Ok(field)
+        })?);
     }
 
     Ok(instructions)
 }
 
-type WithAddress<'f> = dyn FnMut(
-        &mut CompileScope,
-        &mut RegisterHandler,
-        Address,
-        &Type,
-    ) -> Result<Vec<Instruction>, CodegenError>
-    + 'f;
+type WithAddress<'f> =
+    dyn FnMut(&mut Codegen, Address, &Type) -> Result<Vec<Instruction>, CodegenError> + 'f;
 
 pub fn with_place_address(
     place: &Expression,
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
     f: &mut WithAddress,
 ) -> Result<Vec<Instruction>, CodegenError> {
     match &place.kind {
         ExpressionKind::Atom(AtomType::Identifier(name)) => {
-            let (address, t) = compile_scope.lookup(name).at(place.span)?.clone();
-            f(compile_scope, register_handler, address, &t)
+            let (address, t) = codegen.lookup(name).at(place.span)?.clone();
+            f(codegen, address, &t)
         }
         ExpressionKind::Index(lhs, index) => {
             let element = &*place.etype;
-            register_handler.lease_with_scope(|register_handler, offset| {
-                let mut instructions = index.compile(compile_scope, offset, register_handler)?;
+            codegen.lease_with_scope(|codegen, offset| {
+                let mut instructions = index.compile(codegen, offset)?;
                 let size = u32::try_from(element.size()).unwrap();
                 let scale = Scale::from_size(size).unwrap_or_else(|| {
                     instructions.push(Instruction::imul(offset, size));
                     Scale::One
                 });
-                instructions.extend(register_handler.lease_with_scope(
-                    |register_handler, base| {
-                        let mut instructions =
-                            lhs.compile(compile_scope, base, register_handler)?;
-                        let address = Address::Indexed {
-                            base,
-                            index: offset,
-                            scale,
-                            offset: 0,
-                        };
-                        instructions.extend(f(compile_scope, register_handler, address, element)?);
-                        Ok(instructions)
-                    },
-                )?);
+                instructions.extend(codegen.lease_with_scope(|codegen, base| {
+                    let mut instructions = lhs.compile(codegen, base)?;
+                    let address = Address::Indexed {
+                        base,
+                        index: offset,
+                        scale,
+                        offset: 0,
+                    };
+                    instructions.extend(f(codegen, address, element)?);
+                    Ok(instructions)
+                })?);
                 Ok(instructions)
             })
         }
         ExpressionKind::Unary(UnaryOp::Deref, pointer) => {
             let element = &*place.etype;
-            register_handler.lease_with_scope(|register_handler, base| {
-                let mut instructions = pointer.compile(compile_scope, base, register_handler)?;
+            codegen.lease_with_scope(|codegen, base| {
+                let mut instructions = pointer.compile(codegen, base)?;
                 let address = Address::Deref { base, offset: 0 };
-                instructions.extend(f(compile_scope, register_handler, address, element)?);
+                instructions.extend(f(codegen, address, element)?);
                 Ok(instructions)
             })
         }
-        ExpressionKind::StructAccess { base, field_name } => with_place_address(
-            base,
-            compile_scope,
-            register_handler,
-            &mut |compile_scope, register_handler, address, struct_type| {
+        ExpressionKind::StructAccess { base, field_name } => {
+            with_place_address(base, codegen, &mut |codegen, address, struct_type| {
                 let Type::Struct(struct_def) = struct_type else {
                     panic!("({base}) is not a struct")
                 };
                 let field_type = struct_def.get_field_type(field_name).unwrap();
                 let field_offset = u32::try_from(struct_def.get_byte_offset(field_name)).unwrap();
-                f(
-                    compile_scope,
-                    register_handler,
-                    offset_address(address, field_offset),
-                    field_type,
-                )
-            },
-        ),
+                f(codegen, offset_address(address, field_offset), field_type)
+            })
+        }
         _ => unreachable!("({place}) is not a place"),
     }
 }
@@ -229,7 +197,7 @@ pub fn mem_copy(
     element: &StructDefinition,
     dst: Address,
     src: Address,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
     if let Address::Register(dst) = dst {
         let size = match element.size() {
@@ -244,7 +212,7 @@ pub fn mem_copy(
         return Ok(vec![Instruction::movzx(dst, src, size)]);
     }
 
-    register_handler.lease_with_scope(|_, reg| {
+    codegen.lease_with_scope(|_, reg| {
         let mut instructions = vec![];
         for field in &element.fields {
             let offset = u32::try_from(element.get_byte_offset(&field.name)).unwrap();

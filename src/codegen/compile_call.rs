@@ -1,13 +1,12 @@
 use crate::{
     ast::{Expression, Walk},
     codegen::{
-        CodegenError,
+        Codegen, CodegenError,
         address::{Address, Register},
         compile::move_into,
         compile_memory::with_place_address,
-        compile_scope::{CompileScope, SLOT_SIZE},
+        compile_scope::SLOT_SIZE,
         instruction::Instruction,
-        register_handler::RegisterHandler,
     },
     error::ResultAt,
     type_check::Type,
@@ -37,25 +36,24 @@ pub fn passed_by_pointer(t: &Type) -> bool {
 }
 
 pub fn compile_function_call(
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
     name: &str,
     args: &[Expression],
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let return_type = compile_scope.lookup_return_type(name).cloned();
+    let return_type = codegen.lookup_return_type(name).cloned();
 
     // The callee may clobber any volatile register, so save the ones in use. dst is left out, as
     // the caller wants it overwritten
     let saved_registers = VOLATILE_REGISTERS
         .into_iter()
-        .filter(|reg| register_handler.is_hot(*reg) && dst != Some(Address::Register(*reg)))
+        .filter(|reg| codegen.registers.is_hot(*reg) && dst != Some(Address::Register(*reg)))
         .collect::<Vec<_>>();
-    let depth = compile_scope.stack_depth;
+    let depth = codegen.stack_depth();
     let mut instructions = vec![];
 
     let demoted_dst = match dst {
-        Some(Address::Register(reg)) if register_handler.mark_destination(reg) => Some(reg),
+        Some(Address::Register(reg)) if codegen.registers.mark_destination(reg) => Some(reg),
         _ => None,
     };
 
@@ -66,9 +64,9 @@ pub fn compile_function_call(
         // Make extra room for the returned struct to go into stack
         (Some(t), _) if passed_by_pointer(t) => {
             let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
-            compile_scope.stack_depth += size;
+            codegen.scope_mut().stack_depth += size;
             instructions.push(Instruction::sub(Register::RSP, size));
-            Some(Address::Stack(compile_scope.stack_depth.cast_signed()))
+            Some(Address::Stack(codegen.stack_depth().cast_signed()))
         }
         _ => None,
     };
@@ -78,9 +76,9 @@ pub fn compile_function_call(
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
 
     let (temporary_instructions, temporaries) =
-        struct_temporaries(args, return_type.is_none(), compile_scope, register_handler)?;
+        struct_temporaries(args, return_type.is_none(), codegen)?;
     instructions.extend(temporary_instructions);
-    let temporaries_size = compile_scope.stack_depth - depth;
+    let temporaries_size = codegen.stack_depth() - depth;
     let (register_temporaries, stack_temporaries) = temporaries.split_at(register_args.len());
 
     instructions.extend(saved_registers.iter().map(|reg| Instruction::push(*reg)));
@@ -89,7 +87,7 @@ pub fn compile_function_call(
     let mut requested_registers: Vec<Register> = vec![];
     if let Some(address) = hidden_return {
         instructions.push(Instruction::lea(Register::RCX, address));
-        if register_handler.request_register(Register::RCX).is_ok() {
+        if codegen.registers.request_register(Register::RCX).is_ok() {
             requested_registers.push(Register::RCX);
         }
     }
@@ -100,32 +98,21 @@ pub fn compile_function_call(
         .zip(target_registers.iter().copied())
     {
         //  Prevent register from being modified, including by calls inside the arg
-        if register_handler.request_register(dst_reg).is_ok() {
+        if codegen.registers.request_register(dst_reg).is_ok() {
             requested_registers.push(dst_reg);
         }
-        instructions.extend(compile_arg(
-            arg,
-            *temporary,
-            dst_reg.into(),
-            compile_scope,
-            register_handler,
-        )?);
+        instructions.extend(compile_arg(arg, *temporary, dst_reg.into(), codegen)?);
     }
 
     // Win64: 32 bytes of shadow space, followed by any args past the 4th. rsp must be 16 byte
     // aligned at the call, including the locals and saved registers
-    let pushed_size = compile_scope.stack_depth + u32::try_from(saved_registers.len()).unwrap() * 8;
+    let pushed_size = codegen.stack_depth() + u32::try_from(saved_registers.len()).unwrap() * 8;
     let stack_size: u32 = (pushed_size + 32 + u32::try_from(stack_args.len()).unwrap() * 8)
         .next_multiple_of(16)
         - pushed_size;
     instructions.push(Instruction::sub(Register::RSP, stack_size));
 
-    instructions.extend(compile_stack_args(
-        stack_args,
-        stack_temporaries,
-        compile_scope,
-        register_handler,
-    )?);
+    instructions.extend(compile_stack_args(stack_args, stack_temporaries, codegen)?);
 
     instructions.push(Instruction::call(name));
     instructions.push(Instruction::add(Register::RSP, stack_size));
@@ -138,10 +125,10 @@ pub fn compile_function_call(
 
     // Give back the registers
     for reg in requested_registers {
-        register_handler.release_register(reg);
+        codegen.registers.release_register(reg);
     }
     if let Some(reg) = demoted_dst {
-        register_handler.mark_hot(reg);
+        codegen.registers.mark_hot(reg);
     }
 
     instructions.extend(
@@ -153,7 +140,7 @@ pub fn compile_function_call(
 
     if temporaries_size > 0 {
         instructions.push(Instruction::add(Register::RSP, temporaries_size));
-        compile_scope.stack_depth -= temporaries_size;
+        codegen.scope_mut().stack_depth -= temporaries_size;
     }
 
     Ok(instructions)
@@ -162,16 +149,14 @@ pub fn compile_function_call(
 fn compile_stack_args(
     stack_args: &[Expression],
     stack_temporaries: &[Option<Address>],
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let mut instructions = vec![];
     for (i, (arg, temporary)) in stack_args.iter().zip(stack_temporaries).enumerate() {
         let offset = 32 + i32::try_from(i).unwrap() * 8;
         if arg.calls_function() {
-            instructions.extend(register_handler.lease_with_scope(|register_handler, tmp| {
-                let mut arg =
-                    compile_arg(arg, *temporary, tmp.into(), compile_scope, register_handler)?;
+            instructions.extend(codegen.lease_with_scope(|codegen, tmp| {
+                let mut arg = compile_arg(arg, *temporary, tmp.into(), codegen)?;
                 arg.push(Instruction::mov(Address::StackArg(offset), tmp));
                 Ok(arg)
             })?);
@@ -180,8 +165,7 @@ fn compile_stack_args(
                 arg,
                 *temporary,
                 Address::StackArg(offset),
-                compile_scope,
-                register_handler,
+                codegen,
             )?);
         }
     }
@@ -196,13 +180,12 @@ fn compile_stack_args(
 fn struct_temporaries(
     args: &[Expression],
     is_extern: bool,
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<(Vec<Instruction>, Vec<Option<Address>>), CodegenError> {
     let mut instructions = vec![];
     let mut temporaries = vec![];
     for arg in args {
-        let arg_type = compile_scope.expression_type(arg).at(arg.span)?;
+        let arg_type = codegen.expression_type(arg).at(arg.span)?;
         if !passed_by_pointer(&arg_type) || (arg.is_place() && !is_extern) {
             temporaries.push(None);
             continue;
@@ -211,10 +194,10 @@ fn struct_temporaries(
         let size = u32::try_from(arg_type.size())
             .unwrap()
             .next_multiple_of(SLOT_SIZE);
-        compile_scope.stack_depth += size;
-        let temporary = Address::Stack(i32::try_from(compile_scope.stack_depth).unwrap());
+        codegen.scope_mut().stack_depth += size;
+        let temporary = Address::Stack(i32::try_from(codegen.stack_depth()).unwrap());
         instructions.push(Instruction::sub(Register::RSP, size));
-        instructions.extend(arg.compile(compile_scope, temporary, register_handler)?);
+        instructions.extend(arg.compile(codegen, temporary)?);
         temporaries.push(Some(temporary));
     }
 
@@ -225,27 +208,19 @@ fn compile_arg(
     arg: &Expression,
     temporary: Option<Address>,
     dst: Address,
-    compile_scope: &mut CompileScope,
-    register_handler: &mut RegisterHandler,
+    codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
     if let Some(temporary) = temporary {
-        return move_into(dst, register_handler, |reg| {
-            Instruction::lea(reg, temporary)
-        });
+        return move_into(dst, codegen, |reg| Instruction::lea(reg, temporary));
     }
 
-    if !passed_by_pointer(compile_scope.expression_type(arg).at(arg.span)?.as_ref()) {
-        return arg.compile(compile_scope, dst, register_handler);
+    if !passed_by_pointer(codegen.expression_type(arg).at(arg.span)?.as_ref()) {
+        return arg.compile(codegen, dst);
     }
 
-    with_place_address(
-        arg,
-        compile_scope,
-        register_handler,
-        &mut |_, register_handler, address, _| {
-            move_into(dst, register_handler, |reg| Instruction::lea(reg, address))
-        },
-    )
+    with_place_address(arg, codegen, &mut |codegen, address, _| {
+        move_into(dst, codegen, |reg| Instruction::lea(reg, address))
+    })
 }
 
 #[cfg(test)]
