@@ -1,5 +1,5 @@
 use crate::{
-    ast::{BinaryOp, Expression, ExpressionKind, PostfixOp, UnaryOp},
+    ast::{AtomType, BinaryOp, Expression, ExpressionKind, PostfixOp, UnaryOp},
     codegen::{
         Codegen, CodegenError, CodegenErrorKind,
         address::{Address, Register},
@@ -20,20 +20,12 @@ pub fn compile_binary(
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let cond = match op {
-        BinaryOp::Multiply => {
-            return compile_multiply(codegen, left, right, dst);
-        }
-        BinaryOp::Divide => {
-            return compile_divide(codegen, left, right, dst, Register::RAX);
-        }
-        BinaryOp::Modulo => {
-            return compile_divide(codegen, left, right, dst, Register::RDX);
-        }
-        BinaryOp::Add => {
-            return compile_simple_binary(Instruction::add, codegen, left, right, dst);
-        }
-        BinaryOp::Subtract => {
-            return compile_simple_binary(Instruction::sub, codegen, left, right, dst);
+        BinaryOp::Multiply
+        | BinaryOp::Divide
+        | BinaryOp::Modulo
+        | BinaryOp::Add
+        | BinaryOp::Subtract => {
+            return compile_arithmetic(op, left, right, codegen, dst);
         }
         BinaryOp::Or | BinaryOp::And => {
             unreachable!("logical operators are compiled by compile_logical_binary")
@@ -50,6 +42,52 @@ pub fn compile_binary(
     instructions.push(Instruction::mov(dst, NumberType::I64(0)));
     instructions.push(Instruction::set(cond, dst));
     Ok(instructions)
+}
+
+fn compile_arithmetic(
+    op: BinaryOp,
+    left: &Expression,
+    right: &Expression,
+    codegen: &mut Codegen,
+    dst: Address,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let mut instructions = match op {
+        BinaryOp::Multiply => compile_multiply(codegen, left, right, dst)?,
+        BinaryOp::Divide => compile_divide(codegen, left, right, dst, Register::RAX)?,
+        BinaryOp::Modulo => compile_divide(codegen, left, right, dst, Register::RDX)?,
+        BinaryOp::Add => compile_simple_binary(Instruction::add, codegen, left, right, dst)?,
+        BinaryOp::Subtract => compile_simple_binary(Instruction::sub, codegen, left, right, dst)?,
+        _ => unreachable!("({op}) is not an arithmetic operator"),
+    };
+
+    let result_type = codegen
+        .unified_type(left, right)
+        .at(left.span)?
+        .into_owned();
+    instructions.extend(narrow_in_place(&result_type, codegen, dst)?);
+    Ok(instructions)
+}
+
+/// Truncates the value in `dst` to `t` and extends it back to 64 bits, so 8 byte slots always
+/// hold the value exactly as a full width read sees it
+pub fn narrow_in_place(
+    t: &Type,
+    codegen: &mut Codegen,
+    dst: Address,
+) -> Result<Vec<Instruction>, CodegenError> {
+    let truncate = |reg: Register| extend(t, reg, reg);
+
+    match dst {
+        Address::Register(reg) => Ok(truncate(reg).into_iter().collect()),
+        _ if truncate(Register::RAX).is_none() => Ok(vec![]),
+        _ => codegen.lease_with_scope(|_, reg| {
+            Ok(vec![
+                Instruction::mov(reg, dst),
+                truncate(reg).unwrap(),
+                Instruction::mov(dst, reg),
+            ])
+        }),
+    }
 }
 
 /// Compiles `left` into `dst`, `right` into a scratch register, unless right is a leaf or dst is a register
@@ -236,23 +274,7 @@ pub fn compile_cast(
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
     let mut instructions = inner.compile(codegen, dst)?;
-    let truncate = |reg: Register| extend(cast_type, reg, reg);
-
-    match dst {
-        Address::Register(reg) => instructions.extend(truncate(reg)),
-        _ => {
-            if truncate(Register::RAX).is_some() {
-                instructions.extend(codegen.lease_with_scope(|_, reg| {
-                    Ok::<_, CodegenError>(vec![
-                        Instruction::mov(reg, dst),
-                        truncate(reg).unwrap(),
-                        Instruction::mov(dst, reg),
-                    ])
-                })?);
-            }
-        }
-    }
-
+    instructions.extend(narrow_in_place(cast_type, codegen, dst)?);
     Ok(instructions)
 }
 
@@ -302,6 +324,7 @@ fn compile_postfix_in_place(
     codegen: &mut Codegen,
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
+    let is_variable = matches!(lhs.kind, ExpressionKind::Atom(AtomType::Identifier(_)));
     with_place_address(lhs, codegen, &mut |codegen, address, t| {
         let update = |target: Address| match op {
             PostfixOp::Increment => Instruction::add(target, 1),
@@ -316,7 +339,12 @@ fn compile_postfix_in_place(
                 instructions.push(Instruction::mov(dst, value));
             }
             instructions.push(update(value.into()));
-            instructions.push(store_element(t, address, value));
+            if is_variable {
+                instructions.extend(extend(t, value, value));
+                instructions.push(Instruction::mov(address, value));
+            } else {
+                instructions.push(store_element(t, address, value));
+            }
             Ok(instructions)
         })
     })
@@ -429,6 +457,47 @@ mod test {
                 .unwrap();
             assert!(last_read < first_write, "{input}\n{asm}");
         }
+    }
+
+    #[test]
+    fn compile_narrow_arithmetic_is_truncated() {
+        for (input, extend) in [
+            ("let a: u8 = 1; a += 1;", "movzx"),
+            ("let a: u16 = 1; let b: u16 = a * 2;", "movzx"),
+            ("let a: i16 = 1; a -= 2;", "movsx"),
+            ("let a: i32 = 1; let b = a + a;", "movsxd"),
+        ] {
+            let asm = compile(input);
+            assert!(
+                asm.lines().any(|l| l.trim().starts_with(extend)),
+                "{input}
+{asm}"
+            );
+        }
+    }
+
+    #[test]
+    fn compile_wide_arithmetic_is_not_truncated() {
+        for input in ["let a: i64 = 1; a += 1;", "let a = 1 + 2;"] {
+            let asm = compile(input);
+            assert!(
+                !asm.contains("movsx") && !asm.contains("movzx"),
+                "{input}
+{asm}"
+            );
+        }
+    }
+
+    #[test]
+    fn compile_postfix_on_signed_local_stores_full_slot() {
+        let asm = compile("let a: i16 = -1; a++;");
+        let update = asm
+            .lines()
+            .skip_while(|l| !l.starts_with("; (++ a)"))
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        assert!(update.iter().any(|l| l.starts_with("movsx")), "{asm}");
+        assert!(!update.iter().any(|l| l.starts_with("mov WORD")), "{asm}");
     }
 
     #[test]

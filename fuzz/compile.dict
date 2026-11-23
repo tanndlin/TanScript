@@ -14,6 +14,8 @@ kw_true="true"
 kw_false="false"
 
 ty_u8="u8"
+ty_i16="i16"
+ty_u16="u16"
 ty_i32="i32"
 ty_i64="i64"
 ty_u32="u32"

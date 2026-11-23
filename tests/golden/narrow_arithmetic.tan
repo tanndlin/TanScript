@@ -1,0 +1,44 @@
+let x: u8 = 255;
+x += 1;
+printf("%d\n", x);
+
+let y: u32 = 4294967295;
+y += 1;
+printf("%u %lld\n", y, y);
+
+let z: u8 = 255;
+z++;
+printf("%d\n", z);
+
+let a: u8 = 200;
+let b: u8 = 100;
+let c = a + b;
+printf("%d\n", c);
+
+let s: i16 = -1;
+s++;
+let wide: i64 = s;
+printf("%lld\n", wide);
+
+let t: i16 = 0;
+t--;
+let wide2: i64 = t;
+printf("%lld\n", wide2);
+
+let u: i32 = -1;
+u++;
+let wide3: i64 = u;
+printf("%lld\n", wide3);
+
+let m: i16 = 32767;
+m += 1;
+printf("%d\n", m);
+
+let n: u16 = 300;
+n *= 300;
+printf("%u\n", n);
+
+let arr: *u16 = calloc(1, 2);
+arr[0] = 65535;
+arr[0] += 2;
+printf("%u\n", arr[0]);

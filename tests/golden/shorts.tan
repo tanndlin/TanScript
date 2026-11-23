@@ -1,0 +1,68 @@
+let a: u16 = 65535;
+printf("%u\n", a);
+
+let b: i16 = -2;
+printf("%d\n", b);
+
+let big: i64 = 70000;
+printf("%u\n", big as u16);
+printf("%d\n", 40000 as i16);
+
+let neg: i16 = -1;
+printf("%u\n", neg as u16);
+
+let small: u8 = 200;
+let widened: u16 = small;
+let wider: i32 = widened;
+printf("%d\n", wider);
+
+let c: i16 = 300;
+let d: i64 = c * 2;
+printf("%d\n", d);
+
+let e: u16 = 65535;
+e += 1;
+printf("%u\n", e);
+
+def half(x: u16): u16 {
+    x / 2
+}
+printf("%u\n", half(50000));
+
+def negate(x: i16): i16 {
+    0 - x
+}
+printf("%d\n", negate(1234));
+
+struct Packet {
+    tag: u8,
+    port: u16,
+    value: i16,
+    rest: u32,
+}
+
+printf("%d\n", sizeof(Packet));
+let p = Packet {
+    tag: 1,
+    port: 8080,
+    value: -5,
+    rest: 99,
+};
+printf("%d %u %d %u\n", p.tag, p.port, p.value, p.rest);
+p.port = 443;
+printf("%u %d\n", p.port, p.value);
+
+let words: *u16 = calloc(4, sizeof(u16));
+words[0] = 1;
+words[1] = 65000;
+words[2] = 3;
+printf("%u %u %u %u\n", words[0], words[1], words[2], words[3]);
+
+let signed: *i16 = calloc(2, sizeof(i16));
+signed[0] = -32768;
+signed[1] = 32767;
+printf("%d %d\n", signed[0], signed[1]);
+
+let ptr = &a;
+*ptr = 12;
+printf("%u\n", a);

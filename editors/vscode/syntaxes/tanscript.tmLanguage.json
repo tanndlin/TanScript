@@ -68,7 +68,7 @@
     },
     "types": {
       "name": "support.type.primitive.tan",
-      "match": "\\b(u8|u32|u64|i32|i64|bool|char)\\b"
+      "match": "\\b(u8|u16|u32|u64|i16|i32|i64|bool|char)\\b"
     },
     "constants": {
       "name": "constant.language.tan",

@@ -147,6 +147,7 @@ pub fn with_place_address(
 pub fn narrow_size(element: &Type) -> Option<(Size, bool)> {
     match element {
         Type::Int(int) if int.size() == 4 => Some((Size::Dword, int.is_signed())),
+        Type::Int(int) if int.size() == 2 => Some((Size::Word, int.is_signed())),
         Type::Int(int) if int.size() == 1 => Some((Size::Byte, int.is_signed())),
         Type::Boolean | Type::Char | Type::Enum(_) => Some((Size::Byte, false)),
         _ => None,
@@ -344,6 +345,36 @@ mod test {
     fn compile_deref_load_u32_is_dword() {
         let asm = compile("let x: u32 = 5; let p = &x; let y: u32 = *p;");
         assert!(derefs(&asm).iter().any(|l| l.contains("DWORD [")), "{asm}");
+    }
+
+    #[test]
+    fn compile_deref_load_u16_is_zero_extended_word() {
+        let asm = compile("let x: u16 = 5; let p = &x; let y: u16 = *p;");
+        assert!(
+            derefs(&asm)
+                .iter()
+                .any(|l| l.starts_with("movzx") && l.contains("WORD [")),
+            "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_deref_load_i16_is_sign_extended_word() {
+        let asm = compile("let x: i16 = 5; let p = &x; let y: i16 = *p;");
+        assert!(
+            derefs(&asm)
+                .iter()
+                .any(|l| l.starts_with("movsx") && l.contains("WORD [")),
+            "{asm}"
+        );
+    }
+
+    #[test]
+    fn compile_deref_store_u16_is_word() {
+        let asm = compile("let x: u16 = 5; let p = &x; *p = 7;");
+        let derefs = derefs(&asm);
+        assert!(derefs.iter().any(|l| l.contains("WORD [")), "{asm}");
+        assert!(!derefs.iter().any(|l| l.contains("QWORD [")), "{asm}");
     }
 
     #[test]

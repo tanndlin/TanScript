@@ -11,6 +11,8 @@ pub enum Token {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum IntType {
     U8,
+    I16,
+    U16,
     I32,
     I64,
     U32,
@@ -23,6 +25,8 @@ impl IntType {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "u8" => Some(Self::U8),
+            "i16" => Some(Self::I16),
+            "u16" => Some(Self::U16),
             "i32" => Some(Self::I32),
             "i64" => Some(Self::I64),
             "u32" => Some(Self::U32),
@@ -34,6 +38,7 @@ impl IntType {
     pub fn size(self) -> usize {
         match self {
             Self::U8 => 1,
+            Self::I16 | Self::U16 => 2,
             Self::I32 | Self::U32 => 4,
             Self::I64 | Self::U64 | Self::Coercible | Self::CoercibleNegative => 8,
         }
@@ -42,7 +47,7 @@ impl IntType {
     pub fn is_signed(self) -> bool {
         matches!(
             self,
-            Self::I32 | Self::I64 | Self::Coercible | Self::CoercibleNegative
+            Self::I16 | Self::I32 | Self::I64 | Self::Coercible | Self::CoercibleNegative
         )
     }
 
@@ -74,6 +79,8 @@ impl Display for IntType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::U8 => write!(f, "u8"),
+            Self::I16 => write!(f, "i16"),
+            Self::U16 => write!(f, "u16"),
             Self::I32 => write!(f, "i32"),
             Self::I64 => write!(f, "i64"),
             Self::U32 => write!(f, "u32"),

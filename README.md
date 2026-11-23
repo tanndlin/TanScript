@@ -117,7 +117,7 @@ for row in 0..height {
 
 ## Features
 
-- **Types**: `u8`, `i32`, `i64`, `u32`, `u64`, `char`, `bool`, pointers (`*T`), and structs. Variable types are inferred from their first assignment; function arguments require annotations.
+- **Types**: `u8`, `i16`, `u16`, `i32`, `i64`, `u32`, `u64`, `char`, `bool`, pointers (`*T`), and structs. Variable types are inferred from their first assignment; function arguments require annotations.
 - **Type Checking**: Mismatched types, wrong argument counts, and invalid casts are reported with the source location and compile stage.
 - **sizeof**: `sizeof(Type)` gives the size of any type in bytes, resolved at compile time (`calloc(1, sizeof(Node<Token>))`).
 - **Casting**: Explicit casts with `as` (`big as u8`, `address as *char`). Integers implicitly widen when no information is lost.
