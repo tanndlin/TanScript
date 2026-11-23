@@ -240,9 +240,18 @@ pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseEr
         return Ok((t, span));
     }
 
-    let mut concrete_generics = vec![];
+    Ok((
+        Type::Named {
+            name: type_name,
+            concrete_generics: parse_concrete_generics(tokens)?,
+            span,
+        },
+        span,
+    ))
+}
 
-    // Check for generics
+pub fn parse_concrete_generics(tokens: &mut Parser) -> Result<Vec<Type>, ParseError> {
+    let mut concrete_generics = vec![];
     if let Some(Token::Op(OperatorType::LessThan)) = tokens.peek().map(|tok| &tok.token_type) {
         tokens.expect("<")?;
         loop {
@@ -256,14 +265,7 @@ pub fn parse_type_with_span(tokens: &mut Parser) -> Result<(Type, Span), ParseEr
         }
     }
 
-    Ok((
-        Type::Named {
-            name: type_name,
-            concrete_generics,
-            span,
-        },
-        span,
-    ))
+    Ok(concrete_generics)
 }
 
 fn parse_function_definition(tokens: &mut Parser) -> Result<FunctionDefinition, ParseError> {

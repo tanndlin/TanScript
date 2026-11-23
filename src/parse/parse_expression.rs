@@ -6,7 +6,8 @@ use crate::{
     error::At,
     lex::LexerAtomType,
     parse::{
-        expected, expected_at, parse_statement::parse_type, ParseError, ParseErrorKind, Parser,
+        ParseError, ParseErrorKind, Parser, expected, expected_at,
+        parse_statement::{parse_concrete_generics, parse_type},
     },
     types::{Span, Token},
 };
@@ -212,6 +213,11 @@ fn parse_identifier_or_function_call_or_struct(
         Some(Token::Op(OperatorType::OpenCurly)) if allow_struct => {
             parse_struct_instantiation(tokens, s, span)?
         }
+        Some(Token::Op(OperatorType::LessThan))
+            if allow_struct && starts_generic_struct_instantiation(tokens) =>
+        {
+            parse_struct_instantiation(tokens, s, span)?
+        }
         Some(Token::Op(OperatorType::PathSep)) => parse_enum_variant(tokens, s, span)?,
         _ => Expression::new(ExpressionKind::Atom(AtomType::Identifier(s)), span),
     })
@@ -271,6 +277,7 @@ fn parse_struct_instantiation(
     struct_type_name: String,
     span: Span,
 ) -> Result<Expression, ParseError> {
+    let concrete_generics = parse_concrete_generics(tokens)?;
     tokens.expect("{")?;
     let mut fields = vec![];
     loop {
@@ -301,8 +308,33 @@ fn parse_struct_instantiation(
     Ok(Expression::new(
         ExpressionKind::StructInstantiation {
             struct_type_name,
+            concrete_generics,
             fields,
         },
         span,
     ))
+}
+
+fn starts_generic_struct_instantiation(tokens: &Parser) -> bool {
+    let mut depth = 0;
+    let mut i = 0;
+    while let Some(tok) = tokens.peek_nth(i) {
+        match tok.token_type {
+            Token::Op(OperatorType::LessThan) => depth += 1,
+            Token::Op(OperatorType::GreaterThan) => {
+                depth -= 1;
+                if depth == 0 {
+                    return matches!(
+                        tokens.peek_nth(i + 1).map(|tok| &tok.token_type),
+                        Some(Token::Op(OperatorType::OpenCurly))
+                    );
+                }
+            }
+            Token::Op(OperatorType::Multiply)
+            | Token::Atom(LexerAtomType::Identifier(_) | LexerAtomType::Comma) => {}
+            _ => return false,
+        }
+        i += 1;
+    }
+    false
 }

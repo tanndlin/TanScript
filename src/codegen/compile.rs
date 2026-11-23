@@ -201,10 +201,9 @@ impl Expression {
                 dst,
                 codegen,
             ),
-            ExpressionKind::StructInstantiation {
-                struct_type_name,
-                fields,
-            } => compile_struct_instantiation(struct_type_name, fields, codegen, dst),
+            ExpressionKind::StructInstantiation { fields, .. } => {
+                compile_struct_instantiation(&self.etype, fields, codegen, dst)
+            }
             ExpressionKind::EnumVariant {
                 enum_name,
                 variant_name,

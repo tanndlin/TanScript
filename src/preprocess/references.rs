@@ -66,11 +66,15 @@ impl StatementOrExpression {
                     | ExpressionKind::FunctionCall(name, _)
                     | ExpressionKind::EnumVariant {
                         enum_name: name, ..
-                    }
-                    | ExpressionKind::StructInstantiation {
-                        struct_type_name: name,
-                        ..
                     } => names.push(name.clone()),
+                    ExpressionKind::StructInstantiation {
+                        struct_type_name,
+                        concrete_generics,
+                        ..
+                    } => {
+                        names.push(struct_type_name.clone());
+                        concrete_generics.references(names);
+                    }
                     ExpressionKind::Cast(_, t) | ExpressionKind::SizeOf(t) => t.references(names),
                     _ => {}
                 },

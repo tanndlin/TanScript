@@ -1,0 +1,44 @@
+struct Wrapper<T> {
+    value: T,
+    tag: u8,
+}
+
+struct Node<T> {
+    value: T,
+    next: *Node<T>,
+}
+
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+def wrap<T>(value: T): Wrapper<T> {
+    Wrapper<T> { value: value, tag: 7 }
+}
+
+let small = Wrapper<u8> { value: 200, tag: 1 };
+printf("%d %d\n", small.value, small.tag);
+
+let big = Wrapper<i64> { value: 5000000000, tag: 2 };
+printf("%lld %d\n", big.value, big.tag);
+
+let p = Wrapper<Point> { value: Point { x: 3, y: 4 }, tag: 3 };
+printf("%d %d %d\n", p.value.x, p.value.y, p.tag);
+
+let tail = Node<i64> { value: 20, next: null };
+let head = Node<i64> { value: 10, next: &tail };
+printf("%lld %lld\n", head.value, head.next->value);
+
+let nested = Node<*Node<i64>> { value: &head, next: null };
+printf("%lld\n", nested.value->next->value);
+
+let w = wrap(42);
+printf("%d %d\n", w.value, w.tag);
+
+let wp = wrap(Point { x: 8, y: 9 });
+printf("%d %d %d\n", wp.value.x, wp.value.y, wp.tag);
+
+if small.value < big.tag {
+    printf("unreachable\n");
+}

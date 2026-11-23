@@ -11,12 +11,14 @@ use crate::{
 };
 
 pub fn compile_struct_instantiation(
-    struct_type_name: &str,
+    struct_type: &Type,
     fields: &[(String, Expression)],
     codegen: &mut Codegen,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let struct_def = codegen.lookup_struct(struct_type_name).unwrap().clone();
+    let Type::Struct(struct_def) = struct_type else {
+        unreachable!()
+    };
 
     if let Address::Register(dst) = dst {
         assert!(
@@ -24,7 +26,7 @@ pub fn compile_struct_instantiation(
             "Only structs of size (1 | 2 | 4 | 8) can be put into a register",
         );
 
-        return compile_struct_instantiation_to_reg(&struct_def, fields, codegen, dst);
+        return compile_struct_instantiation_to_reg(struct_def, fields, codegen, dst);
     }
 
     let mut instructions = vec![];

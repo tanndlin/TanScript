@@ -96,6 +96,10 @@ impl Parser {
         self.tokens.front()
     }
 
+    pub fn peek_nth(&self, n: usize) -> Option<&LexerToken> {
+        self.tokens.get(n)
+    }
+
     pub fn next_or_eof(&mut self, expected: &str) -> Result<LexerToken, ParseError> {
         self.next().ok_or_else(|| self.eof_error(expected))
     }

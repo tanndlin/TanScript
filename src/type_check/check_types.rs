@@ -75,8 +75,15 @@ pub fn check_types_expression_expecting<'s>(
         }
         ExpressionKind::StructInstantiation {
             struct_type_name,
+            concrete_generics,
             fields,
-        } => check_struct_instantiation(span, struct_type_name, fields, type_scope),
+        } => check_struct_instantiation(
+            span,
+            struct_type_name,
+            concrete_generics,
+            fields,
+            type_scope,
+        ),
         ExpressionKind::StructAccess { base, field_name } => {
             check_struct_access(span, base, field_name, type_scope)
         }
@@ -321,12 +328,20 @@ pub fn check_cast(
 pub fn check_struct_instantiation(
     span: Span,
     struct_type_name: &str,
+    concrete_generics: &[Type],
     fields: &mut [(String, Expression)],
     type_scope: &mut TypeScope,
 ) -> Result<Type, TypeCheckError> {
     match type_scope.lookup(struct_type_name) {
-        Some(Type::Struct(struct_def)) => {
-            let struct_def = struct_def.clone();
+        Some(Type::Struct(_)) => {
+            let struct_type = Type::Named {
+                name: struct_type_name.to_string(),
+                concrete_generics: concrete_generics.to_vec(),
+                span,
+            };
+            let Type::Struct(struct_def) = type_scope.resolve(&struct_type)?.into_owned() else {
+                unreachable!()
+            };
             for (field_name, field_expr) in fields.iter_mut() {
                 let Some(field) = struct_def.fields.iter().find(|f| f.name == *field_name) else {
                     return Err(TypeCheckErrorKind::NoSuchField {

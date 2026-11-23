@@ -51,6 +51,7 @@ pub enum ExpressionKind {
     SizeOf(Type),
     StructInstantiation {
         struct_type_name: String,
+        concrete_generics: Vec<Type>,
         fields: Vec<(String, Expression)>,
     },
     StructAccess {
@@ -116,11 +117,24 @@ impl fmt::Display for ExpressionKind {
             ExpressionKind::SizeOf(t) => write!(f, "sizeof({t})"),
             ExpressionKind::StructInstantiation {
                 struct_type_name,
+                concrete_generics,
                 fields,
             } => {
+                let generics = if concrete_generics.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "<{}>",
+                        concrete_generics
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                };
                 write!(
                     f,
-                    "{struct_type_name} {{ {} }}",
+                    "{struct_type_name}{generics} {{ {} }}",
                     fields
                         .iter()
                         .map(|(field_name, field_expr)| format!("{field_name}: {field_expr}"))

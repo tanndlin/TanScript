@@ -763,6 +763,21 @@ fn parse_struct_instantiation() {
 }
 
 #[test]
+fn parse_generic_struct_instantiation() {
+    test_parse_expression!("P<u32> { x: 1 }", "P<u32> { x: 1 }");
+    test_parse_expression!("P<*u8> {}", "P<*u8> {  }");
+    test_parse_expression!("P<N<u8>, *N<*u8>> { x: 1 }", "P<N<u8>, *N<*u8>> { x: 1 }");
+    integration_test!("let p = P<u32> { x: 1 };", "let p = P<u32> { x: 1 }");
+}
+
+#[test]
+fn parse_less_than_is_not_generic_struct() {
+    test_parse_expression!("a < b", "(< a b)");
+    test_parse_expression!("foo(a < b, c > d)", "foo((< a b), (> c d))");
+    integration_test!("if a < b { c++; }", "if (< a b) {\n(++ c)\n}");
+}
+
+#[test]
 fn parse_struct_instantiation_with_struct_field() {
     test_parse_expression!("A { b: B { x: 1 } }", "A { b: B { x: 1 } }");
 }

@@ -198,12 +198,7 @@ impl Codegen {
                     _ => Type::Unknown,
                 })
             }
-            ExpressionKind::StructInstantiation {
-                struct_type_name, ..
-            } => Cow::Owned(
-                self.lookup_struct(struct_type_name)
-                    .map_or(Type::Unknown, |def| Type::Struct(def.clone())),
-            ),
+            ExpressionKind::StructInstantiation { .. } => Cow::Borrowed(&*expr.etype),
             ExpressionKind::FunctionCall(name, _) => self
                 .lookup_return_type(name)
                 .map_or(Cow::Owned(Type::Unknown), Cow::Borrowed),
