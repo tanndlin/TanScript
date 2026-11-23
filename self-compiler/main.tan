@@ -3,6 +3,6 @@ use token::{printToken};
 
 let tokens = tokenize("script.tan");
 
-for i in 0..tokens->length {
-    printToken(tokens->arr[i]);
+for i in 0..tokens.length {
+    printToken(tokens.arr[i]);
 }

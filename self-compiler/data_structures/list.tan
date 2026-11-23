@@ -1,0 +1,36 @@
+struct List<T> {
+    arr: *T,
+    length: u32,
+    size: u32,
+}
+
+def list_new<T>(): List<T> {
+    list_with_capacity(10)
+}
+
+def list_with_capacity<T>(cap: u32): List<T> {
+    List<T> {
+        arr: calloc(cap, sizeof(T)),
+        length: 0,
+        size: cap,
+    }
+}
+
+def list_push<T>(list: *List<T>, item: T) {
+    if list->length < list->size {
+        list->arr[list->length++] = item;
+        return;
+    }
+
+    list_expand(list);
+    list_push(list, item);
+}
+
+def list_expand<T>(list: *List<T>) {
+    if list->size == 0 {
+        list->size = 1;
+    }
+
+    list->arr = realloc(list->arr, list->size * 2 * sizeof(T));
+    list->size *= 2;
+}

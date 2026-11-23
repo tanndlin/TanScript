@@ -1,4 +1,5 @@
-use list::{List, Node, linked_list_push, linked_list_to_list};
+use data_structures::linked_list::{Node, linked_list_push, linked_list_to_list};
+use data_structures::list::{List};
 use char_utils::{isIdentStart, isIdentChar};
 use token::{Token, LexerToken};
 
@@ -193,7 +194,7 @@ def lex_operator(lexer: *Lexer, head: *Node<LexerToken>): bool {
     true
 }
 
-def tokenize(file_path: *char): *List<LexerToken> {
+def tokenize(file_path: *char): List<LexerToken> {
     let fp = fopen(file_path, "rb");
     fseek(fp, 0, 2);
     let size = ftell(fp);

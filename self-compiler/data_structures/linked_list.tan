@@ -1,7 +1,4 @@
-struct List<T> {
-    arr: *T,
-    length: u32
-}
+use list::{list_push, list_with_capacity};
 
 struct Node<T> {
     value: T,
@@ -18,7 +15,7 @@ def linked_list_push<T>(node: *Node<T>, value: T) {
     node->next = new_node;
 }
 
-def linked_list_to_list<T>(node: *Node<T>): *List<T> {
+def linked_list_to_list<T>(node: *Node<T>): List<T> {
     let length: u32 = 0;
     let ptr = node;
     while ptr != null {
@@ -26,11 +23,9 @@ def linked_list_to_list<T>(node: *Node<T>): *List<T> {
         length++;
     }
 
-    let list: *List<T> = malloc(sizeof(List<T>));
-    list->arr = malloc(length * sizeof(T));
-    list->length = length;
+    let list: List<T> = list_with_capacity(length);
     for i in 0..length {
-        list->arr[i] = node->value;
+        list_push(&list, node->value);
         node = node->next;
     }
 
