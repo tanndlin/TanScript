@@ -8,7 +8,6 @@ use crate::{
         compile_scope::SLOT_SIZE,
         instruction::Instruction,
     },
-    error::ResultAt,
     type_check::Type,
 };
 
@@ -39,9 +38,10 @@ pub fn compile_function_call(
     codegen: &mut Codegen,
     name: &str,
     args: &[Expression],
+    return_type: &Type,
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let return_type = codegen.lookup_return_type(name).cloned();
+    let is_extern = !codegen.defined_functions.contains(name);
 
     // The callee may clobber any volatile register, so save the ones in use. dst is left out, as
     // the caller wants it overwritten
@@ -57,13 +57,15 @@ pub fn compile_function_call(
         _ => None,
     };
 
-    let hidden_return = match (&return_type, dst) {
-        (Some(t), Some(dst)) if passed_by_pointer(t) && !matches!(dst, Address::Register(_)) => {
+    let hidden_return = match dst {
+        Some(dst) if passed_by_pointer(return_type) && !matches!(dst, Address::Register(_)) => {
             Some(dst)
         }
         // Make extra room for the returned struct to go into stack
-        (Some(t), _) if passed_by_pointer(t) => {
-            let size = u32::try_from(t.size()).unwrap().next_multiple_of(SLOT_SIZE);
+        _ if passed_by_pointer(return_type) => {
+            let size = u32::try_from(return_type.size())
+                .unwrap()
+                .next_multiple_of(SLOT_SIZE);
             codegen.scope_mut().stack_depth += size;
             instructions.push(Instruction::sub(Register::RSP, size));
             Some(Address::Stack(codegen.stack_depth().cast_signed()))
@@ -75,8 +77,7 @@ pub fn compile_function_call(
     let target_registers = &all_registers[usize::from(hidden_return.is_some())..];
     let (register_args, stack_args) = args.split_at(args.len().min(target_registers.len()));
 
-    let (temporary_instructions, temporaries) =
-        struct_temporaries(args, return_type.is_none(), codegen)?;
+    let (temporary_instructions, temporaries) = struct_temporaries(args, is_extern, codegen)?;
     instructions.extend(temporary_instructions);
     let temporaries_size = codegen.stack_depth() - depth;
     let (register_temporaries, stack_temporaries) = temporaries.split_at(register_args.len());
@@ -185,8 +186,8 @@ fn struct_temporaries(
     let mut instructions = vec![];
     let mut temporaries = vec![];
     for arg in args {
-        let arg_type = codegen.expression_type(arg).at(arg.span)?;
-        if !passed_by_pointer(&arg_type) || (arg.is_place() && !is_extern) {
+        let arg_type = &arg.etype;
+        if !passed_by_pointer(arg_type) || (arg.is_place() && !is_extern) {
             temporaries.push(None);
             continue;
         }
@@ -214,7 +215,7 @@ fn compile_arg(
         return move_into(dst, codegen, |reg| Instruction::lea(reg, temporary));
     }
 
-    if !passed_by_pointer(codegen.expression_type(arg).at(arg.span)?.as_ref()) {
+    if !passed_by_pointer(&arg.etype) {
         return arg.compile(codegen, dst);
     }
 
@@ -285,6 +286,26 @@ mod test {
         assert!(asm[..call].contains("sub rsp, 16"), "{asm}");
         assert!(asm[call..].contains("add rsp, 16"), "{asm}");
         assert!(asm.contains("lea rcx, [rbp - "), "{asm}");
+    }
+
+    #[test]
+    fn compile_struct_arg_to_declared_extern_passes_copy() {
+        let asm = compile(
+            "struct Big { a: i64, b: i64, c: i64, } extern def take(b: Big); let big = Big { a: 1, b: 2, c: 3 }; take(big);",
+        );
+        let call = asm.find("call take").expect(&asm);
+        assert!(!asm[..call].contains("lea rcx, [rbp - 24]"), "{asm}");
+        assert!(asm[..call].contains("lea rcx, [rbp - 48]"), "{asm}");
+    }
+
+    #[test]
+    fn compile_generic_extern_returning_struct_passes_hidden_pointer() {
+        let asm = compile(
+            "struct Big { a: i64, b: i64, c: i64, } extern def make<T>(): T; let big: Big = make();",
+        );
+        let call = asm.find("call make").expect(&asm);
+        assert!(asm[..call].contains("lea rcx, [rbp - 24]"), "{asm}");
+        assert!(!asm[call..].contains("], rax"), "{asm}");
     }
 
     #[test]

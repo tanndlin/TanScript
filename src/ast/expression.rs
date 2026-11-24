@@ -25,7 +25,7 @@ impl Expression {
     pub fn is_place(&self) -> bool {
         matches!(
             self.kind,
-            ExpressionKind::Atom(AtomType::Identifier(_))
+            ExpressionKind::Variable { .. }
                 | ExpressionKind::Index(_, _)
                 | ExpressionKind::StructAccess { .. }
                 | ExpressionKind::Unary(UnaryOp::Deref, _)
@@ -42,6 +42,10 @@ impl fmt::Display for Expression {
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
     Atom(AtomType),
+    Variable {
+        name: String,
+        binding: Option<usize>,
+    },
     Binary(BinaryOp, Box<Expression>, Box<Expression>),
     Unary(UnaryOp, Box<Expression>),
     Postfix(PostfixOp, Box<Expression>),
@@ -97,6 +101,7 @@ impl fmt::Display for ExpressionKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ExpressionKind::Atom(i) => write!(f, "{i}"),
+            ExpressionKind::Variable { name, .. } => write!(f, "{name}"),
             ExpressionKind::Binary(op, left, right) => write!(f, "({op} {left} {right})"),
             ExpressionKind::Unary(op, child) => write!(f, "({op} {child})"),
             ExpressionKind::Postfix(op, identifier) => write!(f, "({op} {identifier})"),
@@ -155,9 +160,12 @@ impl fmt::Display for ExpressionKind {
 
 impl From<(u64, Span)> for Expression {
     fn from((n, span): (u64, Span)) -> Self {
-        Expression::new(
-            ExpressionKind::Atom(AtomType::Number(NumberType::Coercible(n))),
+        let atom = AtomType::Number(NumberType::Coercible(n));
+        let etype = Type::from(&atom);
+        Self {
+            kind: ExpressionKind::Atom(atom),
             span,
-        )
+            etype: Box::new(etype),
+        }
     }
 }

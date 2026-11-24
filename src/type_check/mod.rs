@@ -181,7 +181,6 @@ impl From<&AtomType> for Type {
     fn from(atom_type: &AtomType) -> Self {
         match atom_type {
             AtomType::Number(n) => Type::Int(n.kind()),
-            AtomType::Identifier(_) => unreachable!(),
             AtomType::String(_) => Type::Char.pointer_to(),
             AtomType::Boolean(_) => Type::Boolean,
             AtomType::Null => Type::Null,

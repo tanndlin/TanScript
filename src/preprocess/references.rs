@@ -1,7 +1,6 @@
 use crate::{
     ast::{
-        Arg, AtomType, Child, ExpressionKind, Signature, Statement, StatementOrExpression,
-        StructField, Walk,
+        Arg, Child, ExpressionKind, Signature, Statement, StatementOrExpression, StructField, Walk,
     },
     type_check::Type,
 };
@@ -50,7 +49,7 @@ impl StatementOrExpression {
         self.visit(&mut |c| {
             match c {
                 Child::Statement(Statement::Declaration(s)) => {
-                    s.dtype.references(names);
+                    s.annotation.references(names);
                 }
                 Child::Statement(Statement::FunctionDefinition(s)) => {
                     s.signature.references(names);
@@ -62,7 +61,7 @@ impl StatementOrExpression {
                     s.fields.references(names);
                 }
                 Child::Expression(e) => match &e.kind {
-                    ExpressionKind::Atom(AtomType::Identifier(name))
+                    ExpressionKind::Variable { name, .. }
                     | ExpressionKind::FunctionCall(name, _)
                     | ExpressionKind::EnumVariant {
                         enum_name: name, ..

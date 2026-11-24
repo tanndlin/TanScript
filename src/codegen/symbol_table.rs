@@ -1,20 +1,14 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     rc::Rc,
 };
 
-use crate::ast::{
-    Block, Child, EnumDefinition, Expression, ExpressionKind, ExternDeclaration,
-    FunctionDefinition, Statement, StructDefinition, Walk,
-};
+use crate::ast::{Block, Child, Expression, ExpressionKind, FunctionDefinition, Statement, Walk};
 
 #[derive(Default)]
 pub struct SymbolTable {
     pub functions: BTreeMap<String, Rc<FunctionDefinition>>,
-    pub structs: HashMap<String, Rc<StructDefinition>>,
     pub externs: BTreeSet<String>,
-    pub extern_declarations: BTreeMap<String, Rc<ExternDeclaration>>,
-    pub enums: HashMap<String, Rc<EnumDefinition>>,
 }
 
 impl Block {
@@ -31,17 +25,6 @@ impl Block {
                     symbols
                         .functions
                         .insert(s.signature.name.clone(), s.clone());
-                }
-                Child::Statement(Statement::ExternDeclaration(s)) => {
-                    symbols
-                        .extern_declarations
-                        .insert(s.signature.name.clone(), s.clone());
-                }
-                Child::Statement(Statement::StructDefinition(s)) => {
-                    symbols.structs.insert(s.name.clone(), s.clone());
-                }
-                Child::Statement(Statement::EnumDefinition(s)) => {
-                    symbols.enums.insert(s.name.clone(), s.clone());
                 }
                 Child::Expression(Expression {
                     kind: ExpressionKind::FunctionCall(name, _),
@@ -78,21 +61,5 @@ mod tests {
             externs("for i in start()..step(10) {}"),
             vec!["start", "step"]
         );
-    }
-
-    #[test]
-    fn discovers_extern_declarations() {
-        let program = parse(
-            lex(
-                "extern def puts(s: *char): i32; if (true) { extern def abs(n: i32): i32; }",
-                0,
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let mut symbols = SymbolTable::default();
-        program.block.discover(&mut symbols);
-        let names: Vec<&String> = symbols.extern_declarations.keys().collect();
-        assert_eq!(names, vec!["abs", "puts"]);
     }
 }

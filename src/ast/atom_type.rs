@@ -5,7 +5,6 @@ pub enum AtomType {
     Number(NumberType),
     #[display("'{}'", _0.escape_default())]
     Char(char),
-    Identifier(String),
     Boolean(bool),
     #[display("null")]
     Null,
@@ -20,10 +19,12 @@ impl TryFrom<LexerAtomType> for AtomType {
     fn try_from(atom: LexerAtomType) -> Result<Self, Self::Error> {
         Ok(match atom {
             LexerAtomType::Number(n) => AtomType::Number(n),
-            LexerAtomType::Identifier(s) => AtomType::Identifier(s),
             LexerAtomType::String(s) => AtomType::String(s),
             LexerAtomType::Char(c) => AtomType::Char(c),
-            other @ (LexerAtomType::Semicolon | LexerAtomType::Comma | LexerAtomType::Colon) => {
+            other @ (LexerAtomType::Identifier(_)
+            | LexerAtomType::Semicolon
+            | LexerAtomType::Comma
+            | LexerAtomType::Colon) => {
                 return Err(other);
             }
         })

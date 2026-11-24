@@ -5,8 +5,7 @@ use crate::{ast::Assignment, type_check::Type};
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub assign: Assignment,
-    pub dtype: Option<Type>,
-    pub binding: Option<usize>,
+    pub annotation: Option<Type>,
 }
 
 impl fmt::Display for Declaration {

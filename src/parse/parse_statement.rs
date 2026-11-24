@@ -2,11 +2,10 @@ use std::{rc::Rc, str::FromStr};
 
 use crate::{
     ast::{
-        Arg, AssignOp, Assignment, AtomType, Block, BreakStatement, Case, ContinueStatement,
-        Declaration, EnumDefinition, Expression, ExpressionKind, ExternDeclaration, ForLoop,
-        FunctionDefinition, IfStatement, Import, ImportName, MatchStatement, OperatorType, Range,
-        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition,
-        StructField, WhileLoop,
+        Arg, AssignOp, Assignment, Block, BreakStatement, Case, ContinueStatement, Declaration,
+        EnumDefinition, Expression, ExpressionKind, ExternDeclaration, ForLoop, FunctionDefinition,
+        IfStatement, Import, ImportName, MatchStatement, OperatorType, Range, ReturnStatement,
+        Signature, Statement, StatementOrExpression, StructDefinition, StructField, WhileLoop,
     },
     lex::LexerAtomType,
     parse::{
@@ -104,7 +103,7 @@ fn parse_for_loop(tokens: &mut Parser) -> Result<ForLoop, ParseError> {
     Ok(ForLoop {
         ident,
         span: ident_tok.span,
-        dtype: None,
+        ident_type: None,
         binding: None,
         range,
         block,
@@ -188,7 +187,7 @@ fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
         return Err(expected("identifier", tok));
     };
 
-    let dtype = parse_type_annotation(tokens)?;
+    let annotation = parse_type_annotation(tokens)?;
 
     // Only a plain `=` is allowed; compound assigns need an existing value
     let tok = tokens.next_or_eof("=")?;
@@ -199,14 +198,16 @@ fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
     Ok(Declaration {
         assign: Assignment {
             lhs: Expression::new(
-                ExpressionKind::Atom(AtomType::Identifier(ident)),
+                ExpressionKind::Variable {
+                    name: ident,
+                    binding: None,
+                },
                 ident_span,
             ),
             op: AssignOp::Assign,
             expression: parse_expression(tokens, 0)?,
         },
-        dtype,
-        binding: None,
+        annotation,
     })
 }
 

@@ -693,7 +693,7 @@ fn parse_char_declaration() {
     let Statement::Declaration(declaration) = statement.as_ref() else {
         panic!("expected a declaration, got {statement}");
     };
-    assert_eq!(declaration.dtype, Some(Type::Char));
+    assert_eq!(declaration.annotation, Some(Type::Char));
 }
 
 #[test]
@@ -923,7 +923,7 @@ fn declared_type(code: &str) -> Type {
     let Statement::Declaration(declaration) = statement.as_ref() else {
         panic!("expected a declaration, got {statement}");
     };
-    declaration.dtype.clone().unwrap()
+    declaration.annotation.clone().unwrap()
 }
 
 #[test]

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     ast::{
         AtomType, BinaryOp, Block, Expression, ExpressionKind, Program,
@@ -33,27 +31,7 @@ impl Program {
         let mut symbol_table = SymbolTable::default();
         self.block.discover(&mut symbol_table);
         symbol_table.externs.insert("exit".to_string());
-        let signatures = symbol_table
-            .functions
-            .values()
-            .map(|def| &def.signature)
-            .chain(
-                symbol_table
-                    .extern_declarations
-                    .values()
-                    .map(|def| &def.signature),
-            );
-        for signature in signatures {
-            codegen
-                .scope_mut()
-                .insert_return_type(signature.name.clone(), signature.return_type.clone());
-        }
-        for def in symbol_table.structs.values() {
-            codegen.scope_mut().insert_struct(def.clone());
-        }
-        for def in symbol_table.enums.values() {
-            codegen.scope_mut().insert_enum(def.clone());
-        }
+        codegen.defined_functions = symbol_table.functions.keys().cloned().collect();
 
         let instructions = render(&self.block.compile(&mut codegen)?);
 
@@ -171,16 +149,18 @@ impl Expression {
             ExpressionKind::Atom(a) => match a {
                 AtomType::Number(n) => compile_number(*n, dst, codegen),
                 AtomType::Char(c) => Ok(vec![compile_char(*c, dst)]),
-                AtomType::Identifier(name) => compile_variable(codegen, name, self.span, dst),
                 AtomType::String(s) => compile_string(s, dst, codegen),
                 AtomType::Boolean(b) => Ok(vec![compile_boolean(*b, dst)]),
                 AtomType::Null => Ok(vec![Instruction::mov(dst, NumberType::I64(0))]),
             },
+            ExpressionKind::Variable { name, .. } => {
+                compile_variable(codegen, name, &self.etype, self.span, dst)
+            }
             ExpressionKind::Binary(BinaryOp::And | BinaryOp::Or, ..) => {
                 compile_logical_binary(self, codegen, dst)
             }
             ExpressionKind::Binary(op, left, right) => {
-                compile_binary(*op, left, right, codegen, dst)
+                compile_binary(*op, left, right, &self.etype, codegen, dst)
             }
             ExpressionKind::Index(..)
             | ExpressionKind::StructAccess { .. }
@@ -193,7 +173,7 @@ impl Expression {
             ExpressionKind::Unary(op, child) => compile_unary(*op, child, codegen, dst),
             ExpressionKind::Postfix(op, lhs) => compile_postfix(*op, lhs, codegen, dst),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(codegen, name, args, Some(dst))
+                compile_function_call(codegen, name, args, &self.etype, Some(dst))
             }
             ExpressionKind::Cast(inner, cast_type) => compile_cast(inner, cast_type, codegen, dst),
             ExpressionKind::SizeOf(sized_type) => compile_number(
@@ -204,10 +184,9 @@ impl Expression {
             ExpressionKind::StructInstantiation { fields, .. } => {
                 compile_struct_instantiation(&self.etype, fields, codegen, dst)
             }
-            ExpressionKind::EnumVariant {
-                enum_name,
-                variant_name,
-            } => compile_enum(enum_name, variant_name, codegen, dst),
+            ExpressionKind::EnumVariant { variant_name, .. } => {
+                compile_enum(variant_name, &self.etype, codegen, dst)
+            }
         }
     }
 
@@ -219,7 +198,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Postfix(op, lhs) => compile_postfix_update(*op, lhs, codegen),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(codegen, name, args, None)
+                compile_function_call(codegen, name, args, &self.etype, None)
             }
             ExpressionKind::Unary(_, child) | ExpressionKind::Cast(child, _) => {
                 child.compile_discarded(codegen)
@@ -233,6 +212,7 @@ impl Expression {
                 Ok(instructions)
             }
             ExpressionKind::Atom(_)
+            | ExpressionKind::Variable { .. }
             | ExpressionKind::SizeOf(_)
             | ExpressionKind::StructInstantiation { .. }
             | ExpressionKind::StructAccess { .. }
@@ -242,14 +222,20 @@ impl Expression {
 }
 
 fn compile_enum(
-    enum_name: &str,
     variant_name: &str,
+    enum_type: &Type,
     codegen: &mut Codegen,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let enum_def = codegen.lookup_enum(enum_name).unwrap();
-    let index = enum_def.variant_index(variant_name).unwrap();
-    compile_number(NumberType::U8(u8::try_from(index).unwrap()), dst, codegen)
+    let index = variant_index(enum_type, variant_name).unwrap();
+    compile_number(NumberType::U8(index), dst, codegen)
+}
+
+fn variant_index(enum_type: &Type, variant_name: &str) -> Option<u8> {
+    let Type::Enum(enum_def) = enum_type else {
+        return None;
+    };
+    u8::try_from(enum_def.variant_index(variant_name)?).ok()
 }
 
 fn compile_string(
@@ -294,6 +280,7 @@ fn compile_char(c: char, dst: Address) -> Instruction {
 fn compile_variable(
     codegen: &mut Codegen,
     name: &str,
+    t: &Type,
     span: Span,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
@@ -302,9 +289,8 @@ fn compile_variable(
         return Ok(vec![]);
     }
 
-    if let Type::Struct(struct_def) = codegen.get_type(name).at(span)? {
-        let struct_def = Rc::clone(struct_def);
-        return mem_copy(&struct_def, dst, address, codegen);
+    if let Type::Struct(struct_def) = t {
+        return mem_copy(struct_def, dst, address, codegen);
     }
 
     match address {
@@ -322,19 +308,10 @@ pub fn as_operand(expr: &Expression, codegen: &Codegen) -> Option<Operand> {
     match &expr.kind {
         ExpressionKind::Atom(AtomType::Number(n)) if fits_imm32(*n) => Some(Operand::Immediate(*n)),
         ExpressionKind::Atom(AtomType::Char(c)) => Some(Operand::from(*c)),
-        ExpressionKind::Atom(AtomType::Identifier(name)) => {
-            codegen.get_variable(name).ok().map(Operand::from)
-        }
-        ExpressionKind::EnumVariant {
-            enum_name,
-            variant_name,
-        } => {
-            let index = codegen
-                .lookup_enum(enum_name)?
-                .variant_index(variant_name)?;
-            Some(Operand::Immediate(NumberType::U8(
-                u8::try_from(index).ok()?,
-            )))
+        ExpressionKind::Variable { name, .. } => codegen.get_variable(name).ok().map(Operand::from),
+        ExpressionKind::EnumVariant { variant_name, .. } => {
+            variant_index(&expr.etype, variant_name)
+                .map(|index| Operand::Immediate(NumberType::U8(index)))
         }
         _ => None,
     }

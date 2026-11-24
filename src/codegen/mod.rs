@@ -14,11 +14,14 @@ mod symbol_table;
 
 pub use codegen_error::{CodegenError, CodegenErrorKind};
 
+use std::collections::HashSet;
+
 use crate::codegen::{compile_scope::CompileScope, register_handler::RegisterHandler};
 
 pub struct Codegen {
     scopes: Vec<CompileScope>,
     pub registers: RegisterHandler,
+    pub defined_functions: HashSet<String>,
 }
 
 impl Default for Codegen {
@@ -26,6 +29,7 @@ impl Default for Codegen {
         Self {
             scopes: vec![CompileScope::default()],
             registers: RegisterHandler::default(),
+            defined_functions: HashSet::new(),
         }
     }
 }

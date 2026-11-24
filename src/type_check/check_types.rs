@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomType, BinaryOp, Expression, ExpressionKind, Program, Statement, UnaryOp},
+    ast::{BinaryOp, Expression, ExpressionKind, Program, Statement, UnaryOp},
     error::At,
     type_check::{
         FunctionType, Type, TypeCheckError, TypeCheckErrorKind, TypeScope, infer_type::unify,
@@ -35,10 +35,13 @@ pub fn check_types_expression_expecting<'s>(
 ) -> Result<&'s Type, TypeCheckError> {
     let span = expression.span;
     let t = match &mut expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope
-            .lookup(ident)
-            .cloned()
-            .ok_or_else(|| TypeCheckErrorKind::IdentifierNotFound(ident.clone()).at(span)),
+        ExpressionKind::Variable { name, binding } => {
+            let id = type_scope
+                .find(name)
+                .ok_or_else(|| TypeCheckErrorKind::IdentifierNotFound(name.clone()).at(span))?;
+            *binding = Some(id);
+            Ok(type_scope.binding(id).clone())
+        }
         ExpressionKind::Atom(atom_type) => Ok(Type::from(&*atom_type)),
         ExpressionKind::Binary(op, lhs, rhs) => check_binary(*op, lhs, rhs, type_scope),
         ExpressionKind::Unary(UnaryOp::Not, inner) => {
@@ -424,7 +427,7 @@ pub fn expect_type(
 
 pub fn narrow_expression(expression: &Expression, t: &Type, type_scope: &mut TypeScope) {
     match &expression.kind {
-        ExpressionKind::Atom(AtomType::Identifier(ident)) => type_scope.narrow(ident, t.clone()),
+        ExpressionKind::Variable { name, .. } => type_scope.narrow(name, t.clone()),
         ExpressionKind::Binary(_, lhs, rhs) => {
             narrow_expression(lhs, t, type_scope);
             narrow_expression(rhs, t, type_scope);
@@ -647,7 +650,7 @@ mod test {
         let Statement::Declaration(declaration) = statement.as_ref() else {
             panic!("expected a declaration");
         };
-        assert_eq!(declaration.dtype, Some(Type::Char));
+        assert_eq!(*declaration.assign.lhs.etype, Type::Char);
     }
 
     #[test]
@@ -692,7 +695,7 @@ mod test {
                 StatementOrExpression::Expression(_) => None,
             })
             .expect("expected a for loop");
-        for_loop.dtype.clone()
+        for_loop.ident_type.clone()
     }
 
     #[test]
@@ -1020,7 +1023,7 @@ mod test {
         let Statement::Declaration(declaration) = statement.as_ref() else {
             panic!("expected declaration");
         };
-        assert_eq!(declaration.dtype, Some(Type::Boolean));
+        assert_eq!(*declaration.assign.lhs.etype, Type::Boolean);
     }
 
     #[test]

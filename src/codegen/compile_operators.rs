@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomType, BinaryOp, Expression, ExpressionKind, PostfixOp, UnaryOp},
+    ast::{BinaryOp, Expression, ExpressionKind, PostfixOp, UnaryOp},
     codegen::{
         Codegen, CodegenError, CodegenErrorKind,
         address::{Address, Register},
@@ -7,7 +7,7 @@ use crate::{
         compile_memory::{extend, load_element, narrow_size, store_element, with_place_address},
         instruction::{Condition, Instruction, Operand},
     },
-    error::{At, ResultAt},
+    error::At,
     type_check::Type,
     types::NumberType,
 };
@@ -16,6 +16,7 @@ pub fn compile_binary(
     op: BinaryOp,
     left: &Expression,
     right: &Expression,
+    result_type: &Type,
     codegen: &mut Codegen,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
@@ -25,7 +26,7 @@ pub fn compile_binary(
         | BinaryOp::Modulo
         | BinaryOp::Add
         | BinaryOp::Subtract => {
-            return compile_arithmetic(op, left, right, codegen, dst);
+            return compile_arithmetic(op, left, right, result_type, codegen, dst);
         }
         BinaryOp::Or | BinaryOp::And => {
             unreachable!("logical operators are compiled by compile_logical_binary")
@@ -48,23 +49,21 @@ fn compile_arithmetic(
     op: BinaryOp,
     left: &Expression,
     right: &Expression,
+    result_type: &Type,
     codegen: &mut Codegen,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
+    let unsigned = matches!(result_type, Type::Int(int) if !int.is_signed());
     let mut instructions = match op {
         BinaryOp::Multiply => compile_multiply(codegen, left, right, dst)?,
-        BinaryOp::Divide => compile_divide(codegen, left, right, dst, Register::RAX)?,
-        BinaryOp::Modulo => compile_divide(codegen, left, right, dst, Register::RDX)?,
+        BinaryOp::Divide => compile_divide(codegen, left, right, dst, Register::RAX, unsigned)?,
+        BinaryOp::Modulo => compile_divide(codegen, left, right, dst, Register::RDX, unsigned)?,
         BinaryOp::Add => compile_simple_binary(Instruction::add, codegen, left, right, dst)?,
         BinaryOp::Subtract => compile_simple_binary(Instruction::sub, codegen, left, right, dst)?,
         _ => unreachable!("({op}) is not an arithmetic operator"),
     };
 
-    let result_type = codegen
-        .unified_type(left, right)
-        .at(left.span)?
-        .into_owned();
-    instructions.extend(narrow_in_place(&result_type, codegen, dst)?);
+    instructions.extend(narrow_in_place(result_type, codegen, dst)?);
     Ok(instructions)
 }
 
@@ -324,7 +323,7 @@ fn compile_postfix_in_place(
     codegen: &mut Codegen,
     dst: Option<Address>,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let is_variable = matches!(lhs.kind, ExpressionKind::Atom(AtomType::Identifier(_)));
+    let is_variable = matches!(lhs.kind, ExpressionKind::Variable { .. });
     with_place_address(lhs, codegen, &mut |codegen, address, t| {
         let update = |target: Address| match op {
             PostfixOp::Increment => Instruction::add(target, 1),
@@ -388,12 +387,8 @@ fn compile_divide(
     right: &Expression,
     dst: Address,
     result: Register,
+    unsigned: bool,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let unsigned = matches!(
-        codegen.unified_type(left, right).at(left.span)?.as_ref(),
-        Type::Int(int) if !int.is_signed()
-    );
-
     codegen.lease_with_scope(|codegen, right_reg| {
         // Only happens when every other register is leased, and div overwrites both
         if matches!(right_reg, Register::RAX | Register::RDX) {

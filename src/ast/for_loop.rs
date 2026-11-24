@@ -10,7 +10,7 @@ use crate::{
 pub struct ForLoop {
     pub ident: String,
     pub span: Span,
-    pub dtype: Option<Type>,
+    pub ident_type: Option<Type>,
     pub binding: Option<usize>,
     pub range: Range,
     pub block: Block,

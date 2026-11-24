@@ -2,9 +2,10 @@ use std::{borrow::Cow, collections::HashSet, rc::Rc};
 
 use crate::{
     ast::{
-        AssignOp, Assignment, AtomType, Block, Declaration, EnumDefinition, ExpressionKind,
+        AssignOp, Assignment, Block, Declaration, EnumDefinition, Expression, ExpressionKind,
         ExternDeclaration, ForLoop, FunctionDefinition, IfStatement, MatchStatement,
-        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition, WhileLoop,
+        ReturnStatement, Signature, Statement, StatementOrExpression, StructDefinition, UnaryOp,
+        WhileLoop,
     },
     error::At,
     type_check::{
@@ -153,8 +154,9 @@ impl StatementOrExpression {
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
-        if let StatementOrExpression::Statement(statement) = self {
-            statement.resolve_types(type_scope);
+        match self {
+            StatementOrExpression::Statement(statement) => statement.resolve_types(type_scope),
+            StatementOrExpression::Expression(expression) => expression.resolve_types(type_scope),
         }
     }
 }
@@ -192,10 +194,10 @@ impl Statement {
             }
             Self::IfStatement(s) => s.resolve_types(type_scope),
             Self::MatchStatement(s) => s.resolve_types(type_scope),
-            Self::WhileLoop(s) => s.block.resolve_types(type_scope),
-            Self::Assignment(_)
-            | Self::Return(_)
-            | Self::Break(_)
+            Self::WhileLoop(s) => s.resolve_types(type_scope),
+            Self::Return(s) => s.resolve_types(type_scope),
+            Self::Assignment(s) => s.resolve_types(type_scope),
+            Self::Break(_)
             | Self::Continue(_)
             | Self::FunctionDefinition(_)
             | Self::StructDefinition(_)
@@ -223,16 +225,21 @@ impl Assignment {
         }
         expect_type(&self.expression, &expected, &got, type_scope)
     }
+
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.lhs.resolve_types(type_scope);
+        self.expression.resolve_types(type_scope);
+    }
 }
 
 impl Declaration {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
+        let ExpressionKind::Variable { name, binding } = &mut self.assign.lhs.kind else {
             panic!("Declaration LHS can only be a identifier");
         };
 
         let expected = self
-            .dtype
+            .annotation
             .as_ref()
             .map(|t| type_scope.resolve(t).map(Cow::into_owned))
             .transpose()?;
@@ -242,20 +249,20 @@ impl Declaration {
             type_scope,
         )?
         .clone();
-        let Some(expected) = expected else {
-            self.binding = Some(type_scope.insert(ident.clone(), got));
-            return Ok(());
+        let declared = match expected {
+            Some(expected) => {
+                expect_type(&self.assign.expression, &expected, &got, type_scope)?;
+                expected
+            }
+            None => got,
         };
 
-        expect_type(&self.assign.expression, &expected, &got, type_scope)?;
-        self.binding = Some(type_scope.insert(ident.clone(), expected));
+        *binding = Some(type_scope.insert(name.clone(), declared));
         Ok(())
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
-        if let Some(id) = self.binding {
-            self.dtype = Some(type_scope.binding(id).clone());
-        }
+        self.assign.resolve_types(type_scope);
     }
 }
 
@@ -289,9 +296,11 @@ impl ForLoop {
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
         if let Some(id) = self.binding {
-            self.dtype = Some(type_scope.binding(id).clone());
+            self.ident_type = Some(type_scope.binding(id).clone());
         }
         self.block.resolve_types(type_scope);
+        self.range.start.resolve_types(type_scope);
+        self.range.end.resolve_types(type_scope);
     }
 }
 
@@ -435,6 +444,7 @@ impl IfStatement {
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.condition.resolve_types(type_scope);
         self.block.resolve_types(type_scope);
         if let Some(else_block) = &mut self.else_block {
             else_block.resolve_types(type_scope);
@@ -489,7 +499,9 @@ impl MatchStatement {
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.lhs.resolve_types(type_scope);
         for case in &mut self.cases {
+            case.rhs.resolve_types(type_scope);
             case.block.resolve_types(type_scope);
         }
         if let Some(default) = &mut self.default {
@@ -513,11 +525,93 @@ impl ReturnStatement {
             None => Err(TypeCheckErrorKind::mismatch(expected, got).at(self.span)),
         }
     }
+
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        if let Some(expr) = &mut self.expr {
+            expr.resolve_types(type_scope);
+        }
+    }
 }
 
 impl WhileLoop {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
         check_types_expression(&mut self.condition, type_scope)?;
         self.block.check_types(type_scope)
+    }
+
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        self.condition.resolve_types(type_scope);
+        self.block.resolve_types(type_scope);
+    }
+}
+
+impl Expression {
+    pub fn resolve_types(&mut self, type_scope: &TypeScope) {
+        let resolved = match &mut self.kind {
+            ExpressionKind::Variable {
+                binding: Some(id), ..
+            } => Some(type_scope.binding(*id).clone()),
+            ExpressionKind::Binary(op, lhs, rhs) => {
+                lhs.resolve_types(type_scope);
+                rhs.resolve_types(type_scope);
+                if op.returns_boolean() {
+                    None
+                } else {
+                    unify(&lhs.etype, &rhs.etype)
+                        .or_else(|| unify(&rhs.etype, &lhs.etype))
+                        .cloned()
+                }
+            }
+            ExpressionKind::Unary(op, inner) => {
+                inner.resolve_types(type_scope);
+                match (*op, &*inner.etype) {
+                    (UnaryOp::Negate, Type::Int(t)) => Some(Type::Int(t.negated())),
+                    (UnaryOp::AddressOf, t) => Some(t.clone().pointer_to()),
+                    (UnaryOp::Deref, Type::Pointer(pointee))
+                        if !matches!(**pointee, Type::Named { .. }) =>
+                    {
+                        Some(Type::clone(pointee))
+                    }
+                    _ => None,
+                }
+            }
+            ExpressionKind::Postfix(_, inner) => {
+                inner.resolve_types(type_scope);
+                Some(Type::clone(&inner.etype))
+            }
+            ExpressionKind::Index(base, index) => {
+                base.resolve_types(type_scope);
+                index.resolve_types(type_scope);
+                match &*base.etype {
+                    Type::Pointer(element) if !matches!(**element, Type::Named { .. }) => {
+                        Some(Type::clone(element))
+                    }
+                    _ => None,
+                }
+            }
+            ExpressionKind::Cast(inner, _) | ExpressionKind::StructAccess { base: inner, .. } => {
+                inner.resolve_types(type_scope);
+                None
+            }
+            ExpressionKind::FunctionCall(_, args) => {
+                for arg in args {
+                    arg.resolve_types(type_scope);
+                }
+                None
+            }
+            ExpressionKind::StructInstantiation { fields, .. } => {
+                for (_, field) in fields {
+                    field.resolve_types(type_scope);
+                }
+                None
+            }
+            ExpressionKind::Variable { binding: None, .. }
+            | ExpressionKind::Atom(_)
+            | ExpressionKind::SizeOf(_)
+            | ExpressionKind::EnumVariant { .. } => None,
+        };
+        if let Some(t) = resolved {
+            *self.etype = t;
+        }
     }
 }

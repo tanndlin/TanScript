@@ -71,6 +71,7 @@ impl Walk for Expression {
         }
         match &self.kind {
             ExpressionKind::Atom(_)
+            | ExpressionKind::Variable { .. }
             | ExpressionKind::EnumVariant { .. }
             | ExpressionKind::SizeOf(_) => {}
             ExpressionKind::Binary(_, l, r) | ExpressionKind::Index(l, r) => {

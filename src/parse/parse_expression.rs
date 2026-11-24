@@ -219,7 +219,13 @@ fn parse_identifier_or_function_call_or_struct(
             parse_struct_instantiation(tokens, s, span)?
         }
         Some(Token::Op(OperatorType::PathSep)) => parse_enum_variant(tokens, s, span)?,
-        _ => Expression::new(ExpressionKind::Atom(AtomType::Identifier(s)), span),
+        _ => Expression::new(
+            ExpressionKind::Variable {
+                name: s,
+                binding: None,
+            },
+            span,
+        ),
     })
 }
 

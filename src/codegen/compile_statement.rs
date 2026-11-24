@@ -1,8 +1,8 @@
 use crate::{
     ast::{
-        Arg, AssignOp, Assignment, AtomType, BinaryOp, BreakStatement, ContinueStatement,
-        Declaration, Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement,
-        MatchStatement, ReturnStatement, Statement, Walk, WhileLoop,
+        Arg, AssignOp, Assignment, BinaryOp, BreakStatement, ContinueStatement, Declaration,
+        Expression, ExpressionKind, ForLoop, FunctionDefinition, IfStatement, MatchStatement,
+        ReturnStatement, Statement, Walk, WhileLoop,
     },
     codegen::{
         Codegen, CodegenError, CodegenErrorKind,
@@ -27,15 +27,10 @@ impl Statement {
             Statement::Assignment(s) => s.compile(codegen),
             Statement::Declaration(s) => s.compile(codegen),
             Statement::ForLoop(s) => s.compile(codegen),
-            Statement::ExternDeclaration(_) | Statement::FunctionDefinition(_) => Ok(vec![]),
-            Statement::StructDefinition(def) => {
-                codegen.scope_mut().insert_struct(def.clone());
-                Ok(vec![])
-            }
-            Statement::EnumDefinition(def) => {
-                codegen.scope_mut().insert_enum(def.clone());
-                Ok(vec![])
-            }
+            Statement::ExternDeclaration(_)
+            | Statement::FunctionDefinition(_)
+            | Statement::StructDefinition(_)
+            | Statement::EnumDefinition(_) => Ok(vec![]),
             Statement::MatchStatement(s) => s.compile(codegen),
             Statement::IfStatement(s) => s.compile(codegen),
             Statement::Return(s) => s.compile(codegen),
@@ -53,13 +48,18 @@ impl Assignment {
         codegen: &mut Codegen,
     ) -> Result<Vec<Instruction>, CodegenError> {
         match &self.lhs.kind {
-            ExpressionKind::Atom(AtomType::Identifier(ident)) => {
-                let address = codegen.get_variable(ident).at(self.lhs.span)?;
+            ExpressionKind::Variable { name, .. } => {
+                let address = codegen.get_variable(name).at(self.lhs.span)?;
                 match self.op {
                     AssignOp::Assign => self.expression.compile(codegen, address),
-                    AssignOp::Compound(op) => {
-                        compile_binary(op, &self.lhs, &self.expression, codegen, address)
-                    }
+                    AssignOp::Compound(op) => compile_binary(
+                        op,
+                        &self.lhs,
+                        &self.expression,
+                        &self.lhs.etype,
+                        codegen,
+                        address,
+                    ),
                 }
             }
             _ if let AssignOp::Compound(op) = self.op => self.compile_compound(op, codegen),
@@ -95,11 +95,14 @@ impl Assignment {
                 codegen.with_block(|codegen| {
                     codegen
                         .scope_mut()
-                        .add_variable(CURRENT.to_string(), value.into(), t.clone())
+                        .add_variable(CURRENT.to_string(), value.into())
                         .at(self.lhs.span)?;
 
                     let mut current = Expression::new(
-                        ExpressionKind::Atom(AtomType::Identifier(CURRENT.to_string())),
+                        ExpressionKind::Variable {
+                            name: CURRENT.to_string(),
+                            binding: None,
+                        },
                         self.lhs.span,
                     );
                     current.etype.clone_from(&self.lhs.etype);
@@ -109,6 +112,7 @@ impl Assignment {
                         op,
                         &current,
                         &self.expression,
+                        t,
                         codegen,
                         value.into(),
                     )?);
@@ -122,17 +126,17 @@ impl Assignment {
 
 impl Declaration {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let ExpressionKind::Atom(AtomType::Identifier(ident)) = &self.assign.lhs.kind else {
+        let ExpressionKind::Variable { name, .. } = &self.assign.lhs.kind else {
             return Err(
                 CodegenErrorKind::InvalidAssignTarget(self.assign.lhs.to_string())
                     .at(self.assign.lhs.span),
             );
         };
 
-        let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
+        let dtype = Type::clone(&self.assign.lhs.etype);
         let alloc = codegen
             .scope_mut()
-            .allocate_variable(ident.clone(), dtype)
+            .allocate_variable(name.clone(), &dtype)
             .at(self.assign.lhs.span)?;
         let mut instructions = vec![Instruction::comment(self.to_string()), alloc];
         instructions.extend(self.assign.compile_uncommented(codegen)?);
@@ -199,17 +203,13 @@ impl ForLoop {
     // 4. Compile range.end there
     // 5. Alias looping var ident to address of $counter
     fn compile_bounds(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let dtype = self.dtype.clone().unwrap_or(Type::Unknown);
+        let dtype = self.counter_type();
         let end_span = self.range.end.span;
-        let end_type = codegen
-            .expression_type(&self.range.end)
-            .at(end_span)?
-            .into_owned();
 
         let mut instructions = vec![
             codegen
                 .scope_mut()
-                .allocate_variable(Self::COUNTER.to_string(), dtype.clone())
+                .allocate_variable(Self::COUNTER.to_string(), &dtype)
                 .at(self.span)?,
         ];
         let counter = codegen.get_variable(Self::COUNTER).at(self.span)?;
@@ -218,7 +218,7 @@ impl ForLoop {
         instructions.push(
             codegen
                 .scope_mut()
-                .allocate_variable(Self::END.to_string(), end_type)
+                .allocate_variable(Self::END.to_string(), &self.range.end.etype)
                 .at(end_span)?,
         );
         let end = codegen.get_variable(Self::END).at(end_span)?;
@@ -226,7 +226,7 @@ impl ForLoop {
 
         codegen
             .scope_mut()
-            .add_variable(self.ident.clone(), counter, dtype)
+            .add_variable(self.ident.clone(), counter)
             .at(self.span)?;
         Ok(instructions)
     }
@@ -246,7 +246,7 @@ impl ForLoop {
         }
 
         let increment = Assignment {
-            lhs: Self::hidden_variable(Self::COUNTER, self.span),
+            lhs: Self::hidden_variable(Self::COUNTER, self.counter_type(), self.span),
             op: AssignOp::Compound(BinaryOp::Add),
             expression: (1, self.range.span).into(),
         };
@@ -255,21 +255,40 @@ impl ForLoop {
     }
 
     fn compare(&self, op: BinaryOp) -> Expression {
-        Expression::new(
+        let mut compare = Expression::new(
             ExpressionKind::Binary(
                 op,
-                Box::new(Self::hidden_variable(Self::COUNTER, self.span)),
-                Box::new(Self::hidden_variable(Self::END, self.range.end.span)),
+                Box::new(Self::hidden_variable(
+                    Self::COUNTER,
+                    self.counter_type(),
+                    self.span,
+                )),
+                Box::new(Self::hidden_variable(
+                    Self::END,
+                    Type::clone(&self.range.end.etype),
+                    self.range.end.span,
+                )),
             ),
             self.range.span,
-        )
+        );
+        *compare.etype = Type::Boolean;
+        compare
     }
 
-    fn hidden_variable(name: &str, span: Span) -> Expression {
-        Expression::new(
-            ExpressionKind::Atom(AtomType::Identifier(name.to_string())),
+    fn hidden_variable(name: &str, etype: Type, span: Span) -> Expression {
+        let mut variable = Expression::new(
+            ExpressionKind::Variable {
+                name: name.to_string(),
+                binding: None,
+            },
             span,
-        )
+        );
+        *variable.etype = etype;
+        variable
+    }
+
+    fn counter_type(&self) -> Type {
+        self.ident_type.clone().unwrap_or(Type::Unknown)
     }
 }
 
@@ -319,7 +338,7 @@ impl FunctionDefinition {
                         // Update its location in the scope
                         codegen
                             .scope_mut()
-                            .add_variable(arg.name.clone(), new_address, arg.atype.clone())
+                            .add_variable(arg.name.clone(), new_address)
                             .at(arg.span)?;
                         continue;
                     }
@@ -328,7 +347,7 @@ impl FunctionDefinition {
                 struct_copies.push(
                     codegen
                         .scope_mut()
-                        .allocate_variable(arg.name.clone(), arg.atype.clone())
+                        .allocate_variable(arg.name.clone(), &arg.atype)
                         .at(arg.span)?,
                 );
                 let local = codegen.get_variable(&arg.name).at(arg.span)?;

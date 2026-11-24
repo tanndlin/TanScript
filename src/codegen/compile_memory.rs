@@ -94,9 +94,9 @@ pub fn with_place_address(
     f: &mut WithAddress,
 ) -> Result<Vec<Instruction>, CodegenError> {
     match &place.kind {
-        ExpressionKind::Atom(AtomType::Identifier(name)) => {
-            let (address, t) = codegen.lookup(name).at(place.span)?.clone();
-            f(codegen, address, &t)
+        ExpressionKind::Variable { name, .. } => {
+            let address = codegen.get_variable(name).at(place.span)?;
+            f(codegen, address, &place.etype)
         }
         ExpressionKind::Index(lhs, index) => {
             let element = &*place.etype;
