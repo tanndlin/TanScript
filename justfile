@@ -2,7 +2,7 @@ set shell := ["cmd.exe", "/c"]
 
 asm file="script.asm":
     nasm -g -f win64 {{file}} -o {{replace(without_extension(file), '/', '')}}.o
-    gcc {{replace(without_extension(file), '/', '')}}.o -o {{replace(without_extension(file), '/', '')}}
+    gcc {{replace(without_extension(file), '/', '')}}.o -o {{replace(without_extension(file), '/', '')}} -lws2_32
     powershell -NoProfile -Command Write-Host ('Runtime: {0:N3} ms' -f (Measure-Command { .\{{replace(without_extension(file), '/', '')}}.exe ^| Out-Host }).TotalMilliseconds)
     del {{replace(without_extension(file), '/', '')}}.exe
     del {{replace(without_extension(file), '/', '')}}.o

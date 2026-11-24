@@ -1,0 +1,139 @@
+struct SockAddrIn {
+    family: u16,
+    port: u16,
+    addr: u32,
+    zero: u64,
+}
+
+extern def WSAStartup(version: u16, data: *u8): i32;
+extern def WSAGetLastError(): i32;
+extern def socket(family: i32, kind: i32, protocol: i32): u64;
+extern def bind(s: u64, addr: *SockAddrIn, length: i32): i32;
+extern def listen(s: u64, backlog: i32): i32;
+extern def connect(s: u64, addr: *SockAddrIn, length: i32): i32;
+extern def accept(s: u64, addr: *SockAddrIn, length: *i32): u64;
+extern def recv(s: u64, buf: *char, length: i32, flags: i32): i32;
+extern def send(s: u64, buf: *char, length: i32, flags: i32): i32;
+extern def closesocket(s: u64): i32;
+extern def inet_addr(host: *char): u32;
+extern def htons(port: u16): u16;
+extern def strlen(s: *char): u64;
+
+struct TcpListener {
+    socket: u64,
+}
+
+struct TcpStream {
+    socket: u64,
+}
+
+def tcp_init(): bool {
+    let data: *u8 = calloc(1, 512);
+    let result = WSAStartup(514, data);
+    free(data);
+    result == 0
+}
+
+def tcp_is_invalid(s: u64): bool {
+    s as i64 == -1
+}
+
+def tcp_last_error(): i32 {
+    WSAGetLastError()
+}
+
+def tcp_address(host: *char, port: u16): SockAddrIn {
+    SockAddrIn {
+        family: 2,
+        port: htons(port),
+        addr: inet_addr(host),
+        zero: 0,
+    }
+}
+
+def tcp_socket(): u64 {
+    if !tcp_init() {
+        let invalid: i64 = -1;
+        return invalid as u64;
+    }
+
+    socket(2, 1, 6)
+}
+
+def tcp_stream(s: u64): *TcpStream {
+    let stream: *TcpStream = calloc(1, sizeof(TcpStream));
+    stream->socket = s;
+    stream
+}
+
+def tcp_listen(host: *char, port: u16): *TcpListener {
+    let s = tcp_socket();
+    if tcp_is_invalid(s) {
+        return null;
+    }
+
+    let addr = tcp_address(host, port);
+    if bind(s, &addr, sizeof(SockAddrIn)) != 0 || listen(s, 128) != 0 {
+        closesocket(s);
+        return null;
+    }
+
+    let listener: *TcpListener = calloc(1, sizeof(TcpListener));
+    listener->socket = s;
+    listener
+}
+
+def tcp_accept(listener: *TcpListener): *TcpStream {
+    let s = accept(listener->socket, null, null);
+    if tcp_is_invalid(s) {
+        return null;
+    }
+
+    tcp_stream(s)
+}
+
+def tcp_connect(host: *char, port: u16): *TcpStream {
+    let s = tcp_socket();
+    if tcp_is_invalid(s) {
+        return null;
+    }
+
+    let addr = tcp_address(host, port);
+    if connect(s, &addr, sizeof(SockAddrIn)) != 0 {
+        closesocket(s);
+        return null;
+    }
+
+    tcp_stream(s)
+}
+
+def tcp_read(stream: *TcpStream, buf: *char, length: i32): i32 {
+    recv(stream->socket, buf, length, 0)
+}
+
+def tcp_write(stream: *TcpStream, buf: *char, length: i32): i32 {
+    let sent = 0;
+    while sent < length {
+        let n = send(stream->socket, &buf[sent], length - sent, 0);
+        if n < 0 {
+            return n;
+        }
+        sent += n;
+    }
+
+    sent
+}
+
+def tcp_write_str(stream: *TcpStream, s: *char): i32 {
+    tcp_write(stream, s, strlen(s) as i32)
+}
+
+def tcp_close(stream: *TcpStream) {
+    closesocket(stream->socket);
+    free(stream);
+}
+
+def tcp_listener_close(listener: *TcpListener) {
+    closesocket(listener->socket);
+    free(listener);
+}
