@@ -1,6 +1,7 @@
 {
   "scopeName": "source.tan",
   "patterns": [
+    { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#chars" },
     { "include": "#definitions" },
@@ -17,6 +18,10 @@
     { "include": "#variables" }
   ],
   "repository": {
+    "comments": {
+      "name": "comment.line.double-slash.tan",
+      "match": "//.*$"
+    },
     "strings": {
       "name": "string.quoted.double.tan",
       "begin": "\"",

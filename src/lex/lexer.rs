@@ -128,6 +128,10 @@ impl Iterator for Lexer<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.chars.eat_while(char::is_whitespace);
+        while self.chars.eat("//") {
+            self.chars.eat_while(|c| c != '\n');
+            self.chars.eat_while(char::is_whitespace);
+        }
         let cur = self.chars.peek()?;
         self.start = self.span();
         Some(
@@ -612,6 +616,42 @@ mod test {
     fn lex_logical_and_is_greedy_over_address_of() {
         assert_eq!(lex_symbols("a && b"), ["a", "&&", "b"]);
         assert_eq!(lex_symbols("a && &b"), ["a", "&&", "&", "b"]);
+    }
+
+    #[test]
+    fn lex_comments() {
+        assert_eq!(lex("// nothing here"), []);
+        assert_eq!(lex("//"), []);
+        assert_eq!(
+            lex("a; // trailing\nb;"),
+            [ident("a"), SEMI, ident("b"), SEMI]
+        );
+        assert_eq!(lex("// one\n  // two\r\n\n//three\nx"), [ident("x")]);
+        assert_eq!(lex("a//b\nc"), [ident("a"), ident("c")]);
+        assert_eq!(
+            lex("a / b"),
+            [ident("a"), op(OperatorType::Divide), ident("b")]
+        );
+        assert_eq!(
+            lex("a /= b"),
+            [ident("a"), op(OperatorType::DivAssign), ident("b")]
+        );
+    }
+
+    #[test]
+    fn lex_comment_markers_in_literals() {
+        assert_eq!(lex(r#""http://x" // y"#), [string("http://x")]);
+        assert_eq!(lex("'/' // y"), [chr('/')]);
+    }
+
+    #[test]
+    fn lex_positions_after_comment() {
+        let spans: Vec<(u32, u32)> = tokenize("// hi\n  x // y\n// z\n y")
+            .unwrap()
+            .into_iter()
+            .map(|token| (token.span.start.line, token.span.start.col))
+            .collect();
+        assert_eq!(spans, vec![(1, 2), (3, 1)]);
     }
 
     #[test]

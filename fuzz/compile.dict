@@ -99,3 +99,5 @@ snip_else="} else {"
 snip_return="return "
 snip_cast="x as u8"
 snip_use="use a::{b};"
+
+comment="//"
