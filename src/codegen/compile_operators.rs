@@ -130,7 +130,7 @@ pub fn compile_logical_binary(
     codegen: &mut Codegen,
     dst: Address,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let id = codegen.registers.get_unique_id();
+    let id = codegen.get_unique_id();
     let false_label = format!("logic_false_{id}");
     let end_label = format!("logic_end_{id}");
     let demoted_dst = match dst {
@@ -235,7 +235,7 @@ fn compile_jump(
                 instructions.extend(compile_jump(right, label, jump_when, codegen)?);
                 Ok(instructions)
             } else {
-                let skip = format!("cond_skip_{}", codegen.registers.get_unique_id());
+                let skip = format!("cond_skip_{}", codegen.get_unique_id());
                 let mut instructions = compile_jump(left, &skip, !jump_when, codegen)?;
                 instructions.extend(compile_jump(right, label, jump_when, codegen)?);
                 instructions.push(Instruction::label(skip));

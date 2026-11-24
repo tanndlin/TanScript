@@ -149,7 +149,7 @@ impl ForLoop {
     const END: &str = "$end";
 
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let unique_id = codegen.registers.get_unique_id();
+        let unique_id = codegen.get_unique_id();
         let start_label = format!("for_loop_{unique_id}");
         let end_label = format!("for_end_{unique_id}");
         let continue_label = format!("for_continue_{unique_id}");
@@ -511,7 +511,7 @@ fn to_rsp_frame(instructions: Vec<Instruction>) -> (Vec<Instruction>, u32) {
 
 impl IfStatement {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let id = codegen.registers.get_unique_id();
+        let id = codegen.get_unique_id();
         let else_label = format!("else{id}");
         let end_label = format!("endif{id}");
 
@@ -539,11 +539,11 @@ impl IfStatement {
 
 impl MatchStatement {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let end_label = format!("endmatch{}", codegen.registers.get_unique_id());
+        let end_label = format!("endmatch{}", codegen.get_unique_id());
         let case_labels: Vec<String> = self
             .cases
             .iter()
-            .map(|_| format!("match_case{}", codegen.registers.get_unique_id()))
+            .map(|_| format!("match_case{}", codegen.get_unique_id()))
             .collect();
 
         // TODO: This is a valid program getting rejected
@@ -652,7 +652,7 @@ impl ReturnStatement {
 
 impl WhileLoop {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let unique_id = codegen.registers.get_unique_id();
+        let unique_id = codegen.get_unique_id();
         let start_label = format!("while_start_{unique_id}");
         let end_label = format!("while_end_{unique_id}");
 

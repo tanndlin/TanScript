@@ -22,18 +22,15 @@ struct RegisterState {
 }
 
 pub struct RegisterHandler {
-    pub data: Vec<String>,
     registers: BTreeMap<Register, RegisterState>,
     reserved_registers: Vec<Register>,
     pub touched: Vec<Register>,
-    unique_id: u32,
     usage_counter: u64,
 }
 
 impl Default for RegisterHandler {
     fn default() -> Self {
         Self {
-            data: vec![],
             registers: [
                 Register::RAX,
                 Register::RBX,
@@ -53,7 +50,6 @@ impl Default for RegisterHandler {
             .collect(),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
             touched: vec![],
-            unique_id: 0,
             usage_counter: 0,
         }
     }
@@ -94,17 +90,6 @@ impl RegisterHandler {
         }
     }
 
-    pub fn add_data(&mut self, s: &str) -> String {
-        let index = if let Some(index) = self.data.iter().position(|d| d == s) {
-            index
-        } else {
-            self.data.push(s.to_string());
-            self.data.len() - 1
-        };
-
-        data_name(index)
-    }
-
     pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
         match self.registers.get_mut(&register) {
             None => Err(format!("Register {register} not leasable")),
@@ -143,12 +128,6 @@ impl RegisterHandler {
         self.registers
             .get(&register)
             .is_some_and(|state| matches!(state.liveness, Liveness::Hot))
-    }
-
-    pub fn get_unique_id(&mut self) -> u32 {
-        let id = self.unique_id;
-        self.unique_id += 1;
-        id
     }
 }
 
@@ -202,10 +181,6 @@ impl Codegen {
             Ok(out)
         }
     }
-}
-
-pub fn data_name(index: usize) -> String {
-    format!("data_{index}")
 }
 
 #[cfg(test)]

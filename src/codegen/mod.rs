@@ -22,6 +22,8 @@ pub struct Codegen {
     scopes: Vec<CompileScope>,
     pub registers: RegisterHandler,
     pub defined_functions: HashSet<String>,
+    pub data: Vec<String>,
+    unique_id: u32,
 }
 
 impl Default for Codegen {
@@ -30,6 +32,31 @@ impl Default for Codegen {
             scopes: vec![CompileScope::default()],
             registers: RegisterHandler::default(),
             defined_functions: HashSet::new(),
+            data: vec![],
+            unique_id: 0,
         }
     }
+}
+
+impl Codegen {
+    pub fn add_data(&mut self, s: &str) -> String {
+        let index = if let Some(index) = self.data.iter().position(|d| d == s) {
+            index
+        } else {
+            self.data.push(s.to_string());
+            self.data.len() - 1
+        };
+
+        data_name(index)
+    }
+
+    pub fn get_unique_id(&mut self) -> u32 {
+        let id = self.unique_id;
+        self.unique_id += 1;
+        id
+    }
+}
+
+pub fn data_name(index: usize) -> String {
+    format!("data_{index}")
 }

@@ -15,8 +15,8 @@ use crate::{
             compile_binary, compile_cast, compile_logical_binary, compile_postfix,
             compile_postfix_update, compile_unary,
         },
+        data_name,
         instruction::{Instruction, Operand},
-        register_handler::data_name,
         symbol_table::SymbolTable,
     },
     error::ResultAt,
@@ -59,7 +59,6 @@ impl Program {
             .join("\n");
 
         let data = codegen
-            .registers
             .data
             .iter()
             .enumerate()
@@ -243,7 +242,7 @@ fn compile_string(
     dst: Address,
     codegen: &mut Codegen,
 ) -> Result<Vec<Instruction>, CodegenError> {
-    let handle = codegen.registers.add_data(s);
+    let handle = codegen.add_data(s);
     move_into(dst, codegen, |reg| {
         Instruction::mov(reg, Operand::Label(handle))
     })
