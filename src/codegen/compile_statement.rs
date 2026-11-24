@@ -299,7 +299,8 @@ impl FunctionDefinition {
 
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let is_leaf_function = self.is_leaf_function();
-        let epilogue_label = format!("{}_epilogue", self.signature.name);
+        let function_context = FunctionContext::from(self);
+        let epilogue_label = function_context.epilogue_label.clone();
 
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
@@ -317,7 +318,7 @@ impl FunctionDefinition {
             )
         });
 
-        let compiled = codegen.with_function(FunctionContext::from(self), |codegen| {
+        let compiled = codegen.with_function(function_context, |codegen| {
             let mut arg_homes = vec![];
             let mut struct_copies = vec![];
 
