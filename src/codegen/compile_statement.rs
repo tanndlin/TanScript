@@ -299,12 +299,9 @@ impl FunctionDefinition {
 
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
         let is_leaf_function = self.is_leaf_function();
-        let function_context = FunctionContext::from(self);
-        let epilogue_label = function_context.epilogue_label.clone();
 
         let arg_registers: [Register; 4] =
             [Register::RCX, Register::RDX, Register::R8, Register::R9];
-        let outer_touched = std::mem::take(&mut codegen.registers.touched);
 
         let returns_odd_struct = passed_by_pointer(&self.signature.return_type);
 
@@ -318,60 +315,65 @@ impl FunctionDefinition {
             )
         });
 
-        let compiled = codegen.with_function(function_context, |codegen| {
-            let mut arg_homes = vec![];
-            let mut struct_copies = vec![];
+        let (compiled, function_context) =
+            codegen.with_function(FunctionContext::from(self), |codegen| {
+                let mut arg_homes = vec![];
+                let mut struct_copies = vec![];
 
-            for (i, arg) in hidden_return.iter().chain(&self.signature.args).enumerate() {
-                // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
-                // and any further args were placed directly after it by the caller
-                let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
-                let new_address = Address::Stack(-offset);
+                for (i, arg) in hidden_return.iter().chain(&self.signature.args).enumerate() {
+                    // Win64: after `push rbp`, the shadow space for the first 4 args starts at rbp+16,
+                    // and any further args were placed directly after it by the caller
+                    let offset = 16 + i32::try_from(i).expect("argument count fits in i32") * 8;
+                    let new_address = Address::Stack(-offset);
 
-                // Move register args to their home in the shadow space
-                if let Some(reg) = arg_registers.get(i) {
-                    arg_homes.push(Instruction::mov(new_address, *reg));
-                }
+                    // Move register args to their home in the shadow space
+                    if let Some(reg) = arg_registers.get(i) {
+                        arg_homes.push(Instruction::mov(new_address, *reg));
+                    }
 
-                let struct_def = match &arg.atype {
-                    Type::Struct(struct_def) if passed_by_pointer(&arg.atype) => struct_def,
-                    _ => {
-                        // Update its location in the scope
+                    let struct_def = match &arg.atype {
+                        Type::Struct(struct_def) if passed_by_pointer(&arg.atype) => struct_def,
+                        _ => {
+                            // Update its location in the scope
+                            codegen
+                                .scope_mut()
+                                .add_variable(arg.name.clone(), new_address)
+                                .at(arg.span)?;
+                            continue;
+                        }
+                    };
+
+                    struct_copies.push(
                         codegen
                             .scope_mut()
-                            .add_variable(arg.name.clone(), new_address)
-                            .at(arg.span)?;
-                        continue;
-                    }
-                };
+                            .allocate_variable(arg.name.clone(), &arg.atype)
+                            .at(arg.span)?,
+                    );
+                    let local = codegen.get_variable(&arg.name).at(arg.span)?;
+                    struct_copies.extend(codegen.lease_with_scope(|codegen, ptr| {
+                        let mut copy = vec![Instruction::mov(ptr, new_address)];
+                        copy.extend(mem_copy(
+                            struct_def,
+                            local,
+                            Address::Deref {
+                                base: ptr,
+                                offset: 0,
+                            },
+                            codegen,
+                        )?);
+                        Ok::<_, CodegenError>(copy)
+                    })?);
+                }
 
-                struct_copies.push(
-                    codegen
-                        .scope_mut()
-                        .allocate_variable(arg.name.clone(), &arg.atype)
-                        .at(arg.span)?,
-                );
-                let local = codegen.get_variable(&arg.name).at(arg.span)?;
-                struct_copies.extend(codegen.lease_with_scope(|codegen, ptr| {
-                    let mut copy = vec![Instruction::mov(ptr, new_address)];
-                    copy.extend(mem_copy(
-                        struct_def,
-                        local,
-                        Address::Deref {
-                            base: ptr,
-                            offset: 0,
-                        },
-                        codegen,
-                    )?);
-                    Ok::<_, CodegenError>(copy)
-                })?);
-            }
-
-            let body = self.body.compile(codegen)?;
-            Ok::<_, CodegenError>((arg_homes, struct_copies, body))
-        });
-        let touched = std::mem::replace(&mut codegen.registers.touched, outer_touched);
-        let (arg_homes, struct_copies, body) = compiled?; // ? after the replace to preserve incase we implement multiple errors
+                let body = self.body.compile(codegen)?;
+                Ok::<_, CodegenError>((arg_homes, struct_copies, body))
+            });
+        let (arg_homes, struct_copies, body) = compiled?;
+        let FunctionContext {
+            epilogue_label,
+            touched,
+            ..
+        } = function_context;
 
         let save_slots = NON_VOLATILE_REGISTERS
             .into_iter()
@@ -551,10 +553,7 @@ impl MatchStatement {
         // Use lease register because it returns OutOfRegisters
         // RegisterHander::lease_with_scope would attemp push r {instructions} pop r
         // but {instructions} would jump past the pop
-        let lhs_reg = codegen
-            .registers
-            .lease_register()
-            .map_err(|e| e.at(self.span))?;
+        let lhs_reg = codegen.lease_register().map_err(|e| e.at(self.span))?;
         let chain = self.compile_compare_chain(codegen, lhs_reg, &case_labels);
         codegen.registers.release_register(lhs_reg);
 
@@ -734,7 +733,7 @@ mod test {
         };
 
         let mut codegen = Codegen::default();
-        while codegen.registers.lease_register().is_ok() {}
+        while codegen.lease_register().is_ok() {}
 
         let result = m.compile(&mut codegen);
         assert!(

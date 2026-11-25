@@ -26,7 +26,6 @@
 - Fold `StatementOrExpression` into a `Statement::Expression` variant
 - Split tokens into identifiers, literals, `Keyword` and `Punct` (`;` `:` `,` are atoms and keywords are identifiers, so `Parser::expect` compares strings)
 - Split `types.rs` (`Token`, int types, `Span`) into the stages that own them
-- Move `RegisterHandler.touched` into per-function state instead of swapping it by hand in `FunctionDefinition::compile`
 - Move calling-convention constants (volatile/non-volatile/arg registers, `passed_by_pointer`) out of `compile_call.rs` into one module
 - Add `reserve_stack`/`free_stack` on `Codegen` instead of `compile_call.rs` editing `stack_depth` directly
 - Split the generics machinery out of `TypeScope`, which is really the whole type checker's context

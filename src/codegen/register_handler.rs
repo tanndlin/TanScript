@@ -24,7 +24,6 @@ struct RegisterState {
 pub struct RegisterHandler {
     registers: BTreeMap<Register, RegisterState>,
     reserved_registers: Vec<Register>,
-    pub touched: Vec<Register>,
     usage_counter: u64,
 }
 
@@ -49,14 +48,13 @@ impl Default for RegisterHandler {
             .map(|r| (r, RegisterState::default()))
             .collect(),
             reserved_registers: vec![Register::RAX, Register::RCX, Register::RDX],
-            touched: vec![],
             usage_counter: 0,
         }
     }
 }
 
 impl RegisterHandler {
-    pub fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
+    fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
         let candidate = self
             .registers
             .iter()
@@ -71,14 +69,7 @@ impl RegisterHandler {
         state.liveness = Liveness::Hot;
         self.usage_counter = self.usage_counter.wrapping_add(1);
         state.last_used = self.usage_counter;
-        self.touch(reg);
         Ok(reg)
-    }
-
-    fn touch(&mut self, register: Register) {
-        if NON_VOLATILE_REGISTERS.contains(&register) && !self.touched.contains(&register) {
-            self.touched.push(register);
-        }
     }
 
     pub fn release_register(&mut self, register: Register) {
@@ -90,7 +81,7 @@ impl RegisterHandler {
         }
     }
 
-    pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
+    fn request_register(&mut self, register: Register) -> Result<Register, String> {
         match self.registers.get_mut(&register) {
             None => Err(format!("Register {register} not leasable")),
             Some(state) if matches!(state.liveness, Liveness::Hot) => {
@@ -100,7 +91,6 @@ impl RegisterHandler {
                 state.liveness = Liveness::Hot;
                 self.usage_counter = self.usage_counter.wrapping_add(1);
                 state.last_used = self.usage_counter;
-                self.touch(register);
                 Ok(register)
             }
         }
@@ -132,11 +122,34 @@ impl RegisterHandler {
 }
 
 impl Codegen {
+    pub fn lease_register(&mut self) -> Result<Register, CodegenErrorKind> {
+        let register = self.registers.lease_register()?;
+        self.touch(register);
+        Ok(register)
+    }
+
+    pub fn request_register(&mut self, register: Register) -> Result<Register, String> {
+        let register = self.registers.request_register(register)?;
+        self.touch(register);
+        Ok(register)
+    }
+
+    fn touch(&mut self, register: Register) {
+        if !NON_VOLATILE_REGISTERS.contains(&register) {
+            return;
+        }
+        if let Some(function) = self.function_context_mut()
+            && !function.touched.contains(&register)
+        {
+            function.touched.push(register);
+        }
+    }
+
     pub fn lease_with_scope<E>(
         &mut self,
         function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
     ) -> Result<Vec<Instruction>, E> {
-        if let Ok(reg) = self.registers.lease_register() {
+        if let Ok(reg) = self.lease_register() {
             let ret = function(self, reg);
             self.registers.release_register(reg);
             return ret;
@@ -145,7 +158,7 @@ impl Codegen {
         // Everything is leased, so borrow the first reserved register and save its value around
         // the use. Holding it means nested code can't `request_register` it out from under us
         let reg = self.registers.reserved_registers[0];
-        let was_free = self.registers.request_register(reg).is_ok();
+        let was_free = self.request_register(reg).is_ok();
         let ret = function(self, reg)?;
         if was_free {
             self.registers.release_register(reg);
@@ -165,7 +178,7 @@ impl Codegen {
         dst: Address,
         function: impl FnOnce(&mut Self, Register) -> Result<Vec<Instruction>, E>,
     ) -> Result<Vec<Instruction>, E> {
-        if self.registers.request_register(reg).is_ok() {
+        if self.request_register(reg).is_ok() {
             let ret = function(self, reg);
             self.registers.release_register(reg);
             return ret;

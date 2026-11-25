@@ -1,9 +1,10 @@
-use crate::{ast::FunctionDefinition, type_check::Type};
+use crate::{ast::FunctionDefinition, codegen::address::Register, type_check::Type};
 
 #[derive(Debug, Clone)]
 pub struct FunctionContext {
     pub epilogue_label: String,
     pub return_type: Type,
+    pub touched: Vec<Register>,
 }
 
 impl From<&FunctionDefinition> for FunctionContext {
@@ -11,6 +12,7 @@ impl From<&FunctionDefinition> for FunctionContext {
         Self {
             epilogue_label: format!("{}_epilogue", def.signature.name),
             return_type: def.signature.return_type.clone(),
+            touched: vec![],
         }
     }
 }

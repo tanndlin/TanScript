@@ -94,14 +94,17 @@ impl Codegen {
         &mut self,
         function_context: FunctionContext,
         f: impl FnOnce(&mut Self) -> T,
-    ) -> T {
-        self.with_scope(
-            CompileScope {
-                function_context: Some(function_context),
-                ..Default::default()
-            },
-            f,
-        )
+    ) -> (T, FunctionContext) {
+        self.scopes.push(CompileScope {
+            function_context: Some(function_context),
+            ..Default::default()
+        });
+        let result = f(self);
+        let scope = self.scopes.pop().expect("with_function pushed a scope");
+        let function_context = scope
+            .function_context
+            .expect("with_function scopes hold a function context");
+        (result, function_context)
     }
 
     fn with_scope<T>(&mut self, scope: CompileScope, f: impl FnOnce(&mut Self) -> T) -> T {
@@ -116,6 +119,13 @@ impl Codegen {
             .iter()
             .rev()
             .find_map(|scope| scope.function_context.as_ref())
+    }
+
+    pub fn function_context_mut(&mut self) -> Option<&mut FunctionContext> {
+        self.scopes
+            .iter_mut()
+            .rev()
+            .find_map(|scope| scope.function_context.as_mut())
     }
 
     pub fn loop_scope(&self) -> Option<&CompileScope> {

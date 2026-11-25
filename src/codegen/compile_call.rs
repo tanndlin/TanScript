@@ -88,7 +88,7 @@ pub fn compile_function_call(
     let mut requested_registers: Vec<Register> = vec![];
     if let Some(address) = hidden_return {
         instructions.push(Instruction::lea(Register::RCX, address));
-        if codegen.registers.request_register(Register::RCX).is_ok() {
+        if codegen.request_register(Register::RCX).is_ok() {
             requested_registers.push(Register::RCX);
         }
     }
@@ -99,7 +99,7 @@ pub fn compile_function_call(
         .zip(target_registers.iter().copied())
     {
         //  Prevent register from being modified, including by calls inside the arg
-        if codegen.registers.request_register(dst_reg).is_ok() {
+        if codegen.request_register(dst_reg).is_ok() {
             requested_registers.push(dst_reg);
         }
         instructions.extend(compile_arg(arg, *temporary, dst_reg.into(), codegen)?);
