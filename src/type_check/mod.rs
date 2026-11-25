@@ -20,13 +20,13 @@ use crate::{
     types::{IntType, Span},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionType {
     pub args: Vec<Type>,
     pub return_type: Type,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub enum Type {
     Int(IntType),
     Char,
@@ -131,10 +131,38 @@ impl PartialEq for Type {
                 },
             ) => a == b && a_generics == b_generics,
             (Self::Generic(a), Self::Generic(b)) => a == b,
-            (Self::Named { name, .. }, Self::Struct(def))
-            | (Self::Struct(def), Self::Named { name, .. }) => *name == def.name,
-            (Self::Named { name, .. }, Self::Enum(def))
-            | (Self::Enum(def), Self::Named { name, .. }) => *name == def.name,
+            (
+                Self::Named {
+                    name,
+                    concrete_generics,
+                    ..
+                },
+                Self::Struct(def),
+            )
+            | (
+                Self::Struct(def),
+                Self::Named {
+                    name,
+                    concrete_generics,
+                    ..
+                },
+            ) => *name == def.name && *concrete_generics == def.concrete_generics,
+            (
+                Self::Named {
+                    name,
+                    concrete_generics,
+                    ..
+                },
+                Self::Enum(def),
+            )
+            | (
+                Self::Enum(def),
+                Self::Named {
+                    name,
+                    concrete_generics,
+                    ..
+                },
+            ) => *name == def.name && concrete_generics.is_empty(),
             _ => false,
         }
     }

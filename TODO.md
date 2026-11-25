@@ -20,7 +20,7 @@
 - Generic instance names are built from the function name and concrete types only, so two different shadowing generics called with the same types (e.g. two `g<T>` templates both called with `u8`) share one cached `g__u8` instance and clash at codegen
 - Evaluate a `for` range's end bound once instead of every iteration: it's desugared into the loop condition, so `for i in 0..f()` calls `f` on every pass
 - `Type::Unknown` is both "unchecked" and a wildcard; give unchecked expressions their own state (e.g. `etype: Option<Type>`)
-- `Type`'s `PartialEq` matches `Named` to `Struct`/`Enum` by name only (ignores generics, not transitive); resolve all `Named` before comparing
+- `Named` equals `Struct`/`Enum` by name, so two different structs with the same name compare equal; self-referential fields have to stay `Named`, so this needs a unique id per struct definition
 - Generic struct instances keep the template's name, so lookups by name conflate `List<u8>` and `List<i64>`
 - `Declaration` wraps `Assignment`, allowing an `op` and non-variable `lhs` the parser never produces; store name, annotation and value directly
 - Fold `StatementOrExpression` into a `Statement::Expression` variant

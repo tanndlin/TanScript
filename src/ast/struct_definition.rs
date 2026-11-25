@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{type_check::Type, types::Span};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StructDefinition {
     pub name: String,
     pub generics: Vec<String>,
@@ -50,7 +50,7 @@ impl fmt::Display for StructDefinition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StructField {
     pub name: String,
     pub ftype: Type,

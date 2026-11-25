@@ -1311,6 +1311,13 @@ mod test {
     }
 
     #[test]
+    fn type_error_for_assigning_other_instance_to_generic_self_referential_field() {
+        expect_mismatch!(
+            "struct L<T> { value: T, next: *L<T>, } let a: *L<u8> = calloc(1, 9); let b: *L<i64> = calloc(1, 16); (*a).next = b;"
+        );
+    }
+
+    #[test]
     fn supports_comparing_pointer_to_null() -> Result<(), TypeCheckError> {
         check("let p: *u8 = malloc(1); let a = p != null; let b = null == p;")
     }
