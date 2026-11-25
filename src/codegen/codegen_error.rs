@@ -6,7 +6,6 @@ use crate::error::{At, Spanned};
 pub enum CodegenErrorKind {
     UndeclaredVariable(String),
     AlreadyDeclared(String),
-    InvalidAssignTarget(String),
     OutOfRegisters,
     OutsideLoop(&'static str),
     OutsideFunction,
@@ -24,9 +23,6 @@ impl fmt::Display for CodegenErrorKind {
             }
             CodegenErrorKind::AlreadyDeclared(name) => {
                 write!(f, "Variable ({name}) already declared")
-            }
-            CodegenErrorKind::InvalidAssignTarget(target) => {
-                write!(f, "Cannot assign to ({target})")
             }
             CodegenErrorKind::OutOfRegisters => write!(f, "Ran out of registers"),
             CodegenErrorKind::OutsideLoop(keyword) => {

@@ -22,7 +22,6 @@
 - `Type::Unknown` is both "unchecked" and a wildcard; give unchecked expressions their own state (e.g. `etype: Option<Type>`)
 - `Named` equals `Struct`/`Enum` by name, so two different structs with the same name compare equal; self-referential fields have to stay `Named`, so this needs a unique id per struct definition
 - Generic struct instances keep the template's name, so lookups by name conflate `List<u8>` and `List<i64>`
-- `Declaration` wraps `Assignment`, allowing an `op` and non-variable `lhs` the parser never produces; store name, annotation and value directly
 - Fold `StatementOrExpression` into a `Statement::Expression` variant
 - Split tokens into identifiers, literals, `Keyword` and `Punct` (`;` `:` `,` are atoms and keywords are identifiers, so `Parser::expect` compares strings)
 - Split `types.rs` (`Token`, int types, `Span`) into the stages that own them

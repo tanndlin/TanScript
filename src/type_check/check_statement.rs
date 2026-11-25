@@ -234,35 +234,30 @@ impl Assignment {
 
 impl Declaration {
     pub fn check_types(&mut self, type_scope: &mut TypeScope) -> Result<(), TypeCheckError> {
-        let ExpressionKind::Variable { name, binding } = &mut self.assign.lhs.kind else {
-            panic!("Declaration LHS can only be a identifier");
-        };
-
         let expected = self
             .annotation
             .as_ref()
             .map(|t| type_scope.resolve(t).map(Cow::into_owned))
             .transpose()?;
-        let got = check_types_expression_expecting(
-            &mut self.assign.expression,
-            expected.as_ref(),
-            type_scope,
-        )?
-        .clone();
+        let got = check_types_expression_expecting(&mut self.value, expected.as_ref(), type_scope)?
+            .clone();
         let declared = match expected {
             Some(expected) => {
-                expect_type(&self.assign.expression, &expected, &got, type_scope)?;
+                expect_type(&self.value, &expected, &got, type_scope)?;
                 expected
             }
             None => got,
         };
 
-        *binding = Some(type_scope.insert(name.clone(), declared));
+        self.binding = Some(type_scope.insert(self.ident.clone(), declared));
         Ok(())
     }
 
     pub fn resolve_types(&mut self, type_scope: &TypeScope) {
-        self.assign.resolve_types(type_scope);
+        if let Some(id) = self.binding {
+            self.ident_type = Some(type_scope.binding(id).clone());
+        }
+        self.value.resolve_types(type_scope);
     }
 }
 

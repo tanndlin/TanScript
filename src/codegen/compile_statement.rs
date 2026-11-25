@@ -126,20 +126,14 @@ impl Assignment {
 
 impl Declaration {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let ExpressionKind::Variable { name, .. } = &self.assign.lhs.kind else {
-            return Err(
-                CodegenErrorKind::InvalidAssignTarget(self.assign.lhs.to_string())
-                    .at(self.assign.lhs.span),
-            );
-        };
-
-        let dtype = Type::clone(&self.assign.lhs.etype);
+        let ident_type = self.ident_type.clone().unwrap_or(Type::Unknown);
         let alloc = codegen
             .scope_mut()
-            .allocate_variable(name.clone(), &dtype)
-            .at(self.assign.lhs.span)?;
+            .allocate_variable(self.ident.clone(), &ident_type)
+            .at(self.span)?;
+        let address = codegen.get_variable(&self.ident).at(self.span)?;
         let mut instructions = vec![Instruction::comment(self.to_string()), alloc];
-        instructions.extend(self.assign.compile_uncommented(codegen)?);
+        instructions.extend(self.value.compile(codegen, address)?);
         Ok(instructions)
     }
 }

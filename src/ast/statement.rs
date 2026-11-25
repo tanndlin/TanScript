@@ -42,13 +42,8 @@ impl Statement {
         let children = match self {
             Statement::Assignment(Assignment {
                 lhs, expression, ..
-            })
-            | Statement::Declaration(Declaration {
-                assign: Assignment {
-                    lhs, expression, ..
-                },
-                ..
             }) => vec![Child::Expression(lhs), Child::Expression(expression)],
+            Statement::Declaration(Declaration { value, .. }) => vec![Child::Expression(value)],
             Statement::ForLoop(ForLoop { range, block, .. }) => vec![
                 Child::Expression(&range.start),
                 Child::Expression(&range.end),

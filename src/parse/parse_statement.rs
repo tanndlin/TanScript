@@ -2,10 +2,10 @@ use std::{rc::Rc, str::FromStr};
 
 use crate::{
     ast::{
-        Arg, AssignOp, Assignment, Block, BreakStatement, Case, ContinueStatement, Declaration,
-        EnumDefinition, Expression, ExpressionKind, ExternDeclaration, ForLoop, FunctionDefinition,
-        IfStatement, Import, ImportName, MatchStatement, OperatorType, Range, ReturnStatement,
-        Signature, Statement, StatementOrExpression, StructDefinition, StructField, WhileLoop,
+        Arg, Block, BreakStatement, Case, ContinueStatement, Declaration, EnumDefinition,
+        ExternDeclaration, ForLoop, FunctionDefinition, IfStatement, Import, ImportName,
+        MatchStatement, OperatorType, Range, ReturnStatement, Signature, Statement,
+        StatementOrExpression, StructDefinition, StructField, WhileLoop,
     },
     lex::LexerAtomType,
     parse::{
@@ -196,18 +196,12 @@ fn parse_declaration(tokens: &mut Parser) -> Result<Declaration, ParseError> {
     }
 
     Ok(Declaration {
-        assign: Assignment {
-            lhs: Expression::new(
-                ExpressionKind::Variable {
-                    name: ident,
-                    binding: None,
-                },
-                ident_span,
-            ),
-            op: AssignOp::Assign,
-            expression: parse_expression(tokens, 0)?,
-        },
+        ident,
+        span: ident_span,
         annotation,
+        ident_type: None,
+        binding: None,
+        value: parse_expression(tokens, 0)?,
     })
 }
 

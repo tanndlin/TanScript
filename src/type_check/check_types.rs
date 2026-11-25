@@ -650,7 +650,7 @@ mod test {
         let Statement::Declaration(declaration) = statement.as_ref() else {
             panic!("expected a declaration");
         };
-        assert_eq!(*declaration.assign.lhs.etype, Type::Char);
+        assert_eq!(declaration.ident_type, Some(Type::Char));
     }
 
     #[test]
@@ -870,7 +870,7 @@ mod test {
             panic!("expected declaration");
         };
         assert_eq!(
-            *declaration.assign.expression.etype,
+            *declaration.value.etype,
             Type::Int(IntType::I32).pointer_to()
         );
     }
@@ -1023,7 +1023,7 @@ mod test {
         let Statement::Declaration(declaration) = statement.as_ref() else {
             panic!("expected declaration");
         };
-        assert_eq!(*declaration.assign.lhs.etype, Type::Boolean);
+        assert_eq!(declaration.ident_type, Some(Type::Boolean));
     }
 
     #[test]
