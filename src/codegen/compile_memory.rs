@@ -96,37 +96,33 @@ pub fn with_place_address(
     match &place.kind {
         ExpressionKind::Variable { name, .. } => {
             let address = codegen.get_variable(name).at(place.span)?;
-            f(codegen, address, &place.etype)
+            f(codegen, address, place.etype())
         }
-        ExpressionKind::Index(lhs, index) => {
-            let element = &*place.etype;
-            codegen.lease_with_scope(|codegen, offset| {
-                let mut instructions = index.compile(codegen, offset)?;
-                let size = u32::try_from(element.size()).unwrap();
-                let scale = Scale::from_size(size).unwrap_or_else(|| {
-                    instructions.push(Instruction::imul(offset, size));
-                    Scale::One
-                });
-                instructions.extend(codegen.lease_with_scope(|codegen, base| {
-                    let mut instructions = lhs.compile(codegen, base)?;
-                    let address = Address::Indexed {
-                        base,
-                        index: offset,
-                        scale,
-                        offset: 0,
-                    };
-                    instructions.extend(f(codegen, address, element)?);
-                    Ok(instructions)
-                })?);
+        ExpressionKind::Index(lhs, index) => codegen.lease_with_scope(|codegen, offset| {
+            let mut instructions = index.compile(codegen, offset)?;
+            let size = u32::try_from(place.etype().size()).unwrap();
+            let scale = Scale::from_size(size).unwrap_or_else(|| {
+                instructions.push(Instruction::imul(offset, size));
+                Scale::One
+            });
+            instructions.extend(codegen.lease_with_scope(|codegen, base| {
+                let mut instructions = lhs.compile(codegen, base)?;
+                let address = Address::Indexed {
+                    base,
+                    index: offset,
+                    scale,
+                    offset: 0,
+                };
+                instructions.extend(f(codegen, address, place.etype())?);
                 Ok(instructions)
-            })
-        }
+            })?);
+            Ok(instructions)
+        }),
         ExpressionKind::Unary(UnaryOp::Deref, pointer) => {
-            let element = &*place.etype;
             codegen.lease_with_scope(|codegen, base| {
                 let mut instructions = pointer.compile(codegen, base)?;
                 let address = Address::Deref { base, offset: 0 };
-                instructions.extend(f(codegen, address, element)?);
+                instructions.extend(f(codegen, address, place.etype())?);
                 Ok(instructions)
             })
         }

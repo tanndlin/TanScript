@@ -95,8 +95,8 @@ pub fn check_types_expression_expecting<'s>(
             variant_name,
         } => check_enum_variant(span, enum_name, variant_name, type_scope),
     }?;
-    *expression.etype = t;
-    Ok(&expression.etype)
+    expression.set_etype(t);
+    Ok(expression.etype())
 }
 
 pub fn check_enum_variant(
@@ -870,7 +870,7 @@ mod test {
             panic!("expected declaration");
         };
         assert_eq!(
-            *declaration.value.etype,
+            *declaration.value.etype(),
             Type::Int(IntType::I32).pointer_to()
         );
     }

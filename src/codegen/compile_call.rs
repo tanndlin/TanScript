@@ -186,7 +186,7 @@ fn struct_temporaries(
     let mut instructions = vec![];
     let mut temporaries = vec![];
     for arg in args {
-        let arg_type = &arg.etype;
+        let arg_type = arg.etype();
         if !passed_by_pointer(arg_type) || (arg.is_place() && !is_extern) {
             temporaries.push(None);
             continue;
@@ -215,7 +215,7 @@ fn compile_arg(
         return move_into(dst, codegen, |reg| Instruction::lea(reg, temporary));
     }
 
-    if !passed_by_pointer(&arg.etype) {
+    if !passed_by_pointer(arg.etype()) {
         return arg.compile(codegen, dst);
     }
 

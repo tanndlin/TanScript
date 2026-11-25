@@ -552,17 +552,18 @@ impl Expression {
                 if op.returns_boolean() {
                     None
                 } else {
-                    unify(&lhs.etype, &rhs.etype)
-                        .or_else(|| unify(&rhs.etype, &lhs.etype))
+                    lhs.try_etype()
+                        .zip(rhs.try_etype())
+                        .and_then(|(l, r)| unify(l, r).or_else(|| unify(r, l)))
                         .cloned()
                 }
             }
             ExpressionKind::Unary(op, inner) => {
                 inner.resolve_types(type_scope);
-                match (*op, &*inner.etype) {
-                    (UnaryOp::Negate, Type::Int(t)) => Some(Type::Int(t.negated())),
-                    (UnaryOp::AddressOf, t) => Some(t.clone().pointer_to()),
-                    (UnaryOp::Deref, Type::Pointer(pointee))
+                match (*op, inner.try_etype()) {
+                    (UnaryOp::Negate, Some(Type::Int(t))) => Some(Type::Int(t.negated())),
+                    (UnaryOp::AddressOf, Some(t)) => Some(t.clone().pointer_to()),
+                    (UnaryOp::Deref, Some(Type::Pointer(pointee)))
                         if !matches!(**pointee, Type::Named { .. }) =>
                     {
                         Some(Type::clone(pointee))
@@ -572,13 +573,13 @@ impl Expression {
             }
             ExpressionKind::Postfix(_, inner) => {
                 inner.resolve_types(type_scope);
-                Some(Type::clone(&inner.etype))
+                inner.try_etype().cloned()
             }
             ExpressionKind::Index(base, index) => {
                 base.resolve_types(type_scope);
                 index.resolve_types(type_scope);
-                match &*base.etype {
-                    Type::Pointer(element) if !matches!(**element, Type::Named { .. }) => {
+                match base.try_etype() {
+                    Some(Type::Pointer(element)) if !matches!(**element, Type::Named { .. }) => {
                         Some(Type::clone(element))
                     }
                     _ => None,
@@ -606,7 +607,7 @@ impl Expression {
             | ExpressionKind::EnumVariant { .. } => None,
         };
         if let Some(t) = resolved {
-            *self.etype = t;
+            self.set_etype(t);
         }
     }
 }

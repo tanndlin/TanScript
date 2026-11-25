@@ -10,7 +10,7 @@ use crate::{
 pub struct Expression {
     pub kind: ExpressionKind,
     pub span: Span,
-    pub etype: Box<Type>,
+    etype: Option<Box<Type>>,
 }
 
 impl Expression {
@@ -18,7 +18,7 @@ impl Expression {
         Self {
             kind,
             span,
-            etype: Box::new(Type::Unknown),
+            etype: None,
         }
     }
 
@@ -30,6 +30,18 @@ impl Expression {
                 | ExpressionKind::StructAccess { .. }
                 | ExpressionKind::Unary(UnaryOp::Deref, _)
         )
+    }
+
+    pub fn etype(&self) -> &Type {
+        self.etype.as_deref().expect("expression has no type")
+    }
+
+    pub fn set_etype(&mut self, t: Type) {
+        self.etype = Some(Box::new(t));
+    }
+
+    pub fn try_etype(&self) -> Option<&Type> {
+        self.etype.as_deref()
     }
 }
 
@@ -165,7 +177,7 @@ impl From<(u64, Span)> for Expression {
         Self {
             kind: ExpressionKind::Atom(atom),
             span,
-            etype: Box::new(etype),
+            etype: Some(Box::new(etype)),
         }
     }
 }

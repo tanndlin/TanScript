@@ -56,7 +56,7 @@ impl Assignment {
                         op,
                         &self.lhs,
                         &self.expression,
-                        &self.lhs.etype,
+                        self.lhs.etype(),
                         codegen,
                         address,
                     ),
@@ -105,7 +105,7 @@ impl Assignment {
                         },
                         self.lhs.span,
                     );
-                    current.etype.clone_from(&self.lhs.etype);
+                    current.set_etype(self.lhs.etype().clone());
 
                     let mut instructions = vec![load_element(t, value, address)];
                     instructions.extend(compile_binary(
@@ -126,10 +126,10 @@ impl Assignment {
 
 impl Declaration {
     pub fn compile(&self, codegen: &mut Codegen) -> Result<Vec<Instruction>, CodegenError> {
-        let ident_type = self.ident_type.clone().unwrap_or(Type::Unknown);
+        let ident_type = self.ident_type.as_ref().expect("declaration has no type");
         let alloc = codegen
             .scope_mut()
-            .allocate_variable(self.ident.clone(), &ident_type)
+            .allocate_variable(self.ident.clone(), ident_type)
             .at(self.span)?;
         let address = codegen.get_variable(&self.ident).at(self.span)?;
         let mut instructions = vec![Instruction::comment(self.to_string()), alloc];
@@ -212,7 +212,7 @@ impl ForLoop {
         instructions.push(
             codegen
                 .scope_mut()
-                .allocate_variable(Self::END.to_string(), &self.range.end.etype)
+                .allocate_variable(Self::END.to_string(), self.range.end.etype())
                 .at(end_span)?,
         );
         let end = codegen.get_variable(Self::END).at(end_span)?;
@@ -259,13 +259,13 @@ impl ForLoop {
                 )),
                 Box::new(Self::hidden_variable(
                     Self::END,
-                    Type::clone(&self.range.end.etype),
+                    Type::clone(self.range.end.etype()),
                     self.range.end.span,
                 )),
             ),
             self.range.span,
         );
-        *compare.etype = Type::Boolean;
+        compare.set_etype(Type::Boolean);
         compare
     }
 
@@ -277,12 +277,14 @@ impl ForLoop {
             },
             span,
         );
-        *variable.etype = etype;
+        variable.set_etype(etype);
         variable
     }
 
     fn counter_type(&self) -> Type {
-        self.ident_type.clone().unwrap_or(Type::Unknown)
+        self.ident_type
+            .clone()
+            .expect("for loop counter has no type")
     }
 }
 

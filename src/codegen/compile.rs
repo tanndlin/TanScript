@@ -153,13 +153,13 @@ impl Expression {
                 AtomType::Null => Ok(vec![Instruction::mov(dst, NumberType::I64(0))]),
             },
             ExpressionKind::Variable { name, .. } => {
-                compile_variable(codegen, name, &self.etype, self.span, dst)
+                compile_variable(codegen, name, self.etype(), self.span, dst)
             }
             ExpressionKind::Binary(BinaryOp::And | BinaryOp::Or, ..) => {
                 compile_logical_binary(self, codegen, dst)
             }
             ExpressionKind::Binary(op, left, right) => {
-                compile_binary(*op, left, right, &self.etype, codegen, dst)
+                compile_binary(*op, left, right, self.etype(), codegen, dst)
             }
             ExpressionKind::Index(..)
             | ExpressionKind::StructAccess { .. }
@@ -172,7 +172,7 @@ impl Expression {
             ExpressionKind::Unary(op, child) => compile_unary(*op, child, codegen, dst),
             ExpressionKind::Postfix(op, lhs) => compile_postfix(*op, lhs, codegen, dst),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(codegen, name, args, &self.etype, Some(dst))
+                compile_function_call(codegen, name, args, self.etype(), Some(dst))
             }
             ExpressionKind::Cast(inner, cast_type) => compile_cast(inner, cast_type, codegen, dst),
             ExpressionKind::SizeOf(sized_type) => compile_number(
@@ -181,10 +181,10 @@ impl Expression {
                 codegen,
             ),
             ExpressionKind::StructInstantiation { fields, .. } => {
-                compile_struct_instantiation(&self.etype, fields, codegen, dst)
+                compile_struct_instantiation(self.etype(), fields, codegen, dst)
             }
             ExpressionKind::EnumVariant { variant_name, .. } => {
-                compile_enum(variant_name, &self.etype, codegen, dst)
+                compile_enum(variant_name, self.etype(), codegen, dst)
             }
         }
     }
@@ -197,7 +197,7 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Postfix(op, lhs) => compile_postfix_update(*op, lhs, codegen),
             ExpressionKind::FunctionCall(name, args) => {
-                compile_function_call(codegen, name, args, &self.etype, None)
+                compile_function_call(codegen, name, args, self.etype(), None)
             }
             ExpressionKind::Unary(_, child) | ExpressionKind::Cast(child, _) => {
                 child.compile_discarded(codegen)
@@ -309,7 +309,7 @@ pub fn as_operand(expr: &Expression, codegen: &Codegen) -> Option<Operand> {
         ExpressionKind::Atom(AtomType::Char(c)) => Some(Operand::from(*c)),
         ExpressionKind::Variable { name, .. } => codegen.get_variable(name).ok().map(Operand::from),
         ExpressionKind::EnumVariant { variant_name, .. } => {
-            variant_index(&expr.etype, variant_name)
+            variant_index(expr.etype(), variant_name)
                 .map(|index| Operand::Immediate(NumberType::U8(index)))
         }
         _ => None,
